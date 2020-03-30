@@ -25,7 +25,7 @@ import math
 import numpy as np
 from collections import namedtuple
 from .numeric_util import round_up
-from .scaling import quantise_scale
+from .scaling import quantise_scale, reduced_quantise_scale
 from .tensor import TensorPurpose, TensorSubPurpose, TensorFormat, TensorBlockTraversal
 from .operation import NpuBlockType
 from .architecture_features import Block
@@ -287,7 +287,7 @@ def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
     if not rescale_for_faf:
         if ifm_dtype == DataType.uint8:
             scales = [np.double(ifm_scale * weight_scale) / np.double(ofm_scale) for weight_scale in weight_scales]
-        elif ifm_dtype == DataType.int8:
+        elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
             scales = [
                 (np.double(ifm_scale) * np.double(weight_scale)) / np.double(ofm_scale)
                 for weight_scale in weight_scales
@@ -297,13 +297,16 @@ def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
     else:
         if ifm_dtype == DataType.uint8:
             scales = [np.double(ifm_scale * weight_scale * 0x3000) for weight_scale in weight_scales]
-        elif ifm_dtype == DataType.int8:
+        elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
             scales = [(np.double(ifm_scale * 0x3000) * np.double(weight_scale)) for weight_scale in weight_scales]
         else:
             assert False, str(ifm_dtype) + " not implemented"
 
     # quantise all of the weight scales into (scale_factor, shift)
-    quantised_scales = [quantise_scale(scale) for scale in scales]
+    if ifm_dtype == DataType.int16:
+        quantised_scales = [reduced_quantise_scale(scale) for scale in scales]
+    else:
+        quantised_scales = [quantise_scale(scale) for scale in scales]
 
     for _, shift in quantised_scales:
         assert shift >= 16

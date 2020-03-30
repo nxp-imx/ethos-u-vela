@@ -42,6 +42,15 @@ def quantise_scale(scale):
     return significand_q31, shift
 
 
+# Reduced precision quantization for int16
+def reduced_quantise_scale(scale):
+    multiplier, shift = quantise_scale(scale)
+    reduced_multiplier = int((multiplier + (1 << 15)) >> 16)
+    reduced_shift = shift - 16
+
+    return reduced_multiplier, reduced_shift
+
+
 # Calculate global OFM scale for Average Pooling
 def quantise_pooling_scale(nr_kernel_elements, rescale_bits=0):
     _, k = math.frexp(nr_kernel_elements - 1)

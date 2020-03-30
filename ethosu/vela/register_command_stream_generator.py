@@ -27,7 +27,7 @@ from .ethos_u55_regs.ethos_u55_regs import *
 from .tensor import MemArea, TensorBlockTraversal
 from .operation import NpuBlockType
 from .numeric_util import quantise_float32, round_up, round_away_zero, round_up_to_int, clamp_sigmoid, clamp_tanh
-from .data_type import BaseType
+from .data_type import BaseType, DataType
 import numpy as np
 from .shared_buffer_allocation import SharedBufferAllocation
 from .architecture_features import SharedBufferArea, SHRAMElements, ArchitectureFeatures
@@ -615,6 +615,9 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
                 else:  # Convolution
                     assert cmd.weight_tensor.block_traversal != TensorBlockTraversal.Default
+                    # Reduced precision quantization and natural rounding used for int16
+                    if cmd.ifm_tensor.dtype == DataType.int16:
+                        rounding_mode = rounding.NATURAL
                     emit.cmd0_with_param(cmd0.NPU_SET_KERNEL_HEIGHT_M1, cmd.weight_tensor.shape[0] - 1)
                     emit.cmd0_with_param(cmd0.NPU_SET_KERNEL_WIDTH_M1, cmd.weight_tensor.shape[1] - 1)
                     if cmd.weight_tensor.block_traversal == TensorBlockTraversal.PartKernelFirst:
