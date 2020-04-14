@@ -18,10 +18,12 @@
 # Description:
 # Packs a subgraph with Neural Network Operations into Passes. Each Pass has one or more Operations.
 
-from .nn_graph import Operation, Pass, PassPlacement, TensorPurpose, NpuBlockType, Tensor
-import collections
 import enum
-from .data_type import BaseType, DataType
+import collections
+
+from .nn_graph import Pass, PassPlacement
+from .tensor import TensorPurpose
+from .operation import Operation, NpuBlockType
 
 
 class PassFlags(enum.Flag):
@@ -104,10 +106,7 @@ elem_wise_ops = elem_wise_main_ops | activation_ops | set(("Sigmoid", "Tanh"))
 
 
 quantization_ops = set(("Dequantize", "QuantizeV2", "Max", "Min"))
-cpu_ops = (
-    set(("Softmax", "QuantizedSoftmax", "LRN", "Shape", "QuantizedPad", "Pad", "AddN"))
-    | quantization_ops
-)
+cpu_ops = set(("Softmax", "QuantizedSoftmax", "LRN", "Shape", "QuantizedPad", "Pad", "AddN")) | quantization_ops
 
 npu_dma_ops = set(("DMA",))
 startup_init_ops = set(("Const", "VariableV2", "Placeholder", "SubgraphInput"))
@@ -183,7 +182,7 @@ test_sequence = [
         # flags_to_set
         PassFlags.Npu | PassFlags.Dma,
         # flags_to_clear
-        PassFlags.Empty
+        PassFlags.Empty,
     ),
     (
         # ops_set
@@ -203,7 +202,7 @@ test_sequence = [
         # flags_to_set
         PassFlags.MemoryOnly | PassFlags.Main,
         # flags_to_clear
-        PassFlags.Empty
+        PassFlags.Empty,
     ),
     (
         # ops_set
@@ -213,9 +212,9 @@ test_sequence = [
         # flags_to_set
         PassFlags.Cpu | PassFlags.Main,
         # flags_to_clear
-        PassFlags.Empty
+        PassFlags.Empty,
     ),
-    (   # This last one is a fallback for unrecognised operations
+    (  # This last one is a fallback for unrecognised operations
         # ops_set
         None,
         # incompatible_pack_flags
@@ -223,7 +222,7 @@ test_sequence = [
         # flags_to_set
         PassFlags.Cpu | PassFlags.Main,
         # flags_to_clear
-        PassFlags.Empty
+        PassFlags.Empty,
     ),
 ]
 
@@ -346,7 +345,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
 
         is_element_wise = True
         for op in reverse_ops_list:
-            if not op.type in elem_wise_ops and not op.type in npu_dma_ops:
+            if op.type not in elem_wise_ops and op.type not in npu_dma_ops:
                 is_element_wise = False
                 break
 
@@ -368,9 +367,9 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         ops_list = list(reversed(reverse_ops_list))
         intermediates = list(reversed(reverse_intermediates))
 
-        if primary_op == None:
+        if primary_op is None:
             primary_op = create_primary_op(ops_list)
-            if primary_op != None:
+            if primary_op is not None:
                 visit_tensor_refcount[primary_op.inputs[0]] += 1
                 npu_block_type = primary_op.attrs["npu_block_type"]
                 for input_tens in primary_op.inputs:

@@ -19,13 +19,14 @@
 # Wrapping function to do tensor address allocation. That is, assigning addresses to tensors based on what has been
 # worked out from the allowable overlaps that are calculated by the live range analysis.
 
-from . import live_range
-from .tensor import MemArea
 import math
-from . import numeric_util
-import numpy as np
-from .nn_graph import TensorAllocator, PassPlacement
 
+import numpy as np
+
+from . import live_range
+from . import numeric_util
+from .tensor import MemArea
+from .nn_graph import TensorAllocator
 from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_ranges
 
 

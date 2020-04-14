@@ -22,9 +22,8 @@
 # calc_allowed_ofm_ifm_overlap_for_cascaded_pass().
 
 from .nn_graph import SchedulingStrategy, PassPlacement
-import numpy as np
 from .operation import NpuBlockType
-from .high_level_command_stream import Box, CommandType, Command, NpuStripe, DMA
+from .high_level_command_stream import Box, NpuStripe, DMA
 
 
 def need_dma(tens):

@@ -19,24 +19,17 @@
 # The scheduler costs various strategies for scheduling the network in order to select the block configuration.
 
 import enum
-from .nn_graph import (
-    TensorPurpose,
-    TensorSubPurpose,
-    TensorFormat,
-    MemArea,
-    SchedulingStrategy,
-    CascadedPass,
-    PassPlacement,
-    SchedulerRewrite,
-    Operation,
-    NpuBlockType,
-)
-from . import live_range
+import copy
+
 import numpy as np
+
+from . import live_range
 from . import npu_performance
 from . import stats_writer
+from .tensor import TensorPurpose, TensorSubPurpose, TensorFormat, MemArea
+from .operation import NpuBlockType
+from .nn_graph import SchedulingStrategy, CascadedPass, PassPlacement, SchedulerRewrite
 from .npu_performance import make_bandwidth_array, make_macs_array, make_cycles_array, make_metrics_arrays, PassCycles
-import time, copy
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_pass_list
 from .shared_buffer_allocation import (
     find_block_configs_suitable_for_pass_and_shared_buffer,
@@ -279,7 +272,6 @@ class DynamicProgrammingScheduler:
         if len(candidates) <= 1:
             return candidates
         assert remove_equally_good_candidates
-        start = time.time()
         pareto_vals = np.zeros((len(candidates), DynamicProgrammingScheduler.num_pareto_metrics))
         ids = np.arange(len(candidates), dtype=np.int32)
         for idx, cand in enumerate(candidates):
@@ -713,7 +705,7 @@ class DynamicProgrammingScheduler:
 
     def get_block_configs(self, ps):
         if ps.placement != PassPlacement.Npu:
-            return [(1, 1, 1, 1)] # default
+            return [(1, 1, 1, 1)]  # default
 
         block_configs = find_block_configs_suitable_for_pass_and_shared_buffer(self.arch, ps)
 
@@ -764,9 +756,7 @@ class DynamicProgrammingScheduler:
             for tens in ps.intermediates:
                 if tens.mem_area == self.mem_area:
                     if tens.purpose == TensorPurpose.Weights:
-                        sram_used += tens.storage_size_for_sub_purpose(
-                            TensorSubPurpose.DoubleBuffer, block_config[3]
-                        )
+                        sram_used += tens.storage_size_for_sub_purpose(TensorSubPurpose.DoubleBuffer, block_config[3])
                         rewrite_list.append(
                             (
                                 SchedulerRewrite.ChangeTensorSubPurpose,
@@ -884,7 +874,7 @@ class DynamicProgrammingScheduler:
                 % (len(self.sg.passes), len(pass_to_cascaded_pass))
             )
             for ps in self.sg.passes:
-                if not ps in pass_to_cascaded_pass:
+                if ps not in pass_to_cascaded_pass:
                     print("%3d pass missing cascaded pass %s" % (ps.time, ps))
 
             assert len(pass_to_cascaded_pass) == len(self.sg.passes)

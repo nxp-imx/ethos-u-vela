@@ -18,12 +18,15 @@
 # Description:
 # Writes out per-pass and summary performance statistics to CSV files.
 
-import numpy as np
-from .nn_graph import MemArea, TensorPurpose, PassPlacement
-from .npu_performance import PassCycles, MacCount, BandwidthDirection
 import csv
-from .numeric_util import round_up_to_int
 import sys
+
+import numpy as np
+
+from .tensor import MemArea, TensorPurpose
+from .nn_graph import PassPlacement
+from .npu_performance import PassCycles, MacCount, BandwidthDirection
+from .numeric_util import round_up_to_int
 
 
 def write_summary_metrics_csv(nng, summary_filename, arch):
@@ -246,7 +249,7 @@ def print_performance_metrics_for_strat(
 
     print(file=f)
     for mem_area, label in mem_area_labels:
-        if not mem_area in memory_used:
+        if mem_area not in memory_used:
             continue
 
         aug_label = label + " used"

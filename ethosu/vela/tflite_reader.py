@@ -18,14 +18,15 @@
 # Description:
 # Functions used to read from a TensorFlow Lite format file.
 
-from .tflite.Model import Model
-from .tflite.BuiltinOperator import BuiltinOperator
+import os.path
 
 import numpy as np
-import os.path
-from .nn_graph import Graph, Operation, Subgraph
-from .tensor import Tensor, QuantizationParameters
 
+from .tflite.Model import Model
+from .tflite.BuiltinOperator import BuiltinOperator
+from .nn_graph import Graph, Subgraph
+from .operation import Operation
+from .tensor import Tensor, QuantizationParameters
 from .tflite_mapping import builtin_operator_map, datatype_map, datatype_map_numpy, DataType
 
 
@@ -184,12 +185,7 @@ class TFLiteSubgraph:
 
 class TFLiteGraph:
     def __init__(
-        self,
-        filename,
-        batch_size=1,
-        feed_dict={},
-        output_node_names=[],
-        initialisation_nodes=[],
+        self, filename, batch_size=1, feed_dict={}, output_node_names=[], initialisation_nodes=[],
     ):
 
         self.op_times = {}
@@ -238,15 +234,9 @@ class TFLiteGraph:
 
 
 def read_tflite(
-    filename,
-    batch_size=1,
-    feed_dict={},
-    output_node_names=[],
-    initialisation_nodes=[],
+    filename, batch_size=1, feed_dict={}, output_node_names=[], initialisation_nodes=[],
 ):
-    tflite_graph = TFLiteGraph(
-        filename, batch_size, feed_dict, output_node_names, initialisation_nodes
-    )
+    tflite_graph = TFLiteGraph(filename, batch_size, feed_dict, output_node_names, initialisation_nodes)
     nng = tflite_graph.nng
     nng.refresh_after_modification()
     return nng

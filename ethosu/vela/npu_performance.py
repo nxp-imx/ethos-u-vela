@@ -23,12 +23,13 @@
 # estimate.
 
 import enum
-from . import numeric_util
+
 import numpy as np
-from .tensor import TensorPurpose, MemArea, TensorFormat, shape_num_elements, Tensor, TensorBlockTraversal
-from .operation import Operation
-from .data_type import DataType, BaseType
-from .nn_graph import PassPlacement, NpuBlockType, SchedulerRewrite, Pass
+
+from . import numeric_util
+from .tensor import TensorPurpose, MemArea, shape_num_elements, TensorBlockTraversal
+from .nn_graph import PassPlacement, SchedulerRewrite
+from .operation import NpuBlockType
 from .architecture_features import Block, Kernel
 
 
@@ -357,9 +358,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
                     n_kernel_xy, 4
                 )  # need at least 4, as this is the minimum duty cycle for secondary accumulator writes
                 if weight_tensor is not None:
-                    n_kernel_xy = numeric_util.round_up(
-                        n_kernel_xy, 4
-                    )  # weights need to be read in blocks of 4
+                    n_kernel_xy = numeric_util.round_up(n_kernel_xy, 4)  # weights need to be read in blocks of 4
 
             num_mac_ops = 0
             for n_blocks_for_size, block_size in block_setup:

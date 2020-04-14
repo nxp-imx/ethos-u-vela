@@ -18,13 +18,14 @@
 # Description:
 # Insert DMA operations into the graph for transfering weights.
 
-from .nn_graph import Operation, MemArea, TensorPurpose, NpuBlockType
 from . import rewrite_graph
+from .tensor import MemArea, TensorPurpose
+from .operation import Operation, NpuBlockType
 
 
 def insert_dma_cmd(op, arch):
     if op.type == "DMA":
-        return op # Already rewritten
+        return op  # Already rewritten
     for idx, tens in enumerate(op.inputs):
 
         if tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash) and tens.mem_area != arch.fast_storage_mem_area:

@@ -20,7 +20,7 @@
 # Can work with either a pass packed subgraph or a scheduled subgraph.
 
 from .tensor import Tensor, MemArea
-from .nn_graph import TensorPurpose, PassPlacement
+from .nn_graph import PassPlacement
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_cascaded_pass
 
 
@@ -90,9 +90,9 @@ class LiveRange:
             if tens.address == 0:
                 tens.address = address
                 # Also need to set the address to the tensor's cpu/npu clones
-                if tens.cpu_tensor != None:
+                if tens.cpu_tensor is not None:
                     tens.cpu_tensor.address = address
-                if tens.npu_tensor != None:
+                if tens.npu_tensor is not None:
                     tens.npu_tensor.address = address
 
     def get_alignment(self):
@@ -115,8 +115,8 @@ def merge_memory_op_ranges(sg, lr_graph, tensor_should_be_ignored, target_mem_ar
             output_tensor = ps.outputs[0]
             # If the input or output tensor is tied to a Cpu tensor, i.e. a subgraph input
             # or output, fuse the live-range with the Cpu tensors' live-range instead.
-            input_tensor = input_tensor.cpu_tensor if input_tensor.cpu_tensor != None else input_tensor
-            output_tensor = output_tensor.cpu_tensor if output_tensor.cpu_tensor != None else output_tensor
+            input_tensor = input_tensor.cpu_tensor if input_tensor.cpu_tensor is not None else input_tensor
+            output_tensor = output_tensor.cpu_tensor if output_tensor.cpu_tensor is not None else output_tensor
             if not tensor_should_be_ignored(input_tensor, target_mem_area) and not tensor_should_be_ignored(
                 output_tensor, target_mem_area
             ):
@@ -221,7 +221,7 @@ def extract_live_ranges_from_cascaded_passes(
     ignore_subgraph_input_output_tensors=False,
     lr_graph=None,
 ):
-    if lr_graph == None:
+    if lr_graph is None:
         lr_graph = LiveRangeGraph()
 
     if sg in lr_graph.processed_subgraphs:

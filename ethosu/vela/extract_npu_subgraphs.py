@@ -23,9 +23,10 @@
 # by NpuOp operations. Later, Vela generates command streams and compressed weight streams for the NPU subgraphs and
 # attaches them to the NpuOp. This encapsulates everything the NPU subgraph is supposed to do.
 
-from .nn_graph import Pass, PassPlacement, NpuBlockType, Subgraph
-from .operation import Operation
 import numpy as np
+
+from .nn_graph import Pass, PassPlacement, Subgraph
+from .operation import Operation, NpuBlockType
 
 
 def make_npu_call_op_pass(npu_subgraph):

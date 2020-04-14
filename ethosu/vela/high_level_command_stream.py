@@ -18,8 +18,10 @@
 # Description:
 # Contains classes that hold commands for the high-level command stream (one command per DMA or NPU stripe).
 
-from enum import Enum, IntEnum
+from enum import IntEnum
+
 import numpy as np
+
 from .operation import NpuBlockType
 from .numeric_util import round_up_divide
 from .range_set import MemoryAccessSet, AccessDirection
@@ -42,12 +44,12 @@ class Box:
         new_start_coord[concat_axis] -= concat_offset
         new_end_coord[concat_axis] -= concat_offset
 
-        if split_offset != None:
+        if split_offset is not None:
             for idx in range(len(split_offset)):
                 new_start_coord[idx] += split_offset[idx]
                 new_end_coord[idx] += split_offset[idx]
 
-        if split_offset == None and npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct)):
+        if split_offset is None and npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct)):
             # these types of operations do a "dot product" over the entire IFM
             new_start_coord[-1] = 0
             new_end_coord[-1] = ifm_shape[-1]

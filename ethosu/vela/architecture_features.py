@@ -18,13 +18,17 @@
 # Description:
 # Holds a container for Ethos-U55/System architecture parameters.
 
-from .nn_graph import MemArea, TensorPurpose, NpuBlockType, TensorFormat
-from .numeric_util import round_up, round_up_divide
+import enum
 from collections import namedtuple
 from configparser import ConfigParser
-from .supported_operators import SupportedOperators
+
 import numpy as np
-import enum
+
+from .tensor import MemArea, TensorPurpose, TensorFormat
+from .operation import NpuBlockType
+from .numeric_util import round_up, round_up_divide
+from .supported_operators import SupportedOperators
+
 
 PointXY = namedtuple("PointXY", "x y")
 PointXYZ = namedtuple("PointXYZ", "x y z")
@@ -151,7 +155,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         accelerator_config = accelerator_config.lower()
         self.vela_config = vela_config
         self.accelerator_config = accelerator_config
-        if not self.accelerator_config in ArchitectureFeatures.accelerator_configs:
+        if self.accelerator_config not in ArchitectureFeatures.accelerator_configs:
             raise Exception("Unknown accelerator configuration " + self.accelerator_config)
         accel_config = ArchitectureFeatures.accelerator_configs[self.accelerator_config]
         self.config = accel_config
@@ -450,7 +454,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         )
 
         # Calculate how many IFM blocks this OFM block requires (i.e how many jobs)
-        ifm_block = self.get_ifm_block_size(ifm_block_depth, ofm_block, kernel, self.ofm_block_max)
         ifm_depth_blocks = round_up_divide(ifm.size().depth, ifm_block_depth)
         ifm_depth_blocks = 1  # Overwrite with 1 to force OFM block dependency, not IFM
 
@@ -476,7 +479,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         # Iterate over the next BLOCKDEP inputs, checking to see if a sliding window
         # of IFM area overlaps with any previous OFM block generation.
         elapsed_jobs = 0
-        ifm_depth = ifm.size().depth
         for forward_offset in range(ArchitectureFeatures.MAX_BLOCKDEP):
             # This is the IFM block we want to sample from
             in_area = self.get_first_job_input_volume(
@@ -533,7 +535,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
                 n_elements = op.inputs[0].elements()
                 cycles = intercept + n_elements * slope
                 return cycles
-            except:
+            except Exception:
                 print("Error: Reading CPU cycle estimate in vela configuration file, section {}".format(section))
                 raise
 
@@ -554,7 +556,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             print("Warning: Using default values for system configuration")
         else:
             section_key = "SysConfig." + self.system_config
-            if not section_key in self.vela_config:
+            if section_key not in self.vela_config:
                 raise Exception("Unknown system configuration " + self.system_config)
 
         try:
@@ -585,7 +587,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
                     + " (must be 'OnChipFlash' or 'OffChipFlash'). To store the weights and other constant data in SRAM"
                     " select 'OnChipFlash'"
                 )
-        except:
+        except Exception:
             print("Error: Reading System Configuration in vela configuration file, section {}".format(section_key))
             raise
 

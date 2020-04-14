@@ -19,7 +19,6 @@
 # Helper classes to track memory accesses for calculating dependencies between Commands.
 
 from enum import IntEnum
-from collections import defaultdict
 from functools import lru_cache
 
 

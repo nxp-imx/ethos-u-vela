@@ -18,12 +18,11 @@
 # Description:
 # Compresses and pads the weigths. It also calculates the scales and packs with the biases.
 
-import os
-import sys
-import enum
 import math
-import numpy as np
 from collections import namedtuple
+
+import numpy as np
+
 from .numeric_util import round_up
 from .scaling import quantise_scale, reduced_quantise_scale
 from .tensor import TensorPurpose, TensorSubPurpose, TensorFormat, TensorBlockTraversal
@@ -44,7 +43,7 @@ def encode(weight_stream):
 
     # pad with 0xFF as needed so the length of the weight stream
     # is a multiple of 16
-  
+
     while (len(compressed) % 16) != 0:
         compressed.append(0xFF)
 
@@ -348,7 +347,7 @@ def update_pass_weight_and_scale_tensors(nng, arch):
 
     for sg in nng.subgraphs:
         for ps in sg.passes:
-            if ps.weight_tensor != None:
+            if ps.weight_tensor is not None:
                 npu_usage_of_tensor = find_npu_usage_of_tensor(ps.weight_tensor)
                 if npu_usage_of_tensor == NpuBlockType.ConvolutionDepthWise:
                     ps.weight_tensor.quant_values = np.transpose(ps.weight_tensor.quant_values, (0, 1, 3, 2))
@@ -382,7 +381,7 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                     src_tens.weight_compression_scales = ps.weight_tensor.weight_compression_scales
                     src_tens.weight_compressed_offsets = ps.weight_tensor.weight_compressed_offsets
 
-            if ps.scale_tensor != None:
+            if ps.scale_tensor is not None:
                 rescale_for_faf = False
                 activation_ops = set(("Sigmoid", "Tanh"))
                 if (ps.ops[-1].type in activation_ops) and (ps.npu_block_type != NpuBlockType.ElementWise):

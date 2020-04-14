@@ -19,8 +19,9 @@
 # Contains various scaling calculations for weights, elementwise operations, pooling etc.
 
 import math
-from .numeric_util import round_away_zero
 from enum import IntEnum
+
+from .numeric_util import round_away_zero
 
 
 class OperandToScale(IntEnum):

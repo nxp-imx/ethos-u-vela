@@ -18,9 +18,11 @@
 # Description:
 # Creates driver actions that are embedded in the custom operator payload.
 
-import numpy as np
 from typing import List
-from .ethos_u55_regs.ethos_u55_regs import *
+
+import numpy as np
+
+from .ethos_u55_regs.ethos_u55_regs import config_r, id_r, ARCH_VER
 
 
 class DACommands:
@@ -43,8 +45,8 @@ def make_da_tag(id: int, reserved: int, param: int) -> int:
 
 
 def emit_fourcc(data: List[int], fourcc: str):
-    assert data != None
-    assert fourcc != None
+    assert data is not None
+    assert fourcc is not None
     assert len(fourcc) == 4
     value: int = 0
     value = fourcc[0].encode()[0]
@@ -75,14 +77,14 @@ def build_config_word(arch):
 
 
 def emit_config(data: List[int], rel: int, patch: int, arch):
-    assert data != None
+    assert data is not None
     data.append(make_da_tag(DACommands.Config, 0, (patch << DACommands.Config_PatchShift) | rel))
     data.append(build_config_word(arch))
     data.append(build_id_word())
 
 
 def emit_cmd_stream_header(data: List[int], length: int):
-    assert data != None
+    assert data is not None
     # Insert NOPs to align start of command stream to 16 bytes
     num_nops = 4 - ((len(data) + 1) % 4)
     for _ in range(num_nops):
@@ -95,7 +97,7 @@ def emit_cmd_stream_header(data: List[int], length: int):
 
 
 def emit_reg_read(data: List[int], reg_index: int, reg_count: int = 1):
-    assert data != None
+    assert data is not None
     assert reg_index >= 0
     assert reg_count >= 1
     payload: int = (reg_index & DACommands.ReadAPB_IndexMask) | ((reg_count << DACommands.ReadAPB_CountShift) - 1)
@@ -103,5 +105,5 @@ def emit_reg_read(data: List[int], reg_index: int, reg_count: int = 1):
 
 
 def emit_dump_shram(data: List[int]):
-    assert data != None
+    assert data is not None
     data.append(make_da_tag(DACommands.DumpSHRAM, 0, 0))

@@ -24,9 +24,6 @@
 # Graph - A full neural network graph with one or more Subgraphs.
 
 import enum
-from .data_type import BaseType, DataType
-from .tensor import MemArea, TensorPurpose, TensorSubPurpose, TensorFormat, Tensor
-from .operation import Operation, NpuBlockType
 
 
 class PassPlacement(enum.Enum):

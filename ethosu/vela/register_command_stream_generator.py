@@ -22,25 +22,19 @@
 
 from collections import defaultdict
 from enum import Enum, IntEnum
+
+import numpy as np
+
+from . import scaling
 from .high_level_command_stream import CommandType
-from .ethos_u55_regs.ethos_u55_regs import *
-from .tensor import MemArea, TensorBlockTraversal
+from .ethos_u55_regs.ethos_u55_regs import cmd0, cmd1, acc_format, elementwise_mode, rounding, activation, ifm_precision
+from .tensor import MemArea, TensorBlockTraversal, TensorFormat
 from .operation import NpuBlockType
 from .numeric_util import quantise_float32, round_up, round_away_zero, round_up_to_int, clamp_sigmoid, clamp_tanh
 from .data_type import BaseType, DataType
-import numpy as np
 from .shared_buffer_allocation import SharedBufferAllocation
 from .architecture_features import SharedBufferArea, SHRAMElements, ArchitectureFeatures
-from .nn_graph import TensorFormat, SchedulingStrategy
-from .range_set import (
-    MemoryAccessSet,
-    AccessDirection,
-)
-from .mark_tensors import (
-    reshape_operations,
-)
 from .architecture_features import Block, Kernel, Rect
-from . import scaling
 
 
 class RegisterMachine:
@@ -372,7 +366,6 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             param = relative_dep[CommandType.DMA][0]
             param = min(param, 0xF)  # Clamp to allowable wait amount
             emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, param, absolute_dep[CommandType.DMA][0])
-            prev_cmd = None  # Clear any dependency
 
     for cmd in cmd_stream:
         if cmd.cmdtype == CommandType.DMA:
@@ -684,7 +677,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             ifm_max = cmd.ifm_tensor.quantization.max
 
             # Emit commands for any fused activation function
-            if faf == None:
+            if faf is None:
                 emit.cmd0_with_param(cmd0.NPU_SET_ACTIVATION, activation.NONE)
                 # Even if no activation function, values need to be set to override previous values
                 faf_min = ofm_quant_qmin
@@ -765,13 +758,13 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 ),
             ):
 
-                if tens == None:
+                if tens is None:
                     continue
 
-                need_zero_point = (faf != None) or (fmf == "ConcatSliceWrite")
+                need_zero_point = (faf is not None) or (fmf == "ConcatSliceWrite")
                 if (
                     primary_op.type in set(("AvgPool", "AvgPoolAct")) and not need_zero_point
-                ) or tens.quantization == None:
+                ) or tens.quantization is None:
                     # Actual integer operation, just set scale to 1 and zero point to 0
                     emit.cmd0_with_param(zero_point_op, 0)
                 else:

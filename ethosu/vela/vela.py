@@ -20,11 +20,10 @@
 #
 # Provides command line interface, options parsing, and network loading. Before calling the compiler driver.
 
-import sys
-import os.path
 import os
+import os.path
+import sys
 import time
-import subprocess
 import configparser
 import argparse
 import ast
@@ -37,7 +36,8 @@ from . import compiler_driver
 from . import scheduler
 from ._version import __version__
 from .scheduler import ParetoMetric
-from .nn_graph import MemArea, TensorFormat, TensorAllocator, PassPlacement
+from .nn_graph import TensorAllocator, PassPlacement
+from .tensor import MemArea
 
 
 def process(fname, arch, model_reader_options, compiler_options, scheduler_options):

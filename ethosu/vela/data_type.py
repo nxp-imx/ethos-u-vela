@@ -18,8 +18,9 @@
 # Description:
 # Defines the basic numeric type classes for tensors.
 
-from .numeric_util import round_up_divide
 import enum
+
+from .numeric_util import round_up_divide
 
 
 class BaseType(enum.Flag):

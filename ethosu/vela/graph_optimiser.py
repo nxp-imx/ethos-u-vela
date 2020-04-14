@@ -19,12 +19,15 @@
 # Early optimisation of the network graph, using the rewrite_graph module to do the traversal of the graph. These are
 # split into two parts optimise_graph_a and optimise_graph_b.
 
-from .nn_graph import Operation, NpuBlockType, Tensor
-from . import rewrite_graph
-from .data_type import BaseType, DataType
-import numpy as np
 import math
-from .numeric_util import round_up_divide
+
+import numpy as np
+
+from . import rewrite_graph
+from .operation import Operation, NpuBlockType
+from .tensor import Tensor
+from .data_type import DataType
+
 
 passthrough_nodes = set(("Identity",))
 
@@ -83,7 +86,7 @@ def rewrite_split(tens, arch):
 
         # For Split the offset cannot be extracted from the tensor so it has to
         # be calculated from the index of the output tensor
-        if axis != None:
+        if axis is not None:
             # Get the start and end of the split
             offset_start = [0] * len(tens.shape)
             offset_end = [0] * len(tens.shape)
@@ -316,6 +319,7 @@ elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "Leaky
 activation_ops = set(("Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh"))
 memory_only_ops = set(("Reshape",))
 
+
 # Check if the op can be reordered
 def get_prepend_op(op):
     inp = op.inputs[0]
@@ -326,7 +330,7 @@ def get_prepend_op(op):
         prep_op = prev_op
         inp = prev_op.inputs[0]
         prev_op = inp.ops[-1]
-    if prev_op != None and len(prev_op.outputs) == 1 and len(prev_op.outputs[0].consumers()) == 1:
+    if prev_op is not None and len(prev_op.outputs) == 1 and len(prev_op.outputs[0].consumers()) == 1:
         return prep_op
 
     return None
@@ -384,7 +388,7 @@ def convert_depthwise_to_conv(op, arch):
 def fixup_act_reorder(op, arch):
     if op.type in activation_ops:
         prep_op = get_prepend_op(op)
-        if prep_op != None:
+        if prep_op is not None:
             act_op = op.clone("_reordered")
             act_op.inputs = [prep_op.inputs[0]]
             act_op_out = act_op.inputs[0].clone("_acted")
@@ -400,7 +404,7 @@ def fixup_act_reorder(op, arch):
 
 
 def convert_mul_max_to_abs_or_lrelu(op, arch):
-    """Whenever there is a subgraph with this topology:
+    r"""Whenever there is a subgraph with this topology:
 
        Input    X   For X = -1 or X > 0
        |   \   /    This subgraph can be replaced with either
@@ -487,16 +491,17 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
     for idx, sg in enumerate(nng.subgraphs):
         # rewrite graph pass
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
-            sg, arch, [fixup_unpack_output,], op_rewrite_list, rewrite_unsupported=False
+            sg, arch, [fixup_unpack_output], op_rewrite_list, rewrite_unsupported=False
         )
 
     for idx, sg in enumerate(nng.subgraphs):
         # remove passthrough tensors
-        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(sg, arch, [remove_passthrough_tensor,], [])
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(sg, arch, [remove_passthrough_tensor], [])
 
     if verbose_graph:
         nng.print_graph()
     return nng
+
 
 def optimise_graph_b(nng, arch, verbose_graph=False):
     if verbose_graph:
@@ -504,7 +509,7 @@ def optimise_graph_b(nng, arch, verbose_graph=False):
 
     for idx, sg in enumerate(nng.subgraphs):
         # combined rewrite graph pass
-        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(sg, arch, [rewrite_concat, rewrite_split,], [])
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(sg, arch, [rewrite_concat, rewrite_split], [])
 
     if verbose_graph:
         nng.print_graph()

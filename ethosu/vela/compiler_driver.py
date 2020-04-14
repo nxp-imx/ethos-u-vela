@@ -18,6 +18,8 @@
 # Description:
 # Contains the main sequencing of the compiler.
 
+import time
+
 from . import graph_optimiser
 from . import mark_tensors
 from . import insert_dma
@@ -25,9 +27,6 @@ from . import pass_packing
 from . import scheduler
 from . import tensor_allocation
 from . import npu_performance
-import time
-
-from . import high_level_command_stream
 from . import high_level_command_stream_generator
 from . import register_command_stream_generator
 from . import extract_npu_subgraphs
@@ -36,7 +35,7 @@ from . import weight_compressor
 from . import live_range
 from .tensor import MemArea
 from .nn_graph import TensorAllocator, PassPlacement
-from .rewrite_graph import verify_graph_health, verify_subgraph_health
+from .rewrite_graph import verify_graph_health
 
 
 class CompilerOptions:

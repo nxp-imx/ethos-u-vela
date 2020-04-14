@@ -19,10 +19,9 @@
 # Shared buffer allocation works out how to allocate the Ethos-U55 shared buffer for a given pass.
 
 import numpy as np
-from .nn_graph import NpuBlockType
-from .numeric_util import round_up_divide, round_up
+
+from .operation import NpuBlockType
 from .architecture_features import Block, Kernel, SHRAMElements, SharedBufferArea, ArchitectureFeatures
-from . import pass_packing
 
 
 class SharedBufferAllocation:
