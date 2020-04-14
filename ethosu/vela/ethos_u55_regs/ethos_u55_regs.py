@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+
 from ctypes import *
 from enum import Enum
 
-ARCH_VER = '0.154.0'
+ARCH_VER = '0.162.0'
 
 
 class DEBUG_INTERNAL(Enum):
@@ -280,6 +282,10 @@ class DEBUG_INTERNAL(Enum):
     SIZE = 0x0800
 
 class HW_DEBUG_INTERNAL(Enum):
+    WD_STATUS = 0x0100
+    MAC_STATUS = 0x0104
+    DMA_STATUS = 0x0108
+    AO_STATUS = 0x0110
     CLKFORCE = 0x0140
     DEBUG = 0x0144
     DEBUG2 = 0x0148
@@ -674,6 +680,12 @@ class ifm_scale_mode(Enum):
     SCALE_OPA_32BIT = 1
     SCALE_OPB_32BIT = 2
 
+class macs_per_cc(Enum):
+    MACS_PER_CC_IS_5 = 0x5
+    MACS_PER_CC_IS_6 = 0x6
+    MACS_PER_CC_IS_7 = 0x7
+    MACS_PER_CC_IS_8 = 0x8
+
 class memory_type(Enum):
     AXI0_OUTSTANDING_COUNTER0 = 0
     AXI0_OUTSTANDING_COUNTER1 = 1
@@ -688,6 +700,7 @@ class ofm_precision(Enum):
     S32 = 5
 
 class pmu_event_type(Enum):
+    NO_EVENT = 0x00
     CYCLE = 0x11
     NPU_IDLE = 0x20
     MAC_ACTIVE = 0x30
@@ -698,6 +711,7 @@ class pmu_event_type(Enum):
     MAC_STALLED_BY_WD = 0x35
     MAC_STALLED_BY_ACC = 0x36
     MAC_STALLED_BY_IB = 0x37
+    MAC_ACTIVE_32BIT = 0x38
     AO_ACTIVE = 0x40
     AO_ACTIVE_8BIT = 0x41
     AO_ACTIVE_16BIT = 0x42
@@ -715,6 +729,10 @@ class pmu_event_type(Enum):
     WD_PARSE_STALLED = 0x55
     WD_PARSE_STALLED_IN = 0x56
     WD_PARSE_STALLED_OUT = 0x57
+    WD_TRANS_WS = 0x58
+    WD_TRANS_WB = 0x59
+    WD_TRANS_DW0 = 0x5a
+    WD_TRANS_DW1 = 0x5b
     AXI0_RD_TRANS_ACCEPTED = 0x80
     AXI0_RD_TRANS_COMPLETED = 0x81
     AXI0_RD_DATA_BEAT_RECEIVED = 0x82
@@ -758,9 +776,6 @@ class privilege_level(Enum):
     USER = 0
     PRIVILEGED = 1
 
-class product(Enum):
-    ETHOS_U55 = 0
-
 class resampling_mode(Enum):
     NONE = 0
     NEAREST = 1
@@ -774,6 +789,11 @@ class rounding(Enum):
 class security_level(Enum):
     SECURE = 0
     NON_SECURE = 1
+
+class shram_size(Enum):
+    SHRAM_48KB = 0x30
+    SHRAM_24KB = 0x18
+    SHRAM_16KB = 0x10
 
 class state(Enum):
     STOPPED = 0
@@ -3136,3 +3156,4 @@ class npu_set_scale1_length_t(Structure):
     def set_data(self, value): data = value
     def get_payload_size(self): return payload_size
     def set_payload_size(self, value): payload_size = value
+
