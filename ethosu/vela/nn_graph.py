@@ -13,8 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Neural network graph classes and enums.
 # Pass - A packed pass containing one or more Operations.
@@ -22,7 +20,6 @@
 #                configurations.
 # Subgraph - Holds a neural network subgraph, pointing at Tensors, Operations, Passes, and CascadedPasses.
 # Graph - A full neural network graph with one or more Subgraphs.
-
 import enum
 
 

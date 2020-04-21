@@ -13,30 +13,31 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Functions used to write to a TensorFlow Lite format file. Supports adding in file identifiers.
-
-import numpy as np
 import flatbuffers
+import flatbuffers.number_types as N
+import numpy as np
+from flatbuffers import encode
 from flatbuffers.builder import UOffsetTFlags
 
-# ugh, the python flatbuffer interface is missing a method to add in file identifier. patching it in here:
-import flatbuffers.number_types as N
-from flatbuffers import encode
-
-from .tflite import Tensor
-from .tflite import QuantizationParameters
-from .tflite import Model
-from .tflite import SubGraph
-from .tflite import OperatorCode
-from .tflite import Operator
+from .nn_graph import PassPlacement
+from .tensor import MemArea
+from .tensor import TensorPurpose
 from .tflite import Buffer
 from .tflite import Metadata
-from .tflite_mapping import datatype_inv_map, builtin_operator_inv_map, custom_prefix, BuiltinOperator
-from .nn_graph import PassPlacement
-from .tensor import TensorPurpose, MemArea
+from .tflite import Model
+from .tflite import Operator
+from .tflite import OperatorCode
+from .tflite import QuantizationParameters
+from .tflite import SubGraph
+from .tflite import Tensor
+from .tflite_mapping import builtin_operator_inv_map
+from .tflite_mapping import BuiltinOperator
+from .tflite_mapping import custom_prefix
+from .tflite_mapping import datatype_inv_map
+
+# ugh, the python flatbuffer interface is missing a method to add in file identifier. patching it in here:
 
 tflite_version = 3
 tflite_file_identifier = "TFL" + str(tflite_version)

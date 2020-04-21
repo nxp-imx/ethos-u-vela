@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -15,14 +14,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Simple example of the usage of mlw_codec.
-
 import sys
 
 from ethosu import mlw_codec
-
 
 # Simple example
 if __name__ == "__main__":

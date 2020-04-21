@@ -13,24 +13,26 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # NPU performance estimation functions to estimate performance of a Pass and CascadedPass. Uses a model that takes the
 # maximum of the 'cycles required for bandwidth' and 'cycles required for computing'.
 #
 # Called during scheduling to evaluate different proposals, as well as post-scheduling to provide a final performance
 # estimate.
-
 import enum
 
 import numpy as np
 
 from . import numeric_util
-from .tensor import TensorPurpose, MemArea, shape_num_elements, TensorBlockTraversal
-from .nn_graph import PassPlacement, SchedulerRewrite
+from .architecture_features import Block
+from .architecture_features import Kernel
+from .nn_graph import PassPlacement
+from .nn_graph import SchedulerRewrite
 from .operation import NpuBlockType
-from .architecture_features import Block, Kernel
+from .tensor import MemArea
+from .tensor import shape_num_elements
+from .tensor import TensorBlockTraversal
+from .tensor import TensorPurpose
 
 
 def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_config_ps2):

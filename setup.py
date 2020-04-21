@@ -13,13 +13,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Packaging for the Vela compiler
-
 from os import path
-from setuptools import setup, find_namespace_packages, Extension
+
+from setuptools import Extension
+from setuptools import find_namespace_packages
+from setuptools import setup
 
 # Read the contents of README.md file
 this_directory = path.abspath(path.dirname(__file__))

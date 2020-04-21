@@ -13,17 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Packs a subgraph with Neural Network Operations into Passes. Each Pass has one or more Operations.
-
-import enum
 import collections
+import enum
 
-from .nn_graph import Pass, PassPlacement
+from .nn_graph import Pass
+from .nn_graph import PassPlacement
+from .operation import NpuBlockType
+from .operation import Operation
 from .tensor import TensorPurpose
-from .operation import Operation, NpuBlockType
 
 
 class PassFlags(enum.Flag):

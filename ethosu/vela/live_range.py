@@ -13,15 +13,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Build a live range graph for tensors in one or more subgraphs. Used for tensor allocation as well as in the scheduler.
 # Can work with either a pass packed subgraph or a scheduled subgraph.
-
-from .tensor import Tensor, MemArea
-from .nn_graph import PassPlacement
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_cascaded_pass
+from .nn_graph import PassPlacement
+from .tensor import MemArea
+from .tensor import Tensor
 
 
 class LiveRange:

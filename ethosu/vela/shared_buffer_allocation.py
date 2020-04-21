@@ -13,15 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Shared buffer allocation works out how to allocate the Ethos-U55 shared buffer for a given pass.
-
 import numpy as np
 
+from .architecture_features import ArchitectureFeatures
+from .architecture_features import Block
+from .architecture_features import Kernel
+from .architecture_features import SharedBufferArea
+from .architecture_features import SHRAMElements
 from .operation import NpuBlockType
-from .architecture_features import Block, Kernel, SHRAMElements, SharedBufferArea, ArchitectureFeatures
 
 
 class SharedBufferAllocation:

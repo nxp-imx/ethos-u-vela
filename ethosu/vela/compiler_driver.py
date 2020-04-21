@@ -13,29 +13,27 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Contains the main sequencing of the compiler.
-
 import time
 
+from . import extract_npu_subgraphs
 from . import graph_optimiser
-from . import mark_tensors
+from . import high_level_command_stream_generator
 from . import insert_dma
+from . import live_range
+from . import mark_tensors
+from . import npu_performance
+from . import npu_serialisation
 from . import pass_packing
+from . import register_command_stream_generator
 from . import scheduler
 from . import tensor_allocation
-from . import npu_performance
-from . import high_level_command_stream_generator
-from . import register_command_stream_generator
-from . import extract_npu_subgraphs
-from . import npu_serialisation
 from . import weight_compressor
-from . import live_range
-from .tensor import MemArea
-from .nn_graph import TensorAllocator, PassPlacement
+from .nn_graph import PassPlacement
+from .nn_graph import TensorAllocator
 from .rewrite_graph import verify_graph_health
+from .tensor import MemArea
 
 
 class CompilerOptions:

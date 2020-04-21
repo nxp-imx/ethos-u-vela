@@ -13,25 +13,25 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Compresses and pads the weigths. It also calculates the scales and packs with the biases.
-
 import math
 from collections import namedtuple
 
 import numpy as np
-
-from .numeric_util import round_up
-from .scaling import quantise_scale, reduced_quantise_scale
-from .tensor import TensorPurpose, TensorSubPurpose, TensorFormat, TensorBlockTraversal
-from .operation import NpuBlockType
-from .architecture_features import Block
-from .nn_graph import SchedulingStrategy
-from .data_type import DataType
-
 from ethosu import mlw_codec
+
+from .architecture_features import Block
+from .data_type import DataType
+from .nn_graph import SchedulingStrategy
+from .numeric_util import round_up
+from .operation import NpuBlockType
+from .scaling import quantise_scale
+from .scaling import reduced_quantise_scale
+from .tensor import TensorBlockTraversal
+from .tensor import TensorFormat
+from .tensor import TensorPurpose
+from .tensor import TensorSubPurpose
 
 
 def encode(weight_stream):

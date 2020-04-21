@@ -13,30 +13,27 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Main entry point for the Vela compiler.
 #
 # Provides command line interface, options parsing, and network loading. Before calling the compiler driver.
-
-import os
+import argparse
+import ast
+import configparser
 import os.path
 import sys
 import time
-import configparser
-import argparse
-import ast
 
 from . import architecture_features
+from . import compiler_driver
+from . import model_reader
+from . import scheduler
 from . import stats_writer
 from . import tflite_writer
-from . import model_reader
-from . import compiler_driver
-from . import scheduler
 from ._version import __version__
+from .nn_graph import PassPlacement
+from .nn_graph import TensorAllocator
 from .scheduler import ParetoMetric
-from .nn_graph import TensorAllocator, PassPlacement
 from .tensor import MemArea
 
 

@@ -13,28 +13,44 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Register level (low-level) command stream generation for Ethos-U55. Takes a high-level command stream and generates
 # all the register settings. Calculates dependencies between commands and inserts wait operations. And generates a bit
 # stream suitable for interpretation by the Ethos-U55 processor.
-
 from collections import defaultdict
-from enum import Enum, IntEnum
+from enum import Enum
+from enum import IntEnum
 
 import numpy as np
 
 from . import scaling
+from .architecture_features import ArchitectureFeatures
+from .architecture_features import Block
+from .architecture_features import Kernel
+from .architecture_features import Rect
+from .architecture_features import SharedBufferArea
+from .architecture_features import SHRAMElements
+from .data_type import BaseType
+from .data_type import DataType
+from .ethos_u55_regs.ethos_u55_regs import acc_format
+from .ethos_u55_regs.ethos_u55_regs import activation
+from .ethos_u55_regs.ethos_u55_regs import cmd0
+from .ethos_u55_regs.ethos_u55_regs import cmd1
+from .ethos_u55_regs.ethos_u55_regs import elementwise_mode
+from .ethos_u55_regs.ethos_u55_regs import ifm_precision
+from .ethos_u55_regs.ethos_u55_regs import rounding
 from .high_level_command_stream import CommandType
-from .ethos_u55_regs.ethos_u55_regs import cmd0, cmd1, acc_format, elementwise_mode, rounding, activation, ifm_precision
-from .tensor import MemArea, TensorBlockTraversal, TensorFormat
+from .numeric_util import clamp_sigmoid
+from .numeric_util import clamp_tanh
+from .numeric_util import quantise_float32
+from .numeric_util import round_away_zero
+from .numeric_util import round_up
+from .numeric_util import round_up_to_int
 from .operation import NpuBlockType
-from .numeric_util import quantise_float32, round_up, round_away_zero, round_up_to_int, clamp_sigmoid, clamp_tanh
-from .data_type import BaseType, DataType
 from .shared_buffer_allocation import SharedBufferAllocation
-from .architecture_features import SharedBufferArea, SHRAMElements, ArchitectureFeatures
-from .architecture_features import Block, Kernel, Rect
+from .tensor import MemArea
+from .tensor import TensorBlockTraversal
+from .tensor import TensorFormat
 
 
 class RegisterMachine:

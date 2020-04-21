@@ -13,21 +13,23 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Functions used to read from a TensorFlow Lite format file.
-
 import os.path
 
 import numpy as np
 
-from .tflite.Model import Model
-from .tflite.BuiltinOperator import BuiltinOperator
-from .nn_graph import Graph, Subgraph
+from .nn_graph import Graph
+from .nn_graph import Subgraph
 from .operation import Operation
-from .tensor import Tensor, QuantizationParameters
-from .tflite_mapping import builtin_operator_map, datatype_map, datatype_map_numpy, DataType
+from .tensor import QuantizationParameters
+from .tensor import Tensor
+from .tflite.BuiltinOperator import BuiltinOperator
+from .tflite.Model import Model
+from .tflite_mapping import builtin_operator_map
+from .tflite_mapping import DataType
+from .tflite_mapping import datatype_map
+from .tflite_mapping import datatype_map_numpy
 
 
 def decode_str(s):

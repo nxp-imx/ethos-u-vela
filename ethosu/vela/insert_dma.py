@@ -13,14 +13,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Insert DMA operations into the graph for transfering weights.
-
 from . import rewrite_graph
-from .tensor import MemArea, TensorPurpose
-from .operation import Operation, NpuBlockType
+from .operation import NpuBlockType
+from .operation import Operation
+from .tensor import MemArea
+from .tensor import TensorPurpose
 
 
 def insert_dma_cmd(op, arch):

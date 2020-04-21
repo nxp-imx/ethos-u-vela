@@ -13,22 +13,21 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Holds a container for Ethos-U55/System architecture parameters.
-
 import enum
 from collections import namedtuple
 from configparser import ConfigParser
 
 import numpy as np
 
-from .tensor import MemArea, TensorPurpose, TensorFormat
+from .numeric_util import round_up
+from .numeric_util import round_up_divide
 from .operation import NpuBlockType
-from .numeric_util import round_up, round_up_divide
 from .supported_operators import SupportedOperators
-
+from .tensor import MemArea
+from .tensor import TensorFormat
+from .tensor import TensorPurpose
 
 PointXY = namedtuple("PointXY", "x y")
 PointXYZ = namedtuple("PointXYZ", "x y z")

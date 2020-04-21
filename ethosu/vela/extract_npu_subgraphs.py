@@ -13,8 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Vela separates CPU operations and NPU operations into separate internal subgraphs. The CPU operations are left
 # untouched in the final output.
@@ -22,11 +20,13 @@
 # Vela does this by identifying NPU passes and pulling them out from the main CPU graph into separate subgraphs, invoked
 # by NpuOp operations. Later, Vela generates command streams and compressed weight streams for the NPU subgraphs and
 # attaches them to the NpuOp. This encapsulates everything the NPU subgraph is supposed to do.
-
 import numpy as np
 
-from .nn_graph import Pass, PassPlacement, Subgraph
-from .operation import Operation, NpuBlockType
+from .nn_graph import Pass
+from .nn_graph import PassPlacement
+from .nn_graph import Subgraph
+from .operation import NpuBlockType
+from .operation import Operation
 
 
 def make_npu_call_op_pass(npu_subgraph):

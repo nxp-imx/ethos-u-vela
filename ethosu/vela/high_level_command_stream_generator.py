@@ -13,17 +13,17 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Generate a high-level command stream from a scheduled subgraph with CascadedPasses.
 #
 # Also used during scheduling to work out allowable IFM/OFM overlap, this functionality can be accessed using
 # calc_allowed_ofm_ifm_overlap_for_cascaded_pass().
-
-from .nn_graph import SchedulingStrategy, PassPlacement
+from .high_level_command_stream import Box
+from .high_level_command_stream import DMA
+from .high_level_command_stream import NpuStripe
+from .nn_graph import PassPlacement
+from .nn_graph import SchedulingStrategy
 from .operation import NpuBlockType
-from .high_level_command_stream import Box, NpuStripe, DMA
 
 
 def need_dma(tens):

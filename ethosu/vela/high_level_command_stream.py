@@ -13,18 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Contains classes that hold commands for the high-level command stream (one command per DMA or NPU stripe).
-
 from enum import IntEnum
 
 import numpy as np
 
-from .operation import NpuBlockType
 from .numeric_util import round_up_divide
-from .range_set import MemoryAccessSet, AccessDirection
+from .operation import NpuBlockType
+from .range_set import AccessDirection
+from .range_set import MemoryAccessSet
 
 
 class Box:

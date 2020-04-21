@@ -13,21 +13,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Wrapping function to do tensor address allocation. That is, assigning addresses to tensors based on what has been
 # worked out from the allowable overlaps that are calculated by the live range analysis.
-
 import math
 
 import numpy as np
 
 from . import live_range
 from . import numeric_util
-from .tensor import MemArea
-from .nn_graph import TensorAllocator
 from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_ranges
+from .nn_graph import TensorAllocator
+from .tensor import MemArea
 
 
 def linear_allocate_live_ranges(live_ranges, alloc_granularity=256):

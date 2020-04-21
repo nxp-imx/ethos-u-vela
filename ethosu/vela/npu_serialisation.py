@@ -13,20 +13,20 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Serialises and packs an NPU subgraph into tensors.
-
 import struct
 
 import numpy as np
 
 from . import driver_actions
-from .nn_graph import PassPlacement
-from .tensor import MemArea, Tensor, TensorPurpose, TensorFormat
-from .operation import Operation
 from .data_type import DataType
+from .nn_graph import PassPlacement
+from .operation import Operation
+from .tensor import MemArea
+from .tensor import Tensor
+from .tensor import TensorFormat
+from .tensor import TensorPurpose
 
 
 def make_memory_tensor(name, mem_area, sz, want_values, arch):

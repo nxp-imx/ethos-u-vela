@@ -13,29 +13,34 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # The scheduler costs various strategies for scheduling the network in order to select the block configuration.
-
-import enum
 import copy
+import enum
+from functools import lru_cache
 
 import numpy as np
 
 from . import live_range
 from . import npu_performance
 from . import stats_writer
-from .tensor import TensorPurpose, TensorSubPurpose, TensorFormat, MemArea
-from .operation import NpuBlockType
-from .nn_graph import SchedulingStrategy, CascadedPass, PassPlacement, SchedulerRewrite
-from .npu_performance import make_bandwidth_array, make_macs_array, make_cycles_array, make_metrics_arrays, PassCycles
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_pass_list
-from .shared_buffer_allocation import (
-    find_block_configs_suitable_for_pass_and_shared_buffer,
-    shared_buffer_allocation_for_pass_and_block_config,
-)
-from functools import lru_cache
+from .nn_graph import CascadedPass
+from .nn_graph import PassPlacement
+from .nn_graph import SchedulerRewrite
+from .nn_graph import SchedulingStrategy
+from .npu_performance import make_bandwidth_array
+from .npu_performance import make_cycles_array
+from .npu_performance import make_macs_array
+from .npu_performance import make_metrics_arrays
+from .npu_performance import PassCycles
+from .operation import NpuBlockType
+from .shared_buffer_allocation import find_block_configs_suitable_for_pass_and_shared_buffer
+from .shared_buffer_allocation import shared_buffer_allocation_for_pass_and_block_config
+from .tensor import MemArea
+from .tensor import TensorFormat
+from .tensor import TensorPurpose
+from .tensor import TensorSubPurpose
 
 
 class ParetoMetric(enum.Enum):

@@ -13,20 +13,20 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Writes out per-pass and summary performance statistics to CSV files.
-
 import csv
 import sys
 
 import numpy as np
 
-from .tensor import MemArea, TensorPurpose
 from .nn_graph import PassPlacement
-from .npu_performance import PassCycles, MacCount, BandwidthDirection
+from .npu_performance import BandwidthDirection
+from .npu_performance import MacCount
+from .npu_performance import PassCycles
 from .numeric_util import round_up_to_int
+from .tensor import MemArea
+from .tensor import TensorPurpose
 
 
 def write_summary_metrics_csv(nng, summary_filename, arch):

@@ -13,8 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Functions for abstracting out the traversal and rewriting of graphs so that the optimisation passes can focus on the
 # correct operation.

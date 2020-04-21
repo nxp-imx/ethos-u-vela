@@ -13,21 +13,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Early optimisation of the network graph, using the rewrite_graph module to do the traversal of the graph. These are
 # split into two parts optimise_graph_a and optimise_graph_b.
-
 import math
 
 import numpy as np
 
 from . import rewrite_graph
-from .operation import Operation, NpuBlockType
-from .tensor import Tensor
 from .data_type import DataType
-
+from .operation import NpuBlockType
+from .operation import Operation
+from .tensor import Tensor
 
 passthrough_nodes = set(("Identity",))
 

@@ -13,19 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Internal representation of a Neural Network Tensor.
-
 import enum
 import uuid
 
 import numpy as np
 
 from . import numeric_util
-from .range_set import MemoryRangeSet
 from .numeric_util import round_up_divide
+from .range_set import MemoryRangeSet
 
 
 class MemArea(enum.IntFlag):

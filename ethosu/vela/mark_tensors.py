@@ -13,16 +13,14 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 # Description:
 # Mark purpose and select formats for Tensors. Also compresses the weights.
-
 from . import rewrite_graph
 from . import weight_compressor
 from .architecture_features import Block
-from .tensor import TensorPurpose, TensorFormat
 from .operation import NpuBlockType
+from .tensor import TensorFormat
+from .tensor import TensorPurpose
 
 
 def purpose_from_list(lst):
