@@ -926,6 +926,26 @@ class DynamicProgrammingScheduler:
         self.sg.cascaded_passes = cascaded_passes
         self.sg.build_cascaded_pass_links()
 
+        # Check if NHCWB16 can be used in between cascaded passes
+        # (NHCWB16 within cascaded passes has been handled earlier in this function)
+        if self.sg.placement == PassPlacement.Npu:
+            for ps in self.sg.cascaded_passes:
+                if ps.placement != PassPlacement.Npu:
+                    continue
+                for output in ps.outputs:
+                    if output.purpose != TensorPurpose.FeatureMap:
+                        continue
+
+                    use_NHCWB16 = True
+                    for op in output.consumer_list:
+                        if op == None or op.type == 'Reshape':
+                            use_NHCWB16 = False
+                        else:
+                            use_NHCWB16 &= op.run_on_npu
+
+                    if use_NHCWB16:
+                        output.set_format(TensorFormat.NHCWB16, arch)
+
 
 def schedule_passes(nng, arch, options: SchedulerOptions):
 
