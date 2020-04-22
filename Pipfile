@@ -5,6 +5,8 @@ verify_ssl = true
 
 [dev-packages]
 pre-commit = "*"
+pytest = "*"
+pytest-cov = "*"
 ethos-u-vela = {editable = true,path = "."}
 
 [packages]
