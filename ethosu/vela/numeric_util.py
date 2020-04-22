@@ -85,3 +85,6 @@ def clamp_sigmoid(x):
     else:
         y = 1 / (1 + math.exp(-x))
     return y
+
+def full_shape(dim, shape, fill):
+    return ([fill] * (dim - len(shape))) + shape

@@ -46,6 +46,7 @@ from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
 from .numeric_util import round_up
 from .numeric_util import round_up_to_int
+from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .shared_buffer_allocation import SharedBufferAllocation
 from .tensor import MemArea
@@ -266,10 +267,6 @@ def get_op_kernel(ps):
     return Kernel(k_w, k_h, strides[2], strides[1], dilation[2], dilation[1])
 
 
-def full_shape(shape, fill):
-    return ([fill] * (4 - len(shape))) + shape
-
-
 def has_prev_op_dependency(prev_cmd, cmd):
     if prev_cmd is None:
         return False
@@ -282,14 +279,14 @@ def has_prev_op_dependency(prev_cmd, cmd):
 
 
 def get_op_ofm_rect(cmd):
-    start = full_shape(cmd.ofm_box.start_coord, 0)
-    end = full_shape(cmd.ofm_box.end_coord, 1)
+    start = full_shape(4, cmd.ofm_box.start_coord, 0)
+    end = full_shape(4, cmd.ofm_box.end_coord, 1)
     return Rect(start[-2], start[-3], start[-1], end[-2] - 1, end[-3] - 1, end[-1] - 1)
 
 
 def get_op_ifm_rect(cmd):
-    start = full_shape(cmd.ifm_box.start_coord, 0)
-    end = full_shape(cmd.ifm_box.end_coord, 1)
+    start = full_shape(4, cmd.ifm_box.start_coord, 0)
+    end = full_shape(4, cmd.ifm_box.end_coord, 1)
     return Rect(start[-2], start[-3], start[-1], end[-2] - 1, end[-3] - 1, end[-1] - 1)
 
 

@@ -259,14 +259,14 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
 
-        npu_convolution_ops = set((NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise))
-        if (npu_block_type == NpuBlockType.Pooling and len(ifm_tensor.shape) == 4) or (
-            npu_block_type in npu_convolution_ops
-        ):
+        if npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.Pooling)):
+            # extent the ifm to full dimension
+            ifm_tensor_brick_size = tuple(numeric_util.full_shape(4, list(ifm_tensor.brick_size), 1))
+            ifm_tensor_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
+            ifm_tensor_bandwidth_shape = numeric_util.full_shape(4, ifm_tensor.bandwidth_shape, 1)
 
             batch_size = ifm_tensor.shape[0]
-            ifm_tensor_shape = list(ifm_tensor.shape)
-            ifm_depth = ifm_tensor.bandwidth_shape[3]
+            ifm_depth = ifm_tensor_bandwidth_shape[3]
 
             # add in padding
             ifm_tensor_shape[1] += explicit_padding[0] + explicit_padding[2]  # height += top and bottom
@@ -313,7 +313,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             clamped_skirt[2] = min(clamped_skirt[2], sub_kernel_limits[0] - 1 - clamped_skirt[0])
             clamped_skirt[3] = min(clamped_skirt[3], sub_kernel_limits[1] - 1 - clamped_skirt[1])
             n_blocks, area, block_setup = get_n_blocks_and_area(
-                ifm_tensor.brick_size,
+                ifm_tensor_brick_size,
                 ifm_tensor_shape[1:3],
                 skirt,
                 clamped_skirt,
