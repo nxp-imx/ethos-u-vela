@@ -31,7 +31,7 @@ repos:
 
     -   id: pytest-cov
         name: pytest
-        stages: [commit]
+        stages: [push]
         language: system
         entry: pytest -v --cov=ethosu --cov-fail-under=0
         types: [python]
