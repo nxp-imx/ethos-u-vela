@@ -575,7 +575,7 @@ builtin_operator_map = {
         "Shape",
         OptionsSerializer("ShapeOptions", (("out_type", datatype_deserialize, datatype_serialize),)),
     ),
-    BuiltinOperator.POW: "Pow",
+    BuiltinOperator.POW: ("Pow", None),
     BuiltinOperator.ARG_MIN: (
         "ArgMin",
         OptionsSerializer("ArgMinOptions", (("output_type", datatype_deserialize, datatype_serialize),)),
