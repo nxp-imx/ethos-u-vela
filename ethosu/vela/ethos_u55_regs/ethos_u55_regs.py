@@ -19,7 +19,7 @@
 from ctypes import *
 from enum import Enum
 
-ARCH_VER = '0.162.0'
+ARCH_VER = '0.169.0'
 
 
 class DEBUG_INTERNAL(Enum):
@@ -669,11 +669,11 @@ class elementwise_mode(Enum):
     SHL = 9
 
 class ifm_precision(Enum):
-    W8_U8 = 0
-    W8_S8 = 1
-    W8_U16 = 4
-    W8_S16 = 5
-    W8_S32 = 9
+    U8 = 0
+    S8 = 1
+    U16 = 4
+    S16 = 5
+    S32 = 9
 
 class ifm_scale_mode(Enum):
     SCALE_16BIT = 0
@@ -1958,7 +1958,7 @@ class npu_set_ifm_precision_t(Structure):
     _fields_ = [
         ("cmd_code", c_uint32, 10),
         ("must_be_zero0", c_uint32, 6),
-        ("param", c_uint32, 4),
+        ("precision", c_uint32, 4),
         ("reserved0", c_uint32, 2),
         ("format", c_uint32, 2),
         ("scale_mode", c_uint32, 2),
@@ -1970,8 +1970,8 @@ class npu_set_ifm_precision_t(Structure):
     def set_cmd_code(self, value): cmd_code = value
     def get_format(self): return format
     def set_format(self, value): format = value
-    def get_param(self): return param
-    def set_param(self, value): param = value
+    def get_precision(self): return precision
+    def set_precision(self, value): precision = value
     def get_round_mode(self): return round_mode
     def set_round_mode(self, value): round_mode = value
     def get_scale_mode(self): return scale_mode
@@ -2468,7 +2468,7 @@ class npu_set_ifm2_precision_t(Structure):
     _fields_ = [
         ("cmd_code", c_uint32, 10),
         ("must_be_zero0", c_uint32, 6),
-        ("param", c_uint32, 4),
+        ("precision", c_uint32, 4),
         ("reserved0", c_uint32, 2),
         ("format", c_uint32, 2),
         ("reserved1", c_uint32, 8),
@@ -2478,8 +2478,8 @@ class npu_set_ifm2_precision_t(Structure):
     def set_cmd_code(self, value): cmd_code = value
     def get_format(self): return format
     def set_format(self, value): format = value
-    def get_param(self): return param
-    def set_param(self, value): param = value
+    def get_precision(self): return precision
+    def set_precision(self, value): precision = value
 
 class npu_set_ifm2_zero_point_t(Structure):
     _fields_ = [

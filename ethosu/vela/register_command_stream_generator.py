@@ -861,14 +861,14 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
             if ifm_dtype.size_in_bits() == 8:
                 if ifm_dtype.type & BaseType.Signed:
-                    prec = ifm_precision.W8_S8
+                    prec = ifm_precision.S8
                 else:
-                    prec = ifm_precision.W8_U8
+                    prec = ifm_precision.U8
             elif ifm_dtype.size_in_bits() == 16:
                 if ifm_dtype.type & BaseType.Signed:
-                    prec = ifm_precision.W8_S16
+                    prec = ifm_precision.S16
                 else:
-                    prec = ifm_precision.W8_U16
+                    prec = ifm_precision.U16
 
             ifm_prec = prec.value
             ifm2_prec = ifm_prec
