@@ -45,9 +45,10 @@ class SupportedOperators:
             # RNN/LSTM/GRU
             | set(("BlockLSTM"))
         )
-        self.elem_wise_main_ops = set(
+        self.unary_elem_wise_main_ops = set(("LeakyRelu", "Abs"))
+        self.binary_elem_wise_main_ops = set(
             (
-                # element-wise
+                # binary element-wise
                 "AddAct",
                 "MulAct",
                 "SubAct",
@@ -61,6 +62,7 @@ class SupportedOperators:
                 "Maximum",
             )
         )
+        self.elem_wise_main_ops = self.binary_elem_wise_main_ops | self.unary_elem_wise_main_ops
         self.activation_ops = set(
             ("QuantizedRelu", "QuantizedRelu1", "QuantizedRelu6", "Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh")
         )
@@ -223,16 +225,18 @@ class SupportedOperators:
             return False
 
         # check batch size
-        if (len(ifm_tensor.shape) > 2 and ifm_tensor.shape[0] != 1) or (
-            len(ifm2_tensor.shape) > 2 and ifm2_tensor.shape[0] != 1
-        ):
-            return False
+        if len(ifm_tensor.shape) > 2 and ifm_tensor.shape[0] != 1:
+                return False
+        if op.type in self.binary_elem_wise_main_ops: # if op type is unary, ifm2_tensor is None
+            if len(ifm2_tensor.shape) > 2 and ifm2_tensor.shape[0] != 1:
+                return False
 
         # check scalar size
-        if (hasattr(ifm_tensor.values, "__len__") and len(ifm_tensor.values) > 1) or (
-            hasattr(ifm2_tensor.values, "__len__") and len(ifm2_tensor.values) > 1
-        ):
+        if hasattr(ifm_tensor.values, "__len__") and len(ifm_tensor.values) > 1:
             return False
+        if op.type in self.binary_elem_wise_main_ops: # same as above
+            if hasattr(ifm2_tensor.values, "__len__") and len(ifm2_tensor.values) > 1:
+                return False
         return True
 
     def check_memory_only_restrictions(self, op):
