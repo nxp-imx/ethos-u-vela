@@ -539,7 +539,7 @@ builtin_operator_map = {
             ),
         ),
     ),
-    # BuiltinOperator.PRELU : "",
+    BuiltinOperator.PRELU : ("Prelu", None),
     BuiltinOperator.MAXIMUM: ("Maximum", OptionsSerializer("MaximumMinimumOptions")),
     BuiltinOperator.ARG_MAX: (
         "ArgMax",
