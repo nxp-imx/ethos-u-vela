@@ -65,7 +65,7 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
     int i,j,got_palette,restart_i,palette_size=0, last_restart_idx, zero_cnt;
     int prev_idx[512];  // For each value, keep track of the index of the previous occurence
     int *restart_pos;
-    int max_palettes = size/64;
+    int max_palettes = (size+63)/64;
 
     // Preliminary allocation of sufficient size
     restart_pos = (int*)malloc( max_palettes*sizeof(int) );
@@ -89,7 +89,10 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
                     if ( (i - last_restart_idx - zero_cnt) > 512 || (palette_size-exclude_zero)>32 ) {
                         // create a new palette because we extend a long lasting palette to require one more index bit
                         DPRINTF("Note: at pos %d create new palette because previous has to increase one more index bit. last_restart_idx %d n %d zero_cnt %d\n", i, last_restart_idx, i - last_restart_idx, zero_cnt );
-                        assert( restart_i < max_palettes );
+                        if (restart_i == max_palettes) {
+                            max_palettes = max_palettes*2;
+                            restart_pos = (int*)realloc( restart_pos, max_palettes*sizeof(int) );
+                        }
                         DPRINTF("restart %d pos %d\n", restart_i, i);
                         restart_pos[restart_i++] = i;
                         last_restart_idx = i;
@@ -154,7 +157,10 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
                     last_restart_idx = restart_idx;
                     DPRINTF("Note: at pos %d create palette of size %d\n", last_restart_idx, new_palette_size);
                     if ( restart_pos[restart_i-1] != last_restart_idx) {
-                        assert( restart_i < max_palettes );
+                        if (restart_i == max_palettes) {
+                            max_palettes = max_palettes*2;
+                            restart_pos = (int*)realloc( restart_pos, max_palettes*sizeof(int) );
+                        }
                         restart_pos[restart_i++] = last_restart_idx;
                     }
                     zero_cnt=0;
