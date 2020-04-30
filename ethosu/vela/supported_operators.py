@@ -240,8 +240,14 @@ class SupportedOperators:
         return True
 
     def check_memory_only_restrictions(self, op):
-        # check stride size
         if op.type == "StridedSlice":
+            # check stride size
             if len(op.inputs) > 3 and any(stride != 1 for stride in op.inputs[3].values):
+                return False
+            # check ellipsis_mask
+            if op.attrs["ellipsis_mask"] != 0:
+                return False
+            # check if both new_axis_mask and shrink_axis_mask have bit set
+            if op.attrs["new_axis_mask"] != 0 and op.attrs["shrink_axis_mask"] != 0:
                 return False
         return True

@@ -208,23 +208,49 @@ def fixup_unpack_output(tens, arch):
     if op.type in set(("Unpack", "StridedSlice")):
         # Unpack is also referred to as Unstack
         # Requires the rewrite_split function to be called on the op afterwards
+
+        reshape_input_shape = tens.shape
         if op.type == "StridedSlice":
+            new_axis_mask = op.attrs["new_axis_mask"]
             shrink_axis_mask = op.attrs["shrink_axis_mask"]
-            if shrink_axis_mask == 0:
+            ellipsis_mask =  op.attrs["ellipsis_mask"]
+
+            if (new_axis_mask != 0 and shrink_axis_mask != 0) or ellipsis_mask != 0:
+                # Not supported, will be put on CPU
+                return tens
+            if shrink_axis_mask == 0 and new_axis_mask == 0:
                 # Equal Rank StridedSlice, no need to insert reshape
                 return tens
+            elif shrink_axis_mask != 0:
+                n = 0
+                axis = 0
+                while shrink_axis_mask:
+                    prev_mask = shrink_axis_mask
+                    n += 1
+                    shrink_axis_mask &= shrink_axis_mask - 1
+                    axis = int(math.log2(prev_mask - shrink_axis_mask))
+                    reshape_input_shape = reshape_input_shape[:axis] + [1] + reshape_input_shape[axis:]
 
-            # Only allow shrinking 1 axis for now
-            assert shrink_axis_mask & (shrink_axis_mask - 1) == 0
-            assert len(tens.shape) == (len(op.inputs[0].shape) - 1)
+                assert len(tens.shape) == (len(op.inputs[0].shape) - n)
+                op.attrs["shrink_axis_mask"] = 0
 
-            axis = int(math.log2(shrink_axis_mask))
-            op.attrs["shrink_axis_mask"] = 0
+            elif new_axis_mask != 0:
+                n = 0
+                axis = 0
+                while new_axis_mask:
+                    prev_mask = new_axis_mask
+                    n += 1
+                    new_axis_mask &= new_axis_mask - 1
+                    axis = int(math.log2(prev_mask - new_axis_mask))
+                    reshape_input_shape = reshape_input_shape[:axis] + reshape_input_shape[(axis + 1):]
+                    new_axis_mask >>= 1
+
+                assert len(tens.shape) == (len(op.inputs[0].shape) + n)
+                op.attrs["new_axis_mask"] = 0
         else:
             axis = int(op.attrs["axis"])
             op.type = "UnpackReshaped"
-
-        desired_shape = tens.shape[:axis] + [1] + tens.shape[axis:]
+            reshape_input_shape = tens.shape[:axis] + [1] + tens.shape[axis:]
 
         # Construct 1 shape tensor to be used by all inserted reshape ops
         new_shape_name = op.name + "_reshape_shape"
@@ -239,7 +265,7 @@ def fixup_unpack_output(tens, arch):
             reshape_op = Operation("Reshape", reshape_name)
             reshape_op.outputs = [out_tens]
             reshape_in = out_tens.clone("_reshaped")
-            reshape_in.shape = reshape_in.storage_shape = reshape_in.bandwidth_shape = desired_shape
+            reshape_in.shape = reshape_in.storage_shape = reshape_in.bandwidth_shape = reshape_input_shape
             reshape_in.ops = [op]
             out_tens.ops = [reshape_op]
             reshape_op.inputs = [reshape_in, new_shape_tens]

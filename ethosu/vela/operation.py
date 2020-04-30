@@ -248,12 +248,10 @@ input and output tensors, as well as an attribute dictionary."""
             end_mask = self.attrs["end_mask"]
             new_axis_mask = self.attrs["new_axis_mask"]
             shrink_axis_mask = self.attrs["shrink_axis_mask"]
-            # TODO: Either extend this to support these different masks or check
-            # for this at an earlier stage and place the op on Cpu if needed
-            assert new_axis_mask == ellipsis_mask == 0
-            # shrink_axis_mask is not supported by the Operation class but the operation
+
+            # shrink_axis_mask/new_axis_mask/ellipsis_mask is not supported by the Operation class but the operation
             # may have the attribute modified and handled in the graph optimization phase.
-            assert shrink_axis_mask == 0
+            assert shrink_axis_mask == new_axis_mask == ellipsis_mask == 0
             assert len(input_tens.shape) == len(out_tens.shape)
 
             for idx in range(len(input_tens.shape)):

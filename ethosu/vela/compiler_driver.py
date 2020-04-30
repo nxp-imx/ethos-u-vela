@@ -141,6 +141,8 @@ def compiler_driver(nng, arch, options, scheduler_options):
                 sg, permanent_storage, ignore_subgraph_input_output_tensors=True, lr_graph=lr_graph_flash
             )
 
+    assert len(nng.subgraphs) > 1, "Error: No operators can be hardware accelerated; cancelling compilation"
+
     # Allocate all Npu constant tensors to the first Npu subgraph since it is
     # processed first during serialization into tensors
     first_npu_sg = nng.subgraphs[1]
