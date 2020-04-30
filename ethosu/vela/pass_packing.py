@@ -67,6 +67,8 @@ mac_main_ops = set(
         "MaxPool",
         "AvgPoolAct",
         "MaxPoolAct",
+        # deconvolution
+        "ResizeBilinear",
     )
 )
 

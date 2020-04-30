@@ -283,7 +283,7 @@ def add_padding_fields(op, arch):
         if "Conv" in op.type:
             kernel_size = op.inputs[1].shape[:2]
             input_shape = op.inputs[0].shape
-        elif "Pool" in op.type:
+        elif "Pool" in op.type or "ResizeBilinear" == op.type:
             kernel_size = op.attrs["ksize"][1:3]
             input_shape = op.inputs[0].shape
         elif op.type == "ExtractImagePatches":
@@ -314,7 +314,7 @@ fc_op = set(
     )
 )
 depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
-pool_op = set(("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct"))
+pool_op = set(("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear",))
 elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "LeakyRelu", "Abs"))
 activation_ops = set(("Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh"))
 memory_only_ops = set(("Reshape",))

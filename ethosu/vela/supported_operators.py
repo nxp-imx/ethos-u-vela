@@ -44,6 +44,8 @@ class SupportedOperators:
             | self.fc_vector_products
             # RNN/LSTM/GRU
             | set(("BlockLSTM"))
+            # deconvolution
+            | set(("ResizeBilinear",))
         )
         self.unary_elem_wise_main_ops = set(("LeakyRelu", "Abs"))
         self.binary_elem_wise_main_ops = set(

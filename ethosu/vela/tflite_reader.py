@@ -156,6 +156,22 @@ class TFLiteSubgraph:
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data.BuiltinOptions(), op_data.CustomOptionsAsNumpy())
 
+            if op_type.startswith("ResizeBilinear"):
+                upscaled_shape = [op.inputs[0].shape[1] * 2, op.inputs[0].shape[2] * 2]
+                out_shape = op.outputs[0].shape[1:3]
+                if not op.attrs['align_corners'] and out_shape == upscaled_shape:
+                    # this means the output is supposed to be a x2 upscale,
+                    # so we need to do SAME padding
+                    op.attrs.update({'padding': b'SAME'})
+                elif (op.attrs['align_corners']
+                    and out_shape == [upscaled_shape[0] - 1, upscaled_shape[1] - 1]):
+                    # here we can just run the avg pool without padding and
+                    # produce a (M * 2 - 1, N * 2 - 1) sized output
+                    op.attrs.update({'padding': b'VALID'})
+                else:
+                    assert False, "Only 2x upscaling is supported"
+                op.attrs.update({'filter_width': 2, 'filter_height': 2, 'stride_w': 1, 'stride_h': 1,})
+
             if "stride_w" in op.attrs:
                 op.attrs["strides"] = (1, op.attrs["stride_h"], op.attrs["stride_w"], 1)
             if "filter_width" in op.attrs:

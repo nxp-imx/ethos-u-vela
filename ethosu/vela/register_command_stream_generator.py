@@ -401,6 +401,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             use_global_scale = False
             # Specifies type of rounding to be used.
             rounding_mode = rounding.TFL
+            if primary_op.type == 'ResizeBilinear':
+                rounding_mode = rounding.TRUNCATE
             fmf = primary_op.attrs.get("fused_memory_function", None)
             faf = primary_op.attrs.get("fused_activation_function", None)
 
@@ -537,7 +539,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
             emit.cmd0_with_param(cmd0.NPU_SET_ACC_FORMAT, acc_format_map[shared_buffer.use_accumulator_element])
 
-            emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, 0)
+            if primary_op.type == 'ResizeBilinear':
+                # perform nearest neighbor upscale
+                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, 1)
+            else:
+                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, 0)
 
             if npu_block_type in set(
                 (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.Pooling)
@@ -579,7 +585,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
                     valid_padding = sum(explicit_padding) == 0
 
-                    if primary_op.type in set(("AvgPool", "AvgPoolAct")) and valid_padding:
+                    if primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear")) and valid_padding:
                         # For valid padding vela has to output scaling values
                         if faf == "Sigmoid" or faf == "Tanh":
                             rescale = 0x3000 * cmd.ifm_tensor.quantization.scale_f32
