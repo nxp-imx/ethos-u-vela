@@ -88,7 +88,7 @@ def advanced_elementwise_add_sub_scale(input1_scale, input2_scale, output_scale,
     # Always scale the smaller of the input scales
     max_input_scale = max(input1_scale, input2_scale)
     min_input_scale = min(input1_scale, input2_scale)
-    input_shift = 20 if bitdepth == 8 else 14
+    input_shift = 20 if bitdepth == 8 else 15
     op_to_scale = OperandToScale.OPa if input1_scale < input2_scale else OperandToScale.OPb
 
     input1_rescale, _, out_scale, out_shift = simplified_elementwise_add_sub_scale(
