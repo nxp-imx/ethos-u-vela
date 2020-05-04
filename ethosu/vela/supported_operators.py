@@ -73,7 +73,7 @@ class SupportedOperators:
             # bias add and batch norm
             | set(("QuantizedBiasAdd", "Requantize", "QuantizedBatchNorm", "BiasAdd", "FusedBatchNorm"))
         )
-        self.split_ops = set(("Split", "StridedSlice", "Slice", "UnpackReshaped", "Unpack"))
+        self.split_ops = set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped", "Unpack"))
         self.concat_ops = set(("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped", "Pack"))
         self.memory_only_ops = (
             set(("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims")) | self.concat_ops | self.split_ops

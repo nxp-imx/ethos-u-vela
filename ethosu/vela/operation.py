@@ -194,7 +194,7 @@ input and output tensors, as well as an attribute dictionary."""
 
         return inputs, axis
 
-    split_ops = set(("Split", "StridedSlice", "Slice", "UnpackReshaped"))
+    split_ops = set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped"))
 
     def is_split_op(self):
         return self.type in Operation.split_ops
@@ -206,12 +206,6 @@ input and output tensors, as well as an attribute dictionary."""
         offset_end = None
         axis = None
         if self.type == "Split":
-            # TODO: Extend split capabilities
-            # If num_or_size_splits is an integer, then value is split along dimension axis into num_split smaller
-            # tensors. This requires that num_split evenly divides value.shape[axis].
-            # If num_or_size_splits is a 1-D Tensor (or list), we call it size_splits and value is split into
-            # len(size_splits) elements. The shape of the i-th element has the same size as the value except along
-            # dimension axis where the size is size_splits[i].
             num_splits = self.attrs.get("num_splits")
             axis_tens = self.inputs[0]
             assert len(axis_tens.ops) == 1 and axis_tens.ops[0].type == "Const"
@@ -219,6 +213,19 @@ input and output tensors, as well as an attribute dictionary."""
             input_tens = self.inputs[1]
             outputs = self.outputs
             assert num_splits == len(outputs)
+
+        if self.type == "SplitV":
+            num_splits = self.attrs.get("num_splits")
+            input_tens = self.inputs[0]
+            size_tens = self.inputs[1]
+            assert len(size_tens.ops) == 1 and size_tens.ops[0].type == "Const"
+            sizes = size_tens.values
+            axis_tens = self.inputs[2]
+            assert len(axis_tens.ops) == 1 and axis_tens.ops[0].type == "Const"
+            axis = int(axis_tens.values)
+            outputs = self.outputs
+            assert num_splits == len(outputs)
+            assert sum(sizes) == input_tens.shape[axis]
 
         elif self.type == "Slice":
             input_tens, begin_tens, size_tens = self.inputs
