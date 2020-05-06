@@ -142,7 +142,7 @@ class SupportedOperators:
 
     def check_convolution_restrictions(self, op):
         # check stride
-        if op.attrs["stride_w"] > 2 or op.attrs["stride_h"] > 2:
+        if op.attrs["stride_w"] > 3 or op.attrs["stride_h"] > 3:
             return False
 
         # check dilation
@@ -182,7 +182,7 @@ class SupportedOperators:
 
     def check_pooling_restrictions(self, op):
         # check stride
-        if op.attrs["stride_w"] > 2 or op.attrs["stride_h"] > 2:
+        if op.attrs["stride_w"] > 3 or op.attrs["stride_h"] > 3:
             return False
 
         # check data type

@@ -348,15 +348,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             + ifm_odd_2x_height_enable
         ) // upscaling
 
-        if kernel.stride.y == 1:
-            ifm_block_height = round_up(ifm_block_height, self.ofm_ublock.height)
-        elif kernel.stride.y == 2:
-            if (self.ofm_ublock.height == 2) and (ifm_block_height % 4 == 2):
-                ifm_block_height = ifm_block_height + 2
-            else:
-                ifm_block_height = round_up(ifm_block_height, self.ofm_ublock.height)
-        else:
-            assert False
+        ifm_block_height = round_up(ifm_block_height, self.ofm_ublock.height)
 
         # Width
         ifm_odd_2x_width_enable = 0
@@ -367,15 +359,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             + ifm_odd_2x_width_enable
         ) // upscaling
 
-        if kernel.stride.x == 1:
-            ifm_block_width = round_up(ifm_block_width, self.ofm_ublock.width)
-        elif kernel.stride.x == 2:
-            if (self.ofm_ublock.width == 2) and (ifm_block_width % 4 == 2):
-                ifm_block_width = ifm_block_width + 2
-            else:
-                ifm_block_width = round_up(ifm_block_width, self.ofm_ublock.width)
-        else:
-            assert False
+        ifm_block_width = round_up(ifm_block_width, self.ofm_ublock.width)
 
         return Block(ifm_block_width, ifm_block_height, ifm_block_depth)
 

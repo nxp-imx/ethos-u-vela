@@ -569,8 +569,15 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM_PAD_BOTTOM, explicit_padding[2])
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM_PAD_RIGHT, explicit_padding[3])
 
-                stride = primary_op.attrs["strides"][2] - 1
-                stride |= (primary_op.attrs["strides"][1] - 1) << 1
+                # set kernel x stride low bit
+                stride = primary_op.attrs["strides"][2] - 1 & 1
+                # set kernel y stride low bit
+                stride |= (primary_op.attrs["strides"][1] - 1 & 1) << 1
+                # set kernel x stride extension bits
+                stride |= (primary_op.attrs["strides"][2] - 1 >> 1) << 6
+                # set kernel y stride extension bits
+                stride |= (primary_op.attrs["strides"][1] - 1 >> 1) << 9
+
 
                 if npu_block_type == NpuBlockType.Pooling:
                     k_height, k_width = primary_op.attrs["ksize"][1:3]
