@@ -271,10 +271,10 @@ def has_prev_op_dependency(prev_cmd, cmd):
     if prev_cmd is None:
         return False
     if (prev_cmd.cmdtype == cmd.cmdtype == CommandType.NpuStripe) and (prev_cmd.ps != cmd.ps):
-        if prev_cmd.ofm_tensor == cmd.ifm_tensor:
+        if prev_cmd.ofm_tensor.equivalence_id == cmd.ifm_tensor.equivalence_id:
             return True
-        else:
-            return prev_cmd.ofm_tensor.equivalence_id == cmd.ifm_tensor.equivalence_id
+        elif cmd.ifm2_tensor is not None:
+            return (prev_cmd.ofm_tensor.equivalence_id == cmd.ifm2_tensor.equivalence_id)
     return False
 
 
