@@ -144,13 +144,14 @@ def compiler_driver(nng, arch, options, scheduler_options):
     # processed first during serialization into tensors
     first_npu_sg = nng.subgraphs[1]
     assert first_npu_sg.placement == PassPlacement.Npu
+    # Use the linear allocator for constant tensors
     tensor_allocation.allocate_tensors(
         nng,
         first_npu_sg,
         arch,
         permanent_storage,
         scheduler_options.use_ifm_ofm_overlap,
-        options.tensor_allocator,
+        TensorAllocator.LinearAlloc,
         options.verbose_allocation,
         options.show_minimum_possible_allocation,
         lr_graph_flash,
@@ -195,7 +196,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
         arch,
         permanent_storage,
         scheduler_options.use_ifm_ofm_overlap,
-        options.tensor_allocator,
+        TensorAllocator.LinearAlloc,
         options.verbose_allocation,
         options.show_minimum_possible_allocation,
     )

@@ -27,18 +27,26 @@ from .nn_graph import TensorAllocator
 from .tensor import MemArea
 
 
-def linear_allocate_live_ranges(live_ranges, alloc_granularity=256):
+def linear_allocate_live_ranges(live_ranges, alloc_granularity=16):
+    # Allocates using increasing addresses. Duplicate constant tensors will be allocated to the same address
     total_sz = 0
     allocated_tensors = []
 
-    # just assign increasing addresses
+    # just assign increasing addresses, except for duplicates
     for tens, lr in live_ranges.ranges.items():
         if tens in allocated_tensors:
             continue
 
-        lr.set_address(total_sz)
+        address = total_sz
+        if tens.weight_compression_config is not None:
+            for allocated_tens in allocated_tensors:
+                if allocated_tens.weight_compression_config == tens.weight_compression_config:
+                    address = allocated_tens.address
+                    break
+        lr.set_address(address)
         allocated_tensors += lr.tensors
-        total_sz += numeric_util.round_up(int(math.ceil(lr.size)), alloc_granularity)
+        if address == total_sz:
+            total_sz += numeric_util.round_up(int(math.ceil(lr.size)), alloc_granularity)
 
     return total_sz
 

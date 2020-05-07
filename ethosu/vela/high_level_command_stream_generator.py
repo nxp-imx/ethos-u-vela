@@ -27,12 +27,8 @@ from .operation import NpuBlockType
 from .tensor import TensorPurpose
 
 
-def need_dma(tens):
-    return len(tens.ops) == 1 and tens.ops[0].type == "DMA"
-
-
 def dma_if_necessary(ps, box, tensor):
-    if need_dma(tensor):
+    if tensor.needs_dma():
         dma_op = tensor.ops[0]
         in_tensor = dma_op.inputs[0]
         yield DMA(in_tensor, tensor, box)
@@ -93,7 +89,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
     if strat == SchedulingStrategy.WeightStream:
         ofm_step = block_config[-1]
         ofm_stop = ofm_end[-1]
-        if weight_tensor is None or not need_dma(weight_tensor):
+        if weight_tensor is None or not weight_tensor.needs_dma():
             ofm_step = ofm_stop
         for start in range(ofm_start[-1], ofm_stop, ofm_step):
             end = min(start + ofm_step, ofm_stop)

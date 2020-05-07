@@ -17,7 +17,6 @@
 # Mark purpose and select formats for Tensors. Also compresses the weights.
 from . import rewrite_graph
 from . import weight_compressor
-from .architecture_features import Block
 from .operation import NpuBlockType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
@@ -348,18 +347,12 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
     for tens, fmt in formats_for_tensor.items():
         tens.set_format(fmt, arch)
         if fmt == TensorFormat.WeightsCompressed and tens.values is not None:
-            npu_block_type = find_npu_usage_of_tensor(tens)
-            if len(tens.ops) == 1 and tens.ops[0].type == "DMA":
-                weight_compressor.compress_weights(tens, arch, npu_block_type, Block(32, 32, 32), 32)
+            src_tens = tens.get_dma_src_tensor()
+            if src_tens is not None:
+                npu_block_type = find_npu_usage_of_tensor(tens)
+                weight_compressor.compress_weights(arch, nng, tens, npu_block_type, 32, 32)
                 # Alias compressed weights back into source tensor
-                src_tens = tens.ops[0].inputs[0]
-                src_tens.compressed_values = tens.compressed_values
-                src_tens.storage_shape = tens.storage_shape
-                src_tens.brick_size = tens.brick_size
-                src_tens.weight_compression_scales = tens.weight_compression_scales
-                src_tens.weight_compressed_offsets = tens.weight_compressed_offsets
-                src_tens.compression_scale_for_worst_weight_stream = tens.compression_scale_for_worst_weight_stream
-                src_tens.storage_compression_scale = tens.storage_compression_scale
+                src_tens.copy_compressed_weight_info(tens)
 
     if verbose_tensor_format:
         nng.print_passes_with_tensors()

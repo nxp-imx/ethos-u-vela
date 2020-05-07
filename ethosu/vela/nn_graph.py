@@ -485,6 +485,7 @@ class Graph:
         self.bits_per_element = {}
         self.total_size = {}
         self.total_elements = {}
+        self.weight_cache = None  # See CompressedWeightCache
 
     def get_root_subgraph(self):
         return self.subgraphs[0]

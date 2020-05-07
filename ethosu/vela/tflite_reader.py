@@ -39,24 +39,24 @@ def decode_str(s):
     return s.decode("utf-8")
 
 
-def reshape_tensor_add_const_op(tens, reorder):
-    if not tens.reshaped:
-        original_shape = tens.shape
-        tens.name = tens.name + "_reshape"
-        tens.shape = [original_shape[idx] for idx in reorder]
-        tens.bandwidth_shape = tens.shape
-        tens.storage_shape = tens.shape
+def clone_and_reshape_tensor(src_tens, reorder):
 
-        if tens.values is not None:
-            tens.values = tens.values.transpose(reorder)
+    tens = src_tens.clone("_reshape")
+    tens.shape = [src_tens.shape[idx] for idx in reorder]
+    tens.bandwidth_shape = tens.shape
+    tens.storage_shape = tens.shape
 
-        if tens.quant_values is not None:
-            tens.quant_values = tens.quant_values.transpose(reorder)
+    if tens.values is not None:
+        tens.values = tens.values.transpose(reorder)
 
-        op = Operation("Const", tens.name)
-        op.outputs = [tens]
-        tens.ops = [op]
-        tens.reshaped = True
+    if tens.quant_values is not None:
+        tens.quant_values = tens.quant_values.transpose(reorder)
+
+    op = Operation("Const", tens.name)
+    op.outputs = [tens]
+    tens.ops = [op]
+
+    return tens
 
 
 class TFLiteSubgraph:
@@ -137,10 +137,10 @@ class TFLiteSubgraph:
         activation_function_to_split_out = None
 
         if op_type.startswith("DepthwiseConv2d") or op_type.startswith("Conv2D"):
-            reshape_tensor_add_const_op(inputs[1], (1, 2, 3, 0))
+            inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 2, 3, 0))
 
         if op_type.startswith("FullyConnected"):
-            reshape_tensor_add_const_op(inputs[1], (1, 0))
+            inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 0))
 
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data.BuiltinOptions(), op_data.CustomOptionsAsNumpy())
