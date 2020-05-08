@@ -19,7 +19,7 @@
 from ctypes import *
 from enum import Enum
 
-ARCH_VER = '0.169.0'
+ARCH_VER = '1.0.0'
 
 
 class DEBUG_INTERNAL(Enum):
@@ -284,11 +284,12 @@ class DEBUG_INTERNAL(Enum):
 class HW_DEBUG_INTERNAL(Enum):
     WD_STATUS = 0x0100
     MAC_STATUS = 0x0104
-    DMA_STATUS = 0x0108
-    AO_STATUS = 0x0110
+    AO_STATUS = 0x0108
+    DMA_STATUS0 = 0x0110
+    DMA_STATUS1 = 0x0114
     CLKFORCE = 0x0140
-    DEBUG = 0x0144
-    DEBUG2 = 0x0148
+    DEBUG_ADDR = 0x0144
+    DEBUG_MISC = 0x0148
     DEBUGCORE = 0x014C
     SIZE = 0x0150
 
@@ -347,7 +348,7 @@ class NPU_REG(Enum):
     AXI_LIMIT3 = 0x004C
     SIZE = 0x0050
 
-class PMU_INTERNAL(Enum):
+class PMU(Enum):
     PMCR = 0x0180
     PMCNTENSET = 0x0184
     PMCNTENCLR = 0x0188
@@ -451,7 +452,6 @@ class TSU_DEBUG_INTERNAL(Enum):
     WEIGHT_BASE = 0x0A80
     WEIGHT_BASE_HI = 0x0A84
     WEIGHT_LENGTH = 0x0A88
-    WEIGHT_LENGTH_HI = 0x0A8C
     SCALE_BASE = 0x0A90
     SCALE_BASE_HI = 0x0A94
     SCALE_LENGTH = 0x0A98
@@ -487,7 +487,6 @@ class TSU_DEBUG_INTERNAL(Enum):
     WEIGHT1_BASE = 0x0B40
     WEIGHT1_BASE_HI = 0x0B44
     WEIGHT1_LENGTH = 0x0B48
-    WEIGHT1_LENGTH_HI = 0x0B4C
     SCALE1_BASE = 0x0B50
     SCALE1_BASE_HI = 0x0B54
     SCALE1_LENGTH = 0x0B58
@@ -703,6 +702,8 @@ class pmu_event_type(Enum):
     NO_EVENT = 0x00
     CYCLE = 0x11
     NPU_IDLE = 0x20
+    CC_STALLED_ON_BLOCKDEP = 0x21
+    CC_STALLED_ON_SHRAM_RECONFIG = 0x22
     MAC_ACTIVE = 0x30
     MAC_ACTIVE_8BIT = 0x31
     MAC_ACTIVE_16BIT = 0x32
@@ -712,6 +713,8 @@ class pmu_event_type(Enum):
     MAC_STALLED_BY_ACC = 0x36
     MAC_STALLED_BY_IB = 0x37
     MAC_ACTIVE_32BIT = 0x38
+    MAC_STALLED_BY_INT_W = 0x39
+    MAC_STALLED_BY_INT_ACC = 0x3A
     AO_ACTIVE = 0x40
     AO_ACTIVE_8BIT = 0x41
     AO_ACTIVE_16BIT = 0x42
@@ -803,6 +806,328 @@ class stride_mode(Enum):
     STRIDE_MODE_1D = 0
     STRIDE_MODE_2D = 1
     STRIDE_MODE_3D = 2
+
+
+class wd_status_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("core_slice_state", c_uint32, 2),
+            ("core_idle", c_uint32, 1),
+            ("ctrl_state", c_uint32, 2),
+            ("ctrl_idle", c_uint32, 1),
+            ("write_buf_index0", c_uint32, 3),
+            ("write_buf_valid0", c_uint32, 1),
+            ("write_buf_idle0", c_uint32, 1),
+            ("write_buf_index1", c_uint32, 3),
+            ("write_buf_valid1", c_uint32, 1),
+            ("write_buf_idle1", c_uint32, 1),
+            ("events", c_uint32, 12),
+            ("reserved0", c_uint32, 4),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_core_slice_state(self, value): self.bits.core_slice_state = value
+    def get_core_slice_state(self): value = self.bits.core_slice_state; return value
+    def set_core_idle(self, value): self.bits.core_idle = value
+    def get_core_idle(self): value = self.bits.core_idle; return value
+    def set_ctrl_state(self, value): self.bits.ctrl_state = value
+    def get_ctrl_state(self): value = self.bits.ctrl_state; return value
+    def set_ctrl_idle(self, value): self.bits.ctrl_idle = value
+    def get_ctrl_idle(self): value = self.bits.ctrl_idle; return value
+    def set_write_buf_index0(self, value): self.bits.write_buf_index0 = value
+    def get_write_buf_index0(self): value = self.bits.write_buf_index0; return value
+    def set_write_buf_valid0(self, value): self.bits.write_buf_valid0 = value
+    def get_write_buf_valid0(self): value = self.bits.write_buf_valid0; return value
+    def set_write_buf_idle0(self, value): self.bits.write_buf_idle0 = value
+    def get_write_buf_idle0(self): value = self.bits.write_buf_idle0; return value
+    def set_write_buf_index1(self, value): self.bits.write_buf_index1 = value
+    def get_write_buf_index1(self): value = self.bits.write_buf_index1; return value
+    def set_write_buf_valid1(self, value): self.bits.write_buf_valid1 = value
+    def get_write_buf_valid1(self): value = self.bits.write_buf_valid1; return value
+    def set_write_buf_idle1(self, value): self.bits.write_buf_idle1 = value
+    def get_write_buf_idle1(self): value = self.bits.write_buf_idle1; return value
+    def set_events(self, value): self.bits.events = value
+    def get_events(self): value = self.bits.events; return value
+
+
+class mac_status_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("block_cfg_valid", c_uint32, 1),
+            ("trav_en", c_uint32, 1),
+            ("wait_for_ib", c_uint32, 1),
+            ("wait_for_acc_buf", c_uint32, 1),
+            ("wait_for_weights", c_uint32, 1),
+            ("stall_stripe", c_uint32, 1),
+            ("dw_sel", c_uint32, 1),
+            ("wait_for_dw0_ready", c_uint32, 1),
+            ("wait_for_dw1_ready", c_uint32, 1),
+            ("acc_buf_sel_ai", c_uint32, 1),
+            ("wait_for_acc0_ready", c_uint32, 1),
+            ("wait_for_acc1_ready", c_uint32, 1),
+            ("acc_buf_sel_aa", c_uint32, 1),
+            ("acc0_valid", c_uint32, 1),
+            ("acc1_valid", c_uint32, 1),
+            ("reserved0", c_uint32, 1),
+            ("events", c_uint32, 11),
+            ("reserved1", c_uint32, 5),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_block_cfg_valid(self, value): self.bits.block_cfg_valid = value
+    def get_block_cfg_valid(self): value = self.bits.block_cfg_valid; return value
+    def set_trav_en(self, value): self.bits.trav_en = value
+    def get_trav_en(self): value = self.bits.trav_en; return value
+    def set_wait_for_ib(self, value): self.bits.wait_for_ib = value
+    def get_wait_for_ib(self): value = self.bits.wait_for_ib; return value
+    def set_wait_for_acc_buf(self, value): self.bits.wait_for_acc_buf = value
+    def get_wait_for_acc_buf(self): value = self.bits.wait_for_acc_buf; return value
+    def set_wait_for_weights(self, value): self.bits.wait_for_weights = value
+    def get_wait_for_weights(self): value = self.bits.wait_for_weights; return value
+    def set_stall_stripe(self, value): self.bits.stall_stripe = value
+    def get_stall_stripe(self): value = self.bits.stall_stripe; return value
+    def set_dw_sel(self, value): self.bits.dw_sel = value
+    def get_dw_sel(self): value = self.bits.dw_sel; return value
+    def set_wait_for_dw0_ready(self, value): self.bits.wait_for_dw0_ready = value
+    def get_wait_for_dw0_ready(self): value = self.bits.wait_for_dw0_ready; return value
+    def set_wait_for_dw1_ready(self, value): self.bits.wait_for_dw1_ready = value
+    def get_wait_for_dw1_ready(self): value = self.bits.wait_for_dw1_ready; return value
+    def set_acc_buf_sel_ai(self, value): self.bits.acc_buf_sel_ai = value
+    def get_acc_buf_sel_ai(self): value = self.bits.acc_buf_sel_ai; return value
+    def set_wait_for_acc0_ready(self, value): self.bits.wait_for_acc0_ready = value
+    def get_wait_for_acc0_ready(self): value = self.bits.wait_for_acc0_ready; return value
+    def set_wait_for_acc1_ready(self, value): self.bits.wait_for_acc1_ready = value
+    def get_wait_for_acc1_ready(self): value = self.bits.wait_for_acc1_ready; return value
+    def set_acc_buf_sel_aa(self, value): self.bits.acc_buf_sel_aa = value
+    def get_acc_buf_sel_aa(self): value = self.bits.acc_buf_sel_aa; return value
+    def set_acc0_valid(self, value): self.bits.acc0_valid = value
+    def get_acc0_valid(self): value = self.bits.acc0_valid; return value
+    def set_acc1_valid(self, value): self.bits.acc1_valid = value
+    def get_acc1_valid(self): value = self.bits.acc1_valid; return value
+    def set_events(self, value): self.bits.events = value
+    def get_events(self): value = self.bits.events; return value
+
+
+class ao_status_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("cmd_sbw_valid", c_uint32, 1),
+            ("cmd_act_valid", c_uint32, 1),
+            ("cmd_ctl_valid", c_uint32, 1),
+            ("cmd_scl_valid", c_uint32, 1),
+            ("cmd_sbr_valid", c_uint32, 1),
+            ("cmd_ofm_valid", c_uint32, 1),
+            ("blk_cmd_ready", c_uint32, 1),
+            ("blk_cmd_valid", c_uint32, 1),
+            ("reserved0", c_uint32, 8),
+            ("events", c_uint32, 8),
+            ("reserved1", c_uint32, 8),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_cmd_sbw_valid(self, value): self.bits.cmd_sbw_valid = value
+    def get_cmd_sbw_valid(self): value = self.bits.cmd_sbw_valid; return value
+    def set_cmd_act_valid(self, value): self.bits.cmd_act_valid = value
+    def get_cmd_act_valid(self): value = self.bits.cmd_act_valid; return value
+    def set_cmd_ctl_valid(self, value): self.bits.cmd_ctl_valid = value
+    def get_cmd_ctl_valid(self): value = self.bits.cmd_ctl_valid; return value
+    def set_cmd_scl_valid(self, value): self.bits.cmd_scl_valid = value
+    def get_cmd_scl_valid(self): value = self.bits.cmd_scl_valid; return value
+    def set_cmd_sbr_valid(self, value): self.bits.cmd_sbr_valid = value
+    def get_cmd_sbr_valid(self): value = self.bits.cmd_sbr_valid; return value
+    def set_cmd_ofm_valid(self, value): self.bits.cmd_ofm_valid = value
+    def get_cmd_ofm_valid(self): value = self.bits.cmd_ofm_valid; return value
+    def set_blk_cmd_ready(self, value): self.bits.blk_cmd_ready = value
+    def get_blk_cmd_ready(self): value = self.bits.blk_cmd_ready; return value
+    def set_blk_cmd_valid(self, value): self.bits.blk_cmd_valid = value
+    def get_blk_cmd_valid(self): value = self.bits.blk_cmd_valid; return value
+    def set_events(self, value): self.bits.events = value
+    def get_events(self): value = self.bits.events; return value
+
+
+class dma_status0_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("cmd_idle", c_uint32, 1),
+            ("ifm_idle", c_uint32, 1),
+            ("wgt_idle_c0", c_uint32, 1),
+            ("bas_idle_c0", c_uint32, 1),
+            ("m2m_idle", c_uint32, 1),
+            ("ofm_idle", c_uint32, 1),
+            ("halt_req", c_uint32, 1),
+            ("halt_ack", c_uint32, 1),
+            ("pause_req", c_uint32, 1),
+            ("pause_ack", c_uint32, 1),
+            ("ib0_ai_valid_c0", c_uint32, 1),
+            ("ib0_ai_ready_c0", c_uint32, 1),
+            ("ib1_ai_valid_c0", c_uint32, 1),
+            ("ib1_ai_ready_c0", c_uint32, 1),
+            ("ib0_ao_valid_c0", c_uint32, 1),
+            ("ib0_ao_ready_c0", c_uint32, 1),
+            ("ib1_ao_valid_c0", c_uint32, 1),
+            ("ib1_ao_ready_c0", c_uint32, 1),
+            ("ob0_valid_c0", c_uint32, 1),
+            ("ob0_ready_c0", c_uint32, 1),
+            ("ob1_valid_c0", c_uint32, 1),
+            ("ob1_ready_c0", c_uint32, 1),
+            ("cmd_valid", c_uint32, 1),
+            ("cmd_ready", c_uint32, 1),
+            ("wd_bitstream_valid_c0", c_uint32, 1),
+            ("wd_bitstream_ready_c0", c_uint32, 1),
+            ("bs_bitstream_valid_c0", c_uint32, 1),
+            ("bs_bitstream_ready_c0", c_uint32, 1),
+            ("axi0_ar_stalled", c_uint32, 1),
+            ("axi0_rd_limit_stall", c_uint32, 1),
+            ("axi0_aw_stalled", c_uint32, 1),
+            ("axi0_w_stalled", c_uint32, 1),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_cmd_idle(self, value): self.bits.cmd_idle = value
+    def get_cmd_idle(self): value = self.bits.cmd_idle; return value
+    def set_ifm_idle(self, value): self.bits.ifm_idle = value
+    def get_ifm_idle(self): value = self.bits.ifm_idle; return value
+    def set_wgt_idle_c0(self, value): self.bits.wgt_idle_c0 = value
+    def get_wgt_idle_c0(self): value = self.bits.wgt_idle_c0; return value
+    def set_bas_idle_c0(self, value): self.bits.bas_idle_c0 = value
+    def get_bas_idle_c0(self): value = self.bits.bas_idle_c0; return value
+    def set_m2m_idle(self, value): self.bits.m2m_idle = value
+    def get_m2m_idle(self): value = self.bits.m2m_idle; return value
+    def set_ofm_idle(self, value): self.bits.ofm_idle = value
+    def get_ofm_idle(self): value = self.bits.ofm_idle; return value
+    def set_halt_req(self, value): self.bits.halt_req = value
+    def get_halt_req(self): value = self.bits.halt_req; return value
+    def set_halt_ack(self, value): self.bits.halt_ack = value
+    def get_halt_ack(self): value = self.bits.halt_ack; return value
+    def set_pause_req(self, value): self.bits.pause_req = value
+    def get_pause_req(self): value = self.bits.pause_req; return value
+    def set_pause_ack(self, value): self.bits.pause_ack = value
+    def get_pause_ack(self): value = self.bits.pause_ack; return value
+    def set_ib0_ai_valid_c0(self, value): self.bits.ib0_ai_valid_c0 = value
+    def get_ib0_ai_valid_c0(self): value = self.bits.ib0_ai_valid_c0; return value
+    def set_ib0_ai_ready_c0(self, value): self.bits.ib0_ai_ready_c0 = value
+    def get_ib0_ai_ready_c0(self): value = self.bits.ib0_ai_ready_c0; return value
+    def set_ib1_ai_valid_c0(self, value): self.bits.ib1_ai_valid_c0 = value
+    def get_ib1_ai_valid_c0(self): value = self.bits.ib1_ai_valid_c0; return value
+    def set_ib1_ai_ready_c0(self, value): self.bits.ib1_ai_ready_c0 = value
+    def get_ib1_ai_ready_c0(self): value = self.bits.ib1_ai_ready_c0; return value
+    def set_ib0_ao_valid_c0(self, value): self.bits.ib0_ao_valid_c0 = value
+    def get_ib0_ao_valid_c0(self): value = self.bits.ib0_ao_valid_c0; return value
+    def set_ib0_ao_ready_c0(self, value): self.bits.ib0_ao_ready_c0 = value
+    def get_ib0_ao_ready_c0(self): value = self.bits.ib0_ao_ready_c0; return value
+    def set_ib1_ao_valid_c0(self, value): self.bits.ib1_ao_valid_c0 = value
+    def get_ib1_ao_valid_c0(self): value = self.bits.ib1_ao_valid_c0; return value
+    def set_ib1_ao_ready_c0(self, value): self.bits.ib1_ao_ready_c0 = value
+    def get_ib1_ao_ready_c0(self): value = self.bits.ib1_ao_ready_c0; return value
+    def set_ob0_valid_c0(self, value): self.bits.ob0_valid_c0 = value
+    def get_ob0_valid_c0(self): value = self.bits.ob0_valid_c0; return value
+    def set_ob0_ready_c0(self, value): self.bits.ob0_ready_c0 = value
+    def get_ob0_ready_c0(self): value = self.bits.ob0_ready_c0; return value
+    def set_ob1_valid_c0(self, value): self.bits.ob1_valid_c0 = value
+    def get_ob1_valid_c0(self): value = self.bits.ob1_valid_c0; return value
+    def set_ob1_ready_c0(self, value): self.bits.ob1_ready_c0 = value
+    def get_ob1_ready_c0(self): value = self.bits.ob1_ready_c0; return value
+    def set_cmd_valid(self, value): self.bits.cmd_valid = value
+    def get_cmd_valid(self): value = self.bits.cmd_valid; return value
+    def set_cmd_ready(self, value): self.bits.cmd_ready = value
+    def get_cmd_ready(self): value = self.bits.cmd_ready; return value
+    def set_wd_bitstream_valid_c0(self, value): self.bits.wd_bitstream_valid_c0 = value
+    def get_wd_bitstream_valid_c0(self): value = self.bits.wd_bitstream_valid_c0; return value
+    def set_wd_bitstream_ready_c0(self, value): self.bits.wd_bitstream_ready_c0 = value
+    def get_wd_bitstream_ready_c0(self): value = self.bits.wd_bitstream_ready_c0; return value
+    def set_bs_bitstream_valid_c0(self, value): self.bits.bs_bitstream_valid_c0 = value
+    def get_bs_bitstream_valid_c0(self): value = self.bits.bs_bitstream_valid_c0; return value
+    def set_bs_bitstream_ready_c0(self, value): self.bits.bs_bitstream_ready_c0 = value
+    def get_bs_bitstream_ready_c0(self): value = self.bits.bs_bitstream_ready_c0; return value
+    def set_axi0_ar_stalled(self, value): self.bits.axi0_ar_stalled = value
+    def get_axi0_ar_stalled(self): value = self.bits.axi0_ar_stalled; return value
+    def set_axi0_rd_limit_stall(self, value): self.bits.axi0_rd_limit_stall = value
+    def get_axi0_rd_limit_stall(self): value = self.bits.axi0_rd_limit_stall; return value
+    def set_axi0_aw_stalled(self, value): self.bits.axi0_aw_stalled = value
+    def get_axi0_aw_stalled(self): value = self.bits.axi0_aw_stalled; return value
+    def set_axi0_w_stalled(self, value): self.bits.axi0_w_stalled = value
+    def get_axi0_w_stalled(self): value = self.bits.axi0_w_stalled; return value
+
+
+class dma_status1_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("axi0_wr_limit_stall", c_uint32, 1),
+            ("axi1_ar_stalled", c_uint32, 1),
+            ("axi1_rd_limit_stall", c_uint32, 1),
+            ("axi1_wr_stalled", c_uint32, 1),
+            ("axi1_w_stalled", c_uint32, 1),
+            ("axi1_wr_limit_stall", c_uint32, 1),
+            ("wgt_idle_c1", c_uint32, 1),
+            ("bas_idle_c1", c_uint32, 1),
+            ("ib0_ai_valid_c1", c_uint32, 1),
+            ("ib0_ai_ready_c1", c_uint32, 1),
+            ("ib1_ai_valid_c1", c_uint32, 1),
+            ("ib1_ai_ready_c1", c_uint32, 1),
+            ("ib0_ao_valid_c1", c_uint32, 1),
+            ("ib0_ao_ready_c1", c_uint32, 1),
+            ("ib1_ao_valid_c1", c_uint32, 1),
+            ("ib1_ao_ready_c1", c_uint32, 1),
+            ("ob0_valid_c1", c_uint32, 1),
+            ("ob0_ready_c1", c_uint32, 1),
+            ("ob1_valid_c1", c_uint32, 1),
+            ("ob1_ready_c1", c_uint32, 1),
+            ("wd_bitstream_valid_c1", c_uint32, 1),
+            ("wd_bitstream_ready_c1", c_uint32, 1),
+            ("bs_bitstream_valid_c1", c_uint32, 1),
+            ("bs_bitstream_ready_c1", c_uint32, 1),
+            ("reserved0", c_uint32, 8),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_axi0_wr_limit_stall(self, value): self.bits.axi0_wr_limit_stall = value
+    def get_axi0_wr_limit_stall(self): value = self.bits.axi0_wr_limit_stall; return value
+    def set_axi1_ar_stalled(self, value): self.bits.axi1_ar_stalled = value
+    def get_axi1_ar_stalled(self): value = self.bits.axi1_ar_stalled; return value
+    def set_axi1_rd_limit_stall(self, value): self.bits.axi1_rd_limit_stall = value
+    def get_axi1_rd_limit_stall(self): value = self.bits.axi1_rd_limit_stall; return value
+    def set_axi1_wr_stalled(self, value): self.bits.axi1_wr_stalled = value
+    def get_axi1_wr_stalled(self): value = self.bits.axi1_wr_stalled; return value
+    def set_axi1_w_stalled(self, value): self.bits.axi1_w_stalled = value
+    def get_axi1_w_stalled(self): value = self.bits.axi1_w_stalled; return value
+    def set_axi1_wr_limit_stall(self, value): self.bits.axi1_wr_limit_stall = value
+    def get_axi1_wr_limit_stall(self): value = self.bits.axi1_wr_limit_stall; return value
+    def set_wgt_idle_c1(self, value): self.bits.wgt_idle_c1 = value
+    def get_wgt_idle_c1(self): value = self.bits.wgt_idle_c1; return value
+    def set_bas_idle_c1(self, value): self.bits.bas_idle_c1 = value
+    def get_bas_idle_c1(self): value = self.bits.bas_idle_c1; return value
+    def set_ib0_ai_valid_c1(self, value): self.bits.ib0_ai_valid_c1 = value
+    def get_ib0_ai_valid_c1(self): value = self.bits.ib0_ai_valid_c1; return value
+    def set_ib0_ai_ready_c1(self, value): self.bits.ib0_ai_ready_c1 = value
+    def get_ib0_ai_ready_c1(self): value = self.bits.ib0_ai_ready_c1; return value
+    def set_ib1_ai_valid_c1(self, value): self.bits.ib1_ai_valid_c1 = value
+    def get_ib1_ai_valid_c1(self): value = self.bits.ib1_ai_valid_c1; return value
+    def set_ib1_ai_ready_c1(self, value): self.bits.ib1_ai_ready_c1 = value
+    def get_ib1_ai_ready_c1(self): value = self.bits.ib1_ai_ready_c1; return value
+    def set_ib0_ao_valid_c1(self, value): self.bits.ib0_ao_valid_c1 = value
+    def get_ib0_ao_valid_c1(self): value = self.bits.ib0_ao_valid_c1; return value
+    def set_ib0_ao_ready_c1(self, value): self.bits.ib0_ao_ready_c1 = value
+    def get_ib0_ao_ready_c1(self): value = self.bits.ib0_ao_ready_c1; return value
+    def set_ib1_ao_valid_c1(self, value): self.bits.ib1_ao_valid_c1 = value
+    def get_ib1_ao_valid_c1(self): value = self.bits.ib1_ao_valid_c1; return value
+    def set_ib1_ao_ready_c1(self, value): self.bits.ib1_ao_ready_c1 = value
+    def get_ib1_ao_ready_c1(self): value = self.bits.ib1_ao_ready_c1; return value
+    def set_ob0_valid_c1(self, value): self.bits.ob0_valid_c1 = value
+    def get_ob0_valid_c1(self): value = self.bits.ob0_valid_c1; return value
+    def set_ob0_ready_c1(self, value): self.bits.ob0_ready_c1 = value
+    def get_ob0_ready_c1(self): value = self.bits.ob0_ready_c1; return value
+    def set_ob1_valid_c1(self, value): self.bits.ob1_valid_c1 = value
+    def get_ob1_valid_c1(self): value = self.bits.ob1_valid_c1; return value
+    def set_ob1_ready_c1(self, value): self.bits.ob1_ready_c1 = value
+    def get_ob1_ready_c1(self): value = self.bits.ob1_ready_c1; return value
+    def set_wd_bitstream_valid_c1(self, value): self.bits.wd_bitstream_valid_c1 = value
+    def get_wd_bitstream_valid_c1(self): value = self.bits.wd_bitstream_valid_c1; return value
+    def set_wd_bitstream_ready_c1(self, value): self.bits.wd_bitstream_ready_c1 = value
+    def get_wd_bitstream_ready_c1(self): value = self.bits.wd_bitstream_ready_c1; return value
+    def set_bs_bitstream_valid_c1(self, value): self.bits.bs_bitstream_valid_c1 = value
+    def get_bs_bitstream_valid_c1(self): value = self.bits.bs_bitstream_valid_c1; return value
+    def set_bs_bitstream_ready_c1(self, value): self.bits.bs_bitstream_ready_c1 = value
+    def get_bs_bitstream_ready_c1(self): value = self.bits.bs_bitstream_ready_c1; return value
 
 
 class clkforce_r(Union):
@@ -1687,20 +2012,20 @@ class pmccntr_cfg_r(Union):
 class pmcaxi_chan_r(Union):
     class _bitfield(Structure):
         _fields_ = [
-            ("axi_chan", c_uint32, 4),
-            ("reserved0", c_uint32, 3),
-            ("rw", c_uint32, 1),
-            ("axi_cnt", c_uint32, 2),
-            ("reserved1", c_uint32, 22),
+            ("ch_sel", c_uint32, 4),
+            ("reserved0", c_uint32, 4),
+            ("axi_cnt_sel", c_uint32, 2),
+            ("bw_ch_sel_en", c_uint32, 1),
+            ("reserved1", c_uint32, 21),
         ]
     _fields_ = [("bits", _bitfield),
                 ("word", c_uint32)]
-    def set_axi_chan(self, value): self.bits.axi_chan = value
-    def get_axi_chan(self): value = self.bits.axi_chan; return value
-    def set_rw(self, value): self.bits.rw = value
-    def get_rw(self): value = self.bits.rw; return value
-    def set_axi_cnt(self, value): self.bits.axi_cnt = value
-    def get_axi_cnt(self): value = self.bits.axi_cnt; return value
+    def set_ch_sel(self, value): self.bits.ch_sel = value
+    def get_ch_sel(self): value = self.bits.ch_sel; return value
+    def set_axi_cnt_sel(self, value): self.bits.axi_cnt_sel = value
+    def get_axi_cnt_sel(self): value = self.bits.axi_cnt_sel; return value
+    def set_bw_ch_sel_en(self, value): self.bits.bw_ch_sel_en = value
+    def get_bw_ch_sel_en(self): value = self.bits.bw_ch_sel_en; return value
 
 
 class pmevtyper0_r(Union):
