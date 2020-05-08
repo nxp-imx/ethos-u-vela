@@ -108,10 +108,11 @@ class TFLiteSubgraph:
             return arr
 
         tens.quantization = QuantizationParameters()
-        tens.quantization.min = len1_array_to_scalar(quant.MinAsNumpy())
-        tens.quantization.max = len1_array_to_scalar(quant.MaxAsNumpy())
-        tens.quantization.scale_f32 = len1_array_to_scalar(quant.ScaleAsNumpy())
-        tens.quantization.zero_point = len1_array_to_scalar(quant.ZeroPointAsNumpy())
+        if quant is not None:
+            tens.quantization.min = len1_array_to_scalar(quant.MinAsNumpy())
+            tens.quantization.max = len1_array_to_scalar(quant.MaxAsNumpy())
+            tens.quantization.scale_f32 = len1_array_to_scalar(quant.ScaleAsNumpy())
+            tens.quantization.zero_point = len1_array_to_scalar(quant.ZeroPointAsNumpy())
 
         if dtype == DataType.uint8:
             tens.quantization.quant_min = 0
@@ -119,8 +120,6 @@ class TFLiteSubgraph:
         elif dtype in set((DataType.int8, DataType.int16, DataType.int32, DataType.int64)):
             tens.quantization.quant_min = -(1 << (dtype.bits - 1))
             tens.quantization.quant_max = (1 << (dtype.bits - 1)) - 1
-        else:
-            raise Exception("DataType '" + str(dtype) + "' is not supported for quantization.")
 
         if tens.quantization.scale_f32 is None and tens.quantization.zero_point is None:
             tens.quantization = None
