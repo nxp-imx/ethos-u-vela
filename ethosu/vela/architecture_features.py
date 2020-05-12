@@ -96,6 +96,9 @@ class SHRAMElements:
     Acc40 = 6
     Last = Acc40
     BitSizes = np.array([8, 16, 8, 16, 16, 32, 40], np.int32)
+    ByteSizes = BitSizes // 8
+    PostAlign = np.array([8, 8, 8, 8, 1, 1, 1], np.int32)
+    PreAlign = np.array([1, 1, 1, 1, 8, 8, 8], np.int32)
 
 
 class SHRAMBlockConfig:
@@ -301,8 +304,13 @@ Note the difference between ArchitectureFeatures and CompilerOptions
     # accumulator sizes. Consumers will need to select their preferred
     # operation and bit-width at read-time.
     def generate_block_config(self, width, height, depth):
-        # Number of bytes required for any SRAM element for a FM of given dimensions
-        size_bytes = (SHRAMElements.BitSizes * (height * width * depth)) // 8
+        # Number of bytes required for any SHRAM element for a FM of given dimensions.
+        # For IFM: size = H*W*Align(D*BYTE_WIDTH, 8)
+        # For ACC: size = H*W*Align(D,8)*BYTE_WIDTH
+        d1 = round_up(depth, SHRAMElements.PreAlign)
+        d2 = round_up(d1 * SHRAMElements.ByteSizes, SHRAMElements.PostAlign)
+        size_bytes = (height * width) * d2
+
         # Convert byte size (rounded) to size in banks
         size_banks = round_up_divide(size_bytes, self.shram_bank_size)
         size_banks *= 2  # Double buffer the IFM/Acc (need twice as many banks)
