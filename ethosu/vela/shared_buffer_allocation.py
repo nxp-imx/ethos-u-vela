@@ -85,6 +85,7 @@ class SharedBufferAllocation:
             else:
                 assert self.ifm_bits == 8, "Unexpected IFM bitdepth"
 
+        self.ifm_resampling_mode = ifm_tensor.resampling_mode
         self.ifm_block_depth = arch.calc_ifm_block_depth(self.ifm_depth, self.ifm_bits)
         self.ofm_tensor = ofm_tensor
 
@@ -105,7 +106,7 @@ class SharedBufferAllocation:
     def try_block(self, ofm_block: Block):
         # Get IFM block configuration
         ifm_block_depth = ofm_block.depth if self.is_equal_depth_op else self.ifm_block_depth
-        ifm_block = self.arch.get_ifm_block_size(ifm_block_depth, ofm_block, self.kernel)
+        ifm_block = self.arch.get_ifm_block_size(ifm_block_depth, ofm_block, self.kernel, ifm_resampling_mode=self.ifm_resampling_mode)
         ifm_config = self.arch.get_block_config(ifm_block.width, ifm_block.height, ifm_block.depth)
         if ifm_config is None:
             return None

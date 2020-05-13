@@ -22,6 +22,7 @@ from configparser import ConfigParser
 import numpy as np
 
 from .errors import OptionError
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import round_up
 from .numeric_util import round_up_divide
 from .operation import NpuBlockType
@@ -347,10 +348,10 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         return min(max_block_depth, ifm_depth)
 
     # Calculate the size of the IFM block given a depth, target OFM block and a kernel
-    def get_ifm_block_size(
-        self, ifm_block_depth, ofm_block: Block, kernel: Kernel, subkernel: Block = Block(8, 8, 65536)
-    ):
-        upscaling = 1
+    def get_ifm_block_size(self, ifm_block_depth, ofm_block: Block,
+                           kernel: Kernel, subkernel: Block = Block(8, 8, 65536),
+                           ifm_resampling_mode=resampling_mode.NONE):
+        upscaling = 1 if ifm_resampling_mode == resampling_mode.NONE else 2
         # Height
         ifm_odd_2x_height_enable = 0
         dilated_kernel_height = ((kernel.height - 1) * kernel.dilation.y) + 1

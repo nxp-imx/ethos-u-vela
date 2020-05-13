@@ -21,6 +21,7 @@ import uuid
 import numpy as np
 
 from . import numeric_util
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import round_up_divide
 from .range_set import MemoryRangeSet
 
@@ -230,6 +231,7 @@ class Tensor:
         "cpu_tensor",
         "npu_tensor",
         "equivalence_id",
+        "resampling_mode",
     )
     AllocationQuantum = 16
 
@@ -274,6 +276,7 @@ class Tensor:
 
         self.reshaped = False
         self.block_traversal = TensorBlockTraversal.Default
+        self.resampling_mode = resampling_mode.NONE
 
     def element_size(self):
         if self.element_size_bytes == 0:
@@ -311,6 +314,8 @@ class Tensor:
             res.quantization = self.quantization.clone()
         else:
             res.quantization = None
+
+        res.resampling_mode = self.resampling_mode
 
         return res
 
