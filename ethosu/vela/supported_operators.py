@@ -229,13 +229,6 @@ class SupportedOperators:
         if op.type in self.binary_elem_wise_main_ops: # if op type is unary, ifm2_tensor is None
             if len(ifm2_tensor.shape) > 2 and ifm2_tensor.shape[0] != 1:
                 return False
-
-        # check scalar size
-        if hasattr(ifm_tensor.values, "__len__") and len(ifm_tensor.values) > 1:
-            return False
-        if op.type in self.binary_elem_wise_main_ops: # same as above
-            if hasattr(ifm2_tensor.values, "__len__") and len(ifm2_tensor.values) > 1:
-                return False
         return True
 
     def check_memory_only_restrictions(self, op):

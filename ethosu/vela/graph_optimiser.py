@@ -25,6 +25,7 @@ from .data_type import DataType
 from .operation import NpuBlockType
 from .operation import Operation
 from .tensor import Tensor
+from .numeric_util import full_shape
 
 passthrough_nodes = set(("Identity",))
 
@@ -313,6 +314,7 @@ fc_op = set(
 depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
 pool_op = set(("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear",))
 elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "LeakyRelu", "Abs"))
+binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
 activation_ops = set(("Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh"))
 memory_only_ops = set(("Reshape",))
 
@@ -399,6 +401,16 @@ def fixup_act_reorder(op, arch):
             op.type = "Identity"
     return op
 
+def fixup_elementwise_with_scalars(op, arch):
+    if op.type in binary_elementwise_op:
+        ifm_tensor, ifm2_tensor, _, ofm_tensor = op.get_ifm_ifm2_weights_ofm()
+        if ifm2_tensor.shape != [] and ifm_tensor.shape != []:
+            diff = len(ifm_tensor.shape) - len(ifm2_tensor.shape)
+            if diff > 0:
+                ifm2_tensor.shape = full_shape(len(ifm_tensor.shape), ifm2_tensor.shape, 1)
+            elif diff < 0:
+                ifm_tensor.shape = full_shape(len(ifm2_tensor.shape), ifm_tensor.shape, 1)
+    return op
 
 # Set input/output tensor equivalence to the same id for memory operations
 def set_tensor_equivalence(op, arch):
@@ -492,6 +504,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         fixup_act_reorder,
         add_padding_fields,
         mark_npu_block_type,
+        fixup_elementwise_with_scalars,
         # convert_mul_max_to_abs_or_lrelu # TODO: enable optimisation once quantisation issues are resolved
     ]
 
