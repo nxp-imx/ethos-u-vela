@@ -22,7 +22,96 @@ from enum import Enum
 ARCH_VER = '1.0.0'
 
 
-class DEBUG_INTERNAL(Enum):
+class BASE(Enum):
+    ID = 0x0000
+    STATUS = 0x0004
+    CMD = 0x0008
+    RESET = 0x000C
+    QBASE0 = 0x0010
+    QBASE1 = 0x0014
+    QREAD = 0x0018
+    QCONFIG = 0x001C
+    QSIZE = 0x0020
+    PROT = 0x0024
+    CONFIG = 0x0028
+    LOCK = 0x002C
+    REGIONCFG = 0x003C
+    AXI_LIMIT0 = 0x0040
+    AXI_LIMIT1 = 0x0044
+    AXI_LIMIT2 = 0x0048
+    AXI_LIMIT3 = 0x004C
+    SIZE = 0x0050
+
+class BASE_POINTERS(Enum):
+    BASEP0 = 0x0080
+    BASEP1 = 0x0084
+    BASEP2 = 0x0088
+    BASEP3 = 0x008C
+    BASEP4 = 0x0090
+    BASEP5 = 0x0094
+    BASEP6 = 0x0098
+    BASEP7 = 0x009C
+    BASEP8 = 0x00A0
+    BASEP9 = 0x00A4
+    BASEP10 = 0x00A8
+    BASEP11 = 0x00AC
+    BASEP12 = 0x00B0
+    BASEP13 = 0x00B4
+    BASEP14 = 0x00B8
+    BASEP15 = 0x00BC
+    SIZE = 0x00C0
+
+class DEBUG(Enum):
+    WD_STATUS = 0x0100
+    MAC_STATUS = 0x0104
+    AO_STATUS = 0x0108
+    DMA_STATUS0 = 0x0110
+    DMA_STATUS1 = 0x0114
+    CLKFORCE = 0x0140
+    DEBUG_ADDRESS = 0x0144
+    DEBUG_MISC = 0x0148
+    DEBUGCORE = 0x014C
+    SIZE = 0x0150
+
+class ID(Enum):
+    REVISION = 0x0FC0
+    PID4 = 0x0FD0
+    PID5 = 0x0FD4
+    PID6 = 0x0FD8
+    PID7 = 0x0FDC
+    PID0 = 0x0FE0
+    PID1 = 0x0FE4
+    PID2 = 0x0FE8
+    PID3 = 0x0FEC
+    CID0 = 0x0FF0
+    CID1 = 0x0FF4
+    CID2 = 0x0FF8
+    CID3 = 0x0FFC
+    SIZE = 0x1000
+
+class PMU(Enum):
+    PMCR = 0x0180
+    PMCNTENSET = 0x0184
+    PMCNTENCLR = 0x0188
+    PMOVSSET = 0x018C
+    PMOVSCLR = 0x0190
+    PMINTSET = 0x0194
+    PMINTCLR = 0x0198
+    PMCCNTR_LO = 0x01A0
+    PMCCNTR_HI = 0x01A4
+    PMCCNTR_CFG = 0x01A8
+    PMCAXI_CHAN = 0x01AC
+    PMEVCNTR0 = 0x0300
+    PMEVCNTR1 = 0x0304
+    PMEVCNTR2 = 0x0308
+    PMEVCNTR3 = 0x030C
+    PMEVTYPER0 = 0x0380
+    PMEVTYPER1 = 0x0384
+    PMEVTYPER2 = 0x0388
+    PMEVTYPER3 = 0x038C
+    SIZE = 0x0390
+
+class SHARED_BUFFER(Enum):
     SHARED_BUFFER0 = 0x0400
     SHARED_BUFFER1 = 0x0404
     SHARED_BUFFER2 = 0x0408
@@ -281,96 +370,7 @@ class DEBUG_INTERNAL(Enum):
     SHARED_BUFFER255 = 0x07FC
     SIZE = 0x0800
 
-class HW_DEBUG_INTERNAL(Enum):
-    WD_STATUS = 0x0100
-    MAC_STATUS = 0x0104
-    AO_STATUS = 0x0108
-    DMA_STATUS0 = 0x0110
-    DMA_STATUS1 = 0x0114
-    CLKFORCE = 0x0140
-    DEBUG_ADDR = 0x0144
-    DEBUG_MISC = 0x0148
-    DEBUGCORE = 0x014C
-    SIZE = 0x0150
-
-class NPU_BP(Enum):
-    BASEP0 = 0x0080
-    BASEP1 = 0x0084
-    BASEP2 = 0x0088
-    BASEP3 = 0x008C
-    BASEP4 = 0x0090
-    BASEP5 = 0x0094
-    BASEP6 = 0x0098
-    BASEP7 = 0x009C
-    BASEP8 = 0x00A0
-    BASEP9 = 0x00A4
-    BASEP10 = 0x00A8
-    BASEP11 = 0x00AC
-    BASEP12 = 0x00B0
-    BASEP13 = 0x00B4
-    BASEP14 = 0x00B8
-    BASEP15 = 0x00BC
-    SIZE = 0x00C0
-
-class NPU_IDS(Enum):
-    REVISION = 0x0FC0
-    PID4 = 0x0FD0
-    PID5 = 0x0FD4
-    PID6 = 0x0FD8
-    PID7 = 0x0FDC
-    PID0 = 0x0FE0
-    PID1 = 0x0FE4
-    PID2 = 0x0FE8
-    PID3 = 0x0FEC
-    CID0 = 0x0FF0
-    CID1 = 0x0FF4
-    CID2 = 0x0FF8
-    CID3 = 0x0FFC
-    SIZE = 0x1000
-
-class NPU_REG(Enum):
-    ID = 0x0000
-    STATUS = 0x0004
-    CMD = 0x0008
-    RESET = 0x000C
-    QBASE0 = 0x0010
-    QBASE1 = 0x0014
-    QREAD = 0x0018
-    QCONFIG = 0x001C
-    QSIZE = 0x0020
-    PROT = 0x0024
-    CONFIG = 0x0028
-    LOCK = 0x002C
-    REGIONCFG = 0x003C
-    AXI_LIMIT0 = 0x0040
-    AXI_LIMIT1 = 0x0044
-    AXI_LIMIT2 = 0x0048
-    AXI_LIMIT3 = 0x004C
-    SIZE = 0x0050
-
-class PMU(Enum):
-    PMCR = 0x0180
-    PMCNTENSET = 0x0184
-    PMCNTENCLR = 0x0188
-    PMOVSSET = 0x018C
-    PMOVSCLR = 0x0190
-    PMINTSET = 0x0194
-    PMINTCLR = 0x0198
-    PMCCNTR_LO = 0x01A0
-    PMCCNTR_HI = 0x01A4
-    PMCCNTR_CFG = 0x01A8
-    PMCAXI_CHAN = 0x01AC
-    PMEVCNTR0 = 0x0300
-    PMEVCNTR1 = 0x0304
-    PMEVCNTR2 = 0x0308
-    PMEVCNTR3 = 0x030C
-    PMEVTYPER0 = 0x0380
-    PMEVTYPER1 = 0x0384
-    PMEVTYPER2 = 0x0388
-    PMEVTYPER3 = 0x038C
-    SIZE = 0x0390
-
-class TSU_DEBUG_INTERNAL(Enum):
+class TSU(Enum):
     IFM_PAD_TOP = 0x0800
     IFM_PAD_LEFT = 0x0804
     IFM_PAD_RIGHT = 0x0808
@@ -492,7 +492,7 @@ class TSU_DEBUG_INTERNAL(Enum):
     SCALE1_LENGTH = 0x0B58
     SIZE = 0x0B5C
 
-class TSU_DEBUG_RO_INTERNAL(Enum):
+class TSU_DEBUG(Enum):
     KERNEL_X = 0x0200
     KERNEL_Y = 0x0204
     KERNEL_W_M1 = 0x0208
@@ -806,6 +806,518 @@ class stride_mode(Enum):
     STRIDE_MODE_1D = 0
     STRIDE_MODE_2D = 1
     STRIDE_MODE_3D = 2
+
+
+class id_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("version_status", c_uint32, 4),
+            ("version_minor", c_uint32, 4),
+            ("version_major", c_uint32, 4),
+            ("product_major", c_uint32, 4),
+            ("arch_patch_rev", c_uint32, 4),
+            ("arch_minor_rev", c_uint32, 8),
+            ("arch_major_rev", c_uint32, 4),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_version_status(self, value): self.bits.version_status = value
+    def get_version_status(self): value = self.bits.version_status; return value
+    def set_version_minor(self, value): self.bits.version_minor = value
+    def get_version_minor(self): value = self.bits.version_minor; return value
+    def set_version_major(self, value): self.bits.version_major = value
+    def get_version_major(self): value = self.bits.version_major; return value
+    def set_product_major(self, value): self.bits.product_major = value
+    def get_product_major(self): value = self.bits.product_major; return value
+    def set_arch_patch_rev(self, value): self.bits.arch_patch_rev = value
+    def get_arch_patch_rev(self): value = self.bits.arch_patch_rev; return value
+    def set_arch_minor_rev(self, value): self.bits.arch_minor_rev = value
+    def get_arch_minor_rev(self): value = self.bits.arch_minor_rev; return value
+    def set_arch_major_rev(self, value): self.bits.arch_major_rev = value
+    def get_arch_major_rev(self): value = self.bits.arch_major_rev; return value
+
+
+class status_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("state", c_uint32, 1),
+            ("irq_raised", c_uint32, 1),
+            ("bus_status", c_uint32, 1),
+            ("reset_status", c_uint32, 1),
+            ("cmd_parse_error", c_uint32, 1),
+            ("cmd_end_reached", c_uint32, 1),
+            ("pmu_irq_raised", c_uint32, 1),
+            ("wd_fault", c_uint32, 1),
+            ("reserved0", c_uint32, 3),
+            ("faulting_interface", c_uint32, 1),
+            ("faulting_channel", c_uint32, 4),
+            ("irq_history_mask", c_uint32, 16),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_state(self, value): self.bits.state = value
+    def get_state(self): value = self.bits.state; return value
+    def set_irq_raised(self, value): self.bits.irq_raised = value
+    def get_irq_raised(self): value = self.bits.irq_raised; return value
+    def set_bus_status(self, value): self.bits.bus_status = value
+    def get_bus_status(self): value = self.bits.bus_status; return value
+    def set_reset_status(self, value): self.bits.reset_status = value
+    def get_reset_status(self): value = self.bits.reset_status; return value
+    def set_cmd_parse_error(self, value): self.bits.cmd_parse_error = value
+    def get_cmd_parse_error(self): value = self.bits.cmd_parse_error; return value
+    def set_cmd_end_reached(self, value): self.bits.cmd_end_reached = value
+    def get_cmd_end_reached(self): value = self.bits.cmd_end_reached; return value
+    def set_pmu_irq_raised(self, value): self.bits.pmu_irq_raised = value
+    def get_pmu_irq_raised(self): value = self.bits.pmu_irq_raised; return value
+    def set_wd_fault(self, value): self.bits.wd_fault = value
+    def get_wd_fault(self): value = self.bits.wd_fault; return value
+    def set_faulting_interface(self, value): self.bits.faulting_interface = value
+    def get_faulting_interface(self): value = self.bits.faulting_interface; return value
+    def set_faulting_channel(self, value): self.bits.faulting_channel = value
+    def get_faulting_channel(self): value = self.bits.faulting_channel; return value
+    def set_irq_history_mask(self, value): self.bits.irq_history_mask = value
+    def get_irq_history_mask(self): value = self.bits.irq_history_mask; return value
+
+
+class cmd_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("transition_to_running_state", c_uint32, 1),
+            ("clear_irq", c_uint32, 1),
+            ("clock_q_enable", c_uint32, 1),
+            ("power_q_enable", c_uint32, 1),
+            ("stop_request", c_uint32, 1),
+            ("reserved0", c_uint32, 11),
+            ("clear_irq_history", c_uint32, 16),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_transition_to_running_state(self, value): self.bits.transition_to_running_state = value
+    def get_transition_to_running_state(self): value = self.bits.transition_to_running_state; return value
+    def set_clear_irq(self, value): self.bits.clear_irq = value
+    def get_clear_irq(self): value = self.bits.clear_irq; return value
+    def set_clock_q_enable(self, value): self.bits.clock_q_enable = value
+    def get_clock_q_enable(self): value = self.bits.clock_q_enable; return value
+    def set_power_q_enable(self, value): self.bits.power_q_enable = value
+    def get_power_q_enable(self): value = self.bits.power_q_enable; return value
+    def set_stop_request(self, value): self.bits.stop_request = value
+    def get_stop_request(self): value = self.bits.stop_request; return value
+    def set_clear_irq_history(self, value): self.bits.clear_irq_history = value
+    def get_clear_irq_history(self): value = self.bits.clear_irq_history; return value
+
+
+class reset_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("pending_cpl", c_uint32, 1),
+            ("pending_csl", c_uint32, 1),
+            ("reserved0", c_uint32, 30),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_pending_cpl(self, value): self.bits.pending_cpl = value
+    def get_pending_cpl(self): value = self.bits.pending_cpl; return value
+    def set_pending_csl(self, value): self.bits.pending_csl = value
+    def get_pending_csl(self): value = self.bits.pending_csl; return value
+
+
+class qbase0_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("qbase0", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_qbase0(self, value): self.bits.qbase0 = value
+    def get_qbase0(self): value = self.bits.qbase0; return value
+
+
+class qbase1_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("qbase1", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_qbase1(self, value): self.bits.qbase1 = value
+    def get_qbase1(self): value = self.bits.qbase1; return value
+
+
+class qread_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("qread", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_qread(self, value): self.bits.qread = value
+    def get_qread(self): value = self.bits.qread; return value
+
+
+class qconfig_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("qconfig", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_qconfig(self, value): self.bits.qconfig = value
+    def get_qconfig(self): value = self.bits.qconfig; return value
+
+
+class qsize_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("qsize", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_qsize(self, value): self.bits.qsize = value
+    def get_qsize(self): value = self.bits.qsize; return value
+
+
+class prot_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("active_cpl", c_uint32, 1),
+            ("active_csl", c_uint32, 1),
+            ("reserved0", c_uint32, 30),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_active_cpl(self, value): self.bits.active_cpl = value
+    def get_active_cpl(self): value = self.bits.active_cpl; return value
+    def set_active_csl(self, value): self.bits.active_csl = value
+    def get_active_csl(self): value = self.bits.active_csl; return value
+
+
+class config_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("macs_per_cc", c_uint32, 4),
+            ("cmd_stream_version", c_uint32, 4),
+            ("shram_size", c_uint32, 8),
+            ("reserved0", c_uint32, 12),
+            ("product", c_uint32, 4),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_macs_per_cc(self, value): self.bits.macs_per_cc = value
+    def get_macs_per_cc(self): value = self.bits.macs_per_cc; return value
+    def set_cmd_stream_version(self, value): self.bits.cmd_stream_version = value
+    def get_cmd_stream_version(self): value = self.bits.cmd_stream_version; return value
+    def set_shram_size(self, value): self.bits.shram_size = value
+    def get_shram_size(self): value = self.bits.shram_size; return value
+    def set_product(self, value): self.bits.product = value
+    def get_product(self): value = self.bits.product; return value
+
+
+class lock_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("lock", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_lock(self, value): self.bits.lock = value
+    def get_lock(self): value = self.bits.lock; return value
+
+
+class regioncfg_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("region0", c_uint32, 2),
+            ("region1", c_uint32, 2),
+            ("region2", c_uint32, 2),
+            ("region3", c_uint32, 2),
+            ("region4", c_uint32, 2),
+            ("region5", c_uint32, 2),
+            ("region6", c_uint32, 2),
+            ("region7", c_uint32, 2),
+            ("reserved0", c_uint32, 16),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_region0(self, value): self.bits.region0 = value
+    def get_region0(self): value = self.bits.region0; return value
+    def set_region1(self, value): self.bits.region1 = value
+    def get_region1(self): value = self.bits.region1; return value
+    def set_region2(self, value): self.bits.region2 = value
+    def get_region2(self): value = self.bits.region2; return value
+    def set_region3(self, value): self.bits.region3 = value
+    def get_region3(self): value = self.bits.region3; return value
+    def set_region4(self, value): self.bits.region4 = value
+    def get_region4(self): value = self.bits.region4; return value
+    def set_region5(self, value): self.bits.region5 = value
+    def get_region5(self): value = self.bits.region5; return value
+    def set_region6(self, value): self.bits.region6 = value
+    def get_region6(self): value = self.bits.region6; return value
+    def set_region7(self, value): self.bits.region7 = value
+    def get_region7(self): value = self.bits.region7; return value
+
+
+class axi_limit0_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("max_beats", c_uint32, 2),
+            ("reserved0", c_uint32, 2),
+            ("memtype", c_uint32, 4),
+            ("reserved1", c_uint32, 8),
+            ("max_outstanding_read_m1", c_uint32, 8),
+            ("max_outstanding_write_m1", c_uint32, 8),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_max_beats(self, value): self.bits.max_beats = value
+    def get_max_beats(self): value = self.bits.max_beats; return value
+    def set_memtype(self, value): self.bits.memtype = value
+    def get_memtype(self): value = self.bits.memtype; return value
+    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
+    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
+    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
+    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
+
+
+class axi_limit1_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("max_beats", c_uint32, 2),
+            ("reserved0", c_uint32, 2),
+            ("memtype", c_uint32, 4),
+            ("reserved1", c_uint32, 8),
+            ("max_outstanding_read_m1", c_uint32, 8),
+            ("max_outstanding_write_m1", c_uint32, 8),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_max_beats(self, value): self.bits.max_beats = value
+    def get_max_beats(self): value = self.bits.max_beats; return value
+    def set_memtype(self, value): self.bits.memtype = value
+    def get_memtype(self): value = self.bits.memtype; return value
+    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
+    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
+    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
+    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
+
+
+class axi_limit2_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("max_beats", c_uint32, 2),
+            ("reserved0", c_uint32, 2),
+            ("memtype", c_uint32, 4),
+            ("reserved1", c_uint32, 8),
+            ("max_outstanding_read_m1", c_uint32, 8),
+            ("max_outstanding_write_m1", c_uint32, 8),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_max_beats(self, value): self.bits.max_beats = value
+    def get_max_beats(self): value = self.bits.max_beats; return value
+    def set_memtype(self, value): self.bits.memtype = value
+    def get_memtype(self): value = self.bits.memtype; return value
+    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
+    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
+    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
+    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
+
+
+class axi_limit3_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("max_beats", c_uint32, 2),
+            ("reserved0", c_uint32, 2),
+            ("memtype", c_uint32, 4),
+            ("reserved1", c_uint32, 8),
+            ("max_outstanding_read_m1", c_uint32, 8),
+            ("max_outstanding_write_m1", c_uint32, 8),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_max_beats(self, value): self.bits.max_beats = value
+    def get_max_beats(self): value = self.bits.max_beats; return value
+    def set_memtype(self, value): self.bits.memtype = value
+    def get_memtype(self): value = self.bits.memtype; return value
+    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
+    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
+    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
+    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
+
+
+class basep0_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep1_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep2_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep3_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep4_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep5_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep6_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep7_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep8_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep9_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep10_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep11_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep12_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep13_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep14_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
+
+
+class basep15_r(Union):
+    class _bitfield(Structure):
+        _fields_ = [
+            ("addr_word", c_uint32, 32),
+        ]
+    _fields_ = [("bits", _bitfield),
+                ("word", c_uint32)]
+    def set_addr_word(self, value): self.bits.addr_word = value
+    def get_addr_word(self): value = self.bits.addr_word; return value
 
 
 class wd_status_r(Union):
@@ -1157,182 +1669,6 @@ class clkforce_r(Union):
     def get_wd_clk(self): value = self.bits.wd_clk; return value
 
 
-class basep0_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep1_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep2_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep3_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep4_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep5_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep6_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep7_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep8_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep9_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep10_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep11_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep12_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep13_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep14_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
-class basep15_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("addr_word", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_addr_word(self, value): self.bits.addr_word = value
-    def get_addr_word(self): value = self.bits.addr_word; return value
-
-
 class pid4_r(Union):
     class _bitfield(Structure):
         _fields_ = [
@@ -1463,342 +1799,6 @@ class cid3_r(Union):
                 ("word", c_uint32)]
     def set_cid3(self, value): self.bits.cid3 = value
     def get_cid3(self): value = self.bits.cid3; return value
-
-
-class id_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("version_status", c_uint32, 4),
-            ("version_minor", c_uint32, 4),
-            ("version_major", c_uint32, 4),
-            ("product_major", c_uint32, 4),
-            ("arch_patch_rev", c_uint32, 4),
-            ("arch_minor_rev", c_uint32, 8),
-            ("arch_major_rev", c_uint32, 4),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_version_status(self, value): self.bits.version_status = value
-    def get_version_status(self): value = self.bits.version_status; return value
-    def set_version_minor(self, value): self.bits.version_minor = value
-    def get_version_minor(self): value = self.bits.version_minor; return value
-    def set_version_major(self, value): self.bits.version_major = value
-    def get_version_major(self): value = self.bits.version_major; return value
-    def set_product_major(self, value): self.bits.product_major = value
-    def get_product_major(self): value = self.bits.product_major; return value
-    def set_arch_patch_rev(self, value): self.bits.arch_patch_rev = value
-    def get_arch_patch_rev(self): value = self.bits.arch_patch_rev; return value
-    def set_arch_minor_rev(self, value): self.bits.arch_minor_rev = value
-    def get_arch_minor_rev(self): value = self.bits.arch_minor_rev; return value
-    def set_arch_major_rev(self, value): self.bits.arch_major_rev = value
-    def get_arch_major_rev(self): value = self.bits.arch_major_rev; return value
-
-
-class status_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("state", c_uint32, 1),
-            ("irq_raised", c_uint32, 1),
-            ("bus_status", c_uint32, 1),
-            ("reset_status", c_uint32, 1),
-            ("cmd_parse_error", c_uint32, 1),
-            ("cmd_end_reached", c_uint32, 1),
-            ("pmu_irq_raised", c_uint32, 1),
-            ("wd_fault", c_uint32, 1),
-            ("reserved0", c_uint32, 3),
-            ("faulting_interface", c_uint32, 1),
-            ("faulting_channel", c_uint32, 4),
-            ("irq_history_mask", c_uint32, 16),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_state(self, value): self.bits.state = value
-    def get_state(self): value = self.bits.state; return value
-    def set_irq_raised(self, value): self.bits.irq_raised = value
-    def get_irq_raised(self): value = self.bits.irq_raised; return value
-    def set_bus_status(self, value): self.bits.bus_status = value
-    def get_bus_status(self): value = self.bits.bus_status; return value
-    def set_reset_status(self, value): self.bits.reset_status = value
-    def get_reset_status(self): value = self.bits.reset_status; return value
-    def set_cmd_parse_error(self, value): self.bits.cmd_parse_error = value
-    def get_cmd_parse_error(self): value = self.bits.cmd_parse_error; return value
-    def set_cmd_end_reached(self, value): self.bits.cmd_end_reached = value
-    def get_cmd_end_reached(self): value = self.bits.cmd_end_reached; return value
-    def set_pmu_irq_raised(self, value): self.bits.pmu_irq_raised = value
-    def get_pmu_irq_raised(self): value = self.bits.pmu_irq_raised; return value
-    def set_wd_fault(self, value): self.bits.wd_fault = value
-    def get_wd_fault(self): value = self.bits.wd_fault; return value
-    def set_faulting_interface(self, value): self.bits.faulting_interface = value
-    def get_faulting_interface(self): value = self.bits.faulting_interface; return value
-    def set_faulting_channel(self, value): self.bits.faulting_channel = value
-    def get_faulting_channel(self): value = self.bits.faulting_channel; return value
-    def set_irq_history_mask(self, value): self.bits.irq_history_mask = value
-    def get_irq_history_mask(self): value = self.bits.irq_history_mask; return value
-
-
-class cmd_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("transition_to_running_state", c_uint32, 1),
-            ("clear_irq", c_uint32, 1),
-            ("clock_q_enable", c_uint32, 1),
-            ("power_q_enable", c_uint32, 1),
-            ("stop_request", c_uint32, 1),
-            ("reserved0", c_uint32, 11),
-            ("clear_irq_history", c_uint32, 16),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_transition_to_running_state(self, value): self.bits.transition_to_running_state = value
-    def get_transition_to_running_state(self): value = self.bits.transition_to_running_state; return value
-    def set_clear_irq(self, value): self.bits.clear_irq = value
-    def get_clear_irq(self): value = self.bits.clear_irq; return value
-    def set_clock_q_enable(self, value): self.bits.clock_q_enable = value
-    def get_clock_q_enable(self): value = self.bits.clock_q_enable; return value
-    def set_power_q_enable(self, value): self.bits.power_q_enable = value
-    def get_power_q_enable(self): value = self.bits.power_q_enable; return value
-    def set_stop_request(self, value): self.bits.stop_request = value
-    def get_stop_request(self): value = self.bits.stop_request; return value
-    def set_clear_irq_history(self, value): self.bits.clear_irq_history = value
-    def get_clear_irq_history(self): value = self.bits.clear_irq_history; return value
-
-
-class reset_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("pending_cpl", c_uint32, 1),
-            ("pending_csl", c_uint32, 1),
-            ("reserved0", c_uint32, 30),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_pending_cpl(self, value): self.bits.pending_cpl = value
-    def get_pending_cpl(self): value = self.bits.pending_cpl; return value
-    def set_pending_csl(self, value): self.bits.pending_csl = value
-    def get_pending_csl(self): value = self.bits.pending_csl; return value
-
-
-class qbase0_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("qbase0", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_qbase0(self, value): self.bits.qbase0 = value
-    def get_qbase0(self): value = self.bits.qbase0; return value
-
-
-class qbase1_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("qbase1", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_qbase1(self, value): self.bits.qbase1 = value
-    def get_qbase1(self): value = self.bits.qbase1; return value
-
-
-class qread_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("qread", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_qread(self, value): self.bits.qread = value
-    def get_qread(self): value = self.bits.qread; return value
-
-
-class qconfig_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("qconfig", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_qconfig(self, value): self.bits.qconfig = value
-    def get_qconfig(self): value = self.bits.qconfig; return value
-
-
-class qsize_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("qsize", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_qsize(self, value): self.bits.qsize = value
-    def get_qsize(self): value = self.bits.qsize; return value
-
-
-class prot_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("active_cpl", c_uint32, 1),
-            ("active_csl", c_uint32, 1),
-            ("reserved0", c_uint32, 30),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_active_cpl(self, value): self.bits.active_cpl = value
-    def get_active_cpl(self): value = self.bits.active_cpl; return value
-    def set_active_csl(self, value): self.bits.active_csl = value
-    def get_active_csl(self): value = self.bits.active_csl; return value
-
-
-class config_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("macs_per_cc", c_uint32, 4),
-            ("cmd_stream_version", c_uint32, 4),
-            ("shram_size", c_uint32, 8),
-            ("reserved0", c_uint32, 12),
-            ("product", c_uint32, 4),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_macs_per_cc(self, value): self.bits.macs_per_cc = value
-    def get_macs_per_cc(self): value = self.bits.macs_per_cc; return value
-    def set_cmd_stream_version(self, value): self.bits.cmd_stream_version = value
-    def get_cmd_stream_version(self): value = self.bits.cmd_stream_version; return value
-    def set_shram_size(self, value): self.bits.shram_size = value
-    def get_shram_size(self): value = self.bits.shram_size; return value
-    def set_product(self, value): self.bits.product = value
-    def get_product(self): value = self.bits.product; return value
-
-
-class lock_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("lock", c_uint32, 32),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_lock(self, value): self.bits.lock = value
-    def get_lock(self): value = self.bits.lock; return value
-
-
-class regioncfg_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("region0", c_uint32, 2),
-            ("region1", c_uint32, 2),
-            ("region2", c_uint32, 2),
-            ("region3", c_uint32, 2),
-            ("region4", c_uint32, 2),
-            ("region5", c_uint32, 2),
-            ("region6", c_uint32, 2),
-            ("region7", c_uint32, 2),
-            ("reserved0", c_uint32, 16),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_region0(self, value): self.bits.region0 = value
-    def get_region0(self): value = self.bits.region0; return value
-    def set_region1(self, value): self.bits.region1 = value
-    def get_region1(self): value = self.bits.region1; return value
-    def set_region2(self, value): self.bits.region2 = value
-    def get_region2(self): value = self.bits.region2; return value
-    def set_region3(self, value): self.bits.region3 = value
-    def get_region3(self): value = self.bits.region3; return value
-    def set_region4(self, value): self.bits.region4 = value
-    def get_region4(self): value = self.bits.region4; return value
-    def set_region5(self, value): self.bits.region5 = value
-    def get_region5(self): value = self.bits.region5; return value
-    def set_region6(self, value): self.bits.region6 = value
-    def get_region6(self): value = self.bits.region6; return value
-    def set_region7(self, value): self.bits.region7 = value
-    def get_region7(self): value = self.bits.region7; return value
-
-
-class axi_limit0_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("max_beats", c_uint32, 2),
-            ("reserved0", c_uint32, 2),
-            ("memtype", c_uint32, 4),
-            ("reserved1", c_uint32, 8),
-            ("max_outstanding_read_m1", c_uint32, 8),
-            ("max_outstanding_write_m1", c_uint32, 8),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_max_beats(self, value): self.bits.max_beats = value
-    def get_max_beats(self): value = self.bits.max_beats; return value
-    def set_memtype(self, value): self.bits.memtype = value
-    def get_memtype(self): value = self.bits.memtype; return value
-    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
-    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
-    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
-    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
-
-
-class axi_limit1_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("max_beats", c_uint32, 2),
-            ("reserved0", c_uint32, 2),
-            ("memtype", c_uint32, 4),
-            ("reserved1", c_uint32, 8),
-            ("max_outstanding_read_m1", c_uint32, 8),
-            ("max_outstanding_write_m1", c_uint32, 8),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_max_beats(self, value): self.bits.max_beats = value
-    def get_max_beats(self): value = self.bits.max_beats; return value
-    def set_memtype(self, value): self.bits.memtype = value
-    def get_memtype(self): value = self.bits.memtype; return value
-    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
-    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
-    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
-    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
-
-
-class axi_limit2_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("max_beats", c_uint32, 2),
-            ("reserved0", c_uint32, 2),
-            ("memtype", c_uint32, 4),
-            ("reserved1", c_uint32, 8),
-            ("max_outstanding_read_m1", c_uint32, 8),
-            ("max_outstanding_write_m1", c_uint32, 8),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_max_beats(self, value): self.bits.max_beats = value
-    def get_max_beats(self): value = self.bits.max_beats; return value
-    def set_memtype(self, value): self.bits.memtype = value
-    def get_memtype(self): value = self.bits.memtype; return value
-    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
-    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
-    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
-    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
-
-
-class axi_limit3_r(Union):
-    class _bitfield(Structure):
-        _fields_ = [
-            ("max_beats", c_uint32, 2),
-            ("reserved0", c_uint32, 2),
-            ("memtype", c_uint32, 4),
-            ("reserved1", c_uint32, 8),
-            ("max_outstanding_read_m1", c_uint32, 8),
-            ("max_outstanding_write_m1", c_uint32, 8),
-        ]
-    _fields_ = [("bits", _bitfield),
-                ("word", c_uint32)]
-    def set_max_beats(self, value): self.bits.max_beats = value
-    def get_max_beats(self): value = self.bits.max_beats; return value
-    def set_memtype(self, value): self.bits.memtype = value
-    def get_memtype(self): value = self.bits.memtype; return value
-    def set_max_outstanding_read_m1(self, value): self.bits.max_outstanding_read_m1 = value
-    def get_max_outstanding_read_m1(self): value = self.bits.max_outstanding_read_m1; return value
-    def set_max_outstanding_write_m1(self, value): self.bits.max_outstanding_write_m1 = value
-    def get_max_outstanding_write_m1(self): value = self.bits.max_outstanding_write_m1; return value
 
 
 class pmcr_r(Union):
