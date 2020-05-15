@@ -400,6 +400,15 @@ def fixup_act_reorder(op, arch):
     return op
 
 
+# Set input/output tensor equivalence to the same id for memory operations
+def set_tensor_equivalence(op, arch):
+    if op.type == "Reshape":
+        eid = op.outputs[0].equivalence_id
+        for inp in op.inputs:
+            inp.equivalence_id = eid
+    return op
+
+
 def convert_mul_max_to_abs_or_lrelu(op, arch):
     r"""Whenever there is a subgraph with this topology:
 
@@ -473,6 +482,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
     op_rewrite_list = [
         # mark block type and check if the operations are supported
         mark_npu_block_type,
+        set_tensor_equivalence,
         supported_operator_check,
         # then do any rewrites of supported operators
         convert_depthwise_to_conv,
