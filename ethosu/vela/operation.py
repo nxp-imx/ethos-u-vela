@@ -214,7 +214,7 @@ input and output tensors, as well as an attribute dictionary."""
             outputs = self.outputs
             assert num_splits == len(outputs)
 
-        if self.type == "SplitV":
+        elif self.type == "SplitV":
             num_splits = self.attrs.get("num_splits")
             input_tens = self.inputs[0]
             size_tens = self.inputs[1]
