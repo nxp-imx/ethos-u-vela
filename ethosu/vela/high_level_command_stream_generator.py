@@ -33,12 +33,36 @@ def dma_if_necessary(ps, box, tensor):
         in_tensor = dma_op.inputs[0]
         yield DMA(in_tensor, tensor, box)
 
+def match_tensor(source, derived):
+    if source == derived:
+        return True
+    ops = derived.ops
+    return (ops != [] and
+        len(ops) ==1 and
+        ops[0].type == "SplitSliceRead" and
+        source == ops[0].inputs[0])
 
 def generate_high_level_command_stream_for_pass(strat, passes, block_configs, idx):
     is_first = idx == 0
     is_last = idx == len(passes) - 1
     ps = passes[idx]
     block_config = block_configs[idx]
+    npu_block_type = ps.npu_block_type
+    split_offsets = [None, None]  # offset for [ifm, ifm2]
+
+    ifm_idx = 0
+    for op in ps.ops:
+        if op.type == "SplitSliceRead":
+            split_offsets[ifm_idx] = op.attrs["split_start"]
+            ps.primary_op.attrs["fused_memory_function"] = op.type
+            ifm_idx += 1
+
+    if len(ps.inputs) == 2 and npu_block_type == NpuBlockType.ElementWise:
+        # Ensure correct imf and ifm2 order
+        if (match_tensor(ps.inputs[0], ps.primary_op.inputs[1]) and
+            match_tensor(ps.inputs[1], ps.primary_op.inputs[0])):
+            ps.ifm_tensor, ps.ifm2_tensor = ps.ifm2_tensor, ps.ifm_tensor
+            split_offsets[0], split_offsets[1] = split_offsets[1], split_offsets[0]
 
     ifm_tensor = ps.ifm_tensor
     ifm2_tensor = ps.ifm2_tensor
@@ -55,12 +79,8 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
         strides = ps.primary_op.attrs.get("strides", None)
         skirt = ps.primary_op.attrs.get("skirt", None)
 
-    npu_block_type = ps.npu_block_type
-
     concat_axis = 0
     concat_offset = 0
-
-    split_offsets = [None, None]  # offset for [ifm, ifm2]
 
     # Fusable activation functions
     activation_ops = set(("Sigmoid", "Tanh", "Relu", "Relu6", "ReluN1To1"))
@@ -77,14 +97,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             ps.primary_op.attrs["fused_memory_function"] = op.type
         elif op.type in activation_ops:
             ps.primary_op.attrs["fused_activation_function"] = op.type
-
-    # The ops list has to be reversed here since the Pass Packing is done in reverse
-    ifm_idx = 0
-    for op in reversed(ps.ops):
-        if op.type == "SplitSliceRead":
-            split_offsets[ifm_idx] = op.attrs["split_start"]
-            ps.primary_op.attrs["fused_memory_function"] = op.type
-            ifm_idx += 1
 
     if strat == SchedulingStrategy.WeightStream:
         ofm_step = block_config[-1]

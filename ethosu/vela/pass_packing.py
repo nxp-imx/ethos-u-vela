@@ -314,7 +314,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                         if operation_set is None:
                             print("Warning:", curr_op.type, "operation is unknown or unsupported, placing on CPU")
 
-                        for inp in curr_op.inputs:
+                        for inp in reversed(curr_op.inputs):
                             can_pack = True
                             if len(inp.ops) == 1:
                                 next_op = inp.ops[0]
