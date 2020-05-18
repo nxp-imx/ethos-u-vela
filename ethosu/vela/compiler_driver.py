@@ -138,24 +138,23 @@ def compiler_driver(nng, arch, options, scheduler_options):
                 sg, permanent_storage, ignore_subgraph_input_output_tensors=True, lr_graph=lr_graph_flash
             )
 
-    assert len(nng.subgraphs) > 1, "Error: No operators can be hardware accelerated; cancelling compilation"
-
-    # Allocate all Npu constant tensors to the first Npu subgraph since it is
-    # processed first during serialization into tensors
-    first_npu_sg = nng.subgraphs[1]
-    assert first_npu_sg.placement == PassPlacement.Npu
-    # Use the linear allocator for constant tensors
-    tensor_allocation.allocate_tensors(
-        nng,
-        first_npu_sg,
-        arch,
-        permanent_storage,
-        scheduler_options.use_ifm_ofm_overlap,
-        TensorAllocator.LinearAlloc,
-        options.verbose_allocation,
-        options.show_minimum_possible_allocation,
-        lr_graph_flash,
-    )
+    if len(nng.subgraphs) > 1:
+        # Allocate all Npu constant tensors to the first Npu subgraph since it is
+        # processed first during serialization into tensors
+        first_npu_sg = nng.subgraphs[1]
+        assert first_npu_sg.placement == PassPlacement.Npu
+        # Use the linear allocator for constant tensors
+        tensor_allocation.allocate_tensors(
+            nng,
+            first_npu_sg,
+            arch,
+            permanent_storage,
+            scheduler_options.use_ifm_ofm_overlap,
+            TensorAllocator.LinearAlloc,
+            options.verbose_allocation,
+            options.show_minimum_possible_allocation,
+            lr_graph_flash,
+        )
 
     # Allocate all non-constant tensors to the root, i.e. Cpu, subgraph. This step
     # will start at the root subgraph's input and traverse from top to bottom. When
