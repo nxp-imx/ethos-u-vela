@@ -276,6 +276,9 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
                 for idx, tens in enumerate(op.inputs):
                     purpose = input_purpose(op, idx)
                     mark_tensor_helper(tens, purpose)
+                if op.type == "Reshape":
+                    # Reshape's input and output point to same data
+                    op.outputs[0].mem_area = op.inputs[0].mem_area
                 break
         return op
 
