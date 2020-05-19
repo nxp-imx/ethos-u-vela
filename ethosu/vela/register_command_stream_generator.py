@@ -602,10 +602,18 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         # For valid padding vela has to output scaling values
                         if faf == "Sigmoid" or faf == "Tanh":
                             rescale = 0x3000 * cmd.ifm_tensor.quantization.scale_f32
-                            rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
 
+                            if cmd.ifm_tensor.dtype == DataType.int16:
+                                multiplier = max(1, int(4096 * cmd.ifm_tensor.quantization.scale_f32))
+                                rescale *= 3 * multiplier
+
+                            rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
                             scale, shift = scaling.quantise_pooling_scale(k_height * k_width, rescale_bits)
-                            scale = int(round_away_zero(scale * rescale))
+
+                            if cmd.ifm_tensor.dtype == DataType.int16:
+                                scale = (1 << shift) * 3 * multiplier
+                            else:
+                                scale = int(round_away_zero(scale * rescale))
                         else:
                             # In case avg pool fused with concat or other memory operation, rescaling might be needed.
                             # k_height == k_width == 1 is allways true in this case
@@ -715,12 +723,20 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 faf_max = quantise_float32(1.0, ofm_quant.scale_f32, ofm_quant.zero_point)
             elif faf == "Tanh":
                 emit.cmd0_with_param(cmd0.NPU_SET_ACTIVATION, activation.TANH)
-                faf_min = quantise_float32(clamp_tanh(ifm_min), ofm_quant.scale_f32, ofm_quant.zero_point)
-                faf_max = quantise_float32(clamp_tanh(ifm_max), ofm_quant.scale_f32, ofm_quant.zero_point)
+                if primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear")):
+                    faf_min = quantise_float32(-1.0, ofm_quant.scale_f32, ofm_quant.zero_point)
+                    faf_max = quantise_float32(1.0, ofm_quant.scale_f32, ofm_quant.zero_point)
+                else:
+                    faf_min = quantise_float32(clamp_tanh(ifm_min), ofm_quant.scale_f32, ofm_quant.zero_point)
+                    faf_max = quantise_float32(clamp_tanh(ifm_max), ofm_quant.scale_f32, ofm_quant.zero_point)
             elif faf == "Sigmoid":
                 emit.cmd0_with_param(cmd0.NPU_SET_ACTIVATION, activation.SIGMOID)
-                faf_min = quantise_float32(clamp_sigmoid(ifm_min), ofm_quant.scale_f32, ofm_quant.zero_point)
-                faf_max = quantise_float32(clamp_sigmoid(ifm_max), ofm_quant.scale_f32, ofm_quant.zero_point)
+                if primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear")):
+                    faf_min = quantise_float32(0, ofm_quant.scale_f32, ofm_quant.zero_point)
+                    faf_max = quantise_float32(1.0, ofm_quant.scale_f32, ofm_quant.zero_point)
+                else:
+                    faf_min = quantise_float32(clamp_sigmoid(ifm_min), ofm_quant.scale_f32, ofm_quant.zero_point)
+                    faf_max = quantise_float32(clamp_sigmoid(ifm_max), ofm_quant.scale_f32, ofm_quant.zero_point)
             else:
                 raise Exception("Unsupported fused_activation_function = " + faf)
 
