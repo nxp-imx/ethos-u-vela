@@ -48,7 +48,7 @@ mac_main_ops = set(
         "Conv2DBiasAct",
         "Conv2D",
         "QuantizedConv2D",
-        "Conv2DBackpropInputSwitched",
+        "Conv2DBackpropInputSwitchedBias",
         # depth-wise convolutions
         "DepthwiseConv2dBiasAct",
         "DepthwiseConv2dNative",

@@ -234,6 +234,10 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         else:
             tens.block_traversal = TensorBlockTraversal.DepthFirst
 
+    if tens.consumer_list[0].type == "Conv2DBackpropInputSwitchedBias":
+        # Transpose Convoluion, reverse weights in H and W axes
+        weights = np.flip(weights, axis=(0,1))
+
     # Slice weight stream up depth-ways into bricks and compress
     full_ofm_depth = quant_buf.shape[-1]
     for idx in range(0, full_ofm_depth, ofm_depth_step):
@@ -273,7 +277,9 @@ def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
     # the connected operator should expect a bias input unless it is a FullyConnected
     assert "Bias" in tens.consumer_list[0].type or tens.consumer_list[0].type.startswith("FullyConnected")
     # the input bias tensor is the same as that connected to the operator
-    assert tens is tens.consumer_list[0].inputs[2]
+    _, _, bias_tens, _ = tens.consumer_list[0].get_ifm_weights_biases_ofm()
+    assert tens is bias_tens
+
     # the operator should only have a single output
     assert len(tens.consumer_list[0].outputs) == 1
 

@@ -75,6 +75,9 @@ input and output tensors, as well as an attribute dictionary."""
                 if len(self.inputs) >= 3:
                     bias_idx = 2
 
+            elif self.type == "Conv2DBackpropInputSwitchedBias":
+                bias_idx = 3
+
         elif npu_block_type == NpuBlockType.Pooling:
             ifm_idx = 0
             ofm_idx = 0

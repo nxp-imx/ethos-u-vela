@@ -131,12 +131,50 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
     skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
     return padding, skirt
 
+def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
+    upscaled_shape = [input_dims[0], input_dims[1] * stride[1], input_dims[2] * stride[2], input_dims[3]]
+    ypad = needed_total_padding(int(upscaled_shape[1]), int(stride[1]), int(kernel_size[0]))
+    xpad = needed_total_padding(int(upscaled_shape[2]), int(stride[2]), int(kernel_size[1]))
+
+    if padding_type == b"SAME":
+        right_pad = ((xpad + 1) // 2) - 1
+        bottom_pad = ((ypad + 1) // 2) - 1
+        left_pad = max(kernel_size[0] - 1 - right_pad, 0)
+        top_pad = max(kernel_size[1] - 1 - bottom_pad, 0)
+    elif padding_type == b"VALID":
+        right_pad = (xpad + 1) // 2
+        bottom_pad = (ypad + 1) // 2
+        left_pad = max(kernel_size[0] - right_pad, 0)
+        top_pad = max(kernel_size[1] - bottom_pad, 0)
+    else:
+        assert 0, "Unknown padding"
+
+    padding = (top_pad, left_pad, bottom_pad, right_pad)
+    skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
+    return padding, skirt
+
 
 def fixup_conv2d_backprop(op, arch):
     if op.type == "Conv2DBackpropInput":
         # flip the inputs
         op.inputs[0], op.inputs[2] = op.inputs[2], op.inputs[0]
-        op.type = "Conv2DBackpropInputSwitched"
+        op.type = "Conv2DBackpropInputSwitchedBias"
+        weight_shape = op.inputs[1].shape
+        weight_sets = weight_shape[3]
+
+        if len(op.inputs) < 4:
+            # Add bias/scale tensor filled with zeros
+            scale_op = Operation("Const", op.name + "_bias")
+            scale_tens = Tensor([weight_sets], DataType.int32, op.name + "_bias_tens")
+            scale_tens.values = [0] * weight_sets
+            scale_tens.quant_values = [0] * weight_sets
+            scale_tens.ops = [scale_op]
+            scale_op.outputs = [scale_tens]
+            scale_tens.consumer_list = [op]
+            op.inputs.append(scale_tens)
+
+        # Update strides
+        op.attrs.update( {"stride_w": 1, "stride_h": 1, "strides": (1,1,1,1)} )
 
     return op
 
@@ -292,15 +330,20 @@ def add_padding_fields(op, arch):
         else:
             raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
-        dilation_h, dilation_w = op.get_dilation_h_w()
-        dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
-        padding, skirt = calc_padding_and_skirt(op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape)
+        if op.type == "Conv2DBackpropInputSwitchedBias":
+            padding, skirt = calc_upscaled_padding_and_skirt(op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape)
+        else:
+            dilation_h, dilation_w = op.get_dilation_h_w()
+            dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
+            padding, skirt = calc_padding_and_skirt(op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape)
+
         op.attrs["explicit_padding"] = padding
         op.attrs["skirt"] = skirt
+
     return op
 
 
-conv_op = set(("Conv2D", "QuantizedConv2D", "Conv2DBackpropInputSwitched", "Conv2DBiasAct"))
+conv_op = set(("Conv2D", "QuantizedConv2D", "Conv2DBackpropInputSwitchedBias", "Conv2DBiasAct"))
 fc_op = set(
     (
         "MatMul",

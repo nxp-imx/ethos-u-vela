@@ -38,6 +38,7 @@ from .ethos_u55_regs.ethos_u55_regs import cmd0
 from .ethos_u55_regs.ethos_u55_regs import cmd1
 from .ethos_u55_regs.ethos_u55_regs import elementwise_mode
 from .ethos_u55_regs.ethos_u55_regs import ifm_precision
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .ethos_u55_regs.ethos_u55_regs import rounding
 from .high_level_command_stream import CommandType
 from .numeric_util import clamp_sigmoid
@@ -555,9 +556,12 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
             if primary_op.type == "ResizeBilinear":
                 # perform nearest neighbor upscale
-                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, 1)
+                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, resampling_mode.NEAREST)
+            elif primary_op.type == "Conv2DBackpropInputSwitchedBias":
+                # perform insert zero upscale
+                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, resampling_mode.TRANSPOSE)
             else:
-                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, 0)
+                emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, resampling_mode.NONE)
 
             if npu_block_type in set(
                 (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.Pooling)
