@@ -22,6 +22,7 @@ import numpy as np
 
 from . import rewrite_graph
 from .data_type import DataType
+from .errors import UnsupportedFeatureError
 from .operation import NpuBlockType
 from .operation import Operation
 from .tensor import Tensor
@@ -124,7 +125,7 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
         top_pad = 0
         bottom_pad = 0
     else:
-        assert 0, "Unknown padding"
+        raise UnsupportedFeatureError("Unknown padding {}".format(str(padding_type)))
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
     return padding, skirt
@@ -214,7 +215,7 @@ def fixup_unpack_output(tens, arch):
         if op.type == "StridedSlice":
             new_axis_mask = op.attrs["new_axis_mask"]
             shrink_axis_mask = op.attrs["shrink_axis_mask"]
-            ellipsis_mask =  op.attrs["ellipsis_mask"]
+            ellipsis_mask = op.attrs["ellipsis_mask"]
 
             if (new_axis_mask != 0 and shrink_axis_mask != 0) or ellipsis_mask != 0:
                 # Not supported, will be put on CPU
@@ -243,7 +244,7 @@ def fixup_unpack_output(tens, arch):
                     n += 1
                     new_axis_mask &= new_axis_mask - 1
                     axis = int(math.log2(prev_mask - new_axis_mask))
-                    reshape_input_shape = reshape_input_shape[:axis] + reshape_input_shape[(axis + 1):]
+                    reshape_input_shape = reshape_input_shape[:axis] + reshape_input_shape[(axis + 1) :]
                     new_axis_mask >>= 1
 
                 assert len(tens.shape) == (len(op.inputs[0].shape) + n)
@@ -288,7 +289,7 @@ def add_padding_fields(op, arch):
             kernel_size = op.attrs["ksizes"][1:3]
             input_shape = op.inputs[0].shape
         else:
-            assert 0, "Unknown operation that uses padding"
+            raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
         padding, skirt = calc_padding_and_skirt(op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape)
         op.attrs["explicit_padding"] = padding
@@ -312,7 +313,9 @@ fc_op = set(
     )
 )
 depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
-pool_op = set(("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear",))
+pool_op = set(
+    ("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear",)
+)
 elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "LeakyRelu", "Abs"))
 binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
 activation_ops = set(("Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh"))
@@ -373,13 +376,11 @@ def convert_depthwise_to_conv(op, arch):
                 weight_tensor.quant_values.shape
             )
         else:
-            print(
-                "Error: Unsupported DepthwiseConv2d with depth_multiplier = {0}, "
-                "ifm channels = {1}, ofm channels = {2}".format(
+            raise UnsupportedFeatureError(
+                "Unsupported DepthwiseConv2d with depth_multiplier = {}, ifm channels = {}, ofm channels = {}".format(
                     op.attrs["depth_multiplier"], ifm_tensor.shape[3], ofm_tensor.shape[3]
                 )
             )
-            assert False
     return op
 
 

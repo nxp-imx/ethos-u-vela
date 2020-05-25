@@ -21,6 +21,7 @@ from configparser import ConfigParser
 
 import numpy as np
 
+from .errors import OptionError
 from .numeric_util import round_up
 from .numeric_util import round_up_divide
 from .operation import NpuBlockType
@@ -158,7 +159,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.vela_config = vela_config
         self.accelerator_config = accelerator_config
         if self.accelerator_config not in ArchitectureFeatures.accelerator_configs:
-            raise Exception("Unknown accelerator configuration " + self.accelerator_config)
+            raise OptionError("--accelerator-config", self.accelerator_config, "Unknown accelerator configuration")
         accel_config = ArchitectureFeatures.accelerator_configs[self.accelerator_config]
         self.config = accel_config
 
@@ -564,7 +565,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         else:
             section_key = "SysConfig." + self.system_config
             if section_key not in self.vela_config:
-                raise Exception("Unknown system configuration " + self.system_config)
+                raise OptionError("--system-config", self.system_config, "Unknown system configuration")
 
         try:
             self.npu_clock = float(self.__sys_config("npu_freq", "500e6"))

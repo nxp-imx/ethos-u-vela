@@ -22,6 +22,7 @@ from .architecture_features import Block
 from .architecture_features import Kernel
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
+from .errors import OptionError
 from .operation import NpuBlockType
 
 
@@ -163,8 +164,11 @@ def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps):
 
     if arch.override_block_config:
         config = alloc.try_block(arch.override_block_config)
-        assert config, "Block config override cannot be used"
-        return [config]
+        raise OptionError(
+            "--force-block-config",
+            str(arch.override_block_config),
+            "This forced block config value cannot be used; it is not compatible",
+        )
 
     # Constrain the search space if the OFM is smaller than the max block size
     # - Add other block search constraints here if required

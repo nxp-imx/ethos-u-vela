@@ -31,6 +31,7 @@ from . import scheduler
 from . import stats_writer
 from . import tflite_writer
 from ._version import __version__
+from .errors import InputFileError
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
 from .scheduler import ParetoMetric
@@ -44,8 +45,7 @@ def process(fname, arch, model_reader_options, compiler_options, scheduler_optio
     nng = model_reader.read_model(fname, model_reader_options)
 
     if not nng:
-        print("reading of", fname, "failed")
-        assert False
+        raise InputFileError(fname, "input file could not be read")
 
     if compiler_options.verbose_operators:
         nng.print_operators()

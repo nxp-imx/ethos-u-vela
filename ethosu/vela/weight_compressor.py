@@ -23,6 +23,7 @@ from ethosu import mlw_codec
 
 from .architecture_features import Block
 from .data_type import DataType
+from .errors import UnsupportedFeatureError
 from .nn_graph import SchedulingStrategy
 from .numeric_util import round_up
 from .operation import NpuBlockType
@@ -292,14 +293,18 @@ def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
                 for weight_scale in weight_scales
             ]
         else:
-            assert False, str(ifm_dtype) + " not implemented"
+            raise UnsupportedFeatureError(
+                "Compression of {} is not implemented; tensor: {}".format(ifm_dtype, tens.name)
+            )
     else:
         if ifm_dtype == DataType.uint8:
             scales = [np.double(ifm_scale * weight_scale * 0x3000) for weight_scale in weight_scales]
         elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
             scales = [(np.double(ifm_scale * 0x3000) * np.double(weight_scale)) for weight_scale in weight_scales]
         else:
-            assert False, str(ifm_dtype) + " not implemented"
+            raise UnsupportedFeatureError(
+                "Compression of {} is not implemented; tensor: {}".format(ifm_dtype, tens.name)
+            )
 
     # quantise all of the weight scales into (scale_factor, shift)
     if ifm_dtype == DataType.int16:
