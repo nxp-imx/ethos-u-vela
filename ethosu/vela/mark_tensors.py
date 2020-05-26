@@ -314,6 +314,8 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
             fmt = arch.default_feature_map_format
         elif tens.purpose == TensorPurpose.Weights:
             fmt = arch.default_weight_format
+        elif tens.purpose == TensorPurpose.Unknown:
+            fmt = TensorFormat.Unknown
         else:
             assert 0, "unknown tensor purpose %s" % (tens.purpose,)
         return fmt

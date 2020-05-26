@@ -243,6 +243,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
 
         self.tensor_storage_mem_area = {
             # permanent mem_area
+            TensorPurpose.Unknown: MemArea.Unknown,
             TensorPurpose.Weights: self.permanent_storage_mem_area,
             TensorPurpose.FeatureMap: self.feature_map_storage_mem_area,
         }
