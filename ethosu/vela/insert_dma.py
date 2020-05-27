@@ -31,7 +31,8 @@ def insert_dma_cmd(op, arch):
         if tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash) and tens.mem_area != arch.fast_storage_mem_area:
             if (tens.purpose == TensorPurpose.Weights or
                 (tens.purpose == TensorPurpose.FeatureMap and
-                 op.type in binary_elementwise_op)):
+                 op.type in binary_elementwise_op and
+                 tens.shape != [])):
                 only_vector_product_consumers = True
                 for oper in tens.consumers():
                     if oper is None or oper.attrs.get("npu_block_type") != NpuBlockType.VectorProduct:
