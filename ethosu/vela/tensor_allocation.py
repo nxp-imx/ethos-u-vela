@@ -25,6 +25,7 @@ from . import numeric_util
 from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_ranges
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
+from .tensor import MemType
 
 
 def linear_allocate_live_ranges(live_ranges, alloc_granularity=16):
@@ -66,12 +67,13 @@ def mark_sram_used_for_cascaded_passes(sg, lrs):
             ps.sram_used = sram_used
 
 
-def print_allocation(lrs, mem_area, sg, verbose_allocation, show_minimum_possible_allocation):
+def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_minimum_possible_allocation):
     if verbose_allocation:
-        if mem_area == MemArea.Sram:
-            print("allocation for", mem_area, "- non-constant tensors in Cpu and Npu subgraphs")
-        else:
+        if mem_type_set == set((MemType.Permanent_NPU,)) or mem_type_set == set((MemType.Permanent_CPU,)):
             print("allocation for", mem_area, "- constant tensors in", sg.placement.name, "subgraph(s)")
+        else:
+            print("allocation for", mem_area, "- non-constant tensors in Cpu and Npu subgraphs")
+
         for start_time, start, end, name, end_time in sorted(
             (
                 lr.start_time,
@@ -99,6 +101,7 @@ def allocate_tensors(
     sg,
     arch,
     mem_area,
+    mem_type_set,
     use_ifm_ofm_overlap=True,
     tensor_allocator=TensorAllocator.Greedy,
     verbose_allocation=False,
@@ -109,6 +112,7 @@ def allocate_tensors(
     lrs = live_range.extract_live_ranges_from_cascaded_passes(
         sg,
         mem_area,
+        mem_type_set,
         mark_output_tensors_overlapping_with_input_tensors=False,
         use_ifm_ofm_overlap=use_ifm_ofm_overlap,
         ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
@@ -120,16 +124,26 @@ def allocate_tensors(
         if tens_alloc == TensorAllocator.Greedy:
             total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, verbose_allocation)
         elif tens_alloc == TensorAllocator.LinearAlloc:
-            total_sz = linear_allocate_live_ranges(lrs)
+            total_sz = linear_allocate_live_ranges(lrs, 16)
         else:
             assert 0
 
-        sg.memory_used[mem_area] = total_sz
+        if sg.memory_used.get(mem_area, 0) == 0:
+            sg.memory_used[mem_area] = total_sz
+        else:
+            sg.memory_used[mem_area] += total_sz
+
+        # Keep track of how much should be used for scratch or permanent storage for NPU
+        for mem_type in mem_type_set:
+            if sg.memory_used_per_type.get(mem_type, 0) == 0:
+                sg.memory_used_per_type[mem_type] = total_sz
+            else:
+                sg.memory_used_per_type[mem_type] += total_sz
 
         nng.total_size[mem_area] = nng.total_size.get(mem_area, 0) + sum(tens.storage_size() for tens in lrs.ranges)
         nng.total_elements[mem_area] = nng.total_elements.get(mem_area, 0) + sum(tens.elements() for tens in lrs.ranges)
 
-        print_allocation(lrs, mem_area, sg, verbose_allocation, show_minimum_possible_allocation)
+        print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_minimum_possible_allocation)
 
         if mem_area == MemArea.Sram:
             # Mark Sram usage for all subgraphs

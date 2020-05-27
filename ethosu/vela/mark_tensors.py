@@ -18,6 +18,7 @@
 from . import rewrite_graph
 from . import weight_compressor
 from .errors import OperatorError
+from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 from .tflite_mapping import custom_prefix
@@ -254,11 +255,13 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
         else:
             assert 0, "Cannot resolve tensor purpose %s and %s for tensor %s" % (tens.purpose, purpose, tens)
         tens.mem_area = arch.tensor_storage_mem_area[tens.purpose]
+        tens.mem_type = arch.tensor_storage_mem_type[tens.purpose]
 
         if len(tens.ops) == 1 and tens.ops[0].type == "Const":
             tens.mem_area = (
                 arch.permanent_storage_mem_area
             )  # special case constants, as they must be in permanent storage
+            tens.mem_type = MemType.Permanent_NPU
 
     def rewrite_mark_tensor_purpose(op, arch):
         # find disconnected outputs and mark as parameters

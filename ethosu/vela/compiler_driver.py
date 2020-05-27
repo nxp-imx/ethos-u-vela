@@ -33,7 +33,7 @@ from . import weight_compressor
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
 from .rewrite_graph import verify_graph_health
-from .tensor import MemArea
+from .tensor import MemType
 
 
 class CompilerOptions:
@@ -120,9 +120,6 @@ def compiler_driver(nng, arch, options, scheduler_options):
     # block config, and calc and pack the scales and biases
     weight_compressor.update_pass_weight_and_scale_tensors(nng, arch)
 
-    # Memory area for all non-constant tensors (Cpu and Npu)
-    non_const_mem_area = MemArea.Sram
-
     # LiveRanges for constant tensors for all Npu subgraphs
     permanent_storage = arch.permanent_storage_mem_area
     lr_graph_flash = live_range.LiveRangeGraph()
@@ -135,7 +132,11 @@ def compiler_driver(nng, arch, options, scheduler_options):
     for sg in nng.subgraphs:
         if sg.placement == PassPlacement.Npu:
             lr_graph_flash = live_range.extract_live_ranges_from_cascaded_passes(
-                sg, permanent_storage, ignore_subgraph_input_output_tensors=True, lr_graph=lr_graph_flash
+                sg,
+                permanent_storage,
+                MemType.Permanent_NPU,
+                ignore_subgraph_input_output_tensors=True,
+                lr_graph=lr_graph_flash,
             )
 
     if len(nng.subgraphs) > 1:
@@ -143,12 +144,12 @@ def compiler_driver(nng, arch, options, scheduler_options):
         # processed first during serialization into tensors
         first_npu_sg = nng.subgraphs[1]
         assert first_npu_sg.placement == PassPlacement.Npu
-        # Use the linear allocator for constant tensors
         tensor_allocation.allocate_tensors(
             nng,
             first_npu_sg,
             arch,
             permanent_storage,
+            set((MemType.Permanent_NPU,)),
             scheduler_options.use_ifm_ofm_overlap,
             TensorAllocator.LinearAlloc,
             options.verbose_allocation,
@@ -159,19 +160,36 @@ def compiler_driver(nng, arch, options, scheduler_options):
     # Allocate all non-constant tensors to the root, i.e. Cpu, subgraph. This step
     # will start at the root subgraph's input and traverse from top to bottom. When
     # it comes across an Npu-op it will extract live ranges for it's corresponding
-    # Npu subgraph and add them to the root's live range graph. Finally, all of the
-    # non-constant tensors are allocated together
+    # Npu subgraph and add them to the root's live range graph.
+    # The non-constant tensors are stored either in arch.feature_map_storage_mem_area or
+    # arch.fast_storage_mem_area.
+    # When these memory areas are the same, all non-constant tensors are allocated together.
+    # Otherwise they are allocated separately.
+
     root_sg = nng.get_root_subgraph()
-    tensor_allocation.allocate_tensors(
-        nng,
-        root_sg,
-        arch,
-        non_const_mem_area,
-        scheduler_options.use_ifm_ofm_overlap,
-        options.tensor_allocator,
-        options.verbose_allocation,
-        options.show_minimum_possible_allocation,
-    )
+
+    alloc_list = []
+    if arch.feature_map_storage_mem_area == arch.fast_storage_mem_area:
+        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))
+        alloc_list.append(mem_alloc_scratch)
+    else:
+        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch,)))
+        mem_alloc_scratch_fast = (arch.fast_storage_mem_area, set((MemType.Scratch_fast,)))
+        alloc_list.append(mem_alloc_scratch)
+        alloc_list.append(mem_alloc_scratch_fast)
+
+    for alloc in alloc_list:
+        tensor_allocation.allocate_tensors(
+            nng,
+            root_sg,
+            arch,
+            alloc[0],
+            alloc[1],
+            scheduler_options.use_ifm_ofm_overlap,
+            options.tensor_allocator,
+            options.verbose_allocation,
+            options.show_minimum_possible_allocation,
+        )
 
     # Generate command streams and serialise Npu-ops into tensors
     for sg in nng.subgraphs:
@@ -194,6 +212,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
         root_sg,
         arch,
         permanent_storage,
+        set((MemType.Permanent_CPU,)),
         scheduler_options.use_ifm_ofm_overlap,
         TensorAllocator.LinearAlloc,
         options.verbose_allocation,

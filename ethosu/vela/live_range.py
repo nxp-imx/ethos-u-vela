@@ -18,7 +18,7 @@
 # Can work with either a pass packed subgraph or a scheduled subgraph.
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_cascaded_pass
 from .nn_graph import PassPlacement
-from .tensor import MemArea
+from .tensor import MemType
 from .tensor import Tensor
 
 
@@ -220,6 +220,7 @@ def extract_live_ranges_from_passes(
 def extract_live_ranges_from_cascaded_passes(
     sg,
     target_mem_area,
+    target_mem_type_set,
     mark_output_tensors_overlapping_with_input_tensors=False,
     use_ifm_ofm_overlap=True,
     ignore_subgraph_input_output_tensors=False,
@@ -236,8 +237,8 @@ def extract_live_ranges_from_cascaded_passes(
         lr_graph.ignore_tensors.update(sg.input_tensors)
         lr_graph.ignore_tensors.update(sg.output_tensors)
 
-    def tensor_should_be_ignored(tens, target_mem_area):
-        if tens.mem_area != target_mem_area:
+    def tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
+        if tens.mem_area != target_mem_area or tens.mem_type not in target_mem_type_set:
             return True
         if tens in lr_graph.ignore_tensors:
             return True
@@ -247,9 +248,24 @@ def extract_live_ranges_from_cascaded_passes(
             return True
         return False
 
+    def merge_memory_op_ranges(sg, lr_graph, tensor_should_be_ignored, target_mem_area, target_mem_type_set):
+        for ps in sg.passes:
+            if ps.placement == PassPlacement.MemoryOnly:
+                # For memory only passes, e.g. Reshape. Add input and output tensor to the same LiveRange
+                input_tensor = ps.inputs[0]
+                output_tensor = ps.outputs[0]
+                # If the input or output tensor is tied to a Cpu tensor, i.e. a subgraph input
+                # or output, fuse the live-range with the Cpu tensors' live-range instead.
+                input_tensor = input_tensor.cpu_tensor if input_tensor.cpu_tensor is not None else input_tensor
+                output_tensor = output_tensor.cpu_tensor if output_tensor.cpu_tensor is not None else output_tensor
+                if not tensor_should_be_ignored(input_tensor, target_mem_area, target_mem_type_set) and not (
+                    tensor_should_be_ignored(output_tensor, target_mem_area, target_mem_type_set)
+                ):
+                    lr_graph.fuse_ranges(input_tensor, output_tensor)
+
     # Merge only memory operations in the NPU subgraphs
     if sg.placement == PassPlacement.Npu:
-        merge_memory_op_ranges(sg, lr_graph, tensor_should_be_ignored, target_mem_area)
+        merge_memory_op_ranges(sg, lr_graph, tensor_should_be_ignored, target_mem_area, target_mem_type_set)
 
     for cps in sg.cascaded_passes:
         cps.time = lr_graph.current_time
@@ -259,19 +275,21 @@ def extract_live_ranges_from_cascaded_passes(
         is_element_wise = cps.is_element_wise
 
         for tens in cps.inputs:
-            if tensor_should_be_ignored(tens, target_mem_area):
+            if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
                 continue
             rng = lr_graph.get_or_create_range(tens)
             rng.mark_usage(time_for_pass)
 
         cps_primary_op = cps.passes[0].primary_op
-        if cps_primary_op and cps_primary_op.type == "NpuOp" and target_mem_area in set((MemArea.Sram, MemArea.Dram)):
+
+        if cps_primary_op and cps_primary_op.type == "NpuOp" and MemType.Permanent_CPU not in target_mem_type_set:
             # If the primary-op is an NpuOp that means this is where an Npu subgraph
             # is called. Go into said subgraph and extract live ranges before continuing.
             npu_sg = cps_primary_op.attrs["subgraph"]
             lr_graph = extract_live_ranges_from_cascaded_passes(
                 npu_sg,
                 target_mem_area,
+                target_mem_type_set,
                 mark_output_tensors_overlapping_with_input_tensors,
                 use_ifm_ofm_overlap,
                 False,
@@ -282,13 +300,13 @@ def extract_live_ranges_from_cascaded_passes(
             cps.time = time_for_pass
 
         for tens in cps.intermediates:
-            if tensor_should_be_ignored(tens, target_mem_area):
+            if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
                 continue
             rng = lr_graph.get_or_create_range(tens)
             rng.mark_usage(time_for_pass)
 
         for tens in cps.outputs:
-            if tensor_should_be_ignored(tens, target_mem_area):
+            if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
                 continue
             rng = lr_graph.get_or_create_range(tens)
             output_time = time_for_pass
@@ -303,8 +321,8 @@ def extract_live_ranges_from_cascaded_passes(
             if (
                 ifm_tensor is not None
                 and ofm_tensor is not None
-                and not tensor_should_be_ignored(ifm_tensor, target_mem_area)
-                and not tensor_should_be_ignored(ofm_tensor, target_mem_area)
+                and not tensor_should_be_ignored(ifm_tensor, target_mem_area, target_mem_type_set)
+                and not tensor_should_be_ignored(ofm_tensor, target_mem_area, target_mem_type_set)
             ):
                 lr_graph.allowed_overlaps[(ifm_tensor, ofm_tensor)] = calc_allowed_ofm_ifm_overlap_for_cascaded_pass(
                     cps
@@ -318,7 +336,7 @@ def extract_live_ranges_from_cascaded_passes(
         end_time = max(end_time, rng.end_time)
 
     for tens in sg.output_tensors:
-        if tensor_should_be_ignored(tens, target_mem_area):
+        if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
             continue
         rng = lr_graph.get_or_create_range(tens)
         rng.mark_usage(end_time)

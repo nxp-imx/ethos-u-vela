@@ -28,6 +28,7 @@ from .numeric_util import round_up_divide
 from .operation import NpuBlockType
 from .supported_operators import SupportedOperators
 from .tensor import MemArea
+from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 
@@ -168,11 +169,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
 
         is_yoda_system = "yoda-" in self.accelerator_config
 
-        if is_yoda_system:
-            self.sram_size = 256 * 1024
-        else:
-            self.sram_size = 200 * 1024 * 1024
-
         self.ncores = accel_config.cores
         self.ofm_ublock = accel_config.ofm_ublock
         self.ifm_ublock = accel_config.ifm_ublock
@@ -233,7 +229,8 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.default_weight_format = TensorFormat.WeightsCompressed
         self.default_feature_map_format = TensorFormat.NHWC
 
-        if permanent_storage != MemArea.OffChipFlash:
+        # This is to ignore permanent_storage = On/OffChipflash for Yoda
+        if not is_yoda_system and permanent_storage != MemArea.OffChipFlash:
             self.permanent_storage_mem_area = permanent_storage
 
         self.tensor_storage_mem_area = {
@@ -243,10 +240,10 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             TensorPurpose.FeatureMap: self.feature_map_storage_mem_area,
         }
 
-        self.tensor_load_mem_area = dict(self.tensor_storage_mem_area)
-
-        if self.tensor_storage_mem_area[TensorPurpose.Weights] in (MemArea.OffChipFlash,):
-            self.tensor_load_mem_area[TensorPurpose.Weights] = MemArea.Sram
+        self.tensor_storage_mem_type = {
+            TensorPurpose.Weights: MemType.Permanent_NPU,
+            TensorPurpose.FeatureMap: MemType.Scratch,
+        }
 
         self.min_block_sizes = {
             NpuBlockType.Default: (dpu_min_height, dpu_min_width),
@@ -278,7 +275,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.max_sram_used_weight = 1000
 
         if is_yoda_system:
-            self.max_sram_used_weight = 0
+            self.max_sram_used_weight = 1000
 
         # Shared Buffer Block allocations
         self.shram_bank_size = 1024  # bytes
@@ -589,14 +586,21 @@ Note the difference between ArchitectureFeatures and CompilerOptions
 
             self.fast_storage_mem_area = MemArea[self.__sys_config("fast_storage_mem_area", "Sram")]
             self.feature_map_storage_mem_area = MemArea[self.__sys_config("feature_map_storage_mem_area", "Sram")]
+
+            if self.fast_storage_mem_area != self.feature_map_storage_mem_area:
+                raise Exception(
+                    "Invalid memory configuration fast_storage_mem_area must be same as feature_map_storage_mem_area"
+                )
             self.permanent_storage_mem_area = MemArea[self.__sys_config("permanent_storage_mem_area", "OffChipFlash")]
-            if self.permanent_storage_mem_area not in set((MemArea.OnChipFlash, MemArea.OffChipFlash)):
+            if self.permanent_storage_mem_area not in set((MemArea.OnChipFlash, MemArea.OffChipFlash, MemArea.Dram)):
                 raise Exception(
                     "Invalid permanent_storage_mem_area = "
                     + str(self.permanent_storage_mem_area)
-                    + " (must be 'OnChipFlash' or 'OffChipFlash'). To store the weights and other constant data in SRAM"
-                    " select 'OnChipFlash'"
+                    + " (must be 'OnChipFlash', 'OffChipFlash' or 'DRAM')."
+                    " To store the weights and other constant data in SRAM on ethosu-55 select 'OnChipFlash'"
                 )
+            self.sram_size = 1024 * int(self.__sys_config("sram_size_kb", "204800"))
+
         except Exception:
             print("Error: Reading System Configuration in vela configuration file, section {}".format(section_key))
             raise

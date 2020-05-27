@@ -201,7 +201,10 @@ def write_pass_metrics_csv(nng, pass_filename):
                             for k in indices[2]:
                                 res += round_up_to_int(ps.bandwidths[i, j, k])
                         stats.append(res)
-                    stats += [ps.sram_used]
+                    try:
+                        stats += [ps.sram_used]
+                    except AttributeError:
+                        stats += [0]
 
                     writer.writerow(stats)
 

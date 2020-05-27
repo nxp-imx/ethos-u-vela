@@ -19,6 +19,7 @@ from . import rewrite_graph
 from .operation import NpuBlockType
 from .operation import Operation
 from .tensor import MemArea
+from .tensor import MemType
 from .tensor import TensorPurpose
 
 
@@ -30,29 +31,34 @@ def insert_dma_cmd(op, arch):
         return op  # Already rewritten
     for idx, tens in enumerate(op.inputs):
 
-        if tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash) and tens.mem_area != arch.fast_storage_mem_area:
-            if tens.purpose == TensorPurpose.Weights or (
-                tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and tens.shape != []
+        if tens.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
+            # Tensor is in permanent storage
+            # Only when permanent storage differs from fast storage, there is a point moving the data
+            if tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash) and (
+                arch.permanent_storage_mem_area != arch.fast_storage_mem_area
             ):
-                only_vector_product_consumers = True
-                for oper in tens.consumers():
-                    if oper is None or oper.attrs.get("npu_block_type") != NpuBlockType.VectorProduct:
-                        only_vector_product_consumers = False
-                        break
+                if tens.purpose == TensorPurpose.Weights or (
+                    tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and tens.shape != []
+                ):
+                    only_vector_product_consumers = True
+                    for oper in tens.consumers():
+                        if oper is None or oper.attrs.get("npu_block_type") != NpuBlockType.VectorProduct:
+                            only_vector_product_consumers = False
+                            break
 
-                # Tensor products has no need for DMA, tensors are only read once and can be in flash.
-                # Other operations re-reads tensors, this is better done from SRAM.
-                if not only_vector_product_consumers:
-                    # Insert a DMA command here, as well as a new tensor situated in SRAM of the same size.
-                    new_tens = tens.clone_into_fast_storage(arch)
-                    dma_cmd = Operation("DMA", tens.ops[0].name + "_dma")
-                    dma_cmd.inputs = [tens]
-                    dma_cmd.outputs = [new_tens]
-                    dma_cmd.attrs["source"] = tens.mem_area
-                    dma_cmd.attrs["destination"] = new_tens.mem_area
-                    dma_cmd.run_on_npu = True
-                    new_tens.ops = [dma_cmd]
-                    op.inputs[idx] = new_tens
+                    # Tensor products has no need for DMA, tensors are only read once and can be in flash.
+                    # Other operations re-reads tensors, this is better done from SRAM.
+                    if not only_vector_product_consumers:
+                        # Insert a DMA command here, as well as a new tensor situated in SRAM of the same size.
+                        new_tens = tens.clone_into_fast_storage(arch)
+                        dma_cmd = Operation("DMA", tens.ops[0].name + "_dma")
+                        dma_cmd.inputs = [tens]
+                        dma_cmd.outputs = [new_tens]
+                        dma_cmd.attrs["source"] = tens.mem_area
+                        dma_cmd.attrs["destination"] = new_tens.mem_area
+                        dma_cmd.run_on_npu = True
+                        new_tens.ops = [dma_cmd]
+                        op.inputs[idx] = new_tens
     return op
 
 

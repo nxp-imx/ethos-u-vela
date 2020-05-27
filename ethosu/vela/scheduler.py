@@ -38,6 +38,7 @@ from .operation import NpuBlockType
 from .shared_buffer_allocation import find_block_configs_suitable_for_pass_and_shared_buffer
 from .shared_buffer_allocation import shared_buffer_allocation_for_pass_and_block_config
 from .tensor import MemArea
+from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 from .tensor import TensorSubPurpose
@@ -833,6 +834,7 @@ class DynamicProgrammingScheduler:
             for rewrite_op, tens, sub_purpose, param_a, param_b, ps in strat.rewrite_list:
                 if rewrite_op == SchedulerRewrite.ChangeTensorSubPurpose:
                     tens.mem_area = self.arch.fast_storage_mem_area
+                    tens.mem_type = MemType.Scratch_fast
                     tens.set_new_sub_purpose(sub_purpose, param_a, param_b)
                 else:
                     assert 0, "unknown rewrite_op " + str(rewrite_op)

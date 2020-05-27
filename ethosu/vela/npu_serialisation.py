@@ -24,14 +24,16 @@ from .data_type import DataType
 from .nn_graph import PassPlacement
 from .operation import Operation
 from .tensor import MemArea
+from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 
 
-def make_memory_tensor(name, mem_area, sz, want_values, arch):
+def make_memory_tensor(name, mem_area, mem_type, sz, want_values, arch):
     tens = Tensor([sz], DataType.uint8, name)
     tens.mem_area = mem_area
+    tens.mem_type = mem_type
     tens.purpose = TensorPurpose.FeatureMap
     tens.set_format(TensorFormat.NHWC, arch)
     if want_values:
@@ -58,7 +60,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
         return scratch_tens, flash_tens
 
     flash_area = arch.permanent_storage_mem_area
-    scratch_area = MemArea.Sram
+    scratch_area = arch.feature_map_storage_mem_area
 
     flash_size = sg.memory_used.get(flash_area, 0)
     scratch_size = sg.memory_used.get(scratch_area, 0)
@@ -85,9 +87,13 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
 
     if flash_tens == scratch_tens is None:
         # First Npu subgraph, create scratch and flash tensors
-        sg.scratch_tensor = make_memory_tensor(sg.name + "_scratch", scratch_area, scratch_size, False, arch)
+        sg.scratch_tensor = make_memory_tensor(
+            sg.name + "_scratch", scratch_area, MemType.Scratch, scratch_size, False, arch
+        )
         sg.scratch_tensor.purpose = TensorPurpose.Scratch
-        sg.flash_tensor = make_memory_tensor(sg.name + "_flash", flash_area, flash_size, True, arch)
+        sg.flash_tensor = make_memory_tensor(
+            sg.name + "_flash", flash_area, MemType.Permanent_CPU, flash_size, True, arch
+        )
     else:
         sg.scratch_tensor = scratch_tens
         sg.scratch_tensor.shape[0] += scratch_size
@@ -108,13 +114,15 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
 
                     copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor)
 
-                if ps.ifm_tensor is not None and ps.ifm_tensor.mem_area != MemArea.Sram:
+                if ps.ifm_tensor is not None and ps.ifm_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm_tensor)
-                if ps.ifm2_tensor is not None and ps.ifm2_tensor.mem_area != MemArea.Sram:
+                if ps.ifm2_tensor is not None and (
+                    ps.ifm2_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast)
+                ):
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm2_tensor)
 
     sg.command_stream_tensor = make_memory_tensor(
-        sg.name + "_command_stream", flash_area, command_stream_size_bytes, True, arch
+        sg.name + "_command_stream", flash_area, MemType.Permanent_CPU, command_stream_size_bytes, True, arch
     )
     sg.command_stream_tensor.values = np.frombuffer(payload_bytes, dtype=np.uint8)
 
@@ -156,4 +164,5 @@ def rewrite_npu_call_ops(nng, sg, arch):
                         prev_cps.sram_used += sz
 
                     if callee.scratch_tensor is not None:
-                        cps.sram_used += callee.scratch_tensor.storage_size()
+                        if callee.scratch_tensor.mem_area == MemArea.Sram:
+                            cps.sram_used += callee.scratch_tensor.storage_size()

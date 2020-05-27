@@ -137,6 +137,7 @@ class Subgraph:
         self.flash_tensor = None
 
         self.memory_used = {}
+        self.memory_used_per_type = {}
 
     def __str__(self):
         return "<nng.Subgraph '%s',  n_passes=%d, n_cascaded_passes=%d>" % (
@@ -349,9 +350,15 @@ class Subgraph:
         for idx, op in enumerate(all_ops):
             print(idx, op.type, op.name)
             for idx, tens in enumerate(op.inputs):
-                print("    Input  %02d %20s %20s %s" % (idx, tens.purpose.name, tens.mem_area.name, tens))
+                print(
+                    "    Input  %02d %20s %20s %20s %s"
+                    % (idx, tens.purpose.name, tens.mem_area.name, tens.mem_type.name, tens)
+                )
             for idx, tens in enumerate(op.outputs):
-                print("    Output %02d %20s %20s %s" % (idx, tens.purpose.name, tens.mem_area.name, tens))
+                print(
+                    "    Output %02d %20s %20s %20s %s"
+                    % (idx, tens.purpose.name, tens.mem_area.name, tens.mem_type.name, tens)
+                )
             print()
 
     def print_graph_with_tensor_quantization(self):

@@ -50,7 +50,7 @@ from .numeric_util import round_up
 from .numeric_util import round_up_to_int
 from .operation import NpuBlockType
 from .shared_buffer_allocation import SharedBufferAllocation
-from .tensor import MemArea
+from .tensor import MemType
 from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
 
@@ -79,8 +79,9 @@ class CmdMode(IntEnum):
 
 
 class BasePointerIndex(IntEnum):
-    ReadOnly = 0  # base address slot index for weights and scaling
-    Scratch = 1  # base address slot index for scratch memory area
+    WeightTensor = 0  # base address index for the Weight tensor
+    ScratchTensor = 1  # base address index for the Scratch_tensor in the TensorArena
+    ScratchFastTensor = 2  # base address for the Scratch_fast_tensor
 
 
 # TODO: Replace with definitions from ethos_u55_regs
@@ -322,12 +323,20 @@ def get_op_padding_lt(cmd):
 def generate_register_command_stream(nng, sg, arch, verbose=False):
     emit = CommandStreamEmitter()
 
-    base_ptr_idx_map = {
-        MemArea.Sram: BasePointerIndex.Scratch,
-        MemArea.OnChipFlash: BasePointerIndex.ReadOnly,
-        MemArea.OffChipFlash: BasePointerIndex.ReadOnly,
-        MemArea.Dram: BasePointerIndex.ReadOnly,
-    }
+    if arch.feature_map_storage_mem_area == arch.fast_storage_mem_area:
+        base_ptr_idx_map = {
+            MemType.Permanent_NPU: BasePointerIndex.WeightTensor,
+            MemType.Permanent_CPU: BasePointerIndex.WeightTensor,
+            MemType.Scratch: BasePointerIndex.ScratchTensor,
+            MemType.Scratch_fast: BasePointerIndex.ScratchTensor,
+        }
+    else:
+        base_ptr_idx_map = {
+            MemType.Permanent_NPU: BasePointerIndex.WeightTensor,
+            MemType.Permanent_CPU: BasePointerIndex.WeightTensor,
+            MemType.Scratch: BasePointerIndex.ScratchTensor,
+            MemType.Scratch_fast: BasePointerIndex.ScratchFastTensor,
+        }
 
     # Maps an AccumulatorType enum to the corresponding acc_format value
     acc_format_map = {
@@ -377,8 +386,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 param = min(param, 0xFFFF)  # Clamp to allowable wait amount
 
         if relative_dep[CommandType.DMA] is not None:
-            param = relative_dep[CommandType.DMA][0]
-            param = min(param, 0xF)  # Clamp to allowable wait amount
+            # TODO This can be optimized for yoda
+            param = 0
             emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, param, absolute_dep[CommandType.DMA][0])
 
     for cmd in cmd_stream:
@@ -394,10 +403,10 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             else:
                 sz = cmd.in_tensor.address_for_coordinate(cmd.box.end_coord, is_top_box=True) - src_addr
 
-            # TODO: Yoda support needs to use feature_maps_not_in_fast_storage and force_outputs_to_fast_storage
-            emit.cmd0_with_param(cmd0.NPU_SET_DMA0_SRC_REGION, base_ptr_idx_map[cmd.in_tensor.mem_area])
+            emit.cmd0_with_param(cmd0.NPU_SET_DMA0_SRC_REGION, base_ptr_idx_map[cmd.in_tensor.mem_type])
             emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_SRC, src_addr)
-            emit.cmd0_with_param(cmd0.NPU_SET_DMA0_DST_REGION, base_ptr_idx_map[cmd.out_tensor.mem_area])
+            emit.cmd0_with_param(cmd0.NPU_SET_DMA0_DST_REGION, base_ptr_idx_map[cmd.out_tensor.mem_type])
+
             emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_DST, dst_addr)
             emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_LEN, sz)
             dma_channel = 0
@@ -682,10 +691,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 stream_index = cmd.weight_tensor.compressed_stream_index_from_coord(cmd.weight_box.start_coord)
                 weight_addr = cmd.weight_tensor.address_for_coordinate(cmd.weight_box.start_coord)
                 weight_len = cmd.weight_tensor.size_of_compressed_stream(stream_index)
-                # Select weight/scale region depending on where permanent storage was defined
-                weight_region = base_ptr_idx_map[cmd.weight_tensor.mem_area]
-                if arch.permanent_storage_mem_area == MemArea.Sram:
-                    weight_region = BasePointerIndex.ReadOnly
+                weight_region = base_ptr_idx_map[cmd.weight_tensor.mem_type]
                 emit.cmd0_with_param(cmd0.NPU_SET_WEIGHT_REGION, weight_region)
                 emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_BASE, weight_addr)
                 emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_LENGTH, weight_len)
@@ -699,9 +705,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         cmd.scale_tensor.address_for_coordinate(cmd.weight_box.end_coord[-1:], True) - scale_addr
                     )
                     # Emit base address for NPU to access scale & bias data
-                    scale_region = base_ptr_idx_map[cmd.scale_tensor.mem_area]
-                    if arch.permanent_storage_mem_area == MemArea.Sram:
-                        scale_region = BasePointerIndex.ReadOnly
+                    scale_region = base_ptr_idx_map[cmd.scale_tensor.mem_type]
                     emit.cmd0_with_param(cmd0.NPU_SET_SCALE_REGION, scale_region)
                     emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_BASE, scale_addr)
                     emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_LENGTH, round_up(scale_len, 16))
@@ -850,10 +854,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     else:
                         assert False
 
-                if tens.mem_area == MemArea.Sram:
-                    emit.cmd0_with_param(region_op, BasePointerIndex.Scratch)
-                else:
-                    emit.cmd0_with_param(region_op, BasePointerIndex.ReadOnly)
+                emit.cmd0_with_param(region_op, base_ptr_idx_map[tens.mem_type])
 
                 for idx, addr in enumerate(addresses):
                     if addr is None:
