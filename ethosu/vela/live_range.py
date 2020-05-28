@@ -86,12 +86,18 @@ class LiveRange:
         # Set address of all unaddressed tensors in LiveRange
         for tens in self.tensors:
             if tens.address == 0:
-                tens.address = address
-                # Also need to set the address to the tensor's cpu/npu clones
-                if tens.cpu_tensor is not None:
-                    tens.cpu_tensor.address = address
-                if tens.npu_tensor is not None:
-                    tens.npu_tensor.address = address
+                addr = address
+            else:
+                # Limit to single tensor for the lr if the tensor address already assigned
+                assert len(self.tensors) == 1
+                addr = tens.address
+            tens.address = addr
+            # Also need to set the address to the tensor's cpu/npu clones
+            if tens.cpu_tensor is not None:
+                tens.cpu_tensor.address = addr
+            if tens.npu_tensor is not None:
+                tens.npu_tensor.address = addr
+        return addr
 
     def get_alignment(self):
         # Get max alignment of LiveRange's tensors

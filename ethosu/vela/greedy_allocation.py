@@ -46,8 +46,8 @@ class GreedyAllocator:
 
             current_offset = start_addr + lr.size
 
+        best_offset = new_lr.set_address(best_offset)
         self.memory_required = max(self.memory_required, best_offset + size)
-        new_lr.set_address(best_offset)
         self.current_allocs.append((best_offset, new_lr))
         self.current_allocs = list(sorted(self.current_allocs))
 
@@ -77,7 +77,7 @@ class GreedyAllocator:
             for m in lrs:
                 if n != m and n.overlaps_ranges(m):
                     overlap, tens_n, tens_m = n.overlaps_address(m)
-                    if overlap:
+                    if overlap and not (tens_n.equivalence_id == tens_m.equivalence_id and tens_n.address == tens_m.address):
                         print("Solution failed, overlapping buffer!")
                         print(tens_n.address, tens_n.address + n.size, n.name)
                         print(tens_m.address, tens_m.address + m.size, m.name)
