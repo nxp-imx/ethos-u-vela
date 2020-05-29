@@ -246,6 +246,13 @@ def main(args=None):
             "(default: %(default)s)"
         ),
     )
+    parser.add_argument(
+        "--nhcwb16-between-cascaded-passes",
+        type=ast.literal_eval,
+        default=True,
+        choices=[True, False],
+        help="Control if NHCWB16 or NHWC should be used in between cascaded passes (default: %(default)s)",
+    )
 
     args = parser.parse_args(args=args)
 
@@ -302,6 +309,7 @@ def main(args=None):
         verbose_pareto_frontier_schedules=args.verbose_pareto_frontier_schedules,
         use_ifm_streaming=args.ifm_streaming,
         pareto_metric=args.pareto_metric,
+        use_nhcwb16_between_cascaded_passes=args.nhcwb16_between_cascaded_passes,
     )
 
     model_reader_options = model_reader.ModelReaderOptions()

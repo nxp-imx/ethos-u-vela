@@ -60,6 +60,7 @@ class SchedulerOptions:
         verbose_pareto_frontier_schedules=False,
         use_ifm_streaming=True,
         pareto_metric=ParetoMetric.BwCycMem,
+        use_nhcwb16_between_cascaded_passes=True,
     ):
         self.use_cascading = use_cascading
         self.use_ifm_ofm_overlap = use_ifm_ofm_overlap
@@ -67,6 +68,7 @@ class SchedulerOptions:
         self.verbose_pareto_frontier_schedules = verbose_pareto_frontier_schedules
         self.use_ifm_streaming = use_ifm_streaming
         self.pareto_metric = pareto_metric
+        self.use_nhcwb16_between_cascaded_passes = use_nhcwb16_between_cascaded_passes
 
     def __str__(self):
         return type(self).__name__ + ": " + str(self.__dict__)
@@ -921,25 +923,26 @@ class DynamicProgrammingScheduler:
         self.sg.cascaded_passes = cascaded_passes
         self.sg.build_cascaded_pass_links()
 
-        # Check if NHCWB16 can be used in between cascaded passes
-        # (NHCWB16 within cascaded passes has been handled earlier in this function)
-        if self.sg.placement == PassPlacement.Npu:
-            for ps in self.sg.cascaded_passes:
-                if ps.placement != PassPlacement.Npu:
-                    continue
-                for output in ps.outputs:
-                    if output.purpose != TensorPurpose.FeatureMap:
+        if self.options.use_nhcwb16_between_cascaded_passes:
+            # Check if NHCWB16 can be used in between cascaded passes
+            # (NHCWB16 within cascaded passes has been handled earlier in this function)
+            if self.sg.placement == PassPlacement.Npu:
+                for ps in self.sg.cascaded_passes:
+                    if ps.placement != PassPlacement.Npu:
                         continue
+                    for output in ps.outputs:
+                        if output.purpose != TensorPurpose.FeatureMap:
+                            continue
 
-                    use_NHCWB16 = True
-                    for op in output.consumer_list:
-                        if op == None or op.type == 'Reshape':
-                            use_NHCWB16 = False
-                        else:
-                            use_NHCWB16 &= op.run_on_npu
+                        use_NHCWB16 = True
+                        for op in output.consumer_list:
+                            if op == None or op.type == 'Reshape':
+                                use_NHCWB16 = False
+                            else:
+                                use_NHCWB16 &= op.run_on_npu
 
-                    if use_NHCWB16:
-                        output.set_format(TensorFormat.NHCWB16, arch)
+                        if use_NHCWB16:
+                            output.set_format(TensorFormat.NHCWB16, arch)
 
 
 def schedule_passes(nng, arch, options: SchedulerOptions):
