@@ -23,6 +23,7 @@ import numpy as np
 from . import rewrite_graph
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .operation import NpuBlockType
 from .operation import Operation
 from .tensor import Tensor
@@ -483,6 +484,30 @@ def convert_mul_max_to_abs_or_lrelu(op, arch):
     return op
 
 
+def add_attrs_to_resizebilinear(op, arch):
+    if op.type == 'ResizeBilinear' and op.run_on_npu:
+        input_tensor = op.inputs[0]
+        upscaled_shape = [input_tensor.shape[1] * 2, input_tensor.shape[2] * 2]
+        out_shape = op.outputs[0].shape[1:3]
+        if not op.attrs["align_corners"] and out_shape == upscaled_shape:
+            # this means the output is supposed to be a x2 upscale,
+            # so we need to do SAME padding
+            op.attrs["padding"] = b"SAME"
+        elif op.attrs["align_corners"] and out_shape == [upscaled_shape[0] - 1, upscaled_shape[1] - 1]:
+            # here we can just run the avg pool without padding and
+            # produce a (M * 2 - 1, N * 2 - 1) sized output
+            op.attrs["padding"] = b"VALID"
+        else:
+            # If this exception is raised, something is wrong with the supported op check
+            raise UnsupportedFeatureError("Unsupported upscaling factor")
+        input_tensor.resampling_mode = resampling_mode.NEAREST
+        op.attrs.update({
+            'strides': (1, 1, 1, 1),
+            'ksize': (1, 2, 2, 1),
+        })
+    return op
+
+
 def supported_operator_check(op, arch):
     op.run_on_npu = arch.supported_operators.is_operator_supported(op)
     return op
@@ -503,6 +528,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         fixup_pack_input,
         fixup_conv2d_backprop,
         fixup_act_reorder,
+        add_attrs_to_resizebilinear,
         add_padding_fields,
         mark_npu_block_type,
         fixup_elementwise_with_scalars,

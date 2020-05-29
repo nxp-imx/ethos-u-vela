@@ -20,7 +20,6 @@ import os.path
 import numpy as np
 
 from .errors import UnsupportedFeatureError
-from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .nn_graph import Graph
 from .nn_graph import Subgraph
 from .operation import Operation
@@ -145,24 +144,6 @@ class TFLiteSubgraph:
 
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data.BuiltinOptions(), op_data.CustomOptionsAsNumpy())
-
-            if op_type.startswith("ResizeBilinear"):
-                input_tensor = op.inputs[0]
-                upscaled_shape = [input_tensor.shape[1] * 2, input_tensor.shape[2] * 2]
-                out_shape = op.outputs[0].shape[1:3]
-                if not op.attrs["align_corners"] and out_shape == upscaled_shape:
-                    # this means the output is supposed to be a x2 upscale,
-                    # so we need to do SAME padding
-                    op.attrs.update({"padding": b"SAME"})
-                elif op.attrs["align_corners"] and out_shape == [upscaled_shape[0] - 1, upscaled_shape[1] - 1]:
-                    # here we can just run the avg pool without padding and
-                    # produce a (M * 2 - 1, N * 2 - 1) sized output
-                    op.attrs.update({"padding": b"VALID"})
-                else:
-                    raise UnsupportedFeatureError("ResizeBilinear: Only 2x upscaling is supported")
-                op.attrs.update({"filter_width": 2, "filter_height": 2, "stride_w": 1, "stride_h": 1})
-
-                input_tensor.resampling_mode = resampling_mode.NEAREST
 
             if "stride_w" in op.attrs:
                 op.attrs["strides"] = (1, op.attrs["stride_h"], op.attrs["stride_w"], 1)
