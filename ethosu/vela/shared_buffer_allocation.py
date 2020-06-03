@@ -82,6 +82,8 @@ class SharedBufferAllocation:
                 assert (self.use_ifm_element == SHRAMElements.IFM16) or (
                     self.use_ifm_element == SHRAMElements.IFM16_Elementwise
                 )
+            elif is_elementwise and self.ifm_bits == 32:
+                self.use_ifm_element = SHRAMElements.IFM32_Elementwise
             else:
                 assert self.ifm_bits == 8, "Unexpected IFM bitdepth"
 
@@ -168,7 +170,7 @@ def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps):
     if arch.override_block_config:
         config = alloc.try_block(arch.override_block_config)
         if config is None:
-            raise VelaError("Block config override '{0}' cannot be allocated".format(arch.override_block_config) )
+            raise VelaError("Block config override '{0}' cannot be allocated".format(arch.override_block_config))
         return [config]
 
     # Constrain the search space if the OFM is smaller than the max block size

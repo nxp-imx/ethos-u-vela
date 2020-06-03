@@ -130,6 +130,8 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
 
                     copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor)
 
+                if ps.lut_tensor is not None:
+                    copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.lut_tensor)
                 if ps.ifm_tensor is not None and ps.ifm_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm_tensor)
                 if ps.ifm2_tensor is not None and (

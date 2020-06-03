@@ -51,6 +51,7 @@ class Pass:
         self.ofm_tensor = None
         self.weight_tensor = None
         self.scale_tensor = None
+        self.lut_tensor = None
         self.name = name
         self.cascade = None
         self.placement = placement
@@ -84,6 +85,11 @@ class Pass:
         if not self.primary_op:
             return None, None, None, None
         return self.primary_op.get_ifm_weights_biases_ofm()
+
+    def get_primary_op_lut(self):
+        if not self.primary_op:
+            return None
+        return self.primary_op.activation_lut
 
 
 class SchedulingStrategy(enum.Enum):

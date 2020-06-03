@@ -94,14 +94,15 @@ class SHRAMElements:
     IFM16 = 1
     IFM8_Elementwise = 2
     IFM16_Elementwise = 3
-    Acc16 = 4
-    Acc32 = 5
-    Acc40 = 6
+    IFM32_Elementwise = 4
+    Acc16 = 5
+    Acc32 = 6
+    Acc40 = 7
     Last = Acc40
-    BitSizes = np.array([8, 16, 8, 16, 16, 32, 40], np.int32)
+    BitSizes = np.array([8, 16, 8, 16, 32, 16, 32, 40], np.int32)
     ByteSizes = BitSizes // 8
-    PostAlign = np.array([8, 8, 8, 8, 1, 1, 1], np.int32)
-    PreAlign = np.array([1, 1, 1, 1, 8, 8, 8], np.int32)
+    PostAlign = np.array([8, 8, 8, 8, 8, 1, 1, 1], np.int32)
+    PreAlign = np.array([1, 1, 1, 1, 1, 8, 8, 8], np.int32)
 
 
 class SHRAMBlockConfig:
@@ -150,22 +151,22 @@ Note the difference between ArchitectureFeatures and CompilerOptions
     )
     accelerator_configs = {
         Accelerator.Yoda_512: ArchitectureConfig(
-            256, 2, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8
+            256, 2, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 16, 8, 16, 20], 8
         ),
         Accelerator.Yoda_256: ArchitectureConfig(
-            256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8
+            256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 16, 8, 16, 20], 8
         ),
         Accelerator.Ethos_U55_256: ArchitectureConfig(
-            256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8
+            256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 16, 8, 16, 20], 8
         ),
         Accelerator.Ethos_U55_128: ArchitectureConfig(
-            128, 1, Block(2, 1, 8), Block(2, 2, 8), 24, [4, 4, 4, 4, 4, 8, 12], 4
+            128, 1, Block(2, 1, 8), Block(2, 2, 8), 24, [4, 4, 4, 4, 8, 4, 8, 12], 4
         ),
         Accelerator.Ethos_U55_64: ArchitectureConfig(
-            64, 1, Block(1, 1, 8), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 8], 2
+            64, 1, Block(1, 1, 8), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 4, 8], 2
         ),
         Accelerator.Ethos_U55_32: ArchitectureConfig(
-            32, 1, Block(1, 1, 4), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 4], 1
+            32, 1, Block(1, 1, 4), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 4, 4], 1
         ),
     }
 
@@ -182,6 +183,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         block_config_limit,
         global_memory_clock_scale,
         max_blockdep,
+        softmax_support,
     ):
         accelerator_config = accelerator_config.lower()
         self.vela_config = vela_config
@@ -262,11 +264,13 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             TensorPurpose.Unknown: MemArea.Unknown,
             TensorPurpose.Weights: self.permanent_storage_mem_area,
             TensorPurpose.FeatureMap: self.feature_map_storage_mem_area,
+            TensorPurpose.LUT: self.permanent_storage_mem_area,
         }
 
         self.tensor_storage_mem_type = {
             TensorPurpose.Weights: MemType.Permanent_NPU,
             TensorPurpose.FeatureMap: MemType.Scratch,
+            TensorPurpose.LUT: MemType.Scratch,
         }
 
         self.min_block_sizes = {
@@ -276,6 +280,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             NpuBlockType.Pooling: (dpu_min_height, dpu_min_width),
             NpuBlockType.ConvolutionDepthWise: (dpu_min_height, dpu_min_width),
             NpuBlockType.ElementWise: (1, 1),
+            NpuBlockType.ReduceSum: (dpu_min_height, dpu_min_width),
         }
 
         self.sub_kernel_limits = {
@@ -285,6 +290,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             NpuBlockType.Pooling: (8, 8),
             NpuBlockType.ConvolutionDepthWise: (8, 8),
             NpuBlockType.ElementWise: (1, 1),
+            NpuBlockType.ReduceSum: (8, 8),
         }
 
         # weights for scheduler search
@@ -317,7 +323,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.generate_block_config_map(Block(ifm_block_max.width, ifm_block_max.height, 128))
 
         # Setup supported operators and restriction checkers class
-        self.supported_operators = SupportedOperators()
+        self.supported_operators = SupportedOperators(softmax_support)
 
     # Calculate block configuration for ALL known IFM operations and
     # accumulator sizes. Consumers will need to select their preferred
@@ -358,10 +364,10 @@ Note the difference between ArchitectureFeatures and CompilerOptions
                     self.block_config_map[key] = self.generate_block_config(w, h, c)
 
     def calc_ifm_block_depth(self, ifm_depth, ifm_bits):
-        assert ifm_bits == 8 or ifm_bits == 16
+        assert ifm_bits in (8, 16, 32)
         assert ifm_depth > 0
         ifm_depth = round_up(ifm_depth, self.ifm_ublock.depth)
-        max_block_depth = 32 if ifm_bits == 8 else 16
+        max_block_depth = 8 * 32 // ifm_bits
         return min(max_block_depth, ifm_depth)
 
     # Calculate the size of the IFM block given a depth, target OFM block and a kernel

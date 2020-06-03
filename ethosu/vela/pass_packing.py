@@ -66,6 +66,7 @@ mac_main_ops = set(
         "MaxPool",
         "AvgPoolAct",
         "MaxPoolAct",
+        "ReduceSum",
         # deconvolution
         "ResizeBilinear",
     )
@@ -85,10 +86,12 @@ binary_elem_wise_main_ops = set(
         "Sub",
         "Minimum",
         "Maximum",
+        "SHL",
+        "SHR",
     )
 )
 
-unary_elem_wise_main_ops = set(("LeakyRelu", "Abs"))  # Unary element-wise operations
+unary_elem_wise_main_ops = set(("LeakyRelu", "Abs", "CLZ",))  # Unary element-wise operations
 
 elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
 
@@ -417,13 +420,12 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             # Swap broadcast input if applicable
             broadcast_input_check(ps)
 
+            # If only 1 input, IFM and IFM2 will be the same tensor
             ps.ifm_tensor = ps.inputs[0]
+            ps.ifm2_tensor = ps.inputs[-1]
 
-            if len(ps.inputs) == 1:
-                # Only 1 input, IFM and IFM2 are the same tensor
-                ps.ifm2_tensor = ps.inputs[0]
-            else:
-                ps.ifm2_tensor = ps.inputs[1]
+            if len(ps.inputs) > 2:
+                ps.ifm_tensor = ps.inputs[-2]
         else:
             ps.ifm_tensor = ifm_tensor
             ps.ifm2_tensor = None
@@ -432,6 +434,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         assert ps.placement != PassPlacement.Npu or ps.ofm_tensor is not None
         ps.weight_tensor = ps.get_primary_op_ifm_weights()[1]
         ps.scale_tensor = ps.get_primary_op_ifm_weights_biases_ofm()[2]
+        ps.lut_tensor = ps.get_primary_op_lut()
 
         for op in ps.ops:
             op.scheduled_pass = ps

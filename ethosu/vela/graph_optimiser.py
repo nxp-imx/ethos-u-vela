@@ -27,6 +27,7 @@ from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .operation import Operation
+from .softmax import SoftMax
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
@@ -357,7 +358,7 @@ def add_padding_fields(op, arch):
         if "Conv" in op.type:
             kernel_size = op.inputs[1].shape[:2]
             input_shape = op.inputs[0].shape
-        elif "Pool" in op.type or "ResizeBilinear" == op.type:
+        elif "Pool" in op.type or op.type in ("ResizeBilinear", "ReduceSum"):
             kernel_size = op.attrs["ksize"][1:3]
             input_shape = op.inputs[0].shape
         elif op.type == "ExtractImagePatches":
@@ -401,9 +402,10 @@ fc_op = set(
 )
 depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
 pool_op = set(
-    ("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear",)
+    ("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear")
 )
-elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "LeakyRelu", "Abs"))
+reduce_sum_ops = set(("ReduceSum",))
+elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "LeakyRelu", "Abs", "CLZ", "SHL", "SHR"))
 binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
 activation_ops = set(("Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh"))
 memory_only_ops = set(("Reshape",))
@@ -437,6 +439,8 @@ def mark_npu_block_type(op, arch):
         npu_block_type = NpuBlockType.Pooling
     elif op.type in elementwise_op:
         npu_block_type = NpuBlockType.ElementWise
+    elif op.type in reduce_sum_ops:
+        npu_block_type = NpuBlockType.ReduceSum
 
     op.attrs["npu_block_type"] = npu_block_type
     return op
@@ -573,6 +577,13 @@ def set_tensor_equivalence(op, arch):
     return op
 
 
+def convert_softmax(op, arch):
+    if op.type == "Softmax" and op.run_on_npu:
+        softmax = SoftMax(op)
+        op = softmax.get_graph()
+    return op
+
+
 def convert_mul_max_to_abs_or_lrelu(op, arch):
     r"""Whenever there is a subgraph with this topology:
 
@@ -671,6 +682,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         # then do any rewrites of supported operators
         convert_depthwise_to_conv,
         convert_conv_to_fc,
+        convert_softmax,
         fixup_fully_connected_input,
         fixup_pack_input,
         fixup_conv2d_backprop,

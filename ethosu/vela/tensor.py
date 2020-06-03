@@ -73,13 +73,14 @@ class TensorPurpose(enum.IntFlag):
     Weights = 1
     FeatureMap = 2
     Scratch = 3
-    Size = 4
+    LUT = 4
+    Size = 5
 
     def display_name(self):
-        return ("Unknown", "Weights", "FeatureMap", "Scratch", "Size")[self.value]
+        return ("Unknown", "Weights", "FeatureMap", "Scratch", "LUT", "Size")[self.value]
 
     def identifier_name(self):
-        return ("unknown", "weights", "feature_map", "scratch", "size")[self.value]
+        return ("unknown", "weights", "feature_map", "scratch", "lut", "size")[self.value]
 
     def all():
         return (TensorPurpose.Weights, TensorPurpose.FeatureMap)

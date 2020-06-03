@@ -35,10 +35,11 @@ def insert_dma_cmd(op, arch):
         if tens.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
             # Tensor is in permanent storage
             # Only when permanent storage differs from fast storage, there is a point moving the data
-            if tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash) and (
-                arch.permanent_storage_mem_area != arch.fast_storage_mem_area
-            ):
-                if tens.purpose == TensorPurpose.Weights or (
+            if (
+                tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash)
+                and arch.permanent_storage_mem_area != arch.fast_storage_mem_area
+            ) or tens.purpose == TensorPurpose.LUT:
+                if tens.purpose in (TensorPurpose.Weights, TensorPurpose.LUT) or (
                     tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and tens.shape != []
                 ):
                     only_vector_product_consumers = True
@@ -49,7 +50,8 @@ def insert_dma_cmd(op, arch):
 
                     # Tensor products has no need for DMA, tensors are only read once and can be in flash.
                     # Other operations re-reads tensors, this is better done from SRAM.
-                    if not only_vector_product_consumers:
+                    # LUTs must be placed in the last 2 blocks of SHRAM.
+                    if not only_vector_product_consumers or tens.purpose == TensorPurpose.LUT:
                         # Insert a DMA command here, as well as a new tensor situated in SRAM of the same size.
                         new_tens = tens.clone_into_fast_storage(arch)
                         dma_cmd = Operation("DMA", tens.ops[0].name + "_dma")
@@ -59,6 +61,14 @@ def insert_dma_cmd(op, arch):
                         dma_cmd.attrs["destination"] = new_tens.mem_area
                         dma_cmd.run_on_npu = True
                         new_tens.ops = [dma_cmd]
+                        if tens.purpose == TensorPurpose.LUT:
+                            # TODO: Add support more than one LUT at a time
+                            # Reserve last 2 blocks for LUT
+                            if arch.shram_reserved_unused_banks == 0:
+                                arch.shram_reserved_unused_banks = 2
+                                arch.shram_total_banks -= arch.shram_reserved_unused_banks
+                            # Place the LUT in the last 2 blocks of SHRAM
+                            new_tens.address = arch.shram_bank_size * arch.shram_total_banks
                         op.inputs[idx] = new_tens
     return op
 

@@ -96,6 +96,10 @@ tensor_purposes = [  # ops, input_purpose
                 "AvgPoolAct",
                 "MaxPoolAct",
                 "LeakyRelu",
+                "CLZ",
+                "SHL",
+                "SHR",
+                "ReduceSum",
             )
         ),
         all_fm,
@@ -252,7 +256,7 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
 
         if tens.purpose == TensorPurpose.Unknown or tens.purpose == purpose:
             tens.purpose = purpose
-        else:
+        elif tens.purpose != TensorPurpose.LUT:
             assert 0, "Cannot resolve tensor purpose %s and %s for tensor %s" % (tens.purpose, purpose, tens)
         tens.mem_area = arch.tensor_storage_mem_area[tens.purpose]
         tens.mem_type = arch.tensor_storage_mem_type[tens.purpose]
@@ -332,7 +336,7 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
     formats_for_tensor = {}
 
     def init_tens(tens):
-        if tens.purpose == TensorPurpose.FeatureMap:
+        if tens.purpose in (TensorPurpose.FeatureMap, TensorPurpose.LUT):
             fmt = arch.default_feature_map_format
         elif tens.purpose == TensorPurpose.Weights:
             fmt = arch.default_weight_format

@@ -143,18 +143,21 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                 if (
                     intermediate is not None
                     and intermediate.shape != []
-                    and intermediate.purpose == TensorPurpose.FeatureMap
+                    and intermediate.purpose in (TensorPurpose.FeatureMap, TensorPurpose.LUT)
                 ):
-                    intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                        strides,
-                        skirt,
-                        intermediate.shape,
-                        npu_block_type,
-                        concat_axis,
-                        concat_offset,
-                        split_offsets[0],
-                        upscaling,
-                    )
+                    if intermediate.purpose is TensorPurpose.FeatureMap:
+                        intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
+                            strides,
+                            skirt,
+                            intermediate.shape,
+                            npu_block_type,
+                            concat_axis,
+                            concat_offset,
+                            split_offsets[0],
+                            upscaling,
+                        )
+                    else:
+                        intermediate_box = Box([0] * len(intermediate.shape), list(intermediate.shape))
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
 
             weight_box = None
@@ -232,7 +235,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             ofm_box = Box(ofm_start, ofm_end)
 
             k_height = 1
-            if npu_block_type == NpuBlockType.Pooling:
+            if npu_block_type == set((NpuBlockType.Pooling, NpuBlockType.ReduceSum)):
                 if ps.primary_op is not None:
                     k_height = ps.primary_op.attrs["ksize"][1]
             else:
