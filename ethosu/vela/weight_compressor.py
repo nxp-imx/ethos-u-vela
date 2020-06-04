@@ -19,7 +19,6 @@ import math
 from collections import namedtuple
 
 import numpy as np
-from ethosu import mlw_codec
 
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
@@ -32,20 +31,21 @@ from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 from .tensor import TensorSubPurpose
+from ethosu import mlw_codec
 
 
 # Contains meta info for a weight compression. If two tensors have identical weight compression config,
 # then they also will have identical compressed weights.
 WeightCompressionConfig = namedtuple(
-    "WeightCompressionConfig", ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "equivalence_id"]
+    "WeightCompressionConfig", ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "dilation", "equivalence_id"]
 )
 
 
-def create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step):
+def create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
     # Note: for an ofm block only its depth is used in weight compression.
     # And block depth > ofm depth gives same result as block depth == ofm depth
     block_depth = min(ofm_block_depth, tens.quant_values.shape[-1])
-    return WeightCompressionConfig(npu_block_type, block_depth, ofm_depth_step, tens.equivalence_id)
+    return WeightCompressionConfig(npu_block_type, block_depth, ofm_depth_step, dilation, tens.equivalence_id)
 
 
 def set_storage_shape(tens):
@@ -90,10 +90,11 @@ def encode(weight_stream):
     return compressed
 
 
-def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bitdepth):
+def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bitdepth, dilation):
     is_depthwise = block_traversal == TensorBlockTraversal.DepthWise
     is_partkernel = block_traversal == TensorBlockTraversal.PartKernelFirst
-    subkernel_max = arch.subkernel_max
+    decomp_h = arch.subkernel_max.height // dilation[0]
+    decomp_w = arch.subkernel_max.width // dilation[1]
     ofm_ublock = arch.ofm_ublock
     ifm_ublock = arch.ifm_ublock
     # Expect weights formatted HWIO
@@ -125,11 +126,11 @@ def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bi
                 )
             # Weight decomposition
             # Subkernel Splitting  (H)
-            for subkernel_y in range(0, kernel_height, subkernel_max.height):
-                sub_height = min(kernel_height - subkernel_y, subkernel_max.height)
+            for subkernel_y in range(0, kernel_height, decomp_h):
+                sub_height = min(kernel_height - subkernel_y, decomp_h)
                 # Subkernel splitting (W)
-                for subkernel_x in range(0, kernel_width, subkernel_max.width):
-                    sub_width = min(kernel_width - subkernel_x, subkernel_max.width)
+                for subkernel_x in range(0, kernel_width, decomp_w):
+                    sub_width = min(kernel_width - subkernel_x, decomp_w)
                     subkernel_elements = sub_width * sub_height
                     # Part kernel first works across the kernel H/W and needs padding
                     if is_partkernel:
@@ -178,14 +179,14 @@ def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bi
 
 
 # Compress the weights
-def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth_step):
+def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
     assert tens.purpose == TensorPurpose.Weights
     assert tens.format == TensorFormat.WeightsCompressed
 
     # Check the weight cache
     if nng.weight_cache is None:
         nng.weight_cache = CompressedWeightCache()
-    wcc = create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step)
+    wcc = create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation)
     tens.weight_compression_config = wcc
     tens_cached = nng.weight_cache.get_tensor_with_same_compression(wcc)
     if tens_cached is not None:
@@ -241,7 +242,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         brick_weights = weights[:, :, :, idx : idx + count]
 
         # Encode all weights into one chunk
-        raw_stream = generate_brick(arch, brick_weights, ofm_block_depth, tens.block_traversal, ifm_bitdepth)
+        raw_stream = generate_brick(arch, brick_weights, ofm_block_depth, tens.block_traversal, ifm_bitdepth, dilation)
         encoded = encode(raw_stream)
         encoded_streams.append(encoded)
 
@@ -387,7 +388,8 @@ def update_pass_weight_and_scale_tensors(nng, arch):
         for ps in sg.passes:
             tens = ps.weight_tensor
             if tens is not None:
-                npu_usage_of_tensor = find_npu_usage_of_tensor(tens)
+                op = tens.find_npu_op()
+                npu_usage_of_tensor = op.attrs["npu_block_type"]
                 if npu_usage_of_tensor == NpuBlockType.ConvolutionDepthWise:
                     tens.quant_values = np.transpose(tens.quant_values, (0, 1, 3, 2))
                     tens.shape = tens.storage_shape = tens.bandwidth_shape = list(tens.quant_values.shape)
@@ -399,7 +401,7 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                 else:
                     ofm_depth_step = tens.shape[-1]
                 compress_weights(
-                    arch, nng, tens, npu_usage_of_tensor, ps.block_config[-1], ofm_depth_step,
+                    arch, nng, tens, npu_usage_of_tensor, ps.block_config[-1], ofm_depth_step, op.get_dilation_h_w()
                 )
                 # Update source tensor
                 if needs_dma:

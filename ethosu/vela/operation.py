@@ -194,6 +194,10 @@ input and output tensors, as well as an attribute dictionary."""
 
         return inputs, axis
 
+    def get_dilation_h_w(self):
+        _, dilation_h, dilation_w, _ = self.attrs.get("dilation", (1, 1, 1, 1))
+        return dilation_h, dilation_w
+
     split_ops = set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped"))
 
     def is_split_op(self):

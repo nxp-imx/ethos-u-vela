@@ -521,7 +521,7 @@ class Tensor:
             strides[4] = stride
             strides[3] = 16 * stride  # STRIDE_X
             strides[1] = strides[3] * augmented_shape[2]  # STRIDE_C
-            strides[2] = augmented_shape[2] * augmented_shape[3] * stride # STRIDE_Y
+            strides[2] = augmented_shape[2] * augmented_shape[3] * stride  # STRIDE_Y
             strides[0] = strides[2] * augmented_shape[1]  # STRIDE_N
 
         return strides, augmented_coord
@@ -538,6 +538,15 @@ class Tensor:
         # For weight tensors that need DMA: returns the source tensor in Flash, else None
         # Note: for DMA ops, Pass.weight_tensor is referring to the SRAM weight tensor
         return self.ops[0].inputs[0] if self.needs_dma() else None
+
+    def find_npu_op(self):
+        # Returns the NPU operator that uses this tensor, excluding DMA operators.
+        for op in self.consumers():
+            if op.type == "DMA":
+                return op.outputs[0].find_npu_op()
+            if "npu_block_type" in op.attrs:
+                return op
+            return None
 
     def compressed_stream_index_from_coord(self, coord):
         assert self.format == TensorFormat.WeightsCompressed

@@ -292,7 +292,9 @@ def add_padding_fields(op, arch):
         else:
             raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
-        padding, skirt = calc_padding_and_skirt(op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape)
+        dilation_h, dilation_w = op.get_dilation_h_w()
+        dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
+        padding, skirt = calc_padding_and_skirt(op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape)
         op.attrs["explicit_padding"] = padding
         op.attrs["skirt"] = skirt
     return op

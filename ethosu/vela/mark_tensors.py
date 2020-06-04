@@ -17,7 +17,6 @@
 # Mark purpose and select formats for Tensors. Also compresses the weights.
 from . import rewrite_graph
 from . import weight_compressor
-from .operation import NpuBlockType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 
@@ -319,14 +318,6 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
             assert 0, "unknown tensor purpose %s" % (tens.purpose,)
         return fmt
 
-    def find_npu_usage_of_tensor(tens):
-        for op in tens.consumers():
-            if op.type == "DMA":
-                return find_npu_usage_of_tensor(op.outputs[0])
-            if "npu_block_type" in op.attrs:
-                return op.attrs["npu_block_type"]
-            return NpuBlockType.Default
-
     def visit_tens(tens, ps):
         if tens not in formats_for_tensor:
             fmt = init_tens(tens)
@@ -349,8 +340,9 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
         if fmt == TensorFormat.WeightsCompressed and tens.values is not None:
             src_tens = tens.get_dma_src_tensor()
             if src_tens is not None:
-                npu_block_type = find_npu_usage_of_tensor(tens)
-                weight_compressor.compress_weights(arch, nng, tens, npu_block_type, 32, 32)
+                op = tens.find_npu_op()
+                npu_block_type = op.attrs["npu_block_type"]
+                weight_compressor.compress_weights(arch, nng, tens, npu_block_type, 32, 32, op.get_dilation_h_w())
                 # Alias compressed weights back into source tensor
                 src_tens.copy_compressed_weight_info(tens)
 

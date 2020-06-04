@@ -42,11 +42,11 @@ from .ethos_u55_regs.ethos_u55_regs import rounding
 from .high_level_command_stream import CommandType
 from .numeric_util import clamp_sigmoid
 from .numeric_util import clamp_tanh
+from .numeric_util import full_shape
 from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
 from .numeric_util import round_up
 from .numeric_util import round_up_to_int
-from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .shared_buffer_allocation import SharedBufferAllocation
 from .tensor import MemArea
@@ -274,7 +274,7 @@ def has_prev_op_dependency(prev_cmd, cmd):
         if prev_cmd.ofm_tensor.equivalence_id == cmd.ifm_tensor.equivalence_id:
             return True
         elif cmd.ifm2_tensor is not None:
-            return (prev_cmd.ofm_tensor.equivalence_id == cmd.ifm2_tensor.equivalence_id)
+            return prev_cmd.ofm_tensor.equivalence_id == cmd.ifm2_tensor.equivalence_id
     return False
 
 
@@ -414,7 +414,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             use_global_scale = False
             # Specifies type of rounding to be used.
             rounding_mode = rounding.TFL
-            if primary_op.type == 'ResizeBilinear':
+            if primary_op.type == "ResizeBilinear":
                 rounding_mode = rounding.TRUNCATE
             fmf = primary_op.attrs.get("fused_memory_function", None)
             faf = primary_op.attrs.get("fused_activation_function", None)
@@ -428,6 +428,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             prev_ofm_rect = cur_ofm_rect
             prev_ofm_block = cur_ofm_block
             prev_kernel = cur_kernel
+            cur_kernel = get_op_kernel(ps)
 
             block_config = ps.block_config
             emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, block_config[0] - 1)
@@ -552,7 +553,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
             emit.cmd0_with_param(cmd0.NPU_SET_ACC_FORMAT, acc_format_map[shared_buffer.use_accumulator_element])
 
-            if primary_op.type == 'ResizeBilinear':
+            if primary_op.type == "ResizeBilinear":
                 # perform nearest neighbor upscale
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, 1)
             else:
@@ -575,7 +576,6 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     explicit_padding[1] = 0
                 if cmd.ifm_box.end_coord[-2] < cmd.ifm_tensor.shape[-2]:
                     explicit_padding[3] = 0
-
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM_PAD_TOP, explicit_padding[0])
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM_PAD_LEFT, explicit_padding[1])
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM_PAD_BOTTOM, explicit_padding[2])
@@ -589,7 +589,6 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 stride |= (primary_op.attrs["strides"][2] - 1 >> 1) << 6
                 # set kernel y stride extension bits
                 stride |= (primary_op.attrs["strides"][1] - 1 >> 1) << 9
-
 
                 if npu_block_type == NpuBlockType.Pooling:
                     k_height, k_width = primary_op.attrs["ksize"][1:3]
@@ -641,8 +640,14 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     # Reduced precision quantization and natural rounding used for int16
                     if cmd.ifm_tensor.dtype == DataType.int16:
                         rounding_mode = rounding.NATURAL
-                    emit.cmd0_with_param(cmd0.NPU_SET_KERNEL_HEIGHT_M1, cmd.weight_tensor.shape[0] - 1)
-                    emit.cmd0_with_param(cmd0.NPU_SET_KERNEL_WIDTH_M1, cmd.weight_tensor.shape[1] - 1)
+                    stride |= (cur_kernel.dilation.y - 1) << 4
+                    stride |= (cur_kernel.dilation.x - 1) << 3
+                    emit.cmd0_with_param(
+                        cmd0.NPU_SET_KERNEL_HEIGHT_M1, cur_kernel.dilation.y * (cmd.weight_tensor.shape[0] - 1)
+                    )
+                    emit.cmd0_with_param(
+                        cmd0.NPU_SET_KERNEL_WIDTH_M1, cur_kernel.dilation.x * (cmd.weight_tensor.shape[1] - 1)
+                    )
                     if cmd.weight_tensor.block_traversal == TensorBlockTraversal.PartKernelFirst:
                         # Part-kernel-first weight ordering
                         assert npu_block_type == NpuBlockType.ConvolutionMxN
@@ -934,7 +939,6 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             cur_ofm_block = Block(ps.block_config[1], ps.block_config[0], ps.block_config[3])
             cur_ofm_rect = get_op_ofm_rect(cmd)
             cur_ifm_rect = get_op_ifm_rect(cmd)
-            cur_kernel = get_op_kernel(cmd.ps)
             cur_padLT = get_op_padding_lt(cmd)
             if (prev_kernel is not None) and (cur_kernel is not None) and has_prev_op_dependency(prev_cmd, cmd):
                 if cmd.ifm_tensor.shape == prev_cmd.ofm_tensor.shape:
