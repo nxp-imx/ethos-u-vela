@@ -29,6 +29,7 @@ from .architecture_features import Kernel
 from .nn_graph import PassPlacement
 from .nn_graph import SchedulerRewrite
 from .operation import NpuBlockType
+from .register_command_stream_generator import get_op_kernel
 from .tensor import MemArea
 from .tensor import shape_num_elements
 from .tensor import TensorBlockTraversal
@@ -36,43 +37,24 @@ from .tensor import TensorPurpose
 
 
 def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_config_ps2):
-    ps2_strides = (1, 1, 1, 1)
-    ps2_dilation = (1, 1, 1, 1)
-    for op in ps2.ops:
-        if "strides" in op.attrs:
-            ps2_strides = op.attrs["strides"]
-        if "dilation" in op.attrs:
-            ps2_dilation = op.attrs["dilation"]
-
-    ifm_idx, _, weight_idx, _, _ = op.get_ifm_ifm2_weight_bias_ofm_indices()
-
-    rolling_buffer_sizes = []
-
-    weight_tensor = op.inputs[weight_idx]
-
     ofm_block = Block(block_config_ps2[-3], block_config_ps2[-4], block_config_ps2[-1])
-    kernel = Kernel(
-        weight_tensor.shape[1], weight_tensor.shape[0], ps2_strides[2], ps2_strides[1], ps2_dilation[2], ps2_dilation[1]
-    )
-    kernel_block = Block(weight_tensor.shape[1], weight_tensor.shape[0], 65536)
+    kernel = get_op_kernel(ps2)
 
     if ps2.npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct)):
+        op = ps2.primary_op
+        ifm_idx, _, _, _, _ = op.get_ifm_ifm2_weight_bias_ofm_indices()
         ifm_block_depth = arch.calc_ifm_block_depth(
             op.inputs[ifm_idx].shape[-1], op.inputs[ifm_idx].dtype.size_in_bits()
         )
     else:
         ifm_block_depth = block_config_ps2[-1]
 
-    ifm_block = arch.get_ifm_block_size(ifm_block_depth, ofm_block, kernel, kernel_block)
+    ifm_block = arch.get_ifm_block_size(ifm_block_depth, ofm_block, kernel, arch.ofm_block_max)
 
     # The performed height calculation is for worst case
     height = numeric_util.round_up(ifm_block.height + block_config_ps1[0], block_config_ps1[0])
     width = ifm_block.width
-
-    rolling_buffer_sizes.append(height)
-    rolling_buffer_sizes.append(width)
-
-    return rolling_buffer_sizes
+    return [height, width]
 
 
 class PassCycles(enum.IntEnum):
