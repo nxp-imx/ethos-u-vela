@@ -149,8 +149,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         accelerator_config,
         system_config,
         permanent_storage,
-        inter_pass_cycle_delay,
-        dram_bandwidth,
         override_block_config,
         block_config_limit,
         global_memory_clock_scale,
@@ -212,9 +210,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.memory_clocks = self.memory_clock_scales * self.npu_clock
         self.memory_bandwidths_per_cycle = self.memory_port_widths * self.memory_clock_scales / 8
 
-        if dram_bandwidth != 0:
-            self.memory_bandwidths_per_cycle[MemArea.Dram] = dram_bandwidth * 1e9 / self.npu_clock
-
         self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.npu_clock
 
         # sizes as N x H x W x C. we need to round up to these when allocating storage
@@ -232,8 +227,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             TensorFormat.NHWC: (1, 1, 1, 1),
             TensorFormat.NHCWB16: (1, 1, 1, 16),
         }
-
-        self.inter_pass_cycle_delay = inter_pass_cycle_delay
 
         self.default_weight_format = TensorFormat.WeightsCompressed
         self.default_feature_map_format = TensorFormat.NHWC

@@ -492,7 +492,6 @@ def calc_performance_for_network(nng, arch):
             total_bws += bws
             total_macs += macs
             total_cycles += cycles
-            total_cycles += arch.inter_pass_cycle_delay
 
     nng.bandwidths = total_bws
     nng.macs = total_macs

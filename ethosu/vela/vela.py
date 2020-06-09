@@ -123,7 +123,6 @@ def main(args=None):
         "--output-dir", type=str, default="output", help="Output directory to write files to (default: %(default)s)"
     )
     parser.add_argument("--config", type=str, help="Location of vela configuration file")
-    parser.add_argument("--batch-size", type=int, default=1, help="Batch size (default: %(default)s)")
 
     parser.add_argument("--verbose-graph", action="store_true", help="Verbose graph rewriter")
     parser.add_argument("--verbose-quantization", action="store_true", help="Verbose quantization")
@@ -166,12 +165,6 @@ def main(args=None):
         help="Controls the overlapping of IFM and OFM buffers (default: %(default)s)",
     )
     parser.add_argument("--force-block-config", type=str, default="", help="Force a specific block configuration HxWxC")
-    parser.add_argument(
-        "--inter-pass-cycle-delay",
-        type=int,
-        default=0,
-        help="Artificial delay between passes, measured in NPU cycles (default: %(default)s)",
-    )
     parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
     parser.add_argument(
         "--accelerator-config",
@@ -185,12 +178,6 @@ def main(args=None):
         type=str,
         default="internal-default",
         help="System configuration to use (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--dram-bandwidth",
-        type=float,
-        default=0.0,
-        help="DRAM memory bandwidth in GB/s, use zero to select the value from system config (default: %(default)s)",
     )
     parser.add_argument(
         "--permanent-storage",
@@ -285,8 +272,6 @@ def main(args=None):
         system_config=args.system_config,
         accelerator_config=args.accelerator_config,
         permanent_storage=args.permanent_storage,
-        inter_pass_cycle_delay=args.inter_pass_cycle_delay,
-        dram_bandwidth=args.dram_bandwidth,
         override_block_config=force_block_config,
         block_config_limit=args.block_config_limit,
         global_memory_clock_scale=args.global_memory_clock_scale,
@@ -319,7 +304,7 @@ def main(args=None):
         pareto_metric=args.pareto_metric,
     )
 
-    model_reader_options = model_reader.ModelReaderOptions(batch_size=args.batch_size)
+    model_reader_options = model_reader.ModelReaderOptions()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
