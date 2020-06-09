@@ -100,6 +100,9 @@ class SupportedOperators:
         self.supported_operator_restrictions.update(
             {op: self.check_memory_only_restrictions for op in self.memory_only_ops}
         )
+        self.supported_operator_restrictions.update(
+            {op: self.check_quantization_restrictions for op in self.binary_elem_wise_min_max_ops}
+        )
 
     def is_operator_supported(self, op):
         if op.type not in self.supported_operators:
@@ -300,4 +303,13 @@ class SupportedOperators:
             # check if both new_axis_mask and shrink_axis_mask have bit set
             if op.attrs["new_axis_mask"] != 0 and op.attrs["shrink_axis_mask"] != 0:
                 return False
+        return True
+
+    def check_quantization_restrictions(self, op):
+        # makes sure IFM1, IFM2 and OFM quantization are equal for binary ops
+        if (len(op.inputs) == 2
+            and not op.inputs[0].quantization == op.inputs[1].quantization == op.outputs[0].quantization):
+            print("Warning: Input/output tensors with different quantization is unsupported for the", op.type,
+                  "operator")
+            return False
         return True

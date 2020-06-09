@@ -181,6 +181,19 @@ class QuantizationParameters:
 
     __repr__ = __str__
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+        if not isinstance(other, QuantizationParameters):
+            return False
+
+        pairs = ((getattr(self, s), getattr(other, s)) for s in QuantizationParameters.__slots__)
+
+        return all(np.array_equal(a, b) for a, b in pairs)
+
+    def __ne__(self, other):
+        return not self == other
+
     def clone(self):
         res = QuantizationParameters()
         res.min = self.min
