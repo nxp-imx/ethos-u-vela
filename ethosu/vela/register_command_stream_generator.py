@@ -817,9 +817,9 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
                 if tens.shape == []:
                     # Empty shape, elementwise constant
-                    ifm2_scalar = tens.quant_values.astype(np.uint8)
+                    ifm2_scalar = tens.quant_values
                     assert ifm2_scalar.size == 1
-                    emit.cmd0_with_param(cmd0.NPU_SET_IFM2_SCALAR, ifm2_scalar.item(0))
+                    emit.cmd0_with_param(cmd0.NPU_SET_IFM2_SCALAR, int(ifm2_scalar.item(0)))
                     continue
 
                 height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(
