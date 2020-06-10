@@ -885,30 +885,34 @@ class DynamicProgrammingScheduler:
                     print("%3d pass missing cascaded pass %s" % (ps.time, ps))
 
             assert len(pass_to_cascaded_pass) == len(self.sg.passes)
-        # we have all the passes, but we need to put them in order and build predecessor/successor links.
 
-        visit_pass_set = set()
         cascaded_passes = []
+        if self.sg.placement == PassPlacement.Cpu:
+            # Retain the pass order for CPU subgraph
+            cascaded_passes = [ps.cascade for ps in self.sg.passes]
+        else:
+            # we have all the passes, but we need to put them in order and build predecessor/successor links.
+            visit_pass_set = set()
 
-        def visit_pass(ps):
-            if ps in visit_pass_set:
-                return
-            visit_pass_set.add(ps)
+            def visit_pass(ps):
+                if ps in visit_pass_set:
+                    return
+                visit_pass_set.add(ps)
 
-            cps = ps.cascade
-            dont_traverse = set(cps.passes)
+                cps = ps.cascade
+                dont_traverse = set(cps.passes)
 
-            for ps in cps.passes:
-                for pred in ps.predecessors:
-                    if pred in dont_traverse:
-                        continue
-                    visit_pass(pred)
+                for ps in cps.passes:
+                    for pred in ps.predecessors:
+                        if pred in dont_traverse:
+                            continue
+                        visit_pass(pred)
 
-            cascaded_passes.append(cps)
+                cascaded_passes.append(cps)
 
-        starting_passes = [ps for ps in self.sg.passes if not ps.successors]
-        for ps in starting_passes:
-            visit_pass(ps)
+            starting_passes = [ps for ps in self.sg.passes if not ps.successors]
+            for ps in starting_passes:
+                visit_pass(ps)
 
         # reorder so startup init cascaded passes come first
         def is_startup_cascaded_pass(cps):
