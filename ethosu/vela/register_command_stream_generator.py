@@ -607,7 +607,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                             rescale = 0x3000 * cmd.ifm_tensor.quantization.scale_f32
 
                             if cmd.ifm_tensor.dtype == DataType.int16:
-                                multiplier = max(1, int(4096 * cmd.ifm_tensor.quantization.scale_f32))
+                                multiplier = max(1, int(4096 * cmd.ifm_tensor.quantization.scale_f32 + 0.5))
                                 rescale *= 3 * multiplier
 
                             rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
