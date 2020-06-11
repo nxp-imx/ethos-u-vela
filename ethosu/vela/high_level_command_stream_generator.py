@@ -75,9 +75,13 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
     strides = None
     skirt = None
+    upscaling = 1
     if ps.primary_op is not None:
         strides = ps.primary_op.attrs.get("strides", None)
         skirt = ps.primary_op.attrs.get("skirt", None)
+        if ps.primary_op.type in set(("Conv2DBackpropInputSwitchedBias", "ResizeBilinear")):
+            upscaling = ofm_tensor.shape[-3] // ifm_tensor.shape[-3]
+            assert ofm_tensor.shape[-2] == (ifm_tensor.shape[-2] * upscaling)
 
     concat_axis = 0
     concat_offset = 0
@@ -113,13 +117,13 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
             if ifm_tensor.shape != []:
                 ifm_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0]
+                    strides, skirt, ifm_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling
                 )
             else:
                 ifm_box = Box([], [])
             if ifm2_tensor is not None and ifm2_tensor.shape != []:
                 ifm2_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm2_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[1]
+                    strides, skirt, ifm2_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[1], upscaling
                 )
             else:
                 ifm2_box = Box([], [])
@@ -127,7 +131,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             for intermediate in ps.intermediates:
                 if intermediate != None and intermediate.shape != [] and intermediate.purpose == TensorPurpose.FeatureMap:
                     intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                        strides, skirt, intermediate.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0]
+                        strides, skirt, intermediate.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling
                     )
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
 
@@ -214,13 +218,13 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                     k_height = weight_tensor.shape[0]
 
             ifm_box, pad_top, pad_bottom = ofm_box.transform_with_strides_and_skirt(
-                strides, skirt, ifm_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], k_height
+                strides, skirt, ifm_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], k_height, upscaling
             )
 
             for intermediate in ps.intermediates:
                 if intermediate != None and intermediate.shape != [] and intermediate.purpose == TensorPurpose.FeatureMap:
                     intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                        strides, skirt, intermediate.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0]
+                        strides, skirt, intermediate.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling
                     )
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
 
