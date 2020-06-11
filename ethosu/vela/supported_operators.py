@@ -286,6 +286,11 @@ class SupportedOperators:
         if op.type in self.binary_elem_wise_main_ops: # if op type is unary, ifm2_tensor is None
             if len(ifm2_tensor.shape) > 2 and ifm2_tensor.shape[0] != 1:
                 return False
+
+        # negative alpha values are not supported
+        if op.type == "LeakyRelu" and op.attrs["alpha"] < 0:
+            return False
+
         return True
 
     def check_memory_only_restrictions(self, op):
