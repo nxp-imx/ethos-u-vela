@@ -290,6 +290,18 @@ NPU kernel operations. A lower value may result in longer execution time.
 vela network.tflite --max-block-dependency 0
 ```
 
+### Tensor Format Between Cascaded Passes
+
+Controls if NHCWB16 or NHWC Tensor format should be used in between cascaded passes. NHWCB16 means FeatureMaps are laid
+out in 1x1x16B bricks in row-major order. This enables more efficient FeatureMap reading from external memory.  
+**Type: Boolean**  
+**Default: True**  
+**Choices: [True, False]**  
+
+```bash
+vela network.tflite --nhcwb16-between-cascaded-passes
+```
+
 ## Verbose Print Options
 
 All of the options below are disabled by default and enabling them will add
