@@ -35,3 +35,9 @@ All contributions go through a code review process.  Only submissions that are
 approved and verified by this process will be accepted.  Code reviews are
 performed using the
 [Vela Gerrit Server](https://review.mlplatform.org/q/project:ml%252Fethos-u%252Fethos-u-vela).
+
+## Testing Prior to Submission
+
+Prior to submitting a patch for review please make sure that all the pre-commit
+checks and tests have been run and are passing (see [Vela Testing](TESTING.md)
+for more details).
