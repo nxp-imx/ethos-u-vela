@@ -34,8 +34,16 @@ class Box:
             assert self.start_coord[i] <= self.end_coord[i]
 
     def transform_with_strides_and_skirt(
-        self, strides, skirt, ifm_shape, npu_block_type, concat_axis=0, concat_offset=0, split_offset=None, k_height=1,
-        upscaling_factor=1
+        self,
+        strides,
+        skirt,
+        ifm_shape,
+        npu_block_type,
+        concat_axis=0,
+        concat_offset=0,
+        split_offset=None,
+        k_height=1,
+        upscaling_factor=1,
     ):
         new_start_coord = list(self.start_coord)
         new_end_coord = list(self.end_coord)

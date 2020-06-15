@@ -260,7 +260,6 @@ builtin_options_map = {
     BuiltinOptions.DensifyOptions: DensifyOptions.DensifyOptions,
     BuiltinOptions.DepthToSpaceOptions: DepthToSpaceOptions.DepthToSpaceOptions,
     BuiltinOptions.HardSwishOptions: HardSwishOptions.HardSwishOptions,
-
     BuiltinOptions.IfOptions: IfOptions.IfOptions,
     BuiltinOptions.NonMaxSuppressionV4Options: NonMaxSuppressionV4Options.NonMaxSuppressionV4Options,
     BuiltinOptions.NonMaxSuppressionV5Options: NonMaxSuppressionV5Options.NonMaxSuppressionV5Options,
@@ -536,7 +535,7 @@ builtin_operator_map = {
             ),
         ),
     ),
-    BuiltinOperator.PRELU : ("Prelu", None),
+    BuiltinOperator.PRELU: ("Prelu", None),
     BuiltinOperator.MAXIMUM: ("Maximum", OptionsSerializer("MaximumMinimumOptions")),
     BuiltinOperator.ARG_MAX: (
         "ArgMax",

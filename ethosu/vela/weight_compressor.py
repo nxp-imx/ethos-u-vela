@@ -19,6 +19,7 @@ import math
 from collections import namedtuple
 
 import numpy as np
+from ethosu import mlw_codec
 
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
@@ -31,7 +32,6 @@ from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 from .tensor import TensorSubPurpose
-from ethosu import mlw_codec
 
 
 # Contains meta info for a weight compression. If two tensors have identical weight compression config,
@@ -236,7 +236,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
     if tens.consumer_list[0].type == "Conv2DBackpropInputSwitchedBias":
         # Transpose Convoluion, reverse weights in H and W axes
-        weights = np.flip(weights, axis=(0,1))
+        weights = np.flip(weights, axis=(0, 1))
 
     # Slice weight stream up depth-ways into bricks and compress
     full_ofm_depth = quant_buf.shape[-1]

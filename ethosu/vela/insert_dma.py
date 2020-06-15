@@ -21,7 +21,9 @@ from .operation import Operation
 from .tensor import MemArea
 from .tensor import TensorPurpose
 
+
 binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
+
 
 def insert_dma_cmd(op, arch):
     if op.type == "DMA":
@@ -29,10 +31,9 @@ def insert_dma_cmd(op, arch):
     for idx, tens in enumerate(op.inputs):
 
         if tens.mem_area in (MemArea.Dram, MemArea.OffChipFlash) and tens.mem_area != arch.fast_storage_mem_area:
-            if (tens.purpose == TensorPurpose.Weights or
-                (tens.purpose == TensorPurpose.FeatureMap and
-                 op.type in binary_elementwise_op and
-                 tens.shape != [])):
+            if tens.purpose == TensorPurpose.Weights or (
+                tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and tens.shape != []
+            ):
                 only_vector_product_consumers = True
                 for oper in tens.consumers():
                     if oper is None or oper.attrs.get("npu_block_type") != NpuBlockType.VectorProduct:

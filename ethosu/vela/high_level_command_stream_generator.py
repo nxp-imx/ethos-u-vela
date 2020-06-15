@@ -33,14 +33,13 @@ def dma_if_necessary(ps, box, tensor):
         in_tensor = dma_op.inputs[0]
         yield DMA(in_tensor, tensor, box)
 
+
 def match_tensor(source, derived):
     if source == derived:
         return True
     ops = derived.ops
-    return (ops != [] and
-        len(ops) ==1 and
-        ops[0].type == "SplitSliceRead" and
-        source == ops[0].inputs[0])
+    return ops != [] and len(ops) == 1 and ops[0].type == "SplitSliceRead" and source == ops[0].inputs[0]
+
 
 def generate_high_level_command_stream_for_pass(strat, passes, block_configs, idx):
     is_first = idx == 0
@@ -59,8 +58,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
     if len(ps.inputs) == 2 and npu_block_type == NpuBlockType.ElementWise:
         # Ensure correct imf and ifm2 order
-        if (match_tensor(ps.inputs[0], ps.primary_op.inputs[1]) and
-            match_tensor(ps.inputs[1], ps.primary_op.inputs[0])):
+        if match_tensor(ps.inputs[0], ps.primary_op.inputs[1]) and match_tensor(ps.inputs[1], ps.primary_op.inputs[0]):
             ps.ifm_tensor, ps.ifm2_tensor = ps.ifm2_tensor, ps.ifm_tensor
             split_offsets[0], split_offsets[1] = split_offsets[1], split_offsets[0]
 
@@ -117,21 +115,46 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
             if ifm_tensor.shape != []:
                 ifm_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling
+                    strides,
+                    skirt,
+                    ifm_tensor.shape,
+                    npu_block_type,
+                    concat_axis,
+                    concat_offset,
+                    split_offsets[0],
+                    upscaling,
                 )
             else:
                 ifm_box = Box([], [])
             if ifm2_tensor is not None and ifm2_tensor.shape != []:
                 ifm2_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm2_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[1], upscaling
+                    strides,
+                    skirt,
+                    ifm2_tensor.shape,
+                    npu_block_type,
+                    concat_axis,
+                    concat_offset,
+                    split_offsets[1],
+                    upscaling,
                 )
             else:
                 ifm2_box = Box([], [])
 
             for intermediate in ps.intermediates:
-                if intermediate != None and intermediate.shape != [] and intermediate.purpose == TensorPurpose.FeatureMap:
+                if (
+                    intermediate is not None
+                    and intermediate.shape != []
+                    and intermediate.purpose == TensorPurpose.FeatureMap
+                ):
                     intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                        strides, skirt, intermediate.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling
+                        strides,
+                        skirt,
+                        intermediate.shape,
+                        npu_block_type,
+                        concat_axis,
+                        concat_offset,
+                        split_offsets[0],
+                        upscaling,
                     )
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
 
@@ -218,13 +241,32 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                     k_height = weight_tensor.shape[0]
 
             ifm_box, pad_top, pad_bottom = ofm_box.transform_with_strides_and_skirt(
-                strides, skirt, ifm_tensor.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], k_height, upscaling
+                strides,
+                skirt,
+                ifm_tensor.shape,
+                npu_block_type,
+                concat_axis,
+                concat_offset,
+                split_offsets[0],
+                k_height,
+                upscaling,
             )
 
             for intermediate in ps.intermediates:
-                if intermediate != None and intermediate.shape != [] and intermediate.purpose == TensorPurpose.FeatureMap:
+                if (
+                    intermediate is not None
+                    and intermediate.shape != []
+                    and intermediate.purpose == TensorPurpose.FeatureMap
+                ):
                     intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                        strides, skirt, intermediate.shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling
+                        strides,
+                        skirt,
+                        intermediate.shape,
+                        npu_block_type,
+                        concat_axis,
+                        concat_offset,
+                        split_offsets[0],
+                        upscaling,
                     )
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
 

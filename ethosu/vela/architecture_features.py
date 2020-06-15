@@ -342,9 +342,14 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         return min(max_block_depth, ifm_depth)
 
     # Calculate the size of the IFM block given a depth, target OFM block and a kernel
-    def get_ifm_block_size(self, ifm_block_depth, ofm_block: Block,
-                           kernel: Kernel, subkernel: Block = Block(8, 8, 65536),
-                           ifm_resampling_mode=resampling_mode.NONE):
+    def get_ifm_block_size(
+        self,
+        ifm_block_depth,
+        ofm_block: Block,
+        kernel: Kernel,
+        subkernel: Block = Block(8, 8, 65536),
+        ifm_resampling_mode=resampling_mode.NONE,
+    ):
         upscaling = 1 if ifm_resampling_mode == resampling_mode.NONE else 2
         # Height
         ifm_odd_2x_height_enable = 0

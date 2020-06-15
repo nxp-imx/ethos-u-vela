@@ -112,7 +112,9 @@ tensor_purposes = [  # ops, input_purpose
     ),
     (
         set(("Conv2DBackpropInputSwitchedBias",)),
-        purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.Weights, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]),
+        purpose_from_list(
+            [TensorPurpose.FeatureMap, TensorPurpose.Weights, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]
+        ),
     ),
     (
         set(("QuantizedConv2D", "QuantizedMatMul")),

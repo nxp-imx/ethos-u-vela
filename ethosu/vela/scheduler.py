@@ -940,7 +940,7 @@ class DynamicProgrammingScheduler:
 
                         use_NHCWB16 = True
                         for op in output.consumer_list:
-                            if op == None or op.type == 'Reshape':
+                            if op is None or op.type == "Reshape":
                                 use_NHCWB16 = False
                             else:
                                 use_NHCWB16 &= op.run_on_npu

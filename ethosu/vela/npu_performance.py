@@ -25,7 +25,6 @@ import numpy as np
 
 from . import numeric_util
 from .architecture_features import Block
-from .architecture_features import Kernel
 from .nn_graph import PassPlacement
 from .nn_graph import SchedulerRewrite
 from .operation import NpuBlockType
@@ -241,7 +240,9 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
 
-        if npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.Pooling)):
+        if npu_block_type in set(
+            (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.Pooling)
+        ):
             # extent the ifm to full dimension
             ifm_tensor_brick_size = tuple(numeric_util.full_shape(4, list(ifm_tensor.brick_size), 1))
             ifm_tensor_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)

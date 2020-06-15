@@ -131,6 +131,7 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
     skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
     return padding, skirt
 
+
 def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
     upscaled_shape = [input_dims[0], input_dims[1] * stride[1], input_dims[2] * stride[2], input_dims[3]]
     ypad = needed_total_padding(int(upscaled_shape[1]), int(stride[1]), int(kernel_size[0]))
@@ -174,7 +175,7 @@ def fixup_conv2d_backprop(op, arch):
             op.inputs.append(scale_tens)
 
         # Update strides
-        op.attrs.update( {"stride_w": 1, "stride_h": 1, "strides": (1,1,1,1)} )
+        op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
 
     return op
 
@@ -331,11 +332,15 @@ def add_padding_fields(op, arch):
             raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
         if op.type == "Conv2DBackpropInputSwitchedBias":
-            padding, skirt = calc_upscaled_padding_and_skirt(op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape)
+            padding, skirt = calc_upscaled_padding_and_skirt(
+                op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape
+            )
         else:
             dilation_h, dilation_w = op.get_dilation_h_w()
             dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
-            padding, skirt = calc_padding_and_skirt(op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape)
+            padding, skirt = calc_padding_and_skirt(
+                op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape
+            )
 
         op.attrs["explicit_padding"] = padding
         op.attrs["skirt"] = skirt
@@ -540,7 +545,7 @@ def convert_mul_max_to_abs_or_lrelu(op, arch):
 
 
 def add_attrs_to_resizebilinear(op, arch):
-    if op.type == 'ResizeBilinear' and op.run_on_npu:
+    if op.type == "ResizeBilinear" and op.run_on_npu:
         input_tensor = op.inputs[0]
         upscaled_shape = [input_tensor.shape[1] * 2, input_tensor.shape[2] * 2]
         out_shape = op.outputs[0].shape[1:3]
@@ -556,10 +561,7 @@ def add_attrs_to_resizebilinear(op, arch):
             # If this exception is raised, something is wrong with the supported op check
             raise UnsupportedFeatureError("Unsupported upscaling factor")
         input_tensor.resampling_mode = resampling_mode.NEAREST
-        op.attrs.update({
-            'strides': (1, 1, 1, 1),
-            'ksize': (1, 2, 2, 1),
-        })
+        op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 2, 2, 1)})
     return op
 
 

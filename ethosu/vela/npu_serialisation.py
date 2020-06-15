@@ -46,10 +46,12 @@ def copy_compressed_values_to_memory_tensor(memory_tensor, src_tensor):
         memory_tensor.values[start_addr:end_addr] = compressed_values
         start_addr = end_addr
 
+
 def copy_ifm_values_to_memory_tensor(memory_tensor, src_tensor):
     start_addr = src_tensor.address
     end_addr = start_addr + src_tensor.quant_values.size
     memory_tensor.values[start_addr:end_addr] = src_tensor.quant_values
+
 
 def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens):
     if sg.placement != PassPlacement.Npu:
@@ -95,7 +97,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
     for cps in sg.cascaded_passes:
         for ps in cps.passes:
             if ps.placement == PassPlacement.Npu:
-                if ps.weight_tensor != None:
+                if ps.weight_tensor is not None:
                     # For DMA ops, ps.weight_tensor is referring to the SRAM weight tensor and therefore the address
                     # is pointing at the destination address of where the weights should be placed in SRAM.
                     # This ensures that the Flash weight tensor is used instead and thus gets the correct address.
@@ -106,9 +108,9 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
 
                     copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor)
 
-                if ps.ifm_tensor != None and ps.ifm_tensor.mem_area != MemArea.Sram:
+                if ps.ifm_tensor is not None and ps.ifm_tensor.mem_area != MemArea.Sram:
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm_tensor)
-                if ps.ifm2_tensor != None and ps.ifm2_tensor.mem_area != MemArea.Sram:
+                if ps.ifm2_tensor is not None and ps.ifm2_tensor.mem_area != MemArea.Sram:
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm2_tensor)
 
     sg.command_stream_tensor = make_memory_tensor(
