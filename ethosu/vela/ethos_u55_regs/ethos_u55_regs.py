@@ -19,7 +19,7 @@
 from ctypes import *
 from enum import Enum
 
-ARCH_VER = '1.0.0'
+ARCH_VER = '1.0.1'
 
 
 class BASE(Enum):
@@ -704,6 +704,7 @@ class pmu_event_type(Enum):
     NPU_IDLE = 0x20
     CC_STALLED_ON_BLOCKDEP = 0x21
     CC_STALLED_ON_SHRAM_RECONFIG = 0x22
+    NPU_ACTIVE = 0x23
     MAC_ACTIVE = 0x30
     MAC_ACTIVE_8BIT = 0x31
     MAC_ACTIVE_16BIT = 0x32
