@@ -54,6 +54,7 @@ from .tflite import GatherNdOptions
 from .tflite import GatherOptions
 from .tflite import GreaterEqualOptions
 from .tflite import GreaterOptions
+from .tflite import HardSwishOptions
 from .tflite import IfOptions
 from .tflite import L2NormOptions
 from .tflite import LeakyReluOptions
@@ -258,6 +259,8 @@ builtin_options_map = {
     BuiltinOptions.MatrixSetDiagOptions: MatrixSetDiagOptions.MatrixSetDiagOptions,
     BuiltinOptions.DensifyOptions: DensifyOptions.DensifyOptions,
     BuiltinOptions.DepthToSpaceOptions: DepthToSpaceOptions.DepthToSpaceOptions,
+    BuiltinOptions.HardSwishOptions: HardSwishOptions.HardSwishOptions,
+
     BuiltinOptions.IfOptions: IfOptions.IfOptions,
     BuiltinOptions.NonMaxSuppressionV4Options: NonMaxSuppressionV4Options.NonMaxSuppressionV4Options,
     BuiltinOptions.NonMaxSuppressionV5Options: NonMaxSuppressionV5Options.NonMaxSuppressionV5Options,
@@ -622,6 +625,7 @@ builtin_operator_map = {
     BuiltinOperator.MATRIX_DIAG: ("MatrixDiag", None),
     BuiltinOperator.QUANTIZE: ("Quantize", None),
     BuiltinOperator.MATRIX_SET_DIAG: ("MatrixSetDiag", None),
+    BuiltinOperator.HARD_SWISH: ("HardSwish", OptionsSerializer("HardSwishOptions")),
     BuiltinOperator.IF: ("If", OptionsSerializer("IfOptions", ("then_subgraph_index", "else_subgraph_index"))),
     BuiltinOperator.WHILE: ("While", OptionsSerializer("WhileOptions", ("cond_subgraph_index", "body_subgraph_index"))),
     BuiltinOperator.NON_MAX_SUPPRESSION_V4: ("NonMaxSuppressionV4", OptionsSerializer("NonMaxSuppressionV4Options")),

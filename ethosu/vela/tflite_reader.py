@@ -19,6 +19,7 @@ import os.path
 
 import numpy as np
 
+from .errors import InputFileError
 from .errors import UnsupportedFeatureError
 from .nn_graph import Graph
 from .nn_graph import Subgraph
@@ -228,6 +229,9 @@ class TFLiteGraph:
 
     def parse_operator_code(self, code):
         c = code.BuiltinCode()
+        if not c in builtin_operator_map:
+            msg = "The input file contains operator code {} which is currently not supported".format(c)
+            raise InputFileError(self.name, msg)
         op_type, ser = builtin_operator_map[c]
         if c == BuiltinOperator.CUSTOM:
             op_type += decode_str(code.CustomCode())
