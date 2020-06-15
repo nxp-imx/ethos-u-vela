@@ -30,7 +30,7 @@ repos:
         always_run: true
 
     -   id: pytest-cov
-        name: pytest
+        name: pytest-cov
         stages: [push]
         language: system
         entry: pytest -v --cov=ethosu --cov-fail-under=0
