@@ -31,7 +31,7 @@ class Operation:
     """Class representing a Neural Network operation. Has a name, a type,
 input and output tensors, as well as an attribute dictionary."""
 
-    __slots__ = "type", "name", "attrs", "inputs", "outputs", "flops", "scheduled_pass", "run_on_npu"
+    __slots__ = "type", "name", "op_index", "attrs", "inputs", "outputs", "flops", "scheduled_pass", "run_on_npu"
 
     def __init__(self, op_type, name):
         self.type = op_type
@@ -42,6 +42,7 @@ input and output tensors, as well as an attribute dictionary."""
         self.flops = 0
         self.run_on_npu = True
         self.scheduled_pass = None
+        self.op_index = None  # input network operator index
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
@@ -51,6 +52,7 @@ input and output tensors, as well as an attribute dictionary."""
         res.outputs = list(self.outputs)
         res.flops = self.flops
         res.scheduled_pass = self.scheduled_pass
+        res.op_index = None  # not relevant as not part of input network
 
         return res
 

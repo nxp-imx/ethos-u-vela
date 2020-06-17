@@ -17,7 +17,6 @@
 # Dispatcher for reading a neural network model.
 from . import tflite_reader
 from .errors import InputFileError
-from .errors import VelaError
 
 
 class ModelReaderOptions:
@@ -32,17 +31,12 @@ class ModelReaderOptions:
 
 def read_model(fname, options, feed_dict={}, output_node_names=[], initialisation_nodes=[]):
     if fname.endswith(".tflite"):
-        try:
-            return tflite_reader.read_tflite(
-                fname,
-                options.batch_size,
-                feed_dict=feed_dict,
-                output_node_names=output_node_names,
-                initialisation_nodes=initialisation_nodes,
-            )
-        except VelaError as e:
-            raise e
-        except Exception as e:
-            raise InputFileError(fname, str(e))
+        return tflite_reader.read_tflite(
+            fname,
+            options.batch_size,
+            feed_dict=feed_dict,
+            output_node_names=output_node_names,
+            initialisation_nodes=initialisation_nodes,
+        )
     else:
-        raise InputFileError(fname, "Unknown input file format. Only .tflite files are supported")
+        raise InputFileError(fname, "Unsupported file extension. Only .tflite files are supported")

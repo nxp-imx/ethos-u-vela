@@ -26,15 +26,7 @@ def test_read_model_incorrect_extension(tmpdir):
         model_reader.read_model("no_tflite_file.txt", model_reader.ModelReaderOptions())
 
 
-def test_read_model_corrupt_contents(tmpdir):
-    # Tests read_model with a corrupt .tflite file
-    fname = tmpdir.join("corrupt.tflite")
-    fname.write("abcde1234")
-    with pytest.raises(InputFileError):
-        model_reader.read_model(fname.strpath, model_reader.ModelReaderOptions())
-
-
 def test_read_model_file_not_found(tmpdir):
     # Tests read_model with a .tflite file that does not exist
-    with pytest.raises(InputFileError):
+    with pytest.raises(FileNotFoundError):
         model_reader.read_model("non_existing.tflite", model_reader.ModelReaderOptions())

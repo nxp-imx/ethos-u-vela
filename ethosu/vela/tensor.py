@@ -226,7 +226,6 @@ class Tensor:
         "weight_compressed_offsets",
         "element_size_bytes",
         "block_traversal",
-        "offset",
         "cpu_tensor",
         "npu_tensor",
         "equivalence_id",

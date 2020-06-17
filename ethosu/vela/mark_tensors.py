@@ -17,8 +17,10 @@
 # Mark purpose and select formats for Tensors. Also compresses the weights.
 from . import rewrite_graph
 from . import weight_compressor
+from .errors import OperatorError
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
+from .tflite_mapping import custom_prefix
 
 
 def purpose_from_list(lst):
@@ -268,18 +270,33 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
             if ops is None or op.type in ops:
                 if ops is None:
                     print(
-                        "warning: don't know how to mark up purpose for",
+                        "Warning: Don't know how to mark up purpose for",
                         op.type,
                         op.inputs,
                         "triggering all feature map fallback",
                     )
+
                 for idx, tens in enumerate(op.inputs):
                     purpose = input_purpose(op, idx)
                     mark_tensor_helper(tens, purpose)
+
                 if op.type == "Reshape":
                     # Reshape's input and output point to same data
                     op.outputs[0].mem_area = op.inputs[0].mem_area
+
+                if op.type.startswith(custom_prefix) and op.attrs.get("custom_type", "") == "ExistingNpuOp":
+                    scratch_tensor = None
+
+                    if len(op.inputs) >= 3:
+                        scratch_tensor = op.inputs[2]  # should be existing scratch tensor
+                        if scratch_tensor.name.endswith("_scratch"):
+                            scratch_tensor.purpose = TensorPurpose.Scratch
+
+                    if scratch_tensor is None:
+                        raise OperatorError(op, "Scratch tensor not found.")
+
                 break
+
         return op
 
     for sg in nng.subgraphs:
@@ -316,6 +333,8 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
             fmt = arch.default_feature_map_format
         elif tens.purpose == TensorPurpose.Weights:
             fmt = arch.default_weight_format
+        elif tens.purpose == TensorPurpose.Scratch:
+            fmt = arch.default_feature_map_format
         elif tens.purpose == TensorPurpose.Unknown:
             fmt = TensorFormat.Unknown
         else:

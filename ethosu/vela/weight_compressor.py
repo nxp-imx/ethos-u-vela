@@ -381,15 +381,6 @@ def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
 
 
 def update_pass_weight_and_scale_tensors(nng, arch):
-    def find_npu_usage_of_tensor(tens):
-        # TODO: This function is identical to the one in mark_tensors.py. A common version should be used.
-        for op in tens.consumers():
-            if op.type == "DMA":
-                return find_npu_usage_of_tensor(op.outputs[0])
-            if "npu_block_type" in op.attrs:
-                return op.attrs["npu_block_type"]
-            return NpuBlockType.Default
-
     for sg in nng.subgraphs:
         for ps in sg.passes:
             tens = ps.weight_tensor

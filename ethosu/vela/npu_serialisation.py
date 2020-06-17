@@ -141,7 +141,7 @@ def rewrite_npu_call_ops(nng, sg, arch):
             for op in ps.ops:
                 if op.type == "NpuOp":
                     callee = op.attrs["subgraph"]
-                    op.attrs["custom_options"] = {"type": op.type}
+                    op.attrs["custom_type"] = op.type
 
                     sz = 0
                     for tens in [callee.scratch_tensor, callee.flash_tensor, callee.command_stream_tensor]:
