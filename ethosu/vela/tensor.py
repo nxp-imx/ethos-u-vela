@@ -291,7 +291,7 @@ class Tensor:
         self.weight_compressed_offsets = []
         self.storage_rounding_quantum = (1, 1, 1, 1)
         self.brick_size = (1, 1, 1, 1)
-        self.address = 0  # start address of tensor. will be filled in by tensor allocator
+        self.address = None  # start address of tensor. will be filled in by tensor allocator
         self.element_size_bytes = 0
 
         # quantization parameters
@@ -323,7 +323,7 @@ class Tensor:
         res.alignment = self.alignment
         res.bandwidth_compression_scale = self.bandwidth_compression_scale
         res.storage_rounding_quantum = self.storage_rounding_quantum
-        res.address = 0
+        res.address = None
 
         if self.quantization is not None:
             res.quantization = self.quantization.clone()

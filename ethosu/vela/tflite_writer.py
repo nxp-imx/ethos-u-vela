@@ -401,7 +401,7 @@ class TFLiteSerialiser:
         # Ensure that the order of the offsets match the order of the tensors
         for tens, idx in self.tensor_map.items():
             # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
-            if tens.mem_type in set((MemType.Scratch, MemType.Scratch_fast)):
+            if tens.mem_type in set((MemType.Scratch, MemType.Scratch_fast)) and tens.address is not None:
                 offsets[idx] = np.int32(tens.address)
 
         metadata_buffer = np.array([version, subgraph_idx, nbr_tensors] + offsets)

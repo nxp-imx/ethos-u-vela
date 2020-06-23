@@ -216,7 +216,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
         if len(passes) == 1:
             # no cascading, can just issue one big stripe
             # but only if we've done allocation and OFM does not overlap IFM
-            if ifm_tensor.address != -1 and ofm_tensor.address != -1:
+            if ifm_tensor.address is not None and ofm_tensor.address is not None:
                 if (
                     ifm_tensor.address + ifm_tensor.storage_size() <= ofm_tensor.address
                     or ofm_tensor.address + ofm_tensor.storage_size() <= ifm_tensor.address

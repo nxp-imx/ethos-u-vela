@@ -85,7 +85,7 @@ class LiveRange:
     def set_address(self, address):
         # Set address of all unaddressed tensors in LiveRange
         for tens in self.tensors:
-            if tens.address == 0:
+            if tens.address is None:
                 addr = address
             else:
                 # Limit to single tensor for the lr if the tensor address already assigned
