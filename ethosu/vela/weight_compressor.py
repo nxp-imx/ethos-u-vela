@@ -19,7 +19,6 @@ import math
 from collections import namedtuple
 
 import numpy as np
-from ethosu import mlw_codec
 
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
@@ -32,6 +31,7 @@ from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
 from .tensor import TensorSubPurpose
+from ethosu import mlw_codec
 
 
 # Contains meta info for a weight compression. If two tensors have identical weight compression config,
@@ -177,10 +177,12 @@ def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bi
                                                 stream.append(brick_weights[ofm_z][wy][wx][ifm_z])
     return stream
 
+
 def core_deinterleave(hwio, core, ncores):
     # Put weights back into OHWI
-    ohwi = np.transpose(hwio, (3,0,1,2))
-    return ohwi[core:ohwi.shape[0]:ncores]
+    ohwi = np.transpose(hwio, (3, 0, 1, 2))
+    return ohwi[core : ohwi.shape[0] : ncores]
+
 
 # Compress the weights
 def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
@@ -244,6 +246,10 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         # Transpose Convoluion, reverse weights in H and W axes
         weights = np.flip(weights, axis=(0, 1))
 
+    # Calculate brick size
+    brick_size = (weights_shape[0], weights_shape[1], weights_shape[2], min(tens.shape[-1], ofm_depth_step))
+    elements_in_brick = np.prod(brick_size)
+
     # Slice weight stream up depth-ways into bricks and compress
     full_ofm_depth = quant_buf.shape[-1]
     for idx in range(0, full_ofm_depth, ofm_depth_step):
@@ -262,17 +268,19 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
             block_depth = (ofm_block_depth + arch.ncores - 1 - core) // arch.ncores
             if block_depth != 0:
-                raw_stream = generate_brick(arch, core_weights, block_depth, tens.block_traversal, ifm_bitdepth, dilation)
+                raw_stream = generate_brick(
+                    arch, core_weights, block_depth, tens.block_traversal, ifm_bitdepth, dilation
+                )
             else:
                 raw_stream = []
 
-            raw_size += len( raw_stream )
-            encoded_substream = encode( raw_stream )
-            encoded_stream.extend( encoded_substream )
-            substream_offsets.append( len(encoded_stream) )
+            raw_size += len(raw_stream)
+            encoded_substream = encode(raw_stream)
+            encoded_stream.extend(encoded_substream)
+            substream_offsets.append(len(encoded_stream))
 
-        encoded_streams.append( encoded_stream )
-        encoded_streams_substream_offsets.append( substream_offsets )
+        encoded_streams.append(encoded_stream)
+        encoded_streams_substream_offsets.append(substream_offsets)
 
         # Remember maximum encoded length for DoubleBuffering
         max_single_buffer_len = max(max_single_buffer_len, len(encoded_stream))
@@ -283,7 +291,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         assert offset % 16 == 0
 
         # Compression scale tracking
-        compression_scales.append(len(encoded_stream) / raw_size)
+        compression_scales.append(len(encoded_stream) / elements_in_brick)
 
     # Track total length as last element of the offsets array
     compressed_offsets.append(offset)
@@ -294,9 +302,10 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
     tens.storage_compression_scale = tens.bandwidth_compression_scale = np.average(compression_scales)
     tens.compressed_values = encoded_streams
     tens.compressed_values_substream_offsets = encoded_streams_substream_offsets
-    tens.brick_size = (weights_shape[0], weights_shape[1], weights_shape[2], min(tens.shape[-1], ofm_depth_step))
+    tens.brick_size = brick_size
     set_storage_shape(tens)
     nng.weight_cache.add(tens)
+
 
 def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=False):
     assert tens.purpose == TensorPurpose.FeatureMap
@@ -399,23 +408,24 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
         substream_offsets = [0]
         max_len = min(ofm_depth_step, total_elements - i)
         for core in range(0, min(arch.ncores, max_len)):
-            core_scales = quantised_scales[i+core:i+core+max_len:arch.ncores]
-            core_biases = biases[i+core:i+core+max_len:arch.ncores]
+            core_scales = quantised_scales[i + core : i + core + max_len : arch.ncores]
+            core_biases = biases[i + core : i + core + max_len : arch.ncores]
             for j, core_bias in enumerate(core_biases):
-                stream.extend( pack_bias_and_scale(core_bias, *core_scales[j]) )
+                stream.extend(pack_bias_and_scale(core_bias, *core_scales[j]))
 
             # Align to 16 for start for next substream
-            remainder = ( len(stream) ) % 16
+            remainder = (len(stream)) % 16
             if remainder > 0:
-                stream.extend( bytearray(16 - remainder) )
+                stream.extend(bytearray(16 - remainder))
 
-            substream_offsets.append( len(stream) )
+            substream_offsets.append(len(stream))
 
         # Add to compressed values with their substream offset lists to the tensor
-        tens.compressed_values.append( stream )
-        tens.compressed_values_substream_offsets.append( substream_offsets )
+        tens.compressed_values.append(stream)
+        tens.compressed_values_substream_offsets.append(substream_offsets)
 
     tens.storage_shape = [total_elements * tens.element_size_bytes]
+
 
 def update_pass_weight_and_scale_tensors(nng, arch):
     for sg in nng.subgraphs:
@@ -424,11 +434,6 @@ def update_pass_weight_and_scale_tensors(nng, arch):
             if tens is not None:
                 op = tens.find_npu_op()
                 npu_usage_of_tensor = op.attrs["npu_block_type"]
-                if npu_usage_of_tensor == NpuBlockType.ConvolutionDepthWise:
-                    tens.quant_values = np.transpose(tens.quant_values, (0, 1, 3, 2))
-                    tens.shape = tens.storage_shape = tens.bandwidth_shape = list(tens.quant_values.shape)
-                    tens.weight_transpose_depthwise = True
-
                 needs_dma = tens.needs_dma()
                 if ps.cascade.strategy == SchedulingStrategy.WeightStream and needs_dma:
                     ofm_depth_step = ps.block_config[-1]

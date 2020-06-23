@@ -435,6 +435,18 @@ def convert_depthwise_to_conv(op, arch):
     return op
 
 
+def reorder_depthwise_weights(op, arch):
+    if "DepthwiseConv2d" in op.type:
+        weight_tensor = op.inputs[1]
+        weight_tensor.quant_values = np.transpose(weight_tensor.quant_values, (0, 1, 3, 2))
+        weight_tensor.shape = weight_tensor.storage_shape = weight_tensor.bandwidth_shape = list(
+            weight_tensor.quant_values.shape
+        )
+        weight_tensor.weight_transpose_depthwise = True
+
+    return op
+
+
 # Reorder activation op if it's after the memory only operations
 def fixup_act_reorder(op, arch):
     if op.type in activation_ops:
@@ -589,6 +601,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         add_padding_fields,
         mark_npu_block_type,
         fixup_elementwise_with_scalars,
+        reorder_depthwise_weights,
         # convert_mul_max_to_abs_or_lrelu # TODO: enable optimisation once quantisation issues are resolved
     ]
 
