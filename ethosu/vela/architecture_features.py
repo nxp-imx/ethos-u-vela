@@ -135,6 +135,8 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         "ArchitectureConfig", "macs cores ofm_ublock ifm_ublock shram_banks shram_granules elem_units"
     )
     accelerator_configs = {
+        "yoda-512": ArchitectureConfig(256, 2, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8),
+        "yoda-256": ArchitectureConfig(256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8),
         "ethos-u55-256": ArchitectureConfig(256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8),
         "ethos-u55-128": ArchitectureConfig(128, 1, Block(2, 1, 8), Block(2, 2, 8), 24, [4, 4, 4, 4, 4, 8, 12], 4),
         "ethos-u55-64": ArchitectureConfig(64, 1, Block(1, 1, 8), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 8], 2),
