@@ -43,9 +43,33 @@ And optionally:
 
 ## Installation
 
-Before running, the Vela package must be installed along with all its
-dependencies.  To do this, first change to the directory that contains this
-README.md file. Then use the command:
+Vela is available to install as a package from
+[PyPi](https://pypi.org/project/ethos-u-vela/), or as
+source code from
+[ML Platform](https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/about/).
+Both methods will automatically install all the required dependencies.
+
+### PyPi
+
+Install Vela from PyPi using the following command:
+
+```bash
+pip3 install ethos-u-vela
+```
+
+### ML Platform
+
+First obtain the source code by either downloading the desired TGZ file from:  
+<https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela>
+
+Or by cloning the git repository:
+
+```bash
+git clone https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
+```
+
+Once you have the source code, Vela can be installed using the following
+command:
 
 ```bash
 pip3 install -U setuptools>=40.1.0
@@ -57,6 +81,26 @@ Or, if you use `pipenv`:
 ```bash
 pipenv install .
 ```
+
+### Advanced Installation for Developers
+
+If you plan to modify the Vela codebase then it is recommended to install Vela
+as an editable package to avoid the need to re-install after every modification.
+This is done by adding the `-e` option to the above install commands like so:
+
+```bash
+pip3 install -e .
+```
+
+Or, if you use `pipenv`:
+
+```bash
+pipenv install -e .
+```
+
+If you plan to contribute to the Vela project (highly encouraged!!!) then it is
+recommended to install Vela along with the pre-commit tools (see
+[Vela Testing](TESTING.md) for more details).
 
 ## Running
 
