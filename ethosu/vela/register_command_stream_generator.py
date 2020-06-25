@@ -1,3 +1,4 @@
+
 # Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -390,6 +391,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             param = 0
             emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, param, absolute_dep[CommandType.DMA][0])
 
+    emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores-1)
+
     for cmd in cmd_stream:
         if cmd.cmdtype == CommandType.DMA:
             start_coord = cmd.box.start_coord
@@ -689,26 +692,45 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 # Emit Weight base address commands, only maps the area required for
                 # this command's weights from the larger tensor.
                 stream_index = cmd.weight_tensor.compressed_stream_index_from_coord(cmd.weight_box.start_coord)
+                weight_substream_offsets = cmd.weight_tensor.compressed_values_substream_offsets[stream_index]
+                substreams = len( weight_substream_offsets ) - 1 # Offset list must terminate with full stream length
+                assert substreams == arch.ncores
+
+                # Extract weight substream offsets and calculate their lengths
+                assert len(weight_substream_offsets) > 1 and (weight_substream_offsets[0] == 0)
                 weight_addr = cmd.weight_tensor.address_for_coordinate(cmd.weight_box.start_coord)
-                weight_len = cmd.weight_tensor.size_of_compressed_stream(stream_index)
+
+                if substreams > 0:
+                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_BASE, weight_addr + weight_substream_offsets[0] )
+                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_LENGTH, weight_substream_offsets[1] - weight_substream_offsets[0])
+                if substreams > 1:
+                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT1_BASE, weight_addr + weight_substream_offsets[1])
+                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT1_LENGTH, weight_substream_offsets[2] - weight_substream_offsets[1])
+
                 weight_region = base_ptr_idx_map[cmd.weight_tensor.mem_type]
                 emit.cmd0_with_param(cmd0.NPU_SET_WEIGHT_REGION, weight_region)
-                emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_BASE, weight_addr)
-                emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_LENGTH, weight_len)
 
                 # Emit Scale & Bias base address commands, with length matching the amount required by
                 # the weight tensors.
                 if cmd.scale_tensor is not None:
-                    # Get address and size of the scale/bias data area
-                    scale_addr = cmd.scale_tensor.address_for_coordinate(cmd.weight_box.start_coord[-1:])
-                    scale_len = (
-                        cmd.scale_tensor.address_for_coordinate(cmd.weight_box.end_coord[-1:], True) - scale_addr
-                    )
+                    scale_substream_offsets = cmd.scale_tensor.compressed_values_substream_offsets[stream_index]
+                    substreams = len( scale_substream_offsets ) - 1 # Offset list must terminate with full stream length
+                    assert substreams == arch.ncores
+
+                    # Extract scale substream offsets and calculate their lengths
+                    assert len(scale_substream_offsets) > 1 and (scale_substream_offsets[0] == 0)
+                    scale_addr = cmd.scale_tensor.address_for_coordinate( cmd.weight_box.start_coord[-1:] )
+
+                    if substreams > 0:
+                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_BASE, scale_addr + scale_substream_offsets[0])
+                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_LENGTH, scale_substream_offsets[1] - scale_substream_offsets[0] )
+                    if substreams > 1:
+                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE1_BASE, scale_addr + scale_substream_offsets[1])
+                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE1_LENGTH, scale_substream_offsets[2] - scale_substream_offsets[1] )
+
                     # Emit base address for NPU to access scale & bias data
                     scale_region = base_ptr_idx_map[cmd.scale_tensor.mem_type]
                     emit.cmd0_with_param(cmd0.NPU_SET_SCALE_REGION, scale_region)
-                    emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_BASE, scale_addr)
-                    emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_LENGTH, round_up(scale_len, 16))
 
             ofm_quant = cmd.ofm_tensor.quantization
             ofm_quant_qmin = cmd.ofm_tensor.quantization.quant_min

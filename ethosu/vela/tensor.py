@@ -229,6 +229,7 @@ class Tensor:
         "values",
         "quant_values",
         "compressed_values",
+        "compressed_values_substream_offsets",
         "mem_area",
         "mem_type",
         "format",
@@ -273,6 +274,7 @@ class Tensor:
         self.values = None
         self.quant_values = None
         self.compressed_values = None
+        self.compressed_values_substream_offsets = None
         self.mem_area = MemArea.Unknown
         self.mem_type = MemType.Unknown
         self.format = TensorFormat.Unknown
@@ -342,6 +344,7 @@ class Tensor:
     def copy_compressed_weight_info(self, src_tens):
         # Copies compressed values + all related weight compression info from the given tensor
         self.compressed_values = src_tens.compressed_values
+        self.compressed_values_substream_offsets = src_tens.compressed_values_substream_offsets
         self.storage_shape = src_tens.storage_shape
         self.brick_size = src_tens.brick_size
         self.weight_compression_scales = src_tens.weight_compression_scales

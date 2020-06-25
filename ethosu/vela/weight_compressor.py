@@ -97,11 +97,11 @@ def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bi
     decomp_w = arch.subkernel_max.width // dilation[1]
     ofm_ublock = arch.ofm_ublock
     ifm_ublock = arch.ifm_ublock
-    # Expect weights formatted HWIO
-    ofm_depth = brick_weights.shape[-1]
-    ifm_depth = brick_weights.shape[-2]
-    kernel_width = brick_weights.shape[-3]
-    kernel_height = brick_weights.shape[-4]
+    # Expect weights formatted OHWI
+    ofm_depth = brick_weights.shape[-4]
+    ifm_depth = brick_weights.shape[-1]
+    kernel_width = brick_weights.shape[-2]
+    kernel_height = brick_weights.shape[-3]
     # IFM block depth
     if is_partkernel or (ifm_bitdepth == 16):
         # IFM block depth is always 16 for part-kernel-first
@@ -174,9 +174,13 @@ def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bi
                                             if (ifm_z >= ifm_depth) or (ofm_z >= ofm_depth) or (ky >= sub_height):
                                                 stream.append(0)
                                             else:
-                                                stream.append(brick_weights[wy][wx][ifm_z][ofm_z])
+                                                stream.append(brick_weights[ofm_z][wy][wx][ifm_z])
     return stream
 
+def core_deinterleave(hwio, core, ncores):
+    # Put weights back into OHWI
+    ohwi = np.transpose(hwio, (3,0,1,2))
+    return ohwi[core:ohwi.shape[0]:ncores]
 
 # Compress the weights
 def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
@@ -215,7 +219,9 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
     compression_scales = []
     compressed_offsets = []
     encoded_streams = []
+    encoded_streams_substream_offsets = []
     offset = 0
+    max_single_buffer_len = 0
 
     ifm_bitdepth = tens.consumer_list[0].inputs[0].dtype.size_in_bits()
     ifm_depth = weights.shape[-2]
@@ -240,25 +246,41 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
     # Slice weight stream up depth-ways into bricks and compress
     full_ofm_depth = quant_buf.shape[-1]
+    ofm_block_depth = ofm_block_depth // arch.ncores
     for idx in range(0, full_ofm_depth, ofm_depth_step):
         # Get the weights necessary for this brick
         count = min(full_ofm_depth - idx, ofm_depth_step)
         brick_weights = weights[:, :, :, idx : idx + count]
 
-        # Encode all weights into one chunk
-        raw_stream = generate_brick(arch, brick_weights, ofm_block_depth, tens.block_traversal, ifm_bitdepth, dilation)
-        encoded = encode(raw_stream)
-        encoded_streams.append(encoded)
+        substream_offsets = [0]
+        encoded_stream = []
+        raw_size = 0
+
+        # For each core, deinterleave weights from the larger volume
+        # and generate separate compressed streams.
+        for core in range(0, min(arch.ncores, full_ofm_depth)):
+            core_weights = core_deinterleave(brick_weights, core, arch.ncores)
+            raw_stream = generate_brick(arch, core_weights, ofm_block_depth, tens.block_traversal, ifm_bitdepth, dilation)
+            raw_size += len( raw_stream )
+            encoded_substream = encode( raw_stream )
+            encoded_stream.extend( encoded_substream )
+            substream_offsets.append( len(encoded_stream) )
+
+        encoded_streams.append( encoded_stream )
+        encoded_streams_substream_offsets.append( substream_offsets )
+
+        # Remember maximum encoded length for DoubleBuffering
+        max_single_buffer_len = max(max_single_buffer_len, len(encoded_stream))
 
         # Remember where we put it for linear addressing
         compressed_offsets.append(offset)
-        offset += len(encoded)
+        offset += len(encoded_stream)
         assert offset % 16 == 0
 
         # Compression scale tracking
-        compression_scales.append(len(encoded) / len(raw_stream))
+        compression_scales.append(len(encoded_stream) / raw_size)
 
-    # Also track complete length in the offsets array
+    # Track total length as last element of the offsets array
     compressed_offsets.append(offset)
 
     tens.weight_compression_scales = compression_scales
@@ -266,12 +288,12 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
     tens.compression_scale_for_worst_weight_stream = np.amax(compression_scales)
     tens.storage_compression_scale = tens.bandwidth_compression_scale = np.average(compression_scales)
     tens.compressed_values = encoded_streams
+    tens.compressed_values_substream_offsets = encoded_streams_substream_offsets
     tens.brick_size = (weights_shape[0], weights_shape[1], weights_shape[2], min(tens.shape[-1], ofm_depth_step))
     set_storage_shape(tens)
     nng.weight_cache.add(tens)
 
-
-def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
+def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=False):
     assert tens.purpose == TensorPurpose.FeatureMap
     assert tens.format == TensorFormat.NHWC
     # the connected operator should expect a bias input unless it is a FullyConnected
@@ -356,29 +378,39 @@ def calc_scales_and_pack_biases(tens, arch, oc_quantum, rescale_for_faf=False):
         assert shift >= 16
 
     # pack the biases and scales
-    tens.compressed_values = []
     if len(quantised_scales) == 1:
         # If only 1 quantised scale is used, repeat that value for the length of the biases
         quantised_scales = [quantised_scales[0]] * len(biases)
 
     assert len(quantised_scales) == len(biases)
-    for i, bias in enumerate(biases):
-        tens.compressed_values.append(pack_bias_and_scale(bias, *quantised_scales[i]))
-
     tens.element_size_bytes = 10
+    tens.compressed_values = []
+    tens.compressed_values_substream_offsets = []
 
-    # Figure out if we need padded storage (extra whole elements)
-    padding = (len(tens.compressed_values) * tens.element_size_bytes) % 16
-    if padding != 0:
-        padding = 16 - padding
+    total_elements = len(quantised_scales)
+    for i in range(0, total_elements, ofm_depth_step):
+        # Extract streams from brick to generate substreams for each core
+        stream = bytearray()
+        substream_offsets = [0]
+        max_len = min(ofm_depth_step, total_elements - i)
+        for core in range(0, min(arch.ncores, max_len)):
+            core_scales = quantised_scales[i+core:i+core+max_len:arch.ncores]
+            core_biases = biases[i+core:i+core+max_len:arch.ncores]
+            for j, core_bias in enumerate(core_biases):
+                stream.extend( pack_bias_and_scale(core_bias, *core_scales[j]) )
 
-    # This adds enough padding to allow over-reads
-    while padding > 0:
-        tens.compressed_values.append(pack_bias_and_scale(0, 0, 0))
-        padding = padding - tens.element_size_bytes
+            # Align to 16 for start for next substream
+            remainder = ( len(stream) ) % 16
+            if remainder > 0:
+                stream.extend( bytearray(16 - remainder) )
 
-    tens.storage_shape = [len(tens.compressed_values)]
+            substream_offsets.append( len(stream) )
 
+        # Add to compressed values with their substream offset lists to the tensor
+        tens.compressed_values.append( stream )
+        tens.compressed_values_substream_offsets.append( substream_offsets )
+
+    tens.storage_shape = [total_elements * tens.element_size_bytes]
 
 def update_pass_weight_and_scale_tensors(nng, arch):
     for sg in nng.subgraphs:
@@ -413,4 +445,4 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                 activation_ops = set(("Sigmoid", "Tanh"))
                 if (ps.ops[-1].type in activation_ops) and (ps.npu_block_type != NpuBlockType.ElementWise):
                     rescale_for_faf = True
-                calc_scales_and_pack_biases(ps.scale_tensor, arch, ps.block_config[3], rescale_for_faf)
+                calc_scales_and_pack_biases(ps.scale_tensor, arch, ofm_depth_step, rescale_for_faf)
