@@ -199,7 +199,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.memory_port_widths = np.zeros(MemArea.Size)
 
         # Get system configuration
-        self.__read_sys_config()
+        self.__read_sys_config(is_yoda_system)
 
         # apply the global memory clock scales to the individual ones from the system config
         for mem in MemArea.all():
@@ -549,7 +549,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         print("Warning: No configured CPU performance estimate for", op.type)
         return 0
 
-    def __read_sys_config(self):
+    def __read_sys_config(self, is_yoda_system):
         """
         Gets the system configuration with the given name from the vela configuration file
         Example configuration snippet:
@@ -592,13 +592,22 @@ Note the difference between ArchitectureFeatures and CompilerOptions
                     "Invalid memory configuration fast_storage_mem_area must be same as feature_map_storage_mem_area"
                 )
             self.permanent_storage_mem_area = MemArea[self.__sys_config("permanent_storage_mem_area", "OffChipFlash")]
-            if self.permanent_storage_mem_area not in set((MemArea.OnChipFlash, MemArea.OffChipFlash, MemArea.Dram)):
-                raise Exception(
-                    "Invalid permanent_storage_mem_area = "
-                    + str(self.permanent_storage_mem_area)
-                    + " (must be 'OnChipFlash', 'OffChipFlash' or 'DRAM')."
-                    " To store the weights and other constant data in SRAM on ethosu-55 select 'OnChipFlash'"
-                )
+            if is_yoda_system:
+                if self.permanent_storage_mem_area is not MemArea.Dram:
+                    raise Exception(
+                        "Invalid permanent_storage_mem_area = "
+                        + str(self.permanent_storage_mem_area)
+                        + " (must be 'DRAM' for Yoda)."
+                    )
+            else:
+                if self.permanent_storage_mem_area not in set((MemArea.OnChipFlash, MemArea.OffChipFlash)):
+                    raise Exception(
+                        "Invalid permanent_storage_mem_area = "
+                        + str(self.permanent_storage_mem_area)
+                        + " (must be 'OnChipFlash' or 'OffChipFlash' for ethosu-55)."
+                        " To store the weights and other constant data in SRAM on ethosu-55 select 'OnChipFlash'"
+                    )
+
             self.sram_size = 1024 * int(self.__sys_config("sram_size_kb", "204800"))
 
         except Exception:
