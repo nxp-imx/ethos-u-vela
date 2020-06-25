@@ -694,18 +694,20 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 stream_index = cmd.weight_tensor.compressed_stream_index_from_coord(cmd.weight_box.start_coord)
                 weight_substream_offsets = cmd.weight_tensor.compressed_values_substream_offsets[stream_index]
                 substreams = len( weight_substream_offsets ) - 1 # Offset list must terminate with full stream length
-                assert substreams == arch.ncores
 
                 # Extract weight substream offsets and calculate their lengths
                 assert len(weight_substream_offsets) > 1 and (weight_substream_offsets[0] == 0)
                 weight_addr = cmd.weight_tensor.address_for_coordinate(cmd.weight_box.start_coord)
 
-                if substreams > 0:
-                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_BASE, weight_addr + weight_substream_offsets[0] )
-                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT_LENGTH, weight_substream_offsets[1] - weight_substream_offsets[0])
-                if substreams > 1:
-                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT1_BASE, weight_addr + weight_substream_offsets[1])
-                    emit.cmd1_with_offset(cmd1.NPU_SET_WEIGHT1_LENGTH, weight_substream_offsets[2] - weight_substream_offsets[1])
+                # Set weights sources for active and present cores
+                for core, param in enumerate( [(cmd1.NPU_SET_WEIGHT_BASE, cmd1.NPU_SET_WEIGHT_LENGTH),
+                                               (cmd1.NPU_SET_WEIGHT1_BASE, cmd1.NPU_SET_WEIGHT1_LENGTH)] ):
+                    if core < substreams:
+                        emit.cmd1_with_offset(param[0], weight_addr + weight_substream_offsets[core] )
+                        emit.cmd1_with_offset(param[1], weight_substream_offsets[core+1] - weight_substream_offsets[core])
+                    elif core < arch.ncores:
+                        emit.cmd1_with_offset(param[0], weight_addr)
+                        emit.cmd1_with_offset(param[1], 0)
 
                 weight_region = base_ptr_idx_map[cmd.weight_tensor.mem_type]
                 emit.cmd0_with_param(cmd0.NPU_SET_WEIGHT_REGION, weight_region)
@@ -715,18 +717,20 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 if cmd.scale_tensor is not None:
                     scale_substream_offsets = cmd.scale_tensor.compressed_values_substream_offsets[stream_index]
                     substreams = len( scale_substream_offsets ) - 1 # Offset list must terminate with full stream length
-                    assert substreams == arch.ncores
 
                     # Extract scale substream offsets and calculate their lengths
                     assert len(scale_substream_offsets) > 1 and (scale_substream_offsets[0] == 0)
                     scale_addr = cmd.scale_tensor.address_for_coordinate( cmd.weight_box.start_coord[-1:] )
 
-                    if substreams > 0:
-                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_BASE, scale_addr + scale_substream_offsets[0])
-                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE_LENGTH, scale_substream_offsets[1] - scale_substream_offsets[0] )
-                    if substreams > 1:
-                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE1_BASE, scale_addr + scale_substream_offsets[1])
-                        emit.cmd1_with_offset(cmd1.NPU_SET_SCALE1_LENGTH, scale_substream_offsets[2] - scale_substream_offsets[1] )
+                    # Set scale sources for active and present cores
+                    for core, param in enumerate( [(cmd1.NPU_SET_SCALE_BASE, cmd1.NPU_SET_SCALE_LENGTH),
+                                                   (cmd1.NPU_SET_SCALE1_BASE, cmd1.NPU_SET_SCALE1_LENGTH)] ):
+                        if core < substreams:
+                            emit.cmd1_with_offset(param[0], scale_addr + scale_substream_offsets[core] )
+                            emit.cmd1_with_offset(param[1], scale_substream_offsets[core+1] - scale_substream_offsets[core])
+                        elif core < arch.ncores:
+                            emit.cmd1_with_offset(param[0], scale_addr)
+                            emit.cmd1_with_offset(param[1], 0)
 
                     # Emit base address for NPU to access scale & bias data
                     scale_region = base_ptr_idx_map[cmd.scale_tensor.mem_type]

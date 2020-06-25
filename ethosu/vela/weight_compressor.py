@@ -246,7 +246,6 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
     # Slice weight stream up depth-ways into bricks and compress
     full_ofm_depth = quant_buf.shape[-1]
-    ofm_block_depth = ofm_block_depth // arch.ncores
     for idx in range(0, full_ofm_depth, ofm_depth_step):
         # Get the weights necessary for this brick
         count = min(full_ofm_depth - idx, ofm_depth_step)
@@ -260,7 +259,13 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         # and generate separate compressed streams.
         for core in range(0, min(arch.ncores, full_ofm_depth)):
             core_weights = core_deinterleave(brick_weights, core, arch.ncores)
-            raw_stream = generate_brick(arch, core_weights, ofm_block_depth, tens.block_traversal, ifm_bitdepth, dilation)
+
+            block_depth = (ofm_block_depth + arch.ncores - 1 - core) // arch.ncores
+            if block_depth != 0:
+                raw_stream = generate_brick(arch, core_weights, block_depth, tens.block_traversal, ifm_bitdepth, dilation)
+            else:
+                raw_stream = []
+
             raw_size += len( raw_stream )
             encoded_substream = encode( raw_stream )
             encoded_stream.extend( encoded_substream )
