@@ -232,7 +232,9 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
     explicit_padding = (0, 0, 0, 0)
     primary_op = ps.primary_op
     replacement_read_bws = {}
-    if primary_op:
+    if ps.placement == PassPlacement.Cpu:
+        cycles[PassCycles.Cpu] = arch.cpu_cycle_estimate(ps.ops[0])
+    elif primary_op:
         skirt = primary_op.attrs.get("skirt", skirt)
         explicit_padding = primary_op.attrs.get("explicit_padding", explicit_padding)
         assert primary_op.attrs["npu_block_type"] == ps.npu_block_type
@@ -396,9 +398,6 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             elms = out.elements()
 
             cycles[PassCycles.ElementWise] = numeric_util.round_up_divide(elms, arch.num_elem_wise_units)
-
-    if ps.placement == PassPlacement.Cpu:
-        cycles[PassCycles.Cpu] = arch.cpu_cycle_estimate(ps.ops[0])
 
     # apply the desired rewrites
     for rewrite_op, tens, _, _, _, ps_to_rewrite in rewrite_list:
