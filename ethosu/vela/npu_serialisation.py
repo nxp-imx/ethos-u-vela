@@ -55,12 +55,13 @@ def copy_ifm_values_to_memory_tensor(memory_tensor, src_tensor):
     memory_tensor.values[start_addr:end_addr] = src_tensor.quant_values
 
 
-def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens):
+def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fast_tens, flash_tens):
     if sg.placement != PassPlacement.Npu:
-        return scratch_tens, flash_tens
+        return scratch_tens, scratch_fast_tens, flash_tens
 
     flash_area = arch.permanent_storage_mem_area
     scratch_area = arch.feature_map_storage_mem_area
+    scratch_fast_area = arch.fast_storage_mem_area
 
     flash_size = sg.memory_used.get(flash_area, 0)
     scratch_size = sg.memory_used.get(scratch_area, 0)
@@ -85,6 +86,10 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
     nng.total_size[scratch_area] = nng.total_size.get(scratch_area, 0) - scratch_size
     nng.total_elements[scratch_area] = nng.total_elements.get(scratch_area, 0) - scratch_size
 
+    if scratch_area != scratch_fast_area:
+        nng.total_size[scratch_fast_area] = nng.total_size.get(scratch_fast_area, 0)
+        nng.total_elements[scratch_fast_area] = nng.total_elements.get(scratch_fast_area, 0)
+
     if flash_tens == scratch_tens is None:
         # First Npu subgraph, create scratch and flash tensors
         sg.scratch_tensor = make_memory_tensor(
@@ -94,11 +99,21 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
         sg.flash_tensor = make_memory_tensor(
             sg.name + "_flash", flash_area, MemType.Permanent_CPU, flash_size, True, arch
         )
+        # Scratch fast tensor size set to 0. This forces a minimal allocation in the tensor arena
+        # which causes a slot in the basep registers to be reserved, so that the scratch fast tensor
+        # address can be overridden.
+        sg.scratch_fast_tensor = make_memory_tensor(
+            sg.name + "_scratch_fast", scratch_fast_area, MemType.Scratch, 0, False, arch
+        )
+        sg.scratch_fast_tensor.purpose = TensorPurpose.Scratch
     else:
         sg.scratch_tensor = scratch_tens
         sg.scratch_tensor.shape[0] += scratch_size
         sg.flash_tensor = flash_tens
         sg.flash_tensor.shape[0] += flash_size
+
+        sg.scratch_fast_tensor = scratch_fast_tens
+        sg.scratch_fast_tensor.shape[0] = 0
 
     for cps in sg.cascaded_passes:
         for ps in cps.passes:
@@ -126,7 +141,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, flash_tens)
     )
     sg.command_stream_tensor.values = np.frombuffer(payload_bytes, dtype=np.uint8)
 
-    return sg.scratch_tensor, sg.flash_tensor
+    return sg.scratch_tensor, sg.scratch_fast_tensor, sg.flash_tensor
 
 
 def add_const_tens_to_startup_cascaded_pass(startup_cps, tens):
@@ -152,11 +167,16 @@ def rewrite_npu_call_ops(nng, sg, arch):
                     op.attrs["custom_type"] = op.type
 
                     sz = 0
-                    for tens in [callee.scratch_tensor, callee.flash_tensor, callee.command_stream_tensor]:
+                    for tens in [
+                        callee.scratch_fast_tensor,
+                        callee.scratch_tensor,
+                        callee.flash_tensor,
+                        callee.command_stream_tensor,
+                    ]:
                         op.inputs.insert(0, tens)
                         ps.inputs.insert(0, tens)
                         cps.inputs.insert(0, tens)
-                        if tens != callee.scratch_tensor:
+                        if tens != callee.scratch_tensor and tens != callee.scratch_fast_tensor:
                             add_const_tens_to_startup_cascaded_pass(startup_cps, tens)
                         sz += tens.storage_size()
 
@@ -166,3 +186,7 @@ def rewrite_npu_call_ops(nng, sg, arch):
                     if callee.scratch_tensor is not None:
                         if callee.scratch_tensor.mem_area == MemArea.Sram:
                             cps.sram_used += callee.scratch_tensor.storage_size()
+
+                    if callee.scratch_fast_tensor is not None:
+                        if callee.scratch_fast_tensor.mem_area == MemArea.Sram:
+                            cps.sram_used += callee.scratch_fast_tensor.storage_size()

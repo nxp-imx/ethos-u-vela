@@ -274,8 +274,8 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.cycles_weight = 40
         self.max_sram_used_weight = 1000
 
-        if self.is_yoda_system:
-            self.max_sram_used_weight = 1000
+        if self.is_yoda_system and (self.fast_storage_mem_area != self.feature_map_storage_mem_area):
+            self.max_sram_used_weight = 0
 
         # Shared Buffer Block allocations
         self.shram_bank_size = 1024  # bytes
@@ -587,10 +587,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             self.fast_storage_mem_area = MemArea[self.__sys_config("fast_storage_mem_area", "Sram")]
             self.feature_map_storage_mem_area = MemArea[self.__sys_config("feature_map_storage_mem_area", "Sram")]
 
-            if self.fast_storage_mem_area != self.feature_map_storage_mem_area:
-                raise Exception(
-                    "Invalid memory configuration fast_storage_mem_area must be same as feature_map_storage_mem_area"
-                )
             self.permanent_storage_mem_area = MemArea[self.__sys_config("permanent_storage_mem_area", "OffChipFlash")]
             if is_yoda_system:
                 if self.permanent_storage_mem_area is not MemArea.Dram:

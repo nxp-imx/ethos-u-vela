@@ -232,7 +232,8 @@ class DynamicProgrammingScheduler:
 
         if self.arch.feature_map_storage_mem_area != MemArea.Sram:
             self.use_ifm_ofm_overlap = False  # force off IFM/OFM overlap if IFMs and OFMs are not in the SRAM
-        self.use_ifm_ofm_overlap = options.use_ifm_ofm_overlap
+        else:
+            self.use_ifm_ofm_overlap = options.use_ifm_ofm_overlap
 
         self.verbose_schedule = options.verbose_schedule
         self.verbose_pareto_frontier_schedules = options.verbose_pareto_frontier_schedules

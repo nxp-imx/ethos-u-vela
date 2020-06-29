@@ -126,6 +126,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
 
     # Placeholders for scratch and flash tensors that are common for all Npu subgraphs
     scratch_tens = None
+    scratch_fast_tens = None
     flash_tens = None
 
     # Calculate live ranges for all constant Npu tensors, in permanent storage
@@ -199,11 +200,15 @@ def compiler_driver(nng, arch, options, scheduler_options):
         register_command_stream_generator.generate_register_command_stream(
             nng, sg, arch, options.verbose_register_command_stream
         )
-        scratch_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
-            nng, sg, arch, scratch_tens, flash_tens
+        scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
+            nng, sg, arch, scratch_tens, scratch_fast_tens, flash_tens
         )
 
     npu_serialisation.rewrite_npu_call_ops(nng, root_sg, arch)
+
+    if root_sg is not None and (arch.feature_map_storage_mem_area != arch.fast_storage_mem_area):
+        if root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0) > arch.sram_size:
+            print("Warning: Sram limit has been exceeded, by the scratch fast tensor")
 
     # Allocate all Cpu constant tensors, this is done last because the Npu-ops
     # have to be serialized into flash and scratch tensors first
