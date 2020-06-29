@@ -430,6 +430,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 rounding_mode = rounding.TRUNCATE
             fmf = primary_op.attrs.get("fused_memory_function", None)
             faf = primary_op.attrs.get("fused_activation_function", None)
+            fused_quantize = any(op.type == "Quantize" for op in ps.ops)
 
             # Specifies which operand to apply scaling to in bitexact elementwise ADD/SUB
             op_to_scale = 0
@@ -628,6 +629,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                                 scale = (1 << shift) * 3 * multiplier
                             else:
                                 scale = int(round_away_zero(scale * rescale))
+                        elif fused_quantize:
+                            # Quantize op requires different scaling
+                            ifm_scale_f64 = np.double(cmd.ifm_tensor.quantization.scale_f32)
+                            ofm_scale_f64 = np.double(cmd.ofm_tensor.quantization.scale_f32)
+                            scale, shift = scaling.quantise_scale(ifm_scale_f64 / ofm_scale_f64)
                         else:
                             # In case avg pool fused with concat or other memory operation, rescaling might be needed.
                             # k_height == k_width == 1 is allways true in this case
@@ -846,7 +852,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 if tens is None:
                     continue
 
-                need_zero_point = (faf is not None) or (fmf == "ConcatSliceWrite")
+                need_zero_point = (faf is not None) or (fmf == "ConcatSliceWrite") or fused_quantize
                 if (
                     primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear")) and not need_zero_point
                 ) or tens.quantization is None:

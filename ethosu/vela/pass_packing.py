@@ -100,7 +100,7 @@ npu_post_ops = activation_ops | set(
 
 npu_post_fuse_limited_ops = set(
     # Set of post operators that should not be fused with main/elementwise ops
-    ("ConcatSliceWrite", "Sigmoid", "Tanh")
+    ("ConcatSliceWrite", "Sigmoid", "Tanh", "Quantize")
 )
 
 elem_wise_ops = elem_wise_main_ops | activation_ops | set(("Sigmoid", "Tanh"))

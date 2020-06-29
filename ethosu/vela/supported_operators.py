@@ -66,6 +66,8 @@ class SupportedOperators:
             | set(("ConcatSliceWrite"))
             # bias add and batch norm
             | set(("QuantizedBiasAdd", "Requantize", "QuantizedBatchNorm", "BiasAdd", "FusedBatchNorm"))
+            # Quantization
+            | set(("Quantize",))
         )
         self.split_ops = set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped", "Unpack"))
         self.concat_ops = set(("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped", "Pack"))
