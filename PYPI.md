@@ -101,7 +101,8 @@ pipenv install -e .
 
 If you plan to contribute to the Vela project (highly encouraged!) then it is
 recommended to install Vela along with the pre-commit tools (see
-[Vela Testing](TESTING.md) for more details).
+[Vela Testing](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/TESTING.md)
+for more details).
 
 ## Running
 
@@ -152,23 +153,28 @@ vela --help
 ```
 
 Information about all of Vela's CLI options as well as the system configuration
-file format can be found in [Vela Options](OPTIONS.md)
+file format can be found in
+[Vela Options](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/OPTIONS.md).
 
 ## Testing
 
-Please see [Vela Testing](TESTING.md)
+Please see
+[Vela Testing](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/TESTING.md)
 
 ## Contributions
 
-Please see [Vela Contributions](CONTRIBUTIONS.md).
+Please see
+[Vela Contributions](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/CONTRIBUTIONS.md).
 
 ## Security
 
-Please see [Vela Security](SECURITY.md).
+Please see
+[Vela Security](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/SECURITY.md).
 
 ## Releases
 
-Please see [Vela Releases](RELEASES.md).
+Please see
+[Vela Releases](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/RELEASES.md).
 
 ## Resources
 
@@ -179,4 +185,5 @@ Additional useful information:
 
 ## License
 
-Vela is licensed under [Apache License 2.0](LICENSE.txt)
+Vela is licensed under
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)

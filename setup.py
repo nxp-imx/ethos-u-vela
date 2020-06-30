@@ -23,7 +23,7 @@ from setuptools import setup
 
 # Read the contents of README.md file
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
+with open(path.join(this_directory, "PYPI.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 mlw_module = Extension(
