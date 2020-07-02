@@ -51,8 +51,9 @@ def copy_compressed_values_to_memory_tensor(memory_tensor, src_tensor):
 
 def copy_ifm_values_to_memory_tensor(memory_tensor, src_tensor):
     start_addr = src_tensor.address
-    end_addr = start_addr + src_tensor.quant_values.size
-    memory_tensor.values[start_addr:end_addr] = src_tensor.quant_values
+    values = src_tensor.quant_values.flatten()
+    end_addr = start_addr + values.size
+    memory_tensor.values[start_addr:end_addr] = values
 
 
 def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fast_tens, flash_tens):

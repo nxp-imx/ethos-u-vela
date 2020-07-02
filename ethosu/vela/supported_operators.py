@@ -236,6 +236,8 @@ class SupportedOperators:
     def check_resize_restrictions(self, op):
         # check unsupported upscaling factor
         if op.type == "ResizeBilinear":
+            if op.inputs[0].shape[1] == 1 and op.inputs[0].shape[2] == 1:
+                return True
             upscaled_shape = [op.inputs[0].shape[1] * 2, op.inputs[0].shape[2] * 2]
             out_shape = op.outputs[0].shape[1:3]
             if not op.attrs["align_corners"] and out_shape != upscaled_shape:

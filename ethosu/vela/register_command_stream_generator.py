@@ -478,6 +478,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         if (faf == "Sigmoid") or (faf == "Tanh"):
                             output_scale = 1 / 0x3000
 
+                        # Force output scale same as the input scale for
+                        # resizebiliner 1x1 that is converted to add
+                        if "resizebilinear" in primary_op.attrs:
+                            output_scale = input2_scale
+
                         if input_scale == input2_scale:
                             opa_scale, opb_scale, ofm_scale, shift = scaling.simplified_elementwise_add_sub_scale(
                                 input_scale, input2_scale, output_scale
@@ -860,7 +865,17 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     emit.cmd0_with_param(zero_point_op, 0)
                 else:
                     assert tens.quantization.zero_point is not None, "need an actual zero point set"
-                    emit.cmd0_with_param(zero_point_op, int(tens.quantization.zero_point))
+                    if (
+                        "resizebilinear" in primary_op.attrs
+                        and primary_op.type == "AddAct"
+                        and cmd0.NPU_SET_OFM_ZERO_POINT == zero_point_op
+                    ):
+                        # Force output zero point same as the input zero point
+                        # for resizebiliner 1x1 that is converted to add
+                        zero_point = cmd.ifm2_tensor.quantization.zero_point
+                    else:
+                        zero_point = tens.quantization.zero_point
+                    emit.cmd0_with_param(zero_point_op, int(zero_point))
 
                 if tens.shape == []:
                     # Empty shape, elementwise constant

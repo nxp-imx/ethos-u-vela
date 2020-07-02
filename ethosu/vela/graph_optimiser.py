@@ -27,6 +27,7 @@ from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .operation import Operation
+from .tensor import QuantizationParameters
 from .tensor import Tensor
 
 passthrough_nodes = set(("Identity",))
@@ -177,6 +178,39 @@ def fixup_conv2d_backprop(op, arch):
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
+
+    return op
+
+
+# Convert the op to an elementwise add
+def convert_resizebilinear_1x1_to_add(op):
+    op.type = "AddAct"
+    op.name = op.name + "_add"
+    op.attrs.update({"npu_block_type": NpuBlockType.ElementWise})
+    op.attrs["resizebilinear"] = True
+    # Create an input tensor filled with zeros
+    shape = op.outputs[0].shape
+    tens = Tensor(shape, op.inputs[0].dtype, op.inputs[1].name + "_add")
+    tens.values = np.zeros(shape)
+    tens.quant_values = np.zeros(shape, np.uint8)
+    tens.quantization = QuantizationParameters(0.0, 255.0)
+    tens.quantization.scale_f32 = 1.0
+    tens.quantization.zero_point = 0
+    tens.consumer_list = [op]
+    tens_op = op.inputs[1].ops[0]
+    tens_op.outputs = [tens]
+    tens.ops = [tens_op]
+    # Set the add inputs
+    op.inputs[1] = op.inputs[0]
+    op.inputs[0] = tens
+
+    return op
+
+
+def fixup_resizebilinear(op, arch):
+    if op.type == "ResizeBilinear":
+        if op.inputs[0].shape[1] == 1 and op.inputs[0].shape[2] == 1:
+            convert_resizebilinear_1x1_to_add(op)
 
     return op
 
@@ -614,8 +648,7 @@ def add_attrs_to_resizebilinear(op, arch):
             # produce a (M * 2 - 1, N * 2 - 1) sized output
             op.attrs["padding"] = b"VALID"
         else:
-            # If this exception is raised, something is wrong with the supported op check
-            raise UnsupportedFeatureError("Unsupported upscaling factor")
+            return op
         input_tensor.resampling_mode = resampling_mode.NEAREST
         op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 2, 2, 1)})
     return op
@@ -647,6 +680,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         mark_npu_block_type,
         fixup_elementwise_with_scalars,
         reorder_depthwise_weights,
+        fixup_resizebilinear,
         # convert_mul_max_to_abs_or_lrelu # TODO: enable optimisation once quantisation issues are resolved
     ]
 
