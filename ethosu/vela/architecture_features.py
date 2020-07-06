@@ -167,7 +167,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
 
         self.system_config = system_config
 
-        is_yoda_system = "yoda-" in self.accelerator_config
+        self.is_yoda_system = "yoda-" in self.accelerator_config
 
         self.ncores = accel_config.cores
         self.ofm_ublock = accel_config.ofm_ublock
@@ -199,7 +199,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.memory_port_widths = np.zeros(MemArea.Size)
 
         # Get system configuration
-        self.__read_sys_config(is_yoda_system)
+        self.__read_sys_config(self.is_yoda_system)
 
         # apply the global memory clock scales to the individual ones from the system config
         for mem in MemArea.all():
@@ -230,7 +230,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.default_feature_map_format = TensorFormat.NHWC
 
         # This is to ignore permanent_storage = On/OffChipflash for Yoda
-        if not is_yoda_system and permanent_storage != MemArea.OffChipFlash:
+        if not self.is_yoda_system and permanent_storage != MemArea.OffChipFlash:
             self.permanent_storage_mem_area = permanent_storage
 
         self.tensor_storage_mem_area = {
@@ -274,7 +274,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.cycles_weight = 40
         self.max_sram_used_weight = 1000
 
-        if is_yoda_system:
+        if self.is_yoda_system:
             self.max_sram_used_weight = 1000
 
         # Shared Buffer Block allocations

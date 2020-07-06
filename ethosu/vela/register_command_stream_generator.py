@@ -391,7 +391,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             param = 0
             emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, param, absolute_dep[CommandType.DMA][0])
 
-    emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores-1)
+    if arch.is_yoda_system:
+        emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores-1)
 
     for cmd in cmd_stream:
         if cmd.cmdtype == CommandType.DMA:
