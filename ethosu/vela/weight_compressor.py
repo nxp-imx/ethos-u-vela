@@ -424,7 +424,8 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
         tens.compressed_values.append(stream)
         tens.compressed_values_substream_offsets.append(substream_offsets)
 
-    tens.storage_shape = [total_elements * tens.element_size_bytes]
+    tens.storage_shape = [total_elements]
+
 
 
 def update_pass_weight_and_scale_tensors(nng, arch):
