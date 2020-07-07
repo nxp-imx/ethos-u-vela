@@ -132,26 +132,27 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
     return padding, skirt
 
 
-def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
-    upscaled_shape = [input_dims[0], input_dims[1] * stride[1], input_dims[2] * stride[2], input_dims[3]]
-    ypad = needed_total_padding(int(upscaled_shape[1]), int(stride[1]), int(kernel_size[0]))
-    xpad = needed_total_padding(int(upscaled_shape[2]), int(stride[2]), int(kernel_size[1]))
-
+def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dims, upscaling_factor):
+    kernel_height, kernel_width = kernel_size[0], kernel_size[1]
     if padding_type == b"SAME":
-        right_pad = ((xpad + 1) // 2) - 1
-        bottom_pad = ((ypad + 1) // 2) - 1
-        left_pad = max(kernel_size[0] - 1 - right_pad, 0)
-        top_pad = max(kernel_size[1] - 1 - bottom_pad, 0)
+        ypad = needed_total_padding(int(input_dims[1]) * upscaling_factor, int(stride[1]), int(kernel_height))
+        xpad = needed_total_padding(int(input_dims[2]) * upscaling_factor, int(stride[2]), int(kernel_width))
+
+        right_pad = ((xpad + 1) // upscaling_factor) - 1
+        bottom_pad = ((ypad + 1) // upscaling_factor) - 1
+        left_pad = max(kernel_width - 1 - right_pad, 0)
+        top_pad = max(kernel_height - 1 - bottom_pad, 0)
+
     elif padding_type == b"VALID":
-        right_pad = (xpad + 1) // 2
-        bottom_pad = (ypad + 1) // 2
-        left_pad = max(kernel_size[0] - right_pad, 0)
-        top_pad = max(kernel_size[1] - bottom_pad, 0)
+        right_pad = max(kernel_width - 2, 0)
+        bottom_pad = max(kernel_height - 2, 0)
+        left_pad = kernel_width - 1
+        top_pad = kernel_height - 1
     else:
         assert 0, "Unknown padding"
 
     padding = (top_pad, left_pad, bottom_pad, right_pad)
-    skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
+    skirt = padding
     return padding, skirt
 
 
@@ -332,8 +333,9 @@ def add_padding_fields(op, arch):
             raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
         if op.type == "Conv2DBackpropInputSwitchedBias":
+            upscaling_factor = op.outputs[0].shape[1] // input_shape[1]
             padding, skirt = calc_upscaled_padding_and_skirt(
-                op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape
+                op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape, upscaling_factor
             )
         else:
             dilation_h, dilation_w = op.get_dilation_h_w()

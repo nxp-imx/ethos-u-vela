@@ -79,7 +79,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
         skirt = ps.primary_op.attrs.get("skirt", None)
         if ps.primary_op.type in set(("Conv2DBackpropInputSwitchedBias", "ResizeBilinear")):
             upscaling = ofm_tensor.shape[-3] // ifm_tensor.shape[-3]
-            assert ofm_tensor.shape[-2] == (ifm_tensor.shape[-2] * upscaling)
 
     concat_axis = 0
     concat_offset = 0

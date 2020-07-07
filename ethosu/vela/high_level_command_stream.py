@@ -48,11 +48,6 @@ class Box:
         new_start_coord = list(self.start_coord)
         new_end_coord = list(self.end_coord)
 
-        # Adjust for upscaling
-        if len(new_start_coord) == len(new_end_coord) == 4:
-            new_start_coord[1] = new_start_coord[1] // upscaling_factor
-            new_end_coord[1] = new_end_coord[1] // upscaling_factor
-
         new_start_coord[concat_axis] -= concat_offset
         new_end_coord[concat_axis] -= concat_offset
 
@@ -69,9 +64,10 @@ class Box:
         if npu_block_type == NpuBlockType.ElementWise and min(len(new_end_coord), len(ifm_shape)) >= 1:
             new_end_coord[-1] = min(new_end_coord[-1], ifm_shape[-1])
         if min(len(new_end_coord), len(ifm_shape)) >= 2:
-            new_end_coord[-2] = min(new_end_coord[-2], ifm_shape[-2])
+            new_end_coord[-2] = min(new_end_coord[-2], ifm_shape[-2] * upscaling_factor)
         if min(len(new_end_coord), len(ifm_shape)) >= 3:
-            new_end_coord[-3] = min(new_end_coord[-3], ifm_shape[-3])
+            original_end_coord = list(new_end_coord)
+            new_end_coord[-3] = min(new_end_coord[-3], ifm_shape[-3] * upscaling_factor)
 
         pad_top = 0
         pad_bottom = 0
@@ -83,22 +79,31 @@ class Box:
 
             if len(new_start_coord) >= 3:
                 stride = strides[1]
+                skirt_top_remainder = skirt[0] % upscaling_factor
 
                 total_stride = stride * (new_end_coord[-3] - new_start_coord[-3] - 1)
-                new_start_coord[-3] = new_start_coord[-3] * stride - skirt[0]
+                new_start_coord[-3] = new_start_coord[-3] * stride - skirt[0] + skirt_top_remainder
 
-                pad_top = max(0, 0 - new_start_coord[-3])
+                pad_top = max(0, 0 - new_start_coord[-3]) + skirt_top_remainder
                 new_start_coord[-3] = max(new_start_coord[-3], 0)
 
                 while len(ifm_shape) < 3:
                     ifm_shape = [1] + ifm_shape
-                if (new_end_coord[-3] * stride + skirt[2]) > ifm_shape[-3]:
+
+                if (new_end_coord[-3] * stride + skirt[2]) > (ifm_shape[-3] * upscaling_factor):
                     # pad_bottom is calculated based the diff between the end position of the weight kernel,
                     # after last stride and the ifm height.
-                    k_start = new_start_coord[-3] - pad_top
-                    pad_bottom = max(0, k_start + total_stride + k_height - ifm_shape[-3])
+                    if upscaling_factor != 1 and original_end_coord[-3] > ifm_shape[-3] * upscaling_factor:
+                        # Special case for Transpose Convolution with VALID padding.
+                        pad_bottom = original_end_coord[-3] - (ifm_shape[-3] * upscaling_factor)
+                    else:
+                        k_start = new_start_coord[-3] - pad_top
+                        pad_bottom = max(0, k_start + total_stride + k_height - (ifm_shape[-3] * upscaling_factor))
 
-                new_end_coord[-3] = min(new_end_coord[-3] * stride + skirt[2], ifm_shape[-3])
+                # Adjust for upscaling
+                new_start_coord[-3] = max(new_start_coord[-3] // upscaling_factor, 0)
+                new_end_coord[-3] = new_end_coord[-3] * stride + skirt[2] + (skirt[2] % upscaling_factor)
+                new_end_coord[-3] = min(new_end_coord[-3] // upscaling_factor, ifm_shape[-3])
 
         return Box(new_start_coord, new_end_coord), pad_top, pad_bottom
 
