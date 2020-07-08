@@ -24,6 +24,7 @@ from .data_type import DataType
 from .errors import UnsupportedFeatureError
 from .nn_graph import SchedulingStrategy
 from .numeric_util import round_up
+from .numeric_util import round_up_divide
 from .operation import NpuBlockType
 from .scaling import quantise_scale
 from .scaling import reduced_quantise_scale
@@ -402,6 +403,7 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
     tens.compressed_values_substream_offsets = []
 
     total_elements = len(quantised_scales)
+    alignment_bytes = 0
     for i in range(0, total_elements, ofm_depth_step):
         # Extract streams from brick to generate substreams for each core
         stream = bytearray()
@@ -417,6 +419,7 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
             remainder = (len(stream)) % 16
             if remainder > 0:
                 stream.extend(bytearray(16 - remainder))
+                alignment_bytes += 16 - remainder
 
             substream_offsets.append(len(stream))
 
@@ -424,8 +427,7 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
         tens.compressed_values.append(stream)
         tens.compressed_values_substream_offsets.append(substream_offsets)
 
-    tens.storage_shape = [total_elements]
-
+    tens.storage_shape = [total_elements + round_up_divide(alignment_bytes, tens.element_size_bytes)]
 
 
 def update_pass_weight_and_scale_tensors(nng, arch):
