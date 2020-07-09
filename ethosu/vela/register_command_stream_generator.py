@@ -1,4 +1,3 @@
-
 # Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -47,7 +46,6 @@ from .numeric_util import clamp_tanh
 from .numeric_util import full_shape
 from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
-from .numeric_util import round_up
 from .numeric_util import round_up_to_int
 from .operation import NpuBlockType
 from .shared_buffer_allocation import SharedBufferAllocation
@@ -392,7 +390,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, param, absolute_dep[CommandType.DMA][0])
 
     if arch.is_yoda_system:
-        emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores-1)
+        emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
 
     for cmd in cmd_stream:
         if cmd.cmdtype == CommandType.DMA:
@@ -694,18 +692,24 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 # this command's weights from the larger tensor.
                 stream_index = cmd.weight_tensor.compressed_stream_index_from_coord(cmd.weight_box.start_coord)
                 weight_substream_offsets = cmd.weight_tensor.compressed_values_substream_offsets[stream_index]
-                substreams = len( weight_substream_offsets ) - 1 # Offset list must terminate with full stream length
+                substreams = len(weight_substream_offsets) - 1  # Offset list must terminate with full stream length
 
                 # Extract weight substream offsets and calculate their lengths
                 assert len(weight_substream_offsets) > 1 and (weight_substream_offsets[0] == 0)
                 weight_addr = cmd.weight_tensor.address_for_coordinate(cmd.weight_box.start_coord)
 
                 # Set weights sources for active and present cores
-                for core, param in enumerate( [(cmd1.NPU_SET_WEIGHT_BASE, cmd1.NPU_SET_WEIGHT_LENGTH),
-                                               (cmd1.NPU_SET_WEIGHT1_BASE, cmd1.NPU_SET_WEIGHT1_LENGTH)] ):
+                for core, param in enumerate(
+                    [
+                        (cmd1.NPU_SET_WEIGHT_BASE, cmd1.NPU_SET_WEIGHT_LENGTH),
+                        (cmd1.NPU_SET_WEIGHT1_BASE, cmd1.NPU_SET_WEIGHT1_LENGTH),
+                    ]
+                ):
                     if core < substreams:
-                        emit.cmd1_with_offset(param[0], weight_addr + weight_substream_offsets[core] )
-                        emit.cmd1_with_offset(param[1], weight_substream_offsets[core+1] - weight_substream_offsets[core])
+                        emit.cmd1_with_offset(param[0], weight_addr + weight_substream_offsets[core])
+                        emit.cmd1_with_offset(
+                            param[1], weight_substream_offsets[core + 1] - weight_substream_offsets[core]
+                        )
                     elif core < arch.ncores:
                         emit.cmd1_with_offset(param[0], weight_addr)
                         emit.cmd1_with_offset(param[1], 0)
@@ -717,18 +721,24 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 # the weight tensors.
                 if cmd.scale_tensor is not None:
                     scale_substream_offsets = cmd.scale_tensor.compressed_values_substream_offsets[stream_index]
-                    substreams = len( scale_substream_offsets ) - 1 # Offset list must terminate with full stream length
+                    substreams = len(scale_substream_offsets) - 1  # Offset list must terminate with full stream length
 
                     # Extract scale substream offsets and calculate their lengths
                     assert len(scale_substream_offsets) > 1 and (scale_substream_offsets[0] == 0)
-                    scale_addr = cmd.scale_tensor.address_for_coordinate( cmd.weight_box.start_coord[-1:] )
+                    scale_addr = cmd.scale_tensor.address_for_coordinate(cmd.weight_box.start_coord[-1:])
 
                     # Set scale sources for active and present cores
-                    for core, param in enumerate( [(cmd1.NPU_SET_SCALE_BASE, cmd1.NPU_SET_SCALE_LENGTH),
-                                                   (cmd1.NPU_SET_SCALE1_BASE, cmd1.NPU_SET_SCALE1_LENGTH)] ):
+                    for core, param in enumerate(
+                        [
+                            (cmd1.NPU_SET_SCALE_BASE, cmd1.NPU_SET_SCALE_LENGTH),
+                            (cmd1.NPU_SET_SCALE1_BASE, cmd1.NPU_SET_SCALE1_LENGTH),
+                        ]
+                    ):
                         if core < substreams:
-                            emit.cmd1_with_offset(param[0], scale_addr + scale_substream_offsets[core] )
-                            emit.cmd1_with_offset(param[1], scale_substream_offsets[core+1] - scale_substream_offsets[core])
+                            emit.cmd1_with_offset(param[0], scale_addr + scale_substream_offsets[core])
+                            emit.cmd1_with_offset(
+                                param[1], scale_substream_offsets[core + 1] - scale_substream_offsets[core]
+                            )
                         elif core < arch.ncores:
                             emit.cmd1_with_offset(param[0], scale_addr)
                             emit.cmd1_with_offset(param[1], 0)
