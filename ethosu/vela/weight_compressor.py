@@ -76,6 +76,8 @@ class CompressedWeightCache:
 
 
 def encode(weight_stream):
+    if len(weight_stream) == 0:
+        return []
     assert np.amin(weight_stream) >= -255
     assert np.amax(weight_stream) <= 255
 
