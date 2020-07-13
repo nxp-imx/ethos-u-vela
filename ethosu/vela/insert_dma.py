@@ -27,8 +27,9 @@ binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum")
 
 
 def insert_dma_cmd(op, arch):
-    if op.type == "DMA":
-        return op  # Already rewritten
+    if op.type == "DMA" or not op.run_on_npu:
+        return op
+
     for idx, tens in enumerate(op.inputs):
 
         if tens.mem_type not in (MemType.Scratch, MemType.Scratch_fast):

@@ -316,6 +316,7 @@ class TFLiteSerialiser:
 
         scratch_tensors = [tens for tens in all_tensors if tens.name.endswith("scratch")]
 
+        scratch_fast_tensor = None
         for tens in all_tensors:
             if tens.name.endswith("scratch_fast"):
                 scratch_fast_tensor = tens
