@@ -330,6 +330,21 @@ def get_op_padding_lt(cmd):
     return (explicit_padding[1], explicit_padding[0])
 
 
+def ifm_ifm2_correct_order(ifm_shape, ifm2_shape):
+    if ifm_shape == []:
+        # Scalar needs to be in IFM2
+        return False
+    elif ifm2_shape == []:
+        return True
+
+    for ifm, ifm2 in zip(ifm_shape, ifm2_shape):
+        if ifm != ifm2 and ifm == 1:
+            # Broadcasted FM needs to be in IFM2
+            return False
+
+    return True
+
+
 def generate_register_command_stream(nng, sg, arch, verbose=False):
     emit = CommandStreamEmitter()
 
@@ -472,7 +487,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     IFM2Broadcast.ReverseOperandOrder if primary_op.attrs.get("reverse_op_order", False) else 0
                 )
 
-                if cmd.ifm_tensor.shape == []:
+                if not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
                     # The scalar has to be the ifm2 tensor so switch the ifms
                     cmd.ifm_tensor, cmd.ifm2_tensor = cmd.ifm2_tensor, cmd.ifm_tensor
                     cmd.ifm_box, cmd.ifm2_box = cmd.ifm2_box, cmd.ifm_box
