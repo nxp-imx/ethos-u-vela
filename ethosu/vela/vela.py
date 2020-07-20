@@ -170,7 +170,7 @@ def main(args=None):
         "--accelerator-config",
         type=str,
         default="ethos-u55-256",
-        choices=list(architecture_features.ArchitectureFeatures.accelerator_configs.keys()),
+        choices=list(architecture_features.Accelerator.member_list()),
         help="Accelerator configuration to use (default: %(default)s)",
     )
     parser.add_argument(

@@ -20,7 +20,10 @@ from collections import namedtuple
 
 import numpy as np
 
+from .architecture_features import Accelerator
+from .architecture_features import ArchitectureFeatures
 from .data_type import DataType
+from .errors import typecheck
 from .errors import UnsupportedFeatureError
 from .nn_graph import SchedulingStrategy
 from .numeric_util import round_up
@@ -40,6 +43,55 @@ from ethosu import mlw_codec
 WeightCompressionConfig = namedtuple(
     "WeightCompressionConfig", ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "dilation", "equivalence_id"]
 )
+
+
+@typecheck
+def encode_weights(
+    accelerator: Accelerator,
+    weights_volume: np.ndarray,
+    dilation_xy: tuple,
+    ifm_bitdepth: int,
+    ofm_block_depth: int,
+    is_depthwise: bool,
+    is_partkernel: bool,
+):
+    """
+    Public facing API to use the ethosu weight encoding.
+
+    :param accelerator: architecture_features.Accelerator enum to pick the correct ethosu accelerator
+    :param weights_volume: numpy.ndarray in OHWI layout with a shape of four
+    :param dilation_xy: a two element tuple of dilation attributes in x,y dimension
+    :param ifm_bitdepth: the bitdepth of input feature map
+    :param ofm_block_depth: the depth of blocks for ethosu processing
+    :param is_depthwise: a boolean indicating these weights are used for a depthwise traversal
+    :param is_partkernel: a boolean indicating these weights are traversed on sub-kernal basis
+    :return: a bytearray of compressed weights
+    """
+
+    # Checks for weight layout
+    assert len(weights_volume.shape) == 4, "weights ndarray should have a shape of 4"
+
+    # It cannot be both partkernel and depthwise
+    assert not (is_depthwise and is_partkernel), "encode_weights :: partkernel and depthwise are mutually exclusive"
+
+    # Check valid values for dilation
+    assert dilation_xy[0] in (1, 2), "encode_weights :: dilation x should be 1 or 2 not {}".format(dilation_xy[0])
+    assert dilation_xy[1] in (1, 2), "encode_weights :: dilation y should be 1 or 2 not {}".format(dilation_xy[1])
+
+    ifm_ublock = ArchitectureFeatures.accelerator_configs[accelerator].ifm_ublock
+    ofm_ublock = ArchitectureFeatures.accelerator_configs[accelerator].ofm_ublock
+    raw_stream = generate_brick(
+        ifm_ublock=ifm_ublock,
+        ofm_ublock=ofm_ublock,
+        brick_weights=weights_volume,
+        ofm_block_depth=ofm_block_depth,
+        is_depthwise=is_depthwise,
+        is_partkernel=is_partkernel,
+        ifm_bitdepth=ifm_bitdepth,
+        dilation=dilation_xy,
+    )
+    encoded_stream = encode(raw_stream)
+    return encoded_stream
 
 
 def create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
@@ -93,13 +145,12 @@ def encode(weight_stream):
     return compressed
 
 
-def generate_brick(arch, brick_weights, ofm_block_depth, block_traversal, ifm_bitdepth, dilation):
-    is_depthwise = block_traversal == TensorBlockTraversal.DepthWise
-    is_partkernel = block_traversal == TensorBlockTraversal.PartKernelFirst
-    decomp_h = arch.subkernel_max.height // dilation[0]
-    decomp_w = arch.subkernel_max.width // dilation[1]
-    ofm_ublock = arch.ofm_ublock
-    ifm_ublock = arch.ifm_ublock
+def generate_brick(
+    ifm_ublock, ofm_ublock, brick_weights, ofm_block_depth, is_depthwise, is_partkernel, ifm_bitdepth, dilation
+):
+
+    decomp_h = ArchitectureFeatures.SubKernelMax.height // dilation[0]
+    decomp_w = ArchitectureFeatures.SubKernelMax.width // dilation[1]
     # Expect weights formatted OHWI
     ofm_depth = brick_weights.shape[-4]
     ifm_depth = brick_weights.shape[-1]
@@ -245,6 +296,9 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         else:
             tens.block_traversal = TensorBlockTraversal.DepthFirst
 
+    is_depthwise = tens.block_traversal == TensorBlockTraversal.DepthWise
+    is_partkernel = tens.block_traversal == TensorBlockTraversal.PartKernelFirst
+
     if tens.consumer_list[0].type == "Conv2DBackpropInputSwitchedBias":
         # Transpose Convoluion, reverse weights in H and W axes
         weights = np.flip(weights, axis=(0, 1))
@@ -262,7 +316,6 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
         substream_offsets = [0]
         encoded_stream = []
-        raw_size = 0
 
         # For each core, deinterleave weights from the larger volume
         # and generate separate compressed streams.
@@ -270,15 +323,17 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
             core_weights = core_deinterleave(brick_weights, core, arch.ncores)
 
             block_depth = (ofm_block_depth + arch.ncores - 1 - core) // arch.ncores
+            encoded_substream = []
             if block_depth != 0:
-                raw_stream = generate_brick(
-                    arch, core_weights, block_depth, tens.block_traversal, ifm_bitdepth, dilation
+                encoded_substream = encode_weights(
+                    accelerator=arch.accelerator_config,
+                    weights_volume=core_weights,
+                    dilation_xy=dilation,
+                    ifm_bitdepth=ifm_bitdepth,
+                    ofm_block_depth=block_depth,
+                    is_depthwise=is_depthwise,
+                    is_partkernel=is_partkernel,
                 )
-            else:
-                raw_stream = []
-
-            raw_size += len(raw_stream)
-            encoded_substream = encode(raw_stream)
             encoded_stream.extend(encoded_substream)
             substream_offsets.append(len(encoded_stream))
 

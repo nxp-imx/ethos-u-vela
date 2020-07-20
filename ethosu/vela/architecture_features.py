@@ -120,6 +120,19 @@ class SharedBufferArea(enum.IntEnum):
     Size = Accumulators + 1
 
 
+class Accelerator(enum.Enum):
+    Ethos_U55_32 = "ethos-u55-32"
+    Ethos_U55_64 = "ethos-u55-64"
+    Ethos_U55_128 = "ethos-u55-128"
+    Ethos_U55_256 = "ethos-u55-256"
+    Yoda_256 = "yoda-256"
+    Yoda_512 = "yoda-512"
+
+    @classmethod
+    def member_list(cls):
+        return [e.value for e in cls]
+
+
 class ArchitectureFeatures:
     """This class is a container for various parameters of the Ethos-U55 core
 and system configuration that can be tuned, either by command line
@@ -136,15 +149,28 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         "ArchitectureConfig", "macs cores ofm_ublock ifm_ublock shram_banks shram_granules elem_units"
     )
     accelerator_configs = {
-        "yoda-512": ArchitectureConfig(256, 2, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8),
-        "yoda-256": ArchitectureConfig(256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8),
-        "ethos-u55-256": ArchitectureConfig(256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8),
-        "ethos-u55-128": ArchitectureConfig(128, 1, Block(2, 1, 8), Block(2, 2, 8), 24, [4, 4, 4, 4, 4, 8, 12], 4),
-        "ethos-u55-64": ArchitectureConfig(64, 1, Block(1, 1, 8), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 8], 2),
-        "ethos-u55-32": ArchitectureConfig(32, 1, Block(1, 1, 4), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 4], 1),
+        Accelerator.Yoda_512: ArchitectureConfig(
+            256, 2, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8
+        ),
+        Accelerator.Yoda_256: ArchitectureConfig(
+            256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8
+        ),
+        Accelerator.Ethos_U55_256: ArchitectureConfig(
+            256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 8, 16, 20], 8
+        ),
+        Accelerator.Ethos_U55_128: ArchitectureConfig(
+            128, 1, Block(2, 1, 8), Block(2, 2, 8), 24, [4, 4, 4, 4, 4, 8, 12], 4
+        ),
+        Accelerator.Ethos_U55_64: ArchitectureConfig(
+            64, 1, Block(1, 1, 8), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 8], 2
+        ),
+        Accelerator.Ethos_U55_32: ArchitectureConfig(
+            32, 1, Block(1, 1, 4), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 4], 1
+        ),
     }
 
     OFMSplitDepth = 16
+    SubKernelMax = Block(8, 8, 65536)
 
     def __init__(
         self,
@@ -159,20 +185,18 @@ Note the difference between ArchitectureFeatures and CompilerOptions
     ):
         accelerator_config = accelerator_config.lower()
         self.vela_config = vela_config
-        self.accelerator_config = accelerator_config
-        if self.accelerator_config not in ArchitectureFeatures.accelerator_configs:
+        if accelerator_config not in Accelerator.member_list():
             raise OptionError("--accelerator-config", self.accelerator_config, "Unknown accelerator configuration")
+        self.accelerator_config = Accelerator(accelerator_config)
         accel_config = ArchitectureFeatures.accelerator_configs[self.accelerator_config]
         self.config = accel_config
 
         self.system_config = system_config
-
-        self.is_yoda_system = "yoda-" in self.accelerator_config
+        self.is_yoda_system = self.accelerator_config in (Accelerator.Yoda_256, Accelerator.Yoda_512)
 
         self.ncores = accel_config.cores
         self.ofm_ublock = accel_config.ofm_ublock
         self.ifm_ublock = accel_config.ifm_ublock
-        self.subkernel_max = Block(8, 8, 65536)
         self.ofm_block_max = Block(64, 32, 128)
         self.override_block_config = override_block_config
         self.block_config_limit = block_config_limit
