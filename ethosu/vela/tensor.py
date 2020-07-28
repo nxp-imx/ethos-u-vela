@@ -184,19 +184,6 @@ class QuantizationParameters:
 
     __repr__ = __str__
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        if not isinstance(other, QuantizationParameters):
-            return False
-
-        pairs = ((getattr(self, s), getattr(other, s)) for s in QuantizationParameters.__slots__)
-
-        return all(np.array_equal(a, b) for a, b in pairs)
-
-    def __ne__(self, other):
-        return not self == other
-
     def clone(self):
         res = QuantizationParameters()
         res.min = self.min
@@ -231,6 +218,12 @@ class QuantizationParameters:
                 res[i] = (values_as_float[i] - self.zero_point[i]) * self.scale_f32[i]
 
         return res
+
+    def is_scaling_equal(self, other):
+        if other is None or not isinstance(other, QuantizationParameters):
+            return False
+
+        return self.scale_f32 == other.scale_f32 and self.zero_point == other.zero_point
 
 
 def create_const_tensor(name, shape, dtype, values, value_dtype=None, purpose=TensorPurpose.Unknown, quantization=None):

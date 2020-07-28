@@ -115,7 +115,7 @@ class SupportedOperators:
             {op: self.check_memory_only_restrictions for op in self.memory_only_ops}
         )
         self.supported_operator_restrictions.update(
-            {op: self.check_quantization_restrictions for op in self.binary_elem_wise_min_max_ops}
+            {op: self.check_quantization_restrictions_binary_elem_wise for op in self.binary_elem_wise_min_max_ops}
         )
         self.supported_operator_restrictions.update({op: self.check_activation_ops for op in self.activation_ops})
 
@@ -364,16 +364,20 @@ class SupportedOperators:
                 return False
         return True
 
-    def check_quantization_restrictions(self, op):
+    def check_quantization_restrictions_binary_elem_wise(self, op):
         # makes sure IFM1, IFM2 and OFM quantization are equal for binary ops
+        assert len(op.inputs) >= 2 and len(op.outputs) == 1
+
         if (
-            len(op.inputs) == 2
-            and not op.inputs[0].quantization == op.inputs[1].quantization == op.outputs[0].quantization
+            op.inputs[0].quantization is None
+            or not op.inputs[0].quantization.is_scaling_equal(op.inputs[1].quantization)
+            or not op.inputs[0].quantization.is_scaling_equal(op.outputs[0].quantization)
         ):
             print(
                 "Warning: Input/output tensors with different quantization is unsupported for the", op.type, "operator"
             )
             return False
+
         return True
 
     def check_activation_ops(self, op):
