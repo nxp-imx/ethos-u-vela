@@ -690,6 +690,11 @@ class Tensor:
             return True
         return False
 
+    def set_all_shapes(self, shape):
+        self.shape = shape
+        self.storage_shape = shape
+        self.bandwidth_shape = shape
+
     def __str__(self):
         return "<nng.Tensor '%s' shape=%s dtype=%s>" % (self.name, self.shape, self.dtype)
 
