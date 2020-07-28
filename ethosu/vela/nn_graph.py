@@ -303,9 +303,9 @@ class Subgraph:
         return all_ops
 
     def print_operators(self):
+        print("print_operators()", self.name)
         all_ops = self.get_all_ops()
         unique_ops = []
-        print("print_operators")
         for op in all_ops:
             if op.type in set(("Const", "Identity", "Placeholder")):
                 continue
@@ -341,11 +341,13 @@ class Subgraph:
                 print(s + " " + str(a))
 
     def print_graph(self):
+        print("print_graph()", self.name)
         all_ops = self.get_all_ops()
         for idx, op in enumerate(all_ops):
             print(idx, op.type, op.name)
 
     def print_graph_with_tensors(self):
+        print("print_graph_with_tensors()", self.name)
         all_ops = self.get_all_ops()
         for idx, op in enumerate(all_ops):
             print(idx, op.type, op.name)
@@ -362,6 +364,7 @@ class Subgraph:
             print()
 
     def print_graph_with_tensor_quantization(self):
+        print("print_graph_with_tensor_quantization()", self.name)
         all_ops = self.get_all_ops()
         for idx, op in enumerate(all_ops):
             print(idx, op.type, op.name)
@@ -386,10 +389,12 @@ class Subgraph:
             print()
 
     def print_passes(self):
+        print("print_passes()", self.name)
         for idx, ps in enumerate(self.passes):
             print("%03d %s" % (idx * 2, ps))
 
     def print_passes_with_tensors(self):
+        print("print_passes_with_tensors()", self.name)
         for idx, ps in enumerate(self.passes):
             print("%3d %s" % (idx * 2, ps))
             for idx, tens in enumerate(ps.inputs):
@@ -410,10 +415,12 @@ class Subgraph:
             print()
 
     def print_cascaded_passes(self):
+        print("print_cascaded_passes()", self.name)
         for idx, ps in enumerate(self.cascaded_passes):
             print("%3d %s SRAM used %.1f KB" % (idx * 2, ps, ps.sram_used / 1024))
 
     def print_cascaded_passes_with_tensors(self):
+        print("print_cascaded_passes_with_tensors()", self.name)
         for idx, ps in enumerate(self.cascaded_passes):
             print("%3d %s SRAM used %.1f KB" % (idx * 2, ps, ps.sram_used / 1024))
             for idx, tens in enumerate(ps.inputs):
@@ -434,6 +441,7 @@ class Subgraph:
             print()
 
     def print_cascaded_passes_with_tensor_sizes(self):
+        print("print_cascaded_passes_with_tensor_sizes()", self.name)
         for idx, ps in enumerate(self.cascaded_passes):
             print("%3d %s SRAM used %.1f KB" % (idx * 2, ps, ps.sram_used / 1024))
             for idx, tens in enumerate(ps.inputs):
@@ -478,6 +486,7 @@ class Subgraph:
             print()
 
     def print_high_level_command_stream(self):
+        print("print_high_level_command_stream()", self.name)
         for idx, cmd in enumerate(self.high_level_command_stream):
             print("%3d %s" % (idx, cmd))
 
