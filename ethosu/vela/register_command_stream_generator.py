@@ -187,7 +187,7 @@ def calc_command_dependencies(cmd_stream, arch):
     # Keep track of accumulated number of commands in command stream.
     # First element kernel ops: (# of blocks, # of commands)
     # Second element DMA ops: (# of commands)
-    pos = np.array((np.array((0, 0)), np.array([0])))
+    pos = np.array((np.array((0, 0)), np.array([0])), dtype=object)
 
     dependencies = {}
 
@@ -196,8 +196,8 @@ def calc_command_dependencies(cmd_stream, arch):
         op_count = cmd.get_operation_count()
         # Keep track of both num blocks and commands
         cmd_add = 0 if (op_count[0] == 0) else 1
-        pos = np.array((pos[0] + np.array((op_count[0], cmd_add)), pos[1] + np.array([op_count[1]])))
-        cmd_ends[cmd] = np.array((pos[0], pos[1]))
+        pos = np.array((pos[0] + np.array((op_count[0], cmd_add)), pos[1] + np.array([op_count[1]])), dtype=object)
+        cmd_ends[cmd] = np.array((pos[0], pos[1]), dtype=object)
         memory_accesses[cmd] = cmd.get_memory_accesses()
 
     for idx, cmd in enumerate(cmd_stream):
@@ -205,7 +205,7 @@ def calc_command_dependencies(cmd_stream, arch):
         # Keep track of command dependency.
         # First element kernel ops: (# of blocks, # of commands)
         # Second element DMA ops: (# of commands)
-        dep_offsets = np.array((np.array((-1, -1)), np.array([-1])))
+        dep_offsets = np.array((np.array((-1, -1)), np.array([-1])), dtype=object)
         dep_cmds = [None] * CommandType.Size.value
         if idx > 0:
             # Look at the previous commands in backwards order
