@@ -94,6 +94,33 @@ def encode_weights(
     return encoded_stream
 
 
+@typecheck
+def encode_bias(bias: np.int64, scale: int, shift: int):
+    """
+    Public facing API to pack bias and scale values as required by the hardware
+    :param bias: 64bit signed number that includes 40bit signed bias
+    :param scale: 32bit scale value
+    :param shift: 6bit shift value
+    :return: packed 80bit [0(2-bits),shift(6-bits),scale(32-bits),bias(40-bits)]
+    """
+    assert -(1 << (40 - 1)) <= bias < (1 << (40 - 1))  # signed 40-bit range
+    assert 0 <= scale < (1 << 32)  # unsigned 32-bit range
+    assert 0 <= shift < (1 << 6)  # unsigned 6-bit range
+
+    data = bytearray(10)
+    data[0] = (bias >> (0 * 8)) & 0xFF
+    data[1] = (bias >> (1 * 8)) & 0xFF
+    data[2] = (bias >> (2 * 8)) & 0xFF
+    data[3] = (bias >> (3 * 8)) & 0xFF
+    data[4] = (bias >> (4 * 8)) & 0xFF
+    data[5] = (scale >> (0 * 8)) & 0xFF
+    data[6] = (scale >> (1 * 8)) & 0xFF
+    data[7] = (scale >> (2 * 8)) & 0xFF
+    data[8] = (scale >> (3 * 8)) & 0xFF
+    data[9] = shift & 0x3F
+    return data
+
+
 def create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
     # Note: for an ofm block only its depth is used in weight compression.
     # And block depth > ofm depth gives same result as block depth == ofm depth
@@ -376,27 +403,6 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
 
     # the operator should only have a single output
     assert len(tens.consumer_list[0].outputs) == 1
-
-    def pack_bias_and_scale(bias, scale, shift):
-        bias = np.int64(bias)
-        assert -(1 << (40 - 1)) <= bias < (1 << (40 - 1))  # signed 40-bit range
-        assert 0 <= scale < (1 << 32)  # unsigned 32-bit range
-        assert 0 <= shift < (1 << 6)  # unsigned 6-bit range
-
-        # pack the 80 bit value = [0(2-bits),shift(6-bits),scale(32-bits),bias(40-bits)]
-        data = bytearray(10)
-        data[0] = (bias >> (0 * 8)) & 0xFF
-        data[1] = (bias >> (1 * 8)) & 0xFF
-        data[2] = (bias >> (2 * 8)) & 0xFF
-        data[3] = (bias >> (3 * 8)) & 0xFF
-        data[4] = (bias >> (4 * 8)) & 0xFF
-        data[5] = (scale >> (0 * 8)) & 0xFF
-        data[6] = (scale >> (1 * 8)) & 0xFF
-        data[7] = (scale >> (2 * 8)) & 0xFF
-        data[8] = (scale >> (3 * 8)) & 0xFF
-        data[9] = shift & 0x3F
-        return data
-
     biases = tens.quant_values
 
     first_consumer_op = tens.consumer_list[0]
@@ -470,7 +476,7 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
             core_scales = quantised_scales[i + core : i + core + max_len : arch.ncores]
             core_biases = biases[i + core : i + core + max_len : arch.ncores]
             for j, core_bias in enumerate(core_biases):
-                stream.extend(pack_bias_and_scale(core_bias, *core_scales[j]))
+                stream.extend(encode_bias(np.int64(core_bias), *core_scales[j]))
 
             # Align to 16 for start for next substream
             remainder = (len(stream)) % 16
