@@ -445,6 +445,52 @@ def reorder_depthwise_weights(op, arch):
     return op
 
 
+def convert_conv_to_fc(op, arch):
+    # Conv 1x1 can be equivalent to Fully Connected.
+    # By representing certain convs as fully connected layers, Vela can better determine wether or not to use
+    # caching/double buffering for the weights.
+    # (Weights dont need to be reloaded for convs when IFM H and W are 1)
+    if op.type == "Conv2DBiasAct":
+        _, h, w, _ = op.inputs[0].shape
+        kh, kw, _, _ = op.inputs[1].shape
+        if h == 1 and w == 1 and kh == 1 and kw == 1:
+            # Overwrite this op as a Fully Connected Op
+            op.name += "_fc"
+            op.type = "FullyConnectedAct"
+            faf = op.attrs.get("fused_activation_function", None)
+            op.attrs = {
+                "fused_activation_function": faf,
+                "weights_format": 0,
+                "npu_block_type": NpuBlockType.VectorProduct,
+            }
+            # Reshape Weights to be 2D. HWIO becomes just IO (as H and W are 1, they can just be dropped)
+            weight_tensor = op.inputs[1]
+            weight_tensor.quant_values = weight_tensor.quant_values.squeeze(axis=(0, 1))
+            weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
+            # The output from a fully connected is expected to be 2D so we need to add a reshape layer to convert it
+            # back to 4D afterwards as the next layer is expecting that shape
+            orig_ofm_tensor = op.outputs[0]
+            # Reshape this ops output to be 2D: {(N*H*W), C} (We know N H and W are all 1 so this becomes {1, C})
+            fc_ofm_tensor = orig_ofm_tensor.clone("_fc")
+            fc_ofm_tensor.set_all_shapes([1, fc_ofm_tensor.shape[-1]])
+            fc_ofm_tensor.ops = [op]
+            # Add a reshape after the new OFM to convert it back to the original 4D shape
+            reshape_name = op.name + "_reshape_post"
+            new_shape_tens = Tensor([1], DataType.int32, reshape_name + "_shape")
+            new_shape_tens.values = np.array(orig_ofm_tensor.shape)
+            new_shape_tens_const = Operation("Const", new_shape_tens.name + "_const")
+            new_shape_tens.ops = [new_shape_tens_const]
+            new_shape_tens_const.outputs = [new_shape_tens]
+            reshape_op = Operation("Reshape", reshape_name)
+            reshape_op.inputs = [fc_ofm_tensor, new_shape_tens]
+            reshape_op.attrs["new_shape"] = orig_ofm_tensor.shape
+            orig_ofm_tensor.ops = [reshape_op]
+            reshape_op.outputs = [orig_ofm_tensor]
+            # Replace this ops OFM to point to the 2D tensor
+            op.outputs[0] = fc_ofm_tensor
+    return op
+
+
 # Reorder activation op if it's after the memory only operations
 def fixup_act_reorder(op, arch):
     if op.type in activation_ops:
@@ -591,6 +637,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         supported_operator_check,
         # then do any rewrites of supported operators
         convert_depthwise_to_conv,
+        convert_conv_to_fc,
         fixup_fully_connected_input,
         fixup_pack_input,
         fixup_conv2d_backprop,
