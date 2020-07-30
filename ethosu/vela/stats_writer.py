@@ -85,7 +85,10 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
             )
 
         midpoint_inference_time = nng.cycles[PassCycles.Total] / arch.npu_clock
-        midpoint_fps = 1 / midpoint_inference_time
+        if midpoint_inference_time > 0:
+            midpoint_fps = 1 / midpoint_inference_time
+        else:
+            midpoint_fps = np.nan
 
         n_passes = sum(len(sg.passes) for sg in nng.subgraphs)
         n_cascaded_passes = sum(len(sg.cascaded_passes) for sg in nng.subgraphs)
@@ -231,7 +234,10 @@ def print_performance_metrics_for_strat(
     orig_mem_areas_labels = [(v, v.display_name()) for v in MemArea.all()]
 
     midpoint_inference_time = cycles[PassCycles.Total] / arch.npu_clock
-    midpoint_fps = 1 / midpoint_inference_time
+    if midpoint_inference_time > 0:
+        midpoint_fps = 1 / midpoint_inference_time
+    else:
+        midpoint_fps = np.nan
 
     mem_area_labels = [
         (mem_area, label) for mem_area, label in orig_mem_areas_labels if np.sum(bandwidths[mem_area]) > 0
