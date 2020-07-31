@@ -164,6 +164,10 @@ class TFLiteSubgraph:
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data)
 
+            if op_type == "Reshape" and "new_shape" not in op.attrs:
+                # Reshape should have an attrib "new_shape" but if it is missing, add it based on the output shape
+                op.attrs["new_shape"] = outputs[0].shape
+
             if "stride_w" in op.attrs:
                 op.attrs["strides"] = (1, op.attrs["stride_h"], op.attrs["stride_w"], 1)
             if "filter_width" in op.attrs:
