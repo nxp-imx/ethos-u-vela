@@ -330,6 +330,9 @@ class SupportedOperators:
             # check stride size
             if len(op.inputs) > 3 and any(stride != 1 for stride in op.inputs[3].values):
                 return False
+            # check "end - begin" doesnt result in any zero or negative elements
+            if any((end - begin) <= 0 for begin, end in zip(op.inputs[1].values, op.inputs[2].values)):
+                return False
             # check ellipsis_mask
             if op.attrs["ellipsis_mask"] != 0:
                 return False
