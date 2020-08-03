@@ -271,8 +271,6 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
                     * int(weight_tensor_shape[1])
                     * int(weight_tensor_shape[2])
                     * int(weight_tensor_shape[3])
-                    / int(strides[1])
-                    / int(strides[2])
                 )
             else:
                 weight_tensor_shape = [
