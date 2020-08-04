@@ -196,6 +196,9 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.system_config = system_config
         self.is_yoda_system = self.accelerator_config in (Accelerator.Yoda_256, Accelerator.Yoda_512)
 
+        self.max_outstanding_dma = 2 if self.is_yoda_system else 1
+        self.max_outstanding_kernels = 3
+
         self.ncores = accel_config.cores
         self.ofm_ublock = accel_config.ofm_ublock
         self.ifm_ublock = accel_config.ifm_ublock

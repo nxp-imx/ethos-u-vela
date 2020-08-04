@@ -18,6 +18,7 @@
 # all the register settings. Calculates dependencies between commands and inserts wait operations. And generates a bit
 # stream suitable for interpretation by the Ethos-U55 processor.
 from collections import defaultdict
+from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
 
@@ -165,12 +166,8 @@ class CommandStreamEmitter:
         # This is not a redundant command, actually write it
         self.cmd_stream.append((command, offset))
 
-    def cmd_wait(self, cmd, param, absolute_wait_time):
-        if absolute_wait_time <= self.last_absolute_wait[cmd]:
-            return
-
-        self.last_absolute_wait[cmd] = absolute_wait_time
-        param = int(param)
+    def cmd_wait(self, cmd, channel, outstanding_count):
+        param = (16 * channel) + outstanding_count
         command = ((param & 0xFFFF) << 16) | cmd.value
         self.cmd_stream.append((command,))
 
@@ -182,75 +179,64 @@ class CommandStreamEmitter:
         self.get_reg_machine(cmd).switch_bank()
 
 
-def calc_command_dependencies(cmd_stream, arch):
-    cmd_starts = {}
-    cmd_ends = {}
-    memory_accesses = {}
+Watermark = namedtuple("Watermark", ["npu", "dma"])
 
-    # Keep track of accumulated number of commands in command stream.
-    # First element kernel ops: (# of blocks, # of commands)
-    # Second element DMA ops: (# of commands)
-    pos = np.array((np.array((0, 0)), np.array([0])), dtype=object)
 
-    dependencies = {}
+def get_cmd_wait_dependency(arch, cmd_stream, memory_accesses, cmd_index, watermark: Watermark):
+    cmd = cmd_stream[cmd_index]
+    cmd_access = memory_accesses[cmd]
+    index = cmd_index - 1
 
-    for cmd in cmd_stream:
-        cmd_starts[cmd] = pos
-        op_count = cmd.get_operation_count()
-        # Keep track of both num blocks and commands
-        cmd_add = 0 if (op_count[0] == 0) else 1
-        pos = np.array((pos[0] + np.array((op_count[0], cmd_add)), pos[1] + np.array([op_count[1]])), dtype=object)
-        cmd_ends[cmd] = np.array((pos[0], pos[1]), dtype=object)
-        memory_accesses[cmd] = cmd.get_memory_accesses()
+    # NPU dependency tracking
+    npu_outstanding = -1
+    npu_ops = 0
+    npu_index = watermark.npu
 
-    for idx, cmd in enumerate(cmd_stream):
-        curr_accesses = memory_accesses[cmd]
-        # Keep track of command dependency.
-        # First element kernel ops: (# of blocks, # of commands)
-        # Second element DMA ops: (# of commands)
-        dep_offsets = np.array((np.array((-1, -1)), np.array([-1])), dtype=object)
-        dep_cmds = [None] * CommandType.Size.value
-        if idx > 0:
-            # Look at the previous commands in backwards order
-            for prev_cmd in cmd_stream[idx - 1 :: -1]:
-                assert prev_cmd is not cmd
-                if dep_cmds[prev_cmd.cmdtype] is None:
-                    is_dependency = False
-                    if cmd.cmdtype == CommandType.NpuStripe and prev_cmd.cmdtype == CommandType.NpuStripe:
-                        # Special handling here, as dpu -> dpu operations require additional care
-                        if not SharedBufferAllocation.is_compatible(prev_cmd.ps.shared_buffer, cmd.ps.shared_buffer):
-                            is_dependency = True
-                        elif memory_accesses[prev_cmd].conflicts(curr_accesses):
-                            is_dependency = True
-                    else:
-                        if memory_accesses[prev_cmd].conflicts(curr_accesses) or (
-                            prev_cmd.cmdtype == CommandType.DMA and prev_cmd.in_tensor.purpose == TensorPurpose.LUT
-                        ):
-                            is_dependency = True
+    # DMA dependency tracking
+    dma_outstanding = -1
+    dma_ops = 0
+    dma_index = watermark.dma
 
-                    if is_dependency:
-                        new_offset = cmd_ends[prev_cmd][prev_cmd.cmdtype]
-                        if new_offset[0] > dep_offsets[prev_cmd.cmdtype][0]:
-                            dep_cmds[prev_cmd.cmdtype] = prev_cmd
-                            dep_offsets[prev_cmd.cmdtype] = new_offset
+    # Seek back in the command stream looking for NPU or DMA dependencies
+    # but only as far as the first dependency or the watermarks (dependencies
+    # before this point have been satisfied already).
+    # The watermark moves to after the latest element we must wait for, not
+    # the command that issues the wait.
+    # NPU->NPU dependency is handled via blockdep.
+    while (index >= npu_index) or (index >= dma_index):
+        prev_cmd = cmd_stream[index]
+        prev_access = memory_accesses[prev_cmd]
 
-                        # Check if we've got dependencies for all commands, in which case we can early out
-                        for dep in dep_cmds:
-                            if dep is None:
-                                break
-                        else:
-                            break  # all handled
+        # Check DMA consuming NPU output
+        if prev_cmd.cmdtype == CommandType.NpuStripe:
+            if index >= npu_index:
+                if (cmd.cmdtype == CommandType.DMA) and (npu_outstanding == -1) and prev_access.conflicts(cmd_access):
+                    npu_outstanding = npu_ops
+                npu_ops = npu_ops + 1  # Count NPU ops in the pipeline
+                if npu_ops >= arch.max_outstanding_kernels:
+                    npu_index = max(index + 1, npu_index)
 
-        # Convert absolute to relative dependencies, using None to signal the special case of no
-        # dependency of this kind
-        res = [None] * CommandType.Size.value
-        for i in range(CommandType.Size.value):
-            if dep_cmds[i] is not None:
-                res[i] = cmd_starts[cmd][i] - dep_offsets[i]
+        # Check NPU consuming DMA output
+        elif prev_cmd.cmdtype == CommandType.DMA:
+            if index >= dma_index:
+                if cmd.cmdtype == CommandType.NpuStripe:
+                    if (dma_outstanding == -1) and prev_access.conflicts(cmd_access):
+                        dma_outstanding = dma_ops
+                dma_ops = dma_ops + 1  # Count DMA ops in the pipeline
+                if dma_ops >= arch.max_outstanding_dma:
+                    dma_index = max(index + 1, dma_index)
 
-        dependencies[cmd] = cmd_starts[cmd], res
+        index = index - 1
 
-    return dependencies
+    # Update DMA watermark if we didn't see any and the NPU pipeline is full
+    if (dma_ops == 0) and (npu_ops >= arch.max_outstanding_kernels):
+        dma_index = cmd_index
+
+    # Bring the search watermark forwards as we complete for those dependencies
+    watermark = Watermark(npu_index, dma_index)
+    outstanding = Watermark(npu_outstanding, dma_outstanding)
+
+    return watermark, outstanding
 
 
 def get_op_kernel(ps):
@@ -385,13 +371,20 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
     }
 
     cmd_stream = []
+    memory_accesses = {}
     for cmd in sg.high_level_command_stream:
         if cmd.cmdtype == CommandType.NpuStripe and cmd.ps.npu_block_type == NpuBlockType.Default:
             print("Warning: Skipping register command stream generation for", cmd.ps)
         else:
             cmd_stream.append(cmd)
+            memory_accesses[cmd] = cmd.get_memory_accesses()
 
-    dependencies = calc_command_dependencies(cmd_stream, arch)
+    def emit_cmd_waits(cmd_waits):
+        if cmd_waits.npu >= 0:
+            emit.cmd_wait(cmd0.NPU_OP_KERNEL_WAIT, 0, cmd_waits.npu)
+
+        if cmd_waits.dma >= 0:
+            emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, 0, cmd_waits.dma)
 
     # Initialise operator dependency state
     prev_ifm_rect = cur_ifm_rect = None
@@ -401,27 +394,14 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
     prev_kernel = cur_kernel = None
     prev_cmd = None
 
-    def emit_wait_commands(cmd):
-        # The command is fully set up, emit whatever wait commands we need
-        absolute_dep, relative_dep = dependencies[cmd]
-        if relative_dep[CommandType.NpuStripe] is not None:
-            if cmd.cmdtype == CommandType.DMA:
-                param = relative_dep[CommandType.NpuStripe][1]
-                if param <= 3:
-                    emit.cmd_wait(cmd0.NPU_OP_KERNEL_WAIT, param, absolute_dep[CommandType.NpuStripe][1])
-            else:
-                param = relative_dep[CommandType.NpuStripe][0]
-                param = min(param, 0xFFFF)  # Clamp to allowable wait amount
-
-        if relative_dep[CommandType.DMA] is not None:
-            # TODO This can be optimized for yoda
-            param = 0
-            emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, param, absolute_dep[CommandType.DMA][0])
-
     if arch.is_yoda_system:
         emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
 
-    for cmd in cmd_stream:
+    dep_watermark = Watermark(0, 0)
+
+    for cmd_index, cmd in enumerate(cmd_stream):
+        dep_watermark, cmd_waits = get_cmd_wait_dependency(arch, cmd_stream, memory_accesses, cmd_index, dep_watermark)
+
         if cmd.cmdtype == CommandType.DMA:
             start_coord = cmd.box.start_coord
 
@@ -446,7 +426,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             dma_channel = 0
             mode = 0  # From external to external
 
-            emit_wait_commands(cmd)
+            emit_cmd_waits(cmd_waits)
             emit.cmd_do_operation(cmd0.NPU_OP_DMA_START, dma_channel * 16 + mode)
 
         elif cmd.cmdtype == CommandType.NpuStripe:
@@ -1063,8 +1043,6 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     ifm2_prec |= 1 << 6
                 emit.cmd0_with_param(cmd0.NPU_SET_IFM2_PRECISION, ifm2_prec)
 
-            emit_wait_commands(cmd)
-
             # Get op parameters
             cur_ifm_block_depth = get_op_ifmofm_block_depth(arch, cmd)
             cur_ofm_block = Block(ps.block_config[1], ps.block_config[0], ps.block_config[3])
@@ -1095,6 +1073,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             blockdep = min(blockdep, arch.max_blockdep)
             emit.cmd0_with_param(cmd0.NPU_SET_BLOCKDEP, blockdep)
             prev_cmd = cmd
+
+            emit_cmd_waits(cmd_waits)
 
             if npu_block_type == NpuBlockType.ConvolutionMxN:
                 emit.cmd_do_operation(cmd0.NPU_OP_CONV)
