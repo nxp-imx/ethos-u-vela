@@ -179,10 +179,8 @@ input and output tensors, as well as an attribute dictionary."""
 
         return ifm_tensor, weight_tensor, bias_tensor, ofm_tensor
 
-    concat_ops = set(("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped"))
-
     def is_concat_op(self):
-        return self.type in Operation.concat_ops
+        return self.type in set(("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped"))
 
     def get_concat_inputs_axis(self):
         assert self.is_concat_op()
@@ -216,10 +214,8 @@ input and output tensors, as well as an attribute dictionary."""
         _, dilation_h, dilation_w, _ = self.attrs.get("dilation", (1, 1, 1, 1))
         return dilation_h, dilation_w
 
-    split_ops = set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped"))
-
     def is_split_op(self):
-        return self.type in Operation.split_ops
+        return self.type in set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped"))
 
     def get_split_inputs_axis(self):
         assert self.is_split_op()
