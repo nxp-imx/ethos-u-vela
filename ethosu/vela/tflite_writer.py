@@ -168,17 +168,15 @@ class TFLiteSerialiser:
             tf_code, opt_serializer = builtin_operator_inv_map[custom_prefix]
             custom_code_offset = builder.CreateString(code[len(custom_prefix) :])
         else:
-            try:
-                tf_code, opt_serializer = builtin_operator_inv_map[code]
-            except KeyError:
-                print(
-                    "Warning: Writing operation %s, which does not have a direct TensorFlow Lite mapping,"
-                    "as a custom operation" % (code,)
-                )
-                tf_code, opt_serializer = builtin_operator_inv_map[custom_prefix]
+            assert (
+                code in builtin_operator_inv_map
+            ), "Vela does not contain a mapping to serialise {} operator to a TensorFlow Lite operator".format(code)
+            tf_code, opt_serializer = builtin_operator_inv_map[code]
 
             if tf_code == BuiltinOperator.CUSTOM:
-                assert code == "NpuOp"  # Currently only support serialising NPU operators as a custom op
+                assert (
+                    code == "NpuOp"
+                ), "Vela only supports serialising NpuOp operators as TensorFlow Lite Custom operators"
                 custom_code_offset = builder.CreateString("ethos-u")
 
         self.operator_code_map[code] = (idx, tf_code, opt_serializer)
