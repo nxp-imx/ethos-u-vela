@@ -267,6 +267,8 @@ class SupportedOperators:
         if op.type == "ResizeBilinear":
             if op.inputs[0].shape[1] == 1 and op.inputs[0].shape[2] == 1:
                 return True
+            if op.inputs[0].shape == op.outputs[0].shape:
+                return True
             upscaled_shape = [op.inputs[0].shape[1] * 2, op.inputs[0].shape[2] * 2]
             out_shape = op.outputs[0].shape[1:3]
             if not op.attrs["align_corners"] and out_shape != upscaled_shape:

@@ -212,6 +212,10 @@ def fixup_resizebilinear(op, arch):
     if op.type == "ResizeBilinear":
         if op.inputs[0].shape[1] == 1 and op.inputs[0].shape[2] == 1:
             convert_resizebilinear_1x1_to_add(op)
+        elif op.inputs[0].shape == op.outputs[0].shape:
+            # Bypass nop resizebilinear
+            op.inputs = op.inputs[:1]
+            op.type = "Identity"
 
     return op
 
