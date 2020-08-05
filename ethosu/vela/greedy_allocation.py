@@ -77,9 +77,7 @@ class GreedyAllocator:
             for m in lrs:
                 if n != m and n.overlaps_ranges(m):
                     overlap, tens_n, tens_m = n.overlaps_address(m)
-                    if overlap and not (
-                        tens_n.equivalence_id == tens_m.equivalence_id and tens_n.address == tens_m.address
-                    ):
+                    if overlap and not (tens_n.equivalent(tens_m) and tens_n.address == tens_m.address):
                         print("Solution failed, overlapping buffer!")
                         print(tens_n.address, tens_n.address + n.size, n.name)
                         print(tens_m.address, tens_m.address + m.size, m.name)

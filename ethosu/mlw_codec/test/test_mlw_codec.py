@@ -16,6 +16,7 @@
 # limitations under the License.
 # Simple example of the usage of mlw_codec.
 import pytest
+
 from ethosu import mlw_codec
 
 

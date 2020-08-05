@@ -16,6 +16,7 @@
 # Description:
 # Unit tests for model_reader.
 import pytest
+
 from ethosu.vela import model_reader
 from ethosu.vela.errors import InputFileError
 

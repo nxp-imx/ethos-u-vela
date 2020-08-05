@@ -381,12 +381,18 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                         input_set.add(input_tens)
 
         ordered_input_list = []
+        # Keep LUT-s in a separate list and add as inputs at the end
+        # to avoid that they would accidentally be assigned as ifm or ifm2
+        lut_list = []
         input_refcounts = collections.defaultdict(int)
         for op in ops_list:
             for inp in op.inputs:
                 if inp in input_set:
                     if input_refcounts[inp] == 0:
-                        ordered_input_list.append(inp)
+                        if inp.purpose == TensorPurpose.LUT:
+                            lut_list.append(inp)
+                        else:
+                            ordered_input_list.append(inp)
                     input_refcounts[inp] += 1
 
         name = ops_list[0].name
@@ -416,6 +422,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         ps.weight_tensor = ps.get_primary_op_ifm_weights()[1]
         ps.scale_tensor = ps.get_primary_op_ifm_weights_biases_ofm()[2]
         ps.lut_tensor = ps.get_primary_op_lut()
+        ps.inputs.extend(lut_list)
 
         for op in ps.ops:
             op.scheduled_pass = ps

@@ -16,6 +16,7 @@
 # Description:
 # Contains unit tests for tflite_reader
 import pytest
+
 from ethosu.vela.tflite_reader import TFLiteSubgraph
 
 

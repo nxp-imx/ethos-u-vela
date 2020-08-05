@@ -22,6 +22,7 @@ from . import graph_optimiser
 from . import high_level_command_stream_generator
 from . import insert_dma
 from . import live_range
+from . import lut
 from . import mark_tensors
 from . import npu_performance
 from . import npu_serialisation
@@ -198,6 +199,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
         high_level_command_stream_generator.generate_high_level_command_stream(
             nng, sg, arch, options.verbose_high_level_command_stream
         )
+        lut.optimize_high_level_cmd_stream(sg, arch)
         register_command_stream_generator.generate_register_command_stream(
             nng, sg, arch, options.verbose_register_command_stream
         )

@@ -32,7 +32,7 @@ def dma_if_necessary(ps, box, tensor):
     if tensor.needs_dma():
         dma_op = tensor.ops[0]
         in_tensor = dma_op.inputs[0]
-        yield DMA(in_tensor, tensor, box)
+        yield DMA(ps, in_tensor, tensor, box)
 
 
 def match_tensor(source, derived):

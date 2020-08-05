@@ -23,6 +23,9 @@ from .numeric_util import round_up_divide
 from .operation import NpuBlockType
 from .range_set import AccessDirection
 from .range_set import MemoryAccessSet
+from .range_set import MemoryRangeSet
+from .tensor import MemArea
+from .tensor import TensorPurpose
 
 
 class Box:
@@ -233,6 +236,13 @@ class NpuStripe(Command):
                 ),
                 AccessDirection.Read,
             )
+        # Add read access to SHRAM by any LUT-s
+        for tens in self.ps.intermediates:
+            if tens.purpose == TensorPurpose.LUT and tens.mem_area == MemArea.Shram:
+                res.add(
+                    MemoryRangeSet(tens.mem_area, tens.address, tens.address + tens.storage_size()),
+                    AccessDirection.Read,
+                )
         return res
 
     def is_npu_pass_command(self):
@@ -359,8 +369,9 @@ class NpuStripe(Command):
 
 
 class DMA(Command):
-    def __init__(self, in_tensor, out_tensor, box):
+    def __init__(self, ps, in_tensor, out_tensor, box):
         self.cmdtype = CommandType.DMA
+        self.ps = ps
         self.in_tensor = in_tensor
         self.out_tensor = out_tensor
         self.box = box

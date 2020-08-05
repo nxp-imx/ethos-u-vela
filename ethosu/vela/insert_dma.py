@@ -61,13 +61,7 @@ def insert_dma_cmd(op, arch):
                         dma_cmd.attrs["destination"] = new_tens.mem_area
                         dma_cmd.run_on_npu = True
                         if tens.purpose == TensorPurpose.LUT:
-                            # TODO: Add support more than one LUT at a time
-                            # Reserve last 2 blocks for LUT
-                            if arch.shram_reserved_unused_banks == 0:
-                                arch.shram_reserved_unused_banks = 2
-                                arch.shram_total_banks -= arch.shram_reserved_unused_banks
-                            # Place the LUT in the last 2 blocks of SHRAM
-                            new_tens.address = arch.shram_bank_size * arch.shram_total_banks
+                            new_tens.mem_area = MemArea.Shram
                         op.inputs[idx] = new_tens
     return op
 

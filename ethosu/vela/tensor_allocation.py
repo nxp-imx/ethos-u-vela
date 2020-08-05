@@ -26,6 +26,7 @@ from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_rang
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
 from .tensor import MemType
+from .tensor import TensorPurpose
 
 
 def linear_allocate_live_ranges(live_ranges, alloc_granularity=16):
@@ -42,6 +43,11 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=16):
         if tens.weight_compression_config is not None:
             for allocated_tens in allocated_tensors:
                 if allocated_tens.weight_compression_config == tens.weight_compression_config:
+                    address = allocated_tens.address
+                    break
+        if tens.purpose == TensorPurpose.LUT:
+            for allocated_tens in allocated_tensors:
+                if allocated_tens.equivalent(tens):
                     address = allocated_tens.address
                     break
         lr.set_address(address)

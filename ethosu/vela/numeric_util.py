@@ -89,3 +89,7 @@ def clamp_sigmoid(x):
 
 def full_shape(dim, shape, fill):
     return ([fill] * (dim - len(shape))) + shape
+
+
+def overlaps(start1, end1, start2, end2):
+    return start1 < end2 and start2 < end1

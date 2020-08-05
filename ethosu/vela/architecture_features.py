@@ -316,6 +316,9 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.shram_reserved_unused_banks = 2 if accel_config.shram_banks > 16 else 0
         self.shram_total_banks = accel_config.shram_banks - self.shram_reserved_unused_banks
         self.shram_bank_granules = np.array(accel_config.shram_granules, np.int32)
+        self.shram_lut_size = 2048
+        # SHRAM base address of the activation lookup table
+        self.shram_lut_address = self.shram_bank_size * self.available_shram_banks(True)
 
         # Build a map of acceptable IFM/OFM block configurations up to the maximum
         # IFM/OFM block size.
@@ -325,6 +328,14 @@ Note the difference between ArchitectureFeatures and CompilerOptions
 
         # Setup supported operators and restriction checkers class
         self.supported_operators = SupportedOperators(softmax_support)
+
+    # Returns available number of SHRAM banks depending on activation lookup table
+    # being used or not
+    def available_shram_banks(self, uses_activation_lut):
+        banks = self.shram_total_banks
+        if uses_activation_lut and self.shram_reserved_unused_banks == 0:
+            banks -= 2
+        return banks
 
     # Calculate block configuration for ALL known IFM operations and
     # accumulator sizes. Consumers will need to select their preferred

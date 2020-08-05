@@ -18,6 +18,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from ethosu.vela.live_range import LiveRange
 
 
