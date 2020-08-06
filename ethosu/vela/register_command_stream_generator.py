@@ -666,6 +666,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                             ifm_scale_f64 = np.double(cmd.ifm_tensor.quantization.scale_f32)
                             ofm_scale_f64 = np.double(cmd.ofm_tensor.quantization.scale_f32)
                             scale, shift = scaling.quantise_scale(ifm_scale_f64 / ofm_scale_f64)
+                        elif primary_op.type == "ResizeBilinear" and "rescale" in primary_op.attrs:
+                            rescale = primary_op.attrs["rescale"]
+                            rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
+                            scale, shift = scaling.quantise_pooling_scale(k_height * k_width, rescale_bits)
+                            scale = int(round_away_zero(scale * rescale))
                         else:
                             # In case avg pool fused with concat or other memory operation, rescaling might be needed.
                             # k_height == k_width == 1 is allways true in this case
