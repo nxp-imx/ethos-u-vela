@@ -311,3 +311,12 @@ input and output tensors, as well as an attribute dictionary."""
         self.attrs["fused_activation_function"] = "LUT"
         self.activation_lut = lut_tensor
         self.inputs.append(lut_tensor)
+
+    def add_input_tensor(self, tens):
+        self.inputs.append(tens)
+        if self not in tens.consumer_list:
+            tens.consumer_list.append(self)
+
+    def set_output_tensor(self, tens):
+        tens.ops = [self]
+        self.outputs = [tens]
