@@ -149,8 +149,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
 
 def add_const_tens_to_startup_cascaded_pass(startup_cps, tens):
     op = Operation("Const", tens.name + "_const")
-    op.outputs = [tens]
-    tens.ops = [op]
+    op.set_output_tensor(tens)
     startup_cps.passes[0].ops.insert(0, op)
     startup_cps.passes[0].outputs.insert(0, tens)
     startup_cps.outputs.insert(0, tens)

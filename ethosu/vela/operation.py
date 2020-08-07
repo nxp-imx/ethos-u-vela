@@ -307,10 +307,9 @@ input and output tensors, as well as an attribute dictionary."""
         return input_tens, outputs, axis, offset_start, offset_end
 
     def set_activation_lut(self, lut_tensor):
-        lut_tensor.consumer_list.append(self)
         self.attrs["fused_activation_function"] = "LUT"
         self.activation_lut = lut_tensor
-        self.inputs.append(lut_tensor)
+        self.add_input_tensor(lut_tensor)
 
     def add_input_tensor(self, tens):
         self.inputs.append(tens)

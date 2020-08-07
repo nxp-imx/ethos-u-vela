@@ -80,9 +80,8 @@ def rewrite_tensor_cpu_producer_npu_consumers(
         op_type = "Const"
     op = Operation(op_type, orig_tens.name + "_input")
     op.attrs["npu_block_type"] = NpuBlockType.Default
-    op.outputs = [new_tens]
     op.scheduled_pass = startup_init_ps
-    new_tens.ops = [op]
+    op.set_output_tensor(new_tens)
     startup_init_ps.ops.append(op)
     startup_init_ps.outputs.append(new_tens)
 

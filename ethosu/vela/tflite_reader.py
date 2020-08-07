@@ -54,9 +54,7 @@ def clone_and_reshape_tensor(src_tens, reorder):
         tens.quant_values = tens.quant_values.transpose(reorder)
 
     op = Operation("Const", tens.name)
-    op.outputs = [tens]
-    tens.ops = [op]
-
+    op.set_output_tensor(tens)
     return tens
 
 
@@ -81,14 +79,12 @@ class TFLiteSubgraph:
                 TensorError(tens, "This subgraph input tensor has unexpected driving operators.")
 
             op = Operation("Placeholder", tens.name)
-            op.outputs = [tens]
-            tens.ops = [op]
+            op.set_output_tensor(tens)
 
         for tens in self.tensors:
             if not tens.ops:
                 op = Operation("Const", tens.name)
-                op.outputs = [tens]
-                tens.ops = [op]
+                op.set_output_tensor(tens)
 
     def get_tensors_from_indices_remove_duplicates(self, indices, warning_str):
         tensors = []
@@ -190,8 +186,7 @@ class TFLiteSubgraph:
             act_op = Operation(activation_function_to_split_out, name + activation_function_to_split_out)
             out_tens = op.outputs[0]
             intermediate_tens = out_tens.clone("_act_intermediate")
-            out_tens.ops = [act_op]
-            act_op.outputs = [out_tens]
+            act_op.set_output_tensor(out_tens)
             intermediate_tens.ops = [op]
             op.outputs[0] = intermediate_tens
             act_op.inputs = [intermediate_tens]

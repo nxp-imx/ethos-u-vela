@@ -56,11 +56,10 @@ def insert_dma_cmd(op, arch):
                         new_tens = tens.clone_into_fast_storage(arch)
                         dma_cmd = Operation("DMA", tens.ops[0].name + "_dma")
                         dma_cmd.inputs = [tens]
-                        dma_cmd.outputs = [new_tens]
+                        dma_cmd.set_output_tensor(new_tens)
                         dma_cmd.attrs["source"] = tens.mem_area
                         dma_cmd.attrs["destination"] = new_tens.mem_area
                         dma_cmd.run_on_npu = True
-                        new_tens.ops = [dma_cmd]
                         if tens.purpose == TensorPurpose.LUT:
                             # TODO: Add support more than one LUT at a time
                             # Reserve last 2 blocks for LUT

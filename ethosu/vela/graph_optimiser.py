@@ -28,6 +28,8 @@ from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .operation import Operation
 from .softmax import SoftMax
+from .tensor import create_const_tensor
+from .tensor import create_reshape_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
@@ -84,7 +86,6 @@ def rewrite_split(tens, arch):
         tens.ops = []
         new_op = Operation("SplitSliceRead", split_op.name)
         new_op.inputs = [inp]
-        new_op.outputs = [tens]
 
         # For Split the offset cannot be extracted from the tensor so it has to
         # be calculated from the index of the output tensor
@@ -102,7 +103,7 @@ def rewrite_split(tens, arch):
         new_op.attrs["split_start"] = offset_start
         new_op.attrs["split_end"] = offset_end
         new_op.run_on_npu = True
-        tens.ops.append(new_op)
+        new_op.set_output_tensor(tens)
 
     return tens
 
@@ -168,14 +169,12 @@ def fixup_conv2d_backprop(op, arch):
 
         if len(op.inputs) < 4:
             # Add bias/scale tensor filled with zeros
-            scale_op = Operation("Const", op.name + "_bias")
             scale_tens = Tensor([weight_sets], DataType.int32, op.name + "_bias_tens")
             scale_tens.values = [0] * weight_sets
             scale_tens.quant_values = [0] * weight_sets
-            scale_tens.ops = [scale_op]
-            scale_op.outputs = [scale_tens]
-            scale_tens.consumer_list = [op]
-            op.inputs.append(scale_tens)
+            scale_op = Operation("Const", op.name + "_bias")
+            scale_op.set_output_tensor(scale_tens)
+            op.add_input_tensor(scale_tens)
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
@@ -199,8 +198,7 @@ def convert_resizebilinear_1x1_to_add(op):
     tens.quantization.zero_point = 0
     tens.consumer_list = [op]
     tens_op = op.inputs[1].ops[0]
-    tens_op.outputs = [tens]
-    tens.ops = [tens_op]
+    tens_op.set_output_tensor(tens)
     # Set the add inputs
     op.inputs[1] = op.inputs[0]
     op.inputs[0] = tens
@@ -233,22 +231,7 @@ def fixup_fully_connected_input(op, arch):
         desired_shape = [batch_size, n_in_elems]
         if inp.shape != desired_shape:
             # mismatch, insert a reshape to fix this.
-            reshape_name = op.name + "_reshape"
-            new_shape_tens = Tensor([1], DataType.int32, reshape_name + "_shape")
-            new_shape_tens.values = np.array(desired_shape)
-            new_shape_tens_const = Operation("Const", new_shape_tens.name + "_const")
-            new_shape_tens.ops = [new_shape_tens_const]
-            new_shape_tens_const.outputs = [new_shape_tens]
-
-            reshape_op = Operation("Reshape", reshape_name)
-            reshape_op.inputs = [inp, new_shape_tens]
-            reshape_op.attrs["new_shape"] = desired_shape
-            reshape_out = inp.clone("_reshaped")
-            reshape_out.set_all_shapes(desired_shape)
-            reshape_out.ops = [reshape_op]
-            reshape_op.outputs = [reshape_out]
-
-            op.inputs[0] = reshape_out
+            op.inputs[0] = create_reshape_tensor(inp, desired_shape)
 
     return op
 
@@ -261,22 +244,16 @@ def fixup_pack_input(op, arch):
         desired_shape = op.inputs[0].shape[:axis] + [1] + op.inputs[0].shape[axis:]
 
         # Construct 1 shape tensor to be used by all inserted reshape ops
-        new_shape_name = op.name + "_reshape_shape"
-        new_shape_tens = Tensor([1], DataType.int32, new_shape_name)
-        new_shape_tens.values = np.array(desired_shape)
-        new_shape_tens_const = Operation("Const", new_shape_tens.name + "_const")
-        new_shape_tens.ops = [new_shape_tens_const]
-        new_shape_tens_const.outputs = [new_shape_tens]
+        new_shape_tens = create_const_tensor(op.name + "_reshape_shape", [1], DataType.int32, desired_shape)
 
         for idx, inp in enumerate(op.inputs):
-            reshape_name = op.name + str(idx) + "_reshape"
-            reshape_op = Operation("Reshape", reshape_name)
-            reshape_op.inputs = [inp, new_shape_tens]
-            reshape_op.attrs["new_shape"] = desired_shape
             reshape_out = inp.clone("_reshaped")
             reshape_out.set_all_shapes(desired_shape)
-            reshape_out.ops = [reshape_op]
-            reshape_op.outputs = [reshape_out]
+
+            reshape_op = Operation("Reshape", "{}{}_reshape".format(op.name, idx))
+            reshape_op.attrs["new_shape"] = desired_shape
+            reshape_op.inputs = [inp, new_shape_tens]
+            reshape_op.set_output_tensor(reshape_out)
 
             op.inputs[idx] = reshape_out
 
@@ -335,22 +312,17 @@ def fixup_unpack_output(tens, arch):
             reshape_input_shape = tens.shape[:axis] + [1] + tens.shape[axis:]
 
         # Construct 1 shape tensor to be used by all inserted reshape ops
-        new_shape_name = op.name + "_reshape_shape"
-        new_shape_tens = Tensor([1], DataType.int32, new_shape_name)
-        new_shape_tens.values = np.array(tens.shape)
-        new_shape_tens_const = Operation("Const", new_shape_tens.name + "_const")
-        new_shape_tens.ops = [new_shape_tens_const]
-        new_shape_tens_const.outputs = [new_shape_tens]
+        new_shape_tens = create_const_tensor(op.name + "_reshape_shape", [1], DataType.int32, tens.shape)
 
         for idx, out_tens in enumerate(op.outputs):
-            reshape_name = op.name + str(idx) + "_reshape"
-            reshape_op = Operation("Reshape", reshape_name)
-            reshape_op.outputs = [out_tens]
             reshape_in = out_tens.clone("_reshaped")
             reshape_in.set_all_shapes(reshape_input_shape)
             reshape_in.ops = [op]
-            out_tens.ops = [reshape_op]
+
+            reshape_op = Operation("Reshape", "{}{}_reshape".format(op.name, idx))
+            reshape_op.attrs["new_shape"] = reshape_input_shape
             reshape_op.inputs = [reshape_in, new_shape_tens]
+            reshape_op.set_output_tensor(out_tens)
 
             op.outputs[idx] = reshape_in
 
@@ -517,17 +489,12 @@ def convert_conv_to_fc(op, arch):
             fc_ofm_tensor.set_all_shapes([1, fc_ofm_tensor.shape[-1]])
             fc_ofm_tensor.ops = [op]
             # Add a reshape after the new OFM to convert it back to the original 4D shape
-            reshape_name = op.name + "_reshape_post"
-            new_shape_tens = Tensor([1], DataType.int32, reshape_name + "_shape")
-            new_shape_tens.values = np.array(orig_ofm_tensor.shape)
-            new_shape_tens_const = Operation("Const", new_shape_tens.name + "_const")
-            new_shape_tens.ops = [new_shape_tens_const]
-            new_shape_tens_const.outputs = [new_shape_tens]
+            reshape_name = op.name + "_reshape"
+            new_shape_tens = create_const_tensor(reshape_name + "_shape", [1], DataType.int32, orig_ofm_tensor.shape)
             reshape_op = Operation("Reshape", reshape_name)
-            reshape_op.inputs = [fc_ofm_tensor, new_shape_tens]
             reshape_op.attrs["new_shape"] = orig_ofm_tensor.shape
-            orig_ofm_tensor.ops = [reshape_op]
-            reshape_op.outputs = [orig_ofm_tensor]
+            reshape_op.inputs = [fc_ofm_tensor, new_shape_tens]
+            reshape_op.set_output_tensor(orig_ofm_tensor)
             # Replace this ops OFM to point to the 2D tensor
             op.outputs[0] = fc_ofm_tensor
     return op
@@ -542,8 +509,7 @@ def fixup_act_reorder(op, arch):
             act_op.inputs = [prep_op.inputs[0]]
             act_op_out = act_op.inputs[0].clone("_acted")
             act_op_out.quantization = op.outputs[0].quantization.clone()
-            act_op_out.ops = [act_op]
-            act_op.outputs = [act_op_out]
+            act_op.set_output_tensor(act_op_out)
             prep_op.inputs[0] = act_op_out
             prep_op.outputs[0].quantization = act_op_out.quantization.clone()
 

@@ -456,8 +456,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_op.attrs["explicit_padding"] = [0, 0, 0, 0]
             avgpool_out = inp.clone("_avgpooled")
             avgpool_out.consumer_list.append(op)
-            avgpool_out.ops = [avgpool_op]
-            avgpool_op.outputs = [avgpool_out]
+            avgpool_op.set_output_tensor(avgpool_out)
 
             op.inputs[0] = avgpool_out
             ops_list.insert(0, avgpool_op)
