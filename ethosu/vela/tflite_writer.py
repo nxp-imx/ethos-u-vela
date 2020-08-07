@@ -414,12 +414,14 @@ class TFLiteSerialiser:
             if tens.mem_type in set((MemType.Scratch, MemType.Scratch_fast)) and tens.address is not None:
                 offsets[idx] = np.int32(tens.address)
 
-        metadata_buffer = np.array([version, subgraph_idx, nbr_tensors] + offsets)
-        self.buffers_to_write.append(metadata_buffer)
+        self.nng.metadata.append(("OfflineMemoryAllocation", np.array([version, subgraph_idx, nbr_tensors] + offsets)))
+
+        metadata_list = []
+        for name, buffer in self.nng.metadata:
+            self.buffers_to_write.append(buffer)
+            metadata_list.append((name, len(self.buffers_to_write) - 1))
 
         buffers_offset = self.write_offset_vector([self.serialise_buffer(buf) for buf in self.buffers_to_write])
-
-        metadata_list = [("OfflineMemoryAllocation", len(self.buffers_to_write) - 1)]
         metadata_offset = self.write_offset_vector([self.serialise_metadata(metadata) for metadata in metadata_list])
 
         Model.ModelStart(builder)

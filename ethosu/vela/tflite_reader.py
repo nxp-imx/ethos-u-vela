@@ -245,6 +245,14 @@ class TFLiteGraph:
             sg.output_tensors = tflite_sg.outputs
             self.nng.subgraphs.append(sg)
 
+        # Preserve the original metadata
+        for idx in range(model.MetadataLength()):
+            meta = model.Metadata(idx)
+            name = meta.Name()
+            if name is not None:
+                buf_data = self.buffers[meta.Buffer()]
+                self.nng.metadata.append((name, buf_data))
+
     def parse_buffer(self, buf_data):
         if buf_data.DataLength() == 0:
             return None

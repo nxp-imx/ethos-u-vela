@@ -502,7 +502,7 @@ class Graph:
         self.name = name
         self.batch_size = batch_size
         self.subgraphs = []
-
+        self.metadata = []
         self.memory_used = {}
         self.bits_per_element = {}
         self.total_size = {}
