@@ -295,9 +295,6 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
     if len(weights.shape) == 2:
         weights = np.expand_dims(np.expand_dims(weights, axis=0), axis=0)
-        weights_shape = (weights.shape[0], 1, 1, weights.shape[1])
-    else:
-        weights_shape = weights.shape
 
     compression_scales = []
     compressed_offsets = []
@@ -312,9 +309,9 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         tens.block_traversal = TensorBlockTraversal.DepthWise
     if npu_block_type == NpuBlockType.ConvolutionMxN:
         # Determine which block traversal strategy has better DPU utilization
-        kernel_size = weights_shape[0] * weights_shape[1]
-        depth_utilization = weights_shape[2] / round_up(weights_shape[2], 32 if ifm_bitdepth == 8 else 16)
-        part_kernel_utilization = (weights_shape[2] / round_up(weights_shape[2], 8)) * (
+        kernel_size = weights.shape[0] * weights.shape[1]
+        depth_utilization = weights.shape[2] / round_up(weights.shape[2], 32 if ifm_bitdepth == 8 else 16)
+        part_kernel_utilization = (weights.shape[2] / round_up(weights.shape[2], 8)) * (
             kernel_size / round_up(kernel_size, 4 if ifm_bitdepth == 8 else 2)
         )
         if part_kernel_utilization >= depth_utilization or ifm_depth <= 8:
@@ -331,7 +328,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         weights = np.flip(weights, axis=(0, 1))
 
     # Calculate brick size
-    brick_size = (weights_shape[0], weights_shape[1], weights_shape[2], min(tens.shape[-1], ofm_depth_step))
+    brick_size = (weights.shape[0], weights.shape[1], weights.shape[2], min(tens.shape[-1], ofm_depth_step))
     elements_in_brick = np.prod(brick_size)
 
     # Slice weight stream up depth-ways into bricks and compress
