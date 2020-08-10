@@ -23,7 +23,6 @@ import numpy as np
 from . import numeric_util
 from .data_type import DataType
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
-from .numeric_util import round_up_divide
 from .operation import Operation
 from .range_set import MemoryRangeSet
 
@@ -638,7 +637,7 @@ class Tensor:
             depth = self.shape[-1]
 
         # Always round up to next boundary
-        index = round_up_divide(depth, brick_depth)
+        index = numeric_util.round_up_divide(depth, brick_depth)
 
         # Check boundaries on all but last weight set (which may be shorter
         # than the brick we divided it up into)
@@ -682,7 +681,7 @@ class Tensor:
                     depth = self.shape[-1]
 
                 # Always round up to next boundary
-                index = round_up_divide(depth, brick_depth)
+                index = numeric_util.round_up_divide(depth, brick_depth)
                 index = index % 2
 
                 if len(self.compressed_values) <= 2:
@@ -733,7 +732,7 @@ class Tensor:
     def get_full_shape(self):
         d = len(self.shape)
         if d in (1, 3):
-            return [1] * (4 - d) + self.shape
+            return numeric_util.full_shape(4, self.shape, 1)
         elif d == 2:
             return [self.shape[0], 1, 1, self.shape[1]]
         else:
