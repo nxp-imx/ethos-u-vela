@@ -640,6 +640,16 @@ class DynamicProgrammingScheduler:
         res = self.filter_pareto_frontier(res, remove_equally_good_candidates=True)
         return res
 
+    def avoid_for_spilling(self, pred_candidate):
+        if self.arch.feature_map_storage_mem_area == self.arch.fast_storage_mem_area:
+            return False
+
+        # For SRAM spilling, concat op is avoided as predecessor
+        for op in pred_candidate.ops:
+            if op.type == "ConcatSliceWrite":
+                return True
+        return False
+
     def search_ifm_streaming_partial(self, ps, block_config):
         if ps.placement != PassPlacement.Npu:
             return ABORT_SEARCH
@@ -664,8 +674,10 @@ class DynamicProgrammingScheduler:
                     # and it only has one successor, namely us
                     if pred_candidate.placement == PassPlacement.Npu:
                         if pred_candidate.npu_block_type in self.ifm_stream_npu_blocks:
-                            # and it is on the Npu and fusable - it's a candidate
-                            pred_pass_list.append(pred_candidate)
+                            # and it is on the Npu
+                            if not self.avoid_for_spilling(pred_candidate):
+                                # and fusable - it's a candidate
+                                pred_pass_list.append(pred_candidate)
 
         if not pred_pass_list:
             return ABORT_SEARCH

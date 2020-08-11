@@ -30,6 +30,7 @@ from . import register_command_stream_generator
 from . import scheduler
 from . import tensor_allocation
 from . import weight_compressor
+from .errors import VelaError
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
 from .rewrite_graph import verify_graph_health
@@ -208,7 +209,11 @@ def compiler_driver(nng, arch, options, scheduler_options):
 
     if root_sg is not None and (arch.feature_map_storage_mem_area != arch.fast_storage_mem_area):
         if root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0) > arch.sram_size:
-            print("Warning: Sram limit has been exceeded, by the scratch fast tensor")
+            raise VelaError(
+                "Sram limit {} bytes, has been exceeded by the scratch fast tensor {} bytes".format(
+                    arch.sram_size, root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0)
+                )
+            )
 
     # Allocate all Cpu constant tensors, this is done last because the Npu-ops
     # have to be serialized into flash and scratch tensors first
