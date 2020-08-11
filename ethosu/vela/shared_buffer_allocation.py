@@ -23,6 +23,7 @@ from .architecture_features import Kernel
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
 from .errors import VelaError
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .operation import NpuBlockType
 
 
@@ -67,9 +68,11 @@ class SharedBufferAllocation:
         else:
             self.use_ifm_element = SHRAMElements.IFM8
 
+        self.ifm_resampling_mode = resampling_mode.NONE
         self.ifm_bits = 0
         self.ifm_depth = 0
         if ifm_tensor:
+            self.ifm_resampling_mode = ifm_tensor.resampling_mode
             self.ifm_bits = ifm_tensor.dtype.size_in_bits()
             if ifm_tensor.shape == [] and is_elementwise:
                 # Elementwise operator with scalar in ifm, use ifm2 depth
@@ -87,7 +90,6 @@ class SharedBufferAllocation:
             else:
                 assert self.ifm_bits == 8, "Unexpected IFM bitdepth"
 
-        self.ifm_resampling_mode = ifm_tensor.resampling_mode
         self.ifm_block_depth = arch.calc_ifm_block_depth(self.ifm_depth, self.ifm_bits)
         self.ofm_tensor = ofm_tensor
 
