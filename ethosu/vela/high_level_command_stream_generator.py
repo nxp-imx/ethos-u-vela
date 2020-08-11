@@ -23,6 +23,7 @@ from .high_level_command_stream import DMA
 from .high_level_command_stream import NpuStripe
 from .nn_graph import PassPlacement
 from .nn_graph import SchedulingStrategy
+from .numeric_util import round_up_divide
 from .operation import NpuBlockType
 from .tensor import TensorPurpose
 
@@ -77,8 +78,10 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
     if ps.primary_op is not None:
         strides = ps.primary_op.attrs.get("strides", None)
         skirt = ps.primary_op.attrs.get("skirt", None)
-        if ps.primary_op.type in set(("Conv2DBackpropInputSwitchedBias", "ResizeBilinear")):
+        if ps.primary_op.type == "Conv2DBackpropInputSwitchedBias":
             upscaling = ofm_tensor.shape[-3] // ifm_tensor.shape[-3]
+        elif ps.primary_op.type == "ResizeBilinear":
+            upscaling = round_up_divide(ofm_tensor.shape[-3], ifm_tensor.shape[-3])
 
     concat_axis = 0
     concat_offset = 0
@@ -235,7 +238,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             ofm_box = Box(ofm_start, ofm_end)
 
             k_height = 1
-            if npu_block_type == set((NpuBlockType.Pooling, NpuBlockType.ReduceSum)):
+            if npu_block_type in (NpuBlockType.Pooling, NpuBlockType.ReduceSum):
                 if ps.primary_op is not None:
                     k_height = ps.primary_op.attrs["ksize"][1]
             else:
