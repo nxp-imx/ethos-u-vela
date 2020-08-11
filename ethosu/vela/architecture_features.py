@@ -268,6 +268,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         }
 
         self.tensor_storage_mem_type = {
+            TensorPurpose.Unknown: MemType.Unknown,
             TensorPurpose.Weights: MemType.Permanent_NPU,
             TensorPurpose.FeatureMap: MemType.Scratch,
             TensorPurpose.LUT: MemType.Scratch,
