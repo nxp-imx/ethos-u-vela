@@ -15,7 +15,6 @@
 # limitations under the License.
 # Description:
 # Defines custom exceptions.
-import inspect
 import sys
 
 from .operation import Operation
@@ -122,20 +121,3 @@ def TensorError(tens, msg):
 
     print("Error: {}".format(data))
     sys.exit(1)
-
-
-def typecheck(func):
-    def wrapper(*args, **kwargs):
-        fsig = inspect.signature(func)
-        args_zipped = zip(kwargs.values(), fsig.parameters.keys())
-        for actual, expected in args_zipped:
-            expected_type = fsig.parameters[expected].annotation
-            actual_type = type(actual)
-            if expected_type is inspect.Parameter.empty:
-                raise TypeError("Please provide type info for {}, hint = {}".format(expected, actual_type))
-            if expected_type is not actual_type:
-                raise TypeError("expected : {}, but got {}".format(expected_type, actual_type))
-        # Actual execution
-        return func(*args, **kwargs)
-
-    return wrapper
