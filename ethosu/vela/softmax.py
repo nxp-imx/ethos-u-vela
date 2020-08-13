@@ -269,30 +269,24 @@ class SoftMax:
 
         # PASS 6 - Sub
         sub6_op = Operation("SubAct", self.op.name + "_sub6")
-        sub6_op.add_input_tensor(headroom_plus_one)
         sub6_op.add_input_tensor(
             create_const_tensor(
                 sub6_op.name + "_const", [1, 1, 1, 1], DataType.int32, [31], np.uint32, quantization=no_scale_quant
             ),
         )
-        # TODO: Adding this attribute to reverse the operand order is not ideal
-        #       it should be handled automatically by register_command_stream_generator
-        #       or added as an internal operator.
-        sub6_op.attrs["reverse_op_order"] = True
+        sub6_op.add_input_tensor(headroom_plus_one)
         reciprocal_right_shift = Tensor(reduce_sum_shape, DataType.int32, sub6_op.name + "_0")
         reciprocal_right_shift.quantization = no_scale_quant
         sub6_op.set_output_tensor(reciprocal_right_shift)
 
         # PASS 7 - SHL
         shl7_op = Operation("SHL", self.op.name + "_shl7")
-        shl7_op.add_input_tensor(reciprocal_right_shift)
         shl7_op.add_input_tensor(
             create_const_tensor(
                 shl7_op.name + "_const", [1, 1, 1, 1], DataType.int32, [1], np.uint32, quantization=no_scale_quant
             ),
         )
-        # TODO: See above
-        shl7_op.attrs["reverse_op_order"] = True
+        shl7_op.add_input_tensor(reciprocal_right_shift)
         constant_one = Tensor(reduce_sum_shape, DataType.int32, shl7_op.name + "0")
         constant_one.quantization = no_scale_quant
         shl7_op.set_output_tensor(constant_one)

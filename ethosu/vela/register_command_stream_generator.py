@@ -483,9 +483,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             shared_buffer = ps.shared_buffer
 
             if npu_block_type == NpuBlockType.ElementWise:
-                ifm2_broadcast = (
-                    IFM2Broadcast.ReverseOperandOrder if primary_op.attrs.get("reverse_op_order", False) else 0
-                )
+                ifm2_broadcast = 0
 
                 if cmd.ifm2_tensor and not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
                     # The scalar has to be the ifm2 tensor so switch the ifms
