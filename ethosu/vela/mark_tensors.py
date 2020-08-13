@@ -284,7 +284,7 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
                     )
 
                 for idx, tens in enumerate(op.inputs):
-                    purpose = input_purpose(op, idx)
+                    purpose = input_purpose(op, idx) if tens.purpose == TensorPurpose.Unknown else tens.purpose
                     mark_tensor_helper(tens, purpose)
 
                 if op.type == "Reshape":

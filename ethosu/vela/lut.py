@@ -18,8 +18,11 @@
 import uuid
 from functools import lru_cache
 
+import numpy as np
+
 from . import numeric_util
 from .high_level_command_stream import CommandType
+from .tensor import create_const_tensor
 from .tensor import TensorPurpose
 
 
@@ -83,6 +86,19 @@ def get_lut_index(arch, lut_tensor):
     slot = (lut_tensor.address - arch.shram_lut_address) // lut_tensor.storage_size()
     assert 0 <= slot < 8
     return slot
+
+
+def create_lut_tensor(name, values, dtype):
+    # Creates constant LUT tensor with the given values as lookup table.
+    # The tensor's equivalence_id is based on these values, so if multiple
+    # LUT tensors are created with identical values, they will get the same
+    # address in constant memory, and unnecessary DMA operations can be avoided.
+    sz = len(values)
+    assert sz in (256, 512)
+    ntype = np.uint8 if dtype.size_in_bytes() == 1 else np.uint32
+    tens = create_const_tensor(name, [1, 1, 1, sz], dtype, values, ntype, TensorPurpose.LUT)
+    tens.equivalence_id = create_equivalence_id(tuple(values))
+    return tens
 
 
 def optimize_high_level_cmd_stream(sg, arch):

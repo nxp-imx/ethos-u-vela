@@ -728,6 +728,9 @@ class Tensor:
             return True
         return False
 
+    def is_scaling_equal(self, tens):
+        return self.quantization.is_scaling_equal(tens.quantization)
+
     def equivalent(self, tens):
         return self.equivalence_id == tens.equivalence_id
 
