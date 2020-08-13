@@ -103,11 +103,8 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
         sg.flash_tensor = make_memory_tensor(
             sg.name + "_flash", flash_area, MemType.Permanent_CPU, flash_size, True, arch
         )
-        # Scratch fast tensor size set to 0. This forces a minimal allocation in the tensor arena
-        # which causes a slot in the basep registers to be reserved, so that the scratch fast tensor
-        # address can be overridden.
         sg.scratch_fast_tensor = make_memory_tensor(
-            sg.name + "_scratch_fast", scratch_fast_area, MemType.Scratch, 0, False, arch
+            sg.name + "_scratch_fast", scratch_fast_area, MemType.Scratch_fast, 0, False, arch
         )
         sg.scratch_fast_tensor.purpose = TensorPurpose.Scratch
     else:

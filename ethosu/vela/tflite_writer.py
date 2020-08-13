@@ -24,7 +24,6 @@ from flatbuffers.builder import UOffsetTFlags
 from .nn_graph import PassPlacement
 from .operation import Op
 from .tensor import MemType
-from .tensor import TensorPurpose
 from .tflite import Buffer
 from .tflite import Metadata
 from .tflite import Model
@@ -234,9 +233,6 @@ class TFLiteSerialiser:
             tens_shape = [tens_shape[idx] for idx in reorder]
             values = values.transpose(reorder)
 
-        if tens.purpose == TensorPurpose.Scratch:
-            tens_shape = [0]
-
         buf_id = self.buffer_map[tens]
         self.buffers_to_write[buf_id] = values.flatten().view(np.uint8)
 
@@ -327,11 +323,6 @@ class TFLiteSerialiser:
 
         scratch_tensors = [tens for tens in all_tensors if tens.name.endswith("scratch")]
 
-        scratch_fast_tensor = None
-        for tens in all_tensors:
-            if tens.name.endswith("scratch_fast"):
-                scratch_fast_tensor = tens
-
         if len(scratch_tensors) == 0:
             scratch_tensor = None
         else:
@@ -346,16 +337,6 @@ class TFLiteSerialiser:
         # Make sure the input_tensors haven't been modified
         assert all(inp in sg.original_inputs for inp in sg.input_tensors)
         inputs = [self.tensor_map[tens] for tens in sg.original_inputs if tens in self.tensor_map]
-
-        # Add the Scratch Tensors as input to the NPU subgraph to get them allocated by TensorFlow Lite Micro
-        scratch_tensor_idx = self.tensor_map.get(scratch_tensor, None)
-        scratch_fast_tensor_idx = self.tensor_map.get(scratch_fast_tensor, None)
-
-        if scratch_tensor_idx is not None and scratch_tensor_idx not in inputs:
-            inputs.append(scratch_tensor_idx)
-
-        if scratch_fast_tensor_idx is not None and scratch_fast_tensor_idx not in inputs:
-            inputs.append(scratch_fast_tensor_idx)
 
         inputs_offset = self.write_int_vector(inputs)
         outputs_offset = self.write_int_vector(
@@ -424,8 +405,8 @@ class TFLiteSerialiser:
         # Ensure that the order of the offsets match the order of the tensors
         for tens, idx in self.tensor_map.items():
             # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
-            if tens.mem_type in set((MemType.Scratch, MemType.Scratch_fast)) and tens.address is not None:
-                offsets[idx] = np.int32(tens.address)
+            if tens.mem_type in set((MemType.Scratch, MemType.Scratch_fast)):
+                offsets[idx] = np.int32(tens.address) if tens.address is not None else np.int32(0)
 
         self.nng.metadata.append(("OfflineMemoryAllocation", np.array([version, subgraph_idx, nbr_tensors] + offsets)))
 
