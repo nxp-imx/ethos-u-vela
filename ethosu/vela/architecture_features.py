@@ -94,7 +94,7 @@ class SHRAMElements:
     IFM16 = 1
     IFM8_Elementwise = 2
     IFM16_Elementwise = 3
-    IFM32_Elementwise = 4
+    IFM32 = 4
     Acc16 = 5
     Acc32 = 6
     Acc40 = 7

@@ -499,6 +499,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         if None in (input_scale, input2_scale, output_scale):
                             opa_scale = opb_scale = ofm_scale = 1
                             opa_shift = shift = 0
+                            ofm_scale, shift = primary_op.attrs.get("rescale", [1, 0])
                         elif input_scale == input2_scale:
                             opa_scale, opb_scale, ofm_scale, shift = scaling.simplified_elementwise_add_sub_scale(
                                 input_scale, input2_scale, output_scale
@@ -835,6 +836,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             elif faf == "LUT":
                 lut_index = int(activation.LUT_START.value) + primary_op.attrs.get("lut_index", -1)
                 assert activation.LUT_START.value <= lut_index <= activation.LUT_END.value, "LUT index out of range."
+                if cmd.ofm_tensor.dtype == DataType.int32:
+                    lut_index |= (3 << 12)  # Force I8 range
                 emit.cmd0_with_param(cmd0.NPU_SET_ACTIVATION, lut_index)
                 faf_min = ofm_quant_qmin
                 faf_max = ofm_quant_qmax
