@@ -507,6 +507,8 @@ def update_pass_weight_and_scale_tensors(nng, arch):
             tens = ps.weight_tensor
             if tens is not None:
                 op = tens.find_npu_op()
+                if op is None:
+                    continue
                 npu_usage_of_tensor = op.attrs["npu_block_type"]
                 needs_dma = tens.needs_dma()
                 if ps.cascade.strategy == SchedulingStrategy.WeightStream and needs_dma:

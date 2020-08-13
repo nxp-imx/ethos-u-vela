@@ -626,7 +626,7 @@ class Tensor:
         for op in self.consumers():
             if op.type == "DMA":
                 return op.outputs[0].find_npu_op()
-            if "npu_block_type" in op.attrs:
+            if op.run_on_npu:
                 return op
             return None
 

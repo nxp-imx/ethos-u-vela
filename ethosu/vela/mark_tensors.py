@@ -371,10 +371,11 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
             src_tens = tens.get_dma_src_tensor()
             if src_tens is not None:
                 op = tens.find_npu_op()
-                npu_block_type = op.attrs["npu_block_type"]
-                weight_compressor.compress_weights(arch, nng, tens, npu_block_type, 16, 16, op.get_dilation_h_w())
-                # Alias compressed weights back into source tensor
-                src_tens.copy_compressed_weight_info(tens)
+                if op is not None:
+                    npu_block_type = op.attrs["npu_block_type"]
+                    weight_compressor.compress_weights(arch, nng, tens, npu_block_type, 16, 16, op.get_dilation_h_w())
+                    # Alias compressed weights back into source tensor
+                    src_tens.copy_compressed_weight_info(tens)
 
     if verbose_tensor_format:
         nng.print_passes_with_tensors()
