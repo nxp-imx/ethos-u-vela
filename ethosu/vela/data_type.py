@@ -35,6 +35,7 @@ class BaseType(enum.Flag):
     String = 128
     Resource = 256
     Variant = 512
+    Complex = 1024
 
 
 class DataType:
@@ -78,6 +79,7 @@ class DataType:
         BaseType.String: ("string", False),
         BaseType.Resource: ("resource", False),
         BaseType.Variant: ("variant", False),
+        BaseType.Complex: ("complex%s", True),
     }
 
 
@@ -112,3 +114,4 @@ DataType.string = DataType(BaseType.String, 64)
 DataType.bool = DataType(BaseType.Bool, 8)
 DataType.resource = DataType(BaseType.Resource, 8)
 DataType.variant = DataType(BaseType.Variant, 8)
+DataType.complex64 = DataType(BaseType.Complex, 64)

@@ -143,7 +143,7 @@ datatype_map = {
     TensorType.FLOAT32: DataType.float32,
     TensorType.STRING: DataType.string,
     TensorType.BOOL: DataType.bool,
-    # no TensorType.COMPLEX64 for now
+    TensorType.COMPLEX64: DataType.complex64,
 }
 
 datatype_inv_map = inverse_map(datatype_map)
@@ -163,6 +163,7 @@ datatype_map_numpy = {
     TensorType.FLOAT16: np.float16,
     TensorType.FLOAT32: np.float32,
     TensorType.BOOL: np.bool,
+    TensorType.COMPLEX64: np.complex64,
 }
 
 
