@@ -300,6 +300,7 @@ class Tensor:
         "npu_tensor",
         "equivalence_id",
         "resampling_mode",
+        "avoid_NHCWB16",
     )
     AllocationQuantum = 16
 
@@ -346,6 +347,8 @@ class Tensor:
         self.block_traversal = TensorBlockTraversal.Default
         self.resampling_mode = resampling_mode.NONE
 
+        self.avoid_NHCWB16 = False
+
     def element_size(self):
         if self.element_size_bytes == 0:
             return self.dtype.size_in_bits() / 8
@@ -380,6 +383,7 @@ class Tensor:
         res.resampling_mode = self.resampling_mode
 
         res.copy_compressed_weight_info(self)
+        res.avoid_NHCWB16 = self.avoid_NHCWB16
         return res
 
     def clone_into_fast_storage(self, arch):

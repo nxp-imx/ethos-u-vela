@@ -670,14 +670,16 @@ class DynamicProgrammingScheduler:
         for pred_candidate in ps.dag_predecessors:
             if len(pred_candidate.outputs) == 1 and pred_candidate.outputs[0] == ifm_tensor:
                 # we found a predecessor that produces this IFM tensor
-                if len(pred_candidate.successors) == 1 and pred_candidate.successors[0] == ps:
-                    # and it only has one successor, namely us
-                    if pred_candidate.placement == PassPlacement.Npu:
-                        if pred_candidate.npu_block_type in self.ifm_stream_npu_blocks:
-                            # and it is on the Npu
-                            if not self.avoid_for_spilling(pred_candidate):
-                                # and fusable - it's a candidate
-                                pred_pass_list.append(pred_candidate)
+                if not ifm_tensor.avoid_NHCWB16:
+                    # and NHCWB16 format is not to be avoided
+                    if len(pred_candidate.successors) == 1 and pred_candidate.successors[0] == ps:
+                        # and it only has one successor, namely us
+                        if pred_candidate.placement == PassPlacement.Npu:
+                            if pred_candidate.npu_block_type in self.ifm_stream_npu_blocks:
+                                # and it is on the Npu
+                                if not self.avoid_for_spilling(pred_candidate):
+                                    # and fusable - it's a candidate
+                                    pred_pass_list.append(pred_candidate)
 
         if not pred_pass_list:
             return ABORT_SEARCH
@@ -953,12 +955,15 @@ class DynamicProgrammingScheduler:
                         if output.purpose != TensorPurpose.FeatureMap:
                             continue
 
-                        use_NHCWB16 = True
-                        for op in output.consumer_list:
-                            if op is None or op.type == "Reshape":
-                                use_NHCWB16 = False
-                            else:
-                                use_NHCWB16 &= op.run_on_npu
+                        use_NHCWB16 = not output.avoid_NHCWB16
+
+                        if use_NHCWB16:
+                            # Check consumers, to see if NHCWB16 can be used in the output
+                            for op in output.consumer_list:
+                                if op is None or op.type == "Reshape":
+                                    use_NHCWB16 = False
+                                else:
+                                    use_NHCWB16 &= op.run_on_npu
 
                         if use_NHCWB16:
                             output.set_format(TensorFormat.NHCWB16, arch)
