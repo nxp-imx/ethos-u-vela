@@ -487,7 +487,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     IFM2Broadcast.ReverseOperandOrder if primary_op.attrs.get("reverse_op_order", False) else 0
                 )
 
-                if not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
+                if cmd.ifm2_tensor and not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
                     # The scalar has to be the ifm2 tensor so switch the ifms
                     cmd.ifm_tensor, cmd.ifm2_tensor = cmd.ifm2_tensor, cmd.ifm_tensor
                     cmd.ifm_box, cmd.ifm2_box = cmd.ifm2_box, cmd.ifm_box
