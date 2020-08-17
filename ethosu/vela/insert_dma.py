@@ -26,6 +26,29 @@ from .tensor import TensorPurpose
 binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
 
 
+def weights_fit_sram(arch, tens):
+    if tens.purpose != TensorPurpose.Weights:
+        return True
+
+    min_weight_size = 0
+    if len(tens.shape) == 4:
+        min_weight_size = tens.shape[0] * tens.shape[1] * tens.shape[2] * arch.OFMSplitDepth
+    elif len(tens.shape) == 2:
+        min_weight_size = tens.shape[0] * arch.OFMSplitDepth
+
+    w_compression = 1  # TODO worst compression ratio currently assumed
+
+    # Need to be fit into Sram, as a double buffer
+    if (w_compression * min_weight_size * 2) > arch.sram_size:
+        print(
+            "Weights, {}, are too big to be DMAed to SRAM, estimated minimum size is {} bytes".format(
+                tens.name, (w_compression * min_weight_size * 2)
+            )
+        )
+        return False
+    return True
+
+
 def insert_dma_cmd(op, arch):
     if op.type == "DMA" or not op.run_on_npu:
         return op
@@ -51,7 +74,9 @@ def insert_dma_cmd(op, arch):
                     # Tensor products has no need for DMA, tensors are only read once and can be in flash.
                     # Other operations re-reads tensors, this is better done from SRAM.
                     # LUTs must be placed in the last 2 blocks of SHRAM.
-                    if not only_vector_product_consumers or tens.purpose == TensorPurpose.LUT:
+                    if (
+                        not only_vector_product_consumers and weights_fit_sram(arch, tens)
+                    ) or tens.purpose == TensorPurpose.LUT:
                         # Insert a DMA command here, as well as a new tensor situated in SRAM of the same size.
                         new_tens = tens.clone_into_fast_storage(arch)
                         dma_cmd = Operation("DMA", tens.ops[0].name + "_dma")
