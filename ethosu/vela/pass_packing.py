@@ -442,10 +442,10 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             for op in reversed(tens.ops):
                 visit_op(op, tens)
 
-    def create_primary_op(ops_list):
-        if any(op.type in (npu_pre_ops | npu_post_ops | npu_post_fuse_limited_ops) for op in ops_list):
+    def create_primary_op(op_list):
+        if any(op.type in (npu_pre_ops | npu_post_ops | npu_post_fuse_limited_ops) and op.run_on_npu for op in op_list):
             # Configure a 1x1 AvgPool and attach the op onto it
-            op = ops_list[0]
+            op = op_list[0]
             inp = op.inputs[0]
             avgpool_name = op.name + "_avgpool"
             avgpool_op = Operation("AvgPool", avgpool_name)
@@ -466,7 +466,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_op.set_output_tensor(avgpool_out)
 
             op.inputs[0] = avgpool_out
-            ops_list.insert(0, avgpool_op)
+            op_list.insert(0, avgpool_op)
 
             return avgpool_op
 
