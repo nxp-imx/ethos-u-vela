@@ -153,7 +153,8 @@ class TFLiteSubgraph:
 
         if op_type.startswith("DepthwiseConv2d") or op_type.startswith("Conv2D"):
             inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 2, 3, 0))
-            inputs[2] = clone_and_reshape_tensor(inputs[2], (0,))
+            if not op.type.endswith("BackpropInput"):
+                inputs[2] = clone_and_reshape_tensor(inputs[2], (0,))
 
         if op_type.startswith("FullyConnected"):
             inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 0))
