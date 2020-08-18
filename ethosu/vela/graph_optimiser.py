@@ -69,11 +69,11 @@ def rewrite_concat(tens, arch):
             tens.ops.append(new_op)
         assert tens.shape[axis] == offset
 
-        # If axis = 3, NHCWB16 can only be used in the output if all the concat_start's are a multiple of 16,
-        # as it is only then the address offset for the ofm, for all operations, will be 16 byte aligned
-        # For other values of axis the address offsets will be 16 byte aligned, as they are all based on c = 0
+        # If axis corresponds to C-dimension, NHCWB16 can only be used in the output if all the concat_start's are a
+        # multiple of 16. This as, it is only then the address offset for the ofm, for all operations, will be 16 byte
+        # aligned. For other values of axis the address offsets will be 16 byte aligned, as they are all based on c = 0
         # and those addresses are always 16 byte aligned due to the NHCWB16 format.
-        if axis == 3:
+        if axis == (len(tens.shape) - 1):
             for op in tens.ops:
                 if op.attrs["concat_start"] % 16 != 0:
                     tens.avoid_NHCWB16 = True
