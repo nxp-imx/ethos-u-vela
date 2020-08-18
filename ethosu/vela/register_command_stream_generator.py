@@ -50,7 +50,6 @@ from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
 from .numeric_util import round_up_to_int
 from .operation import NpuBlockType
-from .shared_buffer_allocation import SharedBufferAllocation
 from .tensor import MemType
 from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
@@ -837,7 +836,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 lut_index = int(activation.LUT_START.value) + primary_op.attrs.get("lut_index", -1)
                 assert activation.LUT_START.value <= lut_index <= activation.LUT_END.value, "LUT index out of range."
                 if cmd.ofm_tensor.dtype == DataType.int32:
-                    lut_index |= (3 << 12)  # Force I8 range
+                    lut_index |= 3 << 12  # Force I8 range
                 emit.cmd0_with_param(cmd0.NPU_SET_ACTIVATION, lut_index)
                 faf_min = ofm_quant_qmin
                 faf_max = ofm_quant_qmax

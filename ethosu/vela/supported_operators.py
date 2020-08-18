@@ -54,19 +54,11 @@ class SupportedOperators:
         self.binary_elem_wise_min_max_ops = set(("Minimum", "Maximum",))
         self.binary_elem_wise_shift_ops = set(("SHL", "SHR",))
         self.binary_elem_wise_add_mul_sub = set(
-            (
-                "AddAct",
-                "MulAct",
-                "SubAct",
-                "QuantizedAdd",
-                "QuantizedSub",
-                "QuantizedMul",
-                "Mul",
-                "Add",
-                "Sub",
-            )
+            ("AddAct", "MulAct", "SubAct", "QuantizedAdd", "QuantizedSub", "QuantizedMul", "Mul", "Add", "Sub",)
         )
-        self.binary_elem_wise_main_ops = self.binary_elem_wise_min_max_ops | self.binary_elem_wise_add_mul_sub | self.binary_elem_wise_shift_ops
+        self.binary_elem_wise_main_ops = (
+            self.binary_elem_wise_min_max_ops | self.binary_elem_wise_add_mul_sub | self.binary_elem_wise_shift_ops
+        )
         self.elem_wise_main_ops = self.binary_elem_wise_main_ops | self.unary_elem_wise_main_ops
         self.activation_ops = set(
             (
@@ -166,7 +158,10 @@ class SupportedOperators:
                 return False
             if (
                 t.element_size() > 2
-                and op.type not in set(("Requantize", "ReduceSum", "CLZ",)) | self.binary_elem_wise_add_mul_sub | self.binary_elem_wise_shift_ops
+                and op.type
+                not in set(("Requantize", "ReduceSum", "CLZ",))
+                | self.binary_elem_wise_add_mul_sub
+                | self.binary_elem_wise_shift_ops
             ):
                 return False
             # check size
