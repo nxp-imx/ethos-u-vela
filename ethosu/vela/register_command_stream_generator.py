@@ -650,17 +650,17 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         # For valid padding vela has to output scaling values
                         if faf == "Sigmoid" or faf == "Tanh":
                             rescale = 0x3000 * cmd.ifm_tensor.quantization.scale_f32
-
                             if cmd.ifm_tensor.dtype == DataType.int16:
-                                multiplier = max(1, int(4096 * cmd.ifm_tensor.quantization.scale_f32 + 0.5))
-                                rescale *= 3 * multiplier
-
-                            rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
-                            scale, shift = scaling.quantise_pooling_scale(k_height * k_width, rescale_bits)
-
-                            if cmd.ifm_tensor.dtype == DataType.int16:
-                                scale = (1 << shift) * 3 * multiplier
+                                # Calculate scale and shift for the output scale of 1/(3*4096)
+                                shift = 0
+                                max_rescale = np.iinfo(np.int16).max / 2
+                                while rescale <= max_rescale and shift <= 30:
+                                    shift += 1
+                                    rescale *= 2
+                                scale = int(rescale)
                             else:
+                                rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
+                                scale, shift = scaling.quantise_pooling_scale(k_height * k_width, rescale_bits)
                                 scale = int(round_away_zero(scale * rescale))
                         elif fused_quantize:
                             # Quantize op requires different scaling
