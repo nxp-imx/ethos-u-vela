@@ -108,6 +108,10 @@ def rewrite_split(tens, arch):
                     break
                 offset_start[axis] += out.shape[axis]
 
+                # If start offset is not a multiple of 16 in the C-dimension, NHCWB16 need to be avoided in the input
+                if (offset_start[-1] % 16) != 0:
+                    inp.avoid_NHCWB16 = True
+
             offset_end[axis] = offset_start[axis] + tens.shape[axis]
 
         new_op.attrs["split_start"] = offset_start
