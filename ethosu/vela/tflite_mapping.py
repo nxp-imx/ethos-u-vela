@@ -648,6 +648,7 @@ builtin_operator_map = {
     BuiltinOperator.MATRIX_DIAG: ("MatrixDiag", OptionsSerializer("MatrixDiagOptions")),
     BuiltinOperator.QUANTIZE: ("Quantize", OptionsSerializer("QuantizeOptions")),
     BuiltinOperator.MATRIX_SET_DIAG: ("MatrixSetDiag", OptionsSerializer("MatrixSetDiagOptions")),
+    BuiltinOperator.ROUND: ("Round", None),
     BuiltinOperator.HARD_SWISH: ("HardSwish", OptionsSerializer("HardSwishOptions")),
     BuiltinOperator.IF: ("If", OptionsSerializer("IfOptions", ("then_subgraph_index", "else_subgraph_index"))),
     BuiltinOperator.WHILE: ("While", OptionsSerializer("WhileOptions", ("cond_subgraph_index", "body_subgraph_index"))),
