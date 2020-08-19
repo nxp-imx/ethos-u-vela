@@ -183,10 +183,10 @@ def main(args=None):
         "--permanent-storage",
         default=MemArea.OffChipFlash,
         type=lambda s: MemArea[s],
-        choices=list(MemArea)[3:-1],
+        choices=list(MemArea)[3:5],
         help=(
-            "Memory area for permanent storage. To store the weights and other constant data in SRAM select "
-            "'OnChipFlash' (default: %(default)s)"
+            "Memory area for permanent storage, only valid for Ethos-U55. "
+            "To store the weights and other constant data in SRAM, select 'OnChipFlash'. (default: %(default)s)"
         ),
     )
     parser.add_argument(
