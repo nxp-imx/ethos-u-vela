@@ -259,8 +259,10 @@ class TFLiteSerialiser:
     def serialise_operator(self, op):
         builder = self.builder
 
-        inputs_offset = self.write_int_vector([self.tensor_map[tens] for tens in op.inputs])
-        outputs_offset = self.write_int_vector([self.tensor_map[tens] for tens in op.outputs])
+        inputs_offset = self.write_int_vector([self.tensor_map[tens] for tens in op.inputs if tens in self.tensor_map])
+        outputs_offset = self.write_int_vector(
+            [self.tensor_map[tens] for tens in op.outputs if tens in self.tensor_map]
+        )
 
         op_idx, tflop, opt_serializer = self.operator_code_map[op.type]
 
@@ -334,7 +336,7 @@ class TFLiteSerialiser:
 
         # Make sure the input_tensors haven't been modified
         assert all(inp in sg.original_inputs for inp in sg.input_tensors)
-        inputs = [self.tensor_map[tens] for tens in sg.original_inputs]
+        inputs = [self.tensor_map[tens] for tens in sg.original_inputs if tens in self.tensor_map]
 
         # Add the Scratch Tensors as input to the NPU subgraph to get them allocated by TensorFlow Lite Micro
         scratch_tensor_idx = self.tensor_map.get(scratch_tensor, None)
@@ -347,7 +349,9 @@ class TFLiteSerialiser:
             inputs.append(scratch_fast_tensor_idx)
 
         inputs_offset = self.write_int_vector(inputs)
-        outputs_offset = self.write_int_vector([self.tensor_map[tens] for tens in sg.output_tensors])
+        outputs_offset = self.write_int_vector(
+            [self.tensor_map[tens] for tens in sg.output_tensors if tens in self.tensor_map]
+        )
 
         operators_offset = self.write_offset_vector([self.serialise_operator(op) for op in all_ops])
 
