@@ -201,8 +201,11 @@ class SupportedOperators:
             return False
 
         # check data type
-        ifm_tensor, _, weight_tensor, _ = op.get_ifm_ifm2_weights_ofm()
+        ifm_tensor, _, weight_tensor, bias_tensor, _ = op.get_ifm_ifm2_weights_biases_ofm()
         if weight_tensor.element_size() > 1:
+            return False
+
+        if not self.check_bias_restrictions(bias_tensor):
             return False
 
         # check kernel size [HWIO]
@@ -307,8 +310,11 @@ class SupportedOperators:
 
     def check_vector_product_restrictions(self, op):
         # check data type
-        ifm_tensor, _, weight_tensor, _ = op.get_ifm_ifm2_weights_ofm()
+        _, _, weight_tensor, bias_tensor, _ = op.get_ifm_ifm2_weights_biases_ofm()
         if weight_tensor.element_size() > 1:
+            return False
+
+        if not self.check_bias_restrictions(bias_tensor):
             return False
 
         return True
@@ -405,5 +411,18 @@ class SupportedOperators:
             # check batch size
             if len(ifm_tensor.shape) in (2, 4) and ifm_tensor.shape[0] != 1:
                 return False
+
+        return True
+
+    def check_bias_restrictions(self, bias_tensor):
+        # check data type
+        if bias_tensor.dtype not in (DataType.int32, DataType.int64):
+            return False
+
+        # check if values fits in 40-bit
+        if bias_tensor.dtype == DataType.int64:
+            for value in bias_tensor.values:
+                if not (-(1 << 39) <= value < (1 << 39)):
+                    return False
 
         return True
