@@ -461,6 +461,12 @@ class Tensor:
         if sub_purpose == TensorSubPurpose.DoubleBuffer:
             raw_size = elems * self.element_size() * self.compression_scale_for_worst_weight_stream
         else:
+            # Rolling buffers are used for intermediate data in ifm streaming
+            # These will all use the NHCWB16 format, and need to be aligned to 16 in the C-dimension
+            if alt_shape[-1] % 16 != 0:
+                nhcwb16_shape = alt_shape[0:-1] + [numeric_util.round_up(alt_shape[-1], 16)]
+                elems = shape_num_elements(nhcwb16_shape)
+
             raw_size = elems * self.element_size() * self.storage_compression_scale
         rounded_size = numeric_util.round_up(numeric_util.round_up_to_int(raw_size), self.alignment)
         return rounded_size
