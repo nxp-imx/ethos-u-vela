@@ -19,7 +19,7 @@
 from ctypes import *
 from enum import Enum
 
-ARCH_VER = '1.0.1'
+ARCH_VER = '1.0.6'
 
 
 class BASE(Enum):
@@ -71,7 +71,8 @@ class DEBUG(Enum):
     DEBUG_ADDRESS = 0x0144
     DEBUG_MISC = 0x0148
     DEBUGCORE = 0x014C
-    SIZE = 0x0150
+    DEBUG_BLOCK = 0x0150
+    SIZE = 0x0154
 
 class ID(Enum):
     REVISION = 0x0FC0
@@ -527,6 +528,8 @@ class TSU_DEBUG(Enum):
     CURRENT_QREAD = 0x027C
     DMA_SCALE_SRC = 0x0280
     DMA_SCALE_SRC_HI = 0x0284
+    CURRENT_BLOCK = 0x02B4
+    CURRENT_OP = 0x02B8
     CURRENT_CMD = 0x02BC
     SIZE = 0x02C0
 
@@ -543,6 +546,24 @@ class activation(Enum):
     SIGMOID = 4
     LUT_START = 16
     LUT_END = 23
+
+class axi_mem_encoding_type(Enum):
+    DEVICE_NON_BUFFERABLE = 0x0
+    DEVICE_BUFFERABLE = 0x1
+    NORMAL_NON_CACHEABLE_NON_BUFFERABLE = 0x2
+    NORMAL_NON_CACHEABLE_BUFFERABLE = 0x3
+    WRITE_THROUGH_NO_ALLOCATE = 0x4
+    WRITE_THROUGH_READ_ALLOCATE = 0x5
+    WRITE_THROUGH_WRITE_ALLOCATE = 0x6
+    WRITE_THROUGH_READ_AND_WRITE_ALLOCATE = 0x7
+    WRITE_BACK_NO_ALLOCATE = 0x8
+    WRITE_BACK_READ_ALLOCATE = 0x9
+    WRITE_BACK_WRITE_ALLOCATE = 0xA
+    WRITE_BACK_READ_AND_WRITE_ALLOCATE = 0xB
+    RESERVED_12 = 0xC
+    RESERVED_13 = 0xD
+    RESERVED_14 = 0xE
+    RESERVED_15 = 0xF
 
 class clip_range(Enum):
     OFM_PRECISION = 0
@@ -770,6 +791,9 @@ class pmu_event_type(Enum):
     AXI_LATENCY_256 = 0xa4
     AXI_LATENCY_512 = 0xa5
     AXI_LATENCY_1024 = 0xa6
+    ECC_DMA = 0xb0
+    ECC_SB0 = 0xb1
+    ECC_SB1 = 0x1b1
 
 class pooling_mode(Enum):
     MAX = 0
@@ -795,6 +819,7 @@ class security_level(Enum):
     NON_SECURE = 1
 
 class shram_size(Enum):
+    SHRAM_96KB = 0x60
     SHRAM_48KB = 0x30
     SHRAM_24KB = 0x18
     SHRAM_16KB = 0x10
@@ -849,7 +874,8 @@ class status_r(Union):
             ("cmd_end_reached", c_uint32, 1),
             ("pmu_irq_raised", c_uint32, 1),
             ("wd_fault", c_uint32, 1),
-            ("reserved0", c_uint32, 3),
+            ("ecc_fault", c_uint32, 1),
+            ("reserved0", c_uint32, 2),
             ("faulting_interface", c_uint32, 1),
             ("faulting_channel", c_uint32, 4),
             ("irq_history_mask", c_uint32, 16),
@@ -872,6 +898,8 @@ class status_r(Union):
     def get_pmu_irq_raised(self): value = self.bits.pmu_irq_raised; return value
     def set_wd_fault(self, value): self.bits.wd_fault = value
     def get_wd_fault(self): value = self.bits.wd_fault; return value
+    def set_ecc_fault(self, value): self.bits.ecc_fault = value
+    def get_ecc_fault(self): value = self.bits.ecc_fault; return value
     def set_faulting_interface(self, value): self.bits.faulting_interface = value
     def get_faulting_interface(self): value = self.bits.faulting_interface; return value
     def set_faulting_channel(self, value): self.bits.faulting_channel = value
