@@ -33,7 +33,7 @@ def quantise_scale(scale):
     exponent_q31 = exponent - 31
     shift = exponent_q31 * -1
 
-    if shift >= (1 << 6):
+    if not (0 <= shift < (1 << 6)):
         # Shift outside of valid range, set scale to 0
         return 0, 16
 
