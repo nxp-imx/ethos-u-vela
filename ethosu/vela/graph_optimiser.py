@@ -178,17 +178,6 @@ def fixup_conv2d_backprop(op, arch):
         # flip the inputs
         op.inputs[0], op.inputs[2] = op.inputs[2], op.inputs[0]
         op.type = "Conv2DBackpropInputSwitchedBias"
-        weight_shape = op.inputs[1].shape
-        weight_sets = weight_shape[3]
-
-        if len(op.inputs) < 4:
-            # Add bias/scale tensor filled with zeros
-            scale_tens = Tensor([weight_sets], DataType.int32, op.name + "_bias_tens")
-            scale_tens.values = [0] * weight_sets
-            scale_tens.quant_values = [0] * weight_sets
-            scale_op = Operation("Const", op.name + "_bias")
-            scale_op.set_output_tensor(scale_tens)
-            op.add_input_tensor(scale_tens)
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
@@ -649,6 +638,18 @@ def add_attrs_to_resizebilinear(op, arch):
     return op
 
 
+def add_bias_tensor(op, arch):
+    if ("Conv2d" in op.type or op.type.startswith("FullyConnected")) and not op.inputs[-1]:
+        # Add bias/scale tensor filled with zeros
+        weight_shape = op.inputs[1].shape
+        weight_sets = weight_shape[-1]
+        bias_values = [0] * weight_sets
+        scale_tens = create_const_tensor(op.name + "_bias", [weight_sets], DataType.int32, bias_values)
+        op.set_input_tensor(scale_tens, -1)
+
+    return op
+
+
 def supported_operator_check(op, arch):
     op.run_on_npu = arch.supported_operators.is_operator_supported(op)
     return op
@@ -677,6 +678,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         fixup_elementwise_with_scalars,
         reorder_depthwise_weights,
         fixup_resizebilinear,
+        add_bias_tensor,
         # convert_mul_max_to_abs_or_lrelu # TODO: enable optimisation once quantisation issues are resolved
     ]
 

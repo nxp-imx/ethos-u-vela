@@ -131,22 +131,32 @@ class SupportedOperators:
     def check_generic_restrictions(self, op):
         # check fully defined shapes
         for t in op.inputs:
+            if not t:
+                continue
             if not t.has_fully_defined_shape():
                 print("Warning:", op.type, "has input(s) of undefined shape, placing on CPU")
                 return False
             if t.shape == [] and op.type not in self.binary_elem_wise_main_ops:
-                print("Warning:", op.type, "has input(s) of shape [].",
-                      "Scalar input or broadcasting is not supported for this operator,",
-                      "placing on CPU")
+                print(
+                    "Warning:",
+                    op.type,
+                    "has input(s) of shape [].",
+                    "Scalar input or broadcasting is not supported for this operator,",
+                    "placing on CPU",
+                )
                 return False
         for t in op.outputs:
             if not t.has_fully_defined_shape():
                 print("Warning:", op.type, "has output(s) of undefined shape, placing on CPU")
                 return False
             if t.shape == []:
-                print("Warning:", op.type, "has output(s) of shape [].",
-                      "Scalar input or broadcasting is not supported for this operator,",
-                      "placing on CPU")
+                print(
+                    "Warning:",
+                    op.type,
+                    "has output(s) of shape [].",
+                    "Scalar input or broadcasting is not supported for this operator,",
+                    "placing on CPU",
+                )
                 return False
 
         # check data type

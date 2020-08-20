@@ -69,10 +69,11 @@ def rewrite_graph_pre_order(sg, arch, tensor_rewrite_list, op_rewrite_list, rewr
         tens_visit_dict[tens] = res
         tens_visit_dict[res] = res
 
-        ops = res.ops
-        res.ops = []
-        for op in ops:
-            res.ops.append(visit_op(op))
+        if res:
+            ops = res.ops
+            res.ops = []
+            for op in ops:
+                res.ops.append(visit_op(op))
         return res
 
     sg.output_tensors = [visit_tens(tens) for tens in sg.output_tensors]
@@ -142,6 +143,8 @@ def verify_subgraph_health(sg):
         op_visit_dict[op] = op
 
         for tens in op.inputs:
+            if not tens:
+                continue
             assert op in tens.consumers()
             visit_tens(tens)
 

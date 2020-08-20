@@ -167,6 +167,8 @@ class Subgraph:
 
             visit_op_set.add(op)
             for inp in op.inputs:
+                if not inp:
+                    continue
                 if print_visit:
                     print(inp, "adding consumer", op)
                 visit_tensor(inp)
@@ -190,6 +192,8 @@ class Subgraph:
 
         for ps in self.passes:
             for tens in ps.outputs + ps.inputs:
+                if not tens:
+                    continue
                 tens.consumer_list = []  # reset unvisited tensors to start with
 
         for tens in self.output_tensors:

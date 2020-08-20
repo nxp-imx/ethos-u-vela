@@ -312,6 +312,15 @@ input and output tensors, as well as an attribute dictionary."""
         if self not in tens.consumer_list:
             tens.consumer_list.append(self)
 
+    def set_input_tensor(self, tens, idx):
+        tens_to_remove = self.inputs[idx]
+        if tens_to_remove in tens.consumer_list:
+            tens.consumer_list.remove(tens_to_remove)
+
+        self.inputs[idx] = tens
+        if self not in tens.consumer_list:
+            tens.consumer_list.append(self)
+
     def set_output_tensor(self, tens):
         tens.ops = [self]
         self.outputs = [tens]
