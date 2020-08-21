@@ -243,6 +243,10 @@ class NpuStripe(Command):
                     MemoryRangeSet(tens.mem_area, tens.address, tens.address + tens.storage_size()),
                     AccessDirection.Read,
                 )
+        # Add write access to SHRAM, needed when LUTs can overwrite accumulator banks
+        res.add(
+            self.ps.shared_buffer.get_shram_memory_access_range(), AccessDirection.Write,
+        )
         return res
 
     def is_npu_pass_command(self):

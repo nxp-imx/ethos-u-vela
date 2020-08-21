@@ -25,6 +25,8 @@ from .architecture_features import SHRAMElements
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .operation import NpuBlockType
+from .range_set import MemoryRangeSet
+from .tensor import MemArea
 
 
 class SharedBufferAllocation:
@@ -40,6 +42,7 @@ class SharedBufferAllocation:
         dilation = (1, 1, 1, 1)
         self.kernel = Kernel(1, 1)
         is_elementwise = ps.npu_block_type == NpuBlockType.ElementWise
+        self.uses_lut = False
 
         if ps.primary_op:
             strides = ps.primary_op.attrs.get("strides", strides)
@@ -55,6 +58,7 @@ class SharedBufferAllocation:
                 k_w = ps.primary_op.attrs.get("filter_width", 1)
 
             self.kernel = Kernel(k_w, k_h, strides[2], strides[1], dilation[2], dilation[1])
+            self.uses_lut = ps.primary_op.activation_lut is not None
 
         self.is_equal_depth_op = is_elementwise or ps.npu_block_type in (
             NpuBlockType.ConvolutionDepthWise,
@@ -102,7 +106,7 @@ class SharedBufferAllocation:
 
         # Accumulator area is measured from the end of the buffer
         self.bank_locations[SharedBufferArea.Accumulators] = (
-            self.arch.shram_total_banks - self.banks_required[SharedBufferArea.Accumulators]
+            self.arch.available_shram_banks(self.uses_lut) - self.banks_required[SharedBufferArea.Accumulators]
         )
         ifm_end = self.bank_locations[SharedBufferArea.IFM] + self.banks_required[SharedBufferArea.IFM]
         return ifm_end <= self.bank_locations[SharedBufferArea.Accumulators]
@@ -155,6 +159,13 @@ class SharedBufferAllocation:
             return False
 
         return True
+
+    def get_shram_memory_access_range(self):
+        # Returns the SHRAM memory access range used by this shared buffer,
+        # excluding access to LUT
+        return MemoryRangeSet(
+            MemArea.Shram, 0, self.arch.available_shram_banks(self.uses_lut) * self.arch.shram_bank_size
+        )
 
 
 def shared_buffer_allocation_for_pass_and_block_config(arch, ps, block_config):
