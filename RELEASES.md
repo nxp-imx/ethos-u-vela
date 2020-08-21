@@ -9,9 +9,9 @@ fixed.  The version numbering adheres to the
 
 **Main feature changes:**
 
-* New Ethos-U operator support: SOFTMAX and QUANTIZE (requantise only)
-* Improved Ethos-U operator support: RESIZE_BILINEAR and LEAKY_RELU
-* Improved pass-through of operators not supported by Ethos-U
+* New Ethos-U NPU operator support: SOFTMAX and QUANTIZE (requantise only)
+* Improved Ethos-U NPU operator support: RESIZE_BILINEAR and LEAKY_RELU
+* Improved pass-through of operators not supported by Ethos-U NPU
 * Preserve TensorFlow Lite (.tflite) file metadata
 * Improved network performance
 * Performance estimation statistics improved

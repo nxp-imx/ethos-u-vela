@@ -4,17 +4,20 @@ This tool is used to compile a
 [TensorFlow Lite for Microcontrollers](https://www.tensorflow.org/lite/microcontrollers)
 neural network model into an optimised version that can run on an embedded
 system containing an
-[Ethos-U55 NPU](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u55).
+[Arm Ethos-U NPU](https://www.arm.com/products/silicon-ip-cpu).
+
+In order to be accelerated by the Ethos-U NPU the network operators must be
+quantised to either 8-bit (unsigned or signed) or 16-bit (signed).
 
 The optimised model will contain TensorFlow Lite Custom operators for those
-parts of the model that can be accelerated by the Ethos-U55.  Parts of the model
-that cannot be accelerated are left unchanged and will instead run on the
+parts of the model that can be accelerated by the Ethos-U NPU.  Parts of the
+model that cannot be accelerated are left unchanged and will instead run on the
 Cortex-M series CPU using an appropriate kernel (such as the
 [Arm](https://www.arm.com) optimised
 [CMSIS-NN](https://github.com/ARM-software/CMSIS_5/tree/develop/CMSIS/NN)
 kernels).
 
-After compilation the optimised model can only be run on an Ethos-U55 NPU
+After compilation the optimised model can only be run on an Ethos-U NPU
 embedded system.
 
 The tool will also generate performance estimates (EXPERIMENTAL) for the
@@ -101,7 +104,7 @@ pipenv install -e .
 
 If you plan to contribute to the Vela project (highly encouraged!) then it is
 recommended to install Vela along with the pre-commit tools (see
-[Vela Testing](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/TESTING.md)
+[Vela Testing](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.2.0/TESTING.md)
 for more details).
 
 ## Running
@@ -112,7 +115,7 @@ version with a `_vela.tflite` file prefix, along with the performance estimate
 (EXPERIMENTAL) CSV files, all to the output directory.
 
 If you use the `pipenv` virtual environment tool then first start by spawning a
-shell in the virtual environment.:
+shell in the virtual environment:
 
 ```bash
 pipenv shell
@@ -154,36 +157,42 @@ vela --help
 
 Information about all of Vela's CLI options as well as the system configuration
 file format can be found in
-[Vela Options](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/OPTIONS.md).
+[Vela Options](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.2.0/OPTIONS.md).
+
+## Example Networks
+
+Some example networks that contain quantised operators which can be compiled by
+Vela to run on the Ethos-U NPU can be found at:
+<https://tfhub.dev/s?deployment-format=lite&q=quantized>
 
 ## Testing
 
 Please see
-[Vela Testing](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/TESTING.md)
+[Vela Testing](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.2.0/TESTING.md).
 
 ## Contributions
 
 Please see
-[Vela Contributions](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/CONTRIBUTIONS.md).
+[Vela Contributions](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.2.0/CONTRIBUTIONS.md).
 
 ## Security
 
 Please see
-[Vela Security](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/SECURITY.md).
+[Vela Security](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.2.0/SECURITY.md).
 
 ## Releases
 
 Please see
-[Vela Releases](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.1.0/RELEASES.md).
+[Vela Releases](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/1.2.0/RELEASES.md).
 
 ## Resources
 
 Additional useful information:
 
-* [Arm Products: Ethos-U55](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u55)
-* [Arm Developer: Ethos-U55](https://developer.arm.com/ip-products/processors/machine-learning/ethos-u55)
+* [Arm Products: Ethos-U55 NPU](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u55)
+* [Arm Developer: Ethos-U55 NPU](https://developer.arm.com/ip-products/processors/machine-learning/ethos-u55)
 
 ## License
 
 Vela is licensed under
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
