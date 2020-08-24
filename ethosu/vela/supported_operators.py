@@ -90,6 +90,7 @@ class SupportedOperators:
         self.memory_only_ops = (
             set(("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims",)) | self.concat_ops | self.split_ops
         )
+        self.shapeless_input_ops = self.binary_elem_wise_main_ops | set(("Split", "SplitV",))
         self.supported_fused_activations = set(("Relu", "Relu6", "ReluN1To1", "Tanh", "Sigmoid", "LUT",))
         self.supported_operators = (
             self.npu_pre_ops | self.mac_main_ops | self.elem_wise_main_ops | self.npu_post_ops | self.memory_only_ops
@@ -138,7 +139,7 @@ class SupportedOperators:
             if not t.has_fully_defined_shape():
                 print("Warning:", op.type, "has input(s) of undefined shape, placing on CPU")
                 return False
-            if t.shape == [] and op.type not in self.binary_elem_wise_main_ops:
+            if t.shape == [] and op.type not in self.shapeless_input_ops:
                 print(
                     "Warning:",
                     op.type,
