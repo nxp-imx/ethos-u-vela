@@ -156,8 +156,8 @@ def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dim
         ypad = needed_total_padding(int(input_dims[1]) * upscaling_factor, int(stride[1]), int(kernel_height))
         xpad = needed_total_padding(int(input_dims[2]) * upscaling_factor, int(stride[2]), int(kernel_width))
 
-        right_pad = ((xpad + 1) // upscaling_factor) - 1
-        bottom_pad = ((ypad + 1) // upscaling_factor) - 1
+        right_pad = max(((xpad + 1) // upscaling_factor) - 1, 0)
+        bottom_pad = max(((ypad + 1) // upscaling_factor) - 1, 0)
         left_pad = max(kernel_width - 1 - right_pad, 0)
         top_pad = max(kernel_height - 1 - bottom_pad, 0)
 
@@ -845,7 +845,7 @@ def add_attrs_to_resizebilinear(op, arch):
 
 
 def add_bias_tensor(op, arch):
-    if ("Conv2d" in op.type or op.type.startswith("FullyConnected")) and not op.inputs[-1]:
+    if ("conv2d" in op.type.lower() or op.type.startswith("FullyConnected")) and not op.inputs[-1]:
         # Add bias/scale tensor filled with zeros
         weight_shape = op.inputs[1].shape
         weight_sets = weight_shape[-1]
