@@ -533,7 +533,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     use_global_scale = True
 
                     if primary_op.type == "LeakyRelu":
-                        output_scale *= primary_op.attrs["alpha"]
+                        output_scale = primary_op.attrs["alpha"]
 
                     ofm_scale, shift = scaling.quantise_scale(output_scale)
                     emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)

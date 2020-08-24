@@ -734,8 +734,9 @@ def convert_lrelu_to_mul_max(op, arch):
 
 
 def convert_lrelu_to_lut(op, arch):
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
     # Rewrite LeakyRelu by Add with scalar 0 + LUT activation
+    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    assert ifm.dtype.size_in_bytes() == 1
     op.type = "AddAct"
     op.name = op.name + "_add"
     op.attrs.update({"npu_block_type": NpuBlockType.ElementWise})
@@ -750,26 +751,9 @@ def convert_lrelu_to_lut(op, arch):
     alpha = op.attrs["alpha"]
     zp = ofm.quantization.zero_point
     # Generate the LUT
-    if ifm.dtype.size_in_bytes() == 1:
-        dtype = DataType.int8
-        ix = range(256) if ifm.dtype == DataType.uint8 else range(-128, 128)
-        values = [int(x) if x >= zp else int(round(zp - alpha * (zp - x))) for x in ix]
-    else:
-        # int16
-        dtype = DataType.int32
-        values = []
-        for ix in range(512):
-            x = (ix - 256) * 128
-            if x >= zp:
-                base = x
-                slope = 128
-            else:
-                base = int(round(zp - alpha * (zp - x)))
-                next_base = int(round(zp - alpha * (zp - (x + 127))))
-                slope = int(round(128 * (next_base - base) / 127))
-            value = ((slope << 16) & 0xFFFF0000) + (base & 0xFFFF)
-            values.append(value)
-    lut_tensor = lut.create_lut_tensor(op.name + "_lut", values, dtype)
+    ix = range(256) if ifm.dtype == DataType.uint8 else range(-128, 128)
+    values = [int(x) if x >= zp else int(round(zp - alpha * (zp - x))) for x in ix]
+    lut_tensor = lut.create_lut_tensor(op.name + "_lut", values, DataType.int8)
     op.set_activation_lut(lut_tensor)
     return op
 
@@ -779,9 +763,13 @@ def convert_lrelu(op, arch):
     if op.type != "LeakyRelu":
         return op
     ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
-    use_lut = (ifm.is_scaling_equal(ofm)) and (ifm.dtype == ofm.dtype) and ifm.dtype in (DataType.uint8, DataType.int8)
-    if use_lut:
-        return convert_lrelu_to_lut(op, arch)
+    if ifm.is_scaling_equal(ofm) and ifm.dtype == ofm.dtype:
+        if ifm.dtype in (DataType.uint8, DataType.int8):
+            # use LUT
+            return convert_lrelu_to_lut(op, arch)
+        elif ifm.dtype == DataType.int16:
+            # use LeakyRelu unmodified
+            return op
     return convert_lrelu_to_mul_max(op, arch)
 
 
