@@ -439,20 +439,25 @@ class Tensor:
     def has_fully_defined_shape(self):
         return shape_fully_defined(self.shape)
 
-    def storage_size(self):
-        raw_size = self.storage_elements() * self.element_size()
+    def storage_size(self, scale=1.0):
+        raw_size = self.storage_elements() * self.element_size() * scale
         if raw_size == 0:
             raw_size = 1  # force it to take up space
         rounded_size = numeric_util.round_up(numeric_util.round_up_to_int(raw_size), self.alignment)
         return rounded_size
 
-    def storage_size_for_sub_purpose(self, sub_purpose, param_a=None, param_b=None):
+    def storage_size_for_sub_purpose(self, arch, sub_purpose, param_a=None, param_b=None):
         alt_shape = self.storage_shape_for_sub_purpose(sub_purpose, param_a, param_b)
         elems = shape_num_elements(alt_shape)
         if elems is None:
             return 0
         if sub_purpose == TensorSubPurpose.DoubleBuffer:
-            raw_size = elems * self.element_size() * self.compression_scale_for_worst_weight_stream
+            raw_size = (
+                elems
+                * self.element_size()
+                * self.compression_scale_for_worst_weight_stream
+                * arch.weight_estimation_scaling
+            )
         else:
             # Rolling buffers are used for intermediate data in ifm streaming
             # These will all use the NHCWB16 format, and need to be aligned to 16 in the C-dimension

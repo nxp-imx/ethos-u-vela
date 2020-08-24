@@ -38,6 +38,7 @@ def create_arch():
         global_memory_clock_scale=1.0,
         max_blockdep=0,
         softmax_support=True,
+        weight_estimation_scaling=1.0,
     )
 
 

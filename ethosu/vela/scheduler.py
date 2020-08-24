@@ -608,7 +608,10 @@ class DynamicProgrammingScheduler:
         base_sram_used = 0
         for tens in ps.intermediates:
             if tens.mem_area == self.mem_area:
-                base_sram_used += tens.storage_size()
+                if tens.purpose == TensorPurpose.Weights:
+                    base_sram_used = tens.storage_size(self.arch.weight_estimation_scaling)
+                else:
+                    base_sram_used += tens.storage_size()
 
         all_block_configs = self.get_block_configs(ps)
         for block_config in all_block_configs:
@@ -718,7 +721,7 @@ class DynamicProgrammingScheduler:
                     )
                 ]
                 sram_used += ifm_tensor.storage_size_for_sub_purpose(
-                    TensorSubPurpose.RollingBufferY, rolling_buffer_y, None
+                    self.arch, TensorSubPurpose.RollingBufferY, rolling_buffer_y, None
                 )
 
                 all_candidates.extend(self.append_sram_rewrite_list(sram_used, rewrite_list, [strat_opt]))
@@ -779,7 +782,9 @@ class DynamicProgrammingScheduler:
             for tens in ps.intermediates:
                 if tens.mem_area == self.mem_area:
                     if tens.purpose == TensorPurpose.Weights:
-                        sram_used += tens.storage_size_for_sub_purpose(TensorSubPurpose.DoubleBuffer, block_config[3])
+                        sram_used += tens.storage_size_for_sub_purpose(
+                            self.arch, TensorSubPurpose.DoubleBuffer, block_config[3]
+                        )
                         rewrite_list.append(
                             (
                                 SchedulerRewrite.ChangeTensorSubPurpose,

@@ -184,6 +184,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         global_memory_clock_scale,
         max_blockdep,
         softmax_support,
+        weight_estimation_scaling,
     ):
         accelerator_config = accelerator_config.lower()
         self.vela_config = vela_config
@@ -215,6 +216,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
             )
 
         self.max_blockdep = max_blockdep
+        self.weight_estimation_scaling = weight_estimation_scaling
 
         dpu_min_height = accel_config.ofm_ublock.height
         dpu_min_width = accel_config.ofm_ublock.width

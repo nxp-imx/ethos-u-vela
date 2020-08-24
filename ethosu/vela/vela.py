@@ -260,7 +260,12 @@ def main(args=None):
         choices=[True, False],
         help="Control if Softmax should be transformed into a set of npu operations (default: %(default)s)",
     )
-
+    parser.add_argument(
+        "--weight-estimation-scaling",
+        type=float,
+        default=1.0,
+        help=("Performs an additional scaling of weight compression scale estimate (default: %(default)s)"),
+    )
     args = parser.parse_args(args=args)
 
     # Read configuration file
@@ -291,6 +296,7 @@ def main(args=None):
         global_memory_clock_scale=args.global_memory_clock_scale,
         max_blockdep=args.max_block_dependency,
         softmax_support=args.softmax_support,
+        weight_estimation_scaling=args.weight_estimation_scaling,
     )
 
     compiler_options = compiler_driver.CompilerOptions(

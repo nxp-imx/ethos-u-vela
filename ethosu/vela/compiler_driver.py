@@ -212,7 +212,9 @@ def compiler_driver(nng, arch, options, scheduler_options):
     if root_sg is not None and (arch.feature_map_storage_mem_area != arch.fast_storage_mem_area):
         if root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0) > arch.sram_size:
             raise VelaError(
-                "Sram limit {} bytes, has been exceeded by the scratch fast tensor {} bytes".format(
+                "Sram limit {} bytes, has been exceeded by the scratch fast tensor {} bytes. "
+                "Increasing the value of --weight-estimation-scaling may help to resolve the issue. "
+                "See OPTIONS.md for more information.".format(
                     arch.sram_size, root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0)
                 )
             )

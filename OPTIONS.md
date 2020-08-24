@@ -244,6 +244,18 @@ out in 1x1x16B bricks in row-major order. This enables more efficient FeatureMap
 vela network.tflite --nhcwb16-between-cascaded-passes
 ```
 
+### Scaling of weight estimates
+
+Performs an additional scaling of weight compression estimate used by Vela to estimate SRAM usage.
+Increasing this scaling factor will make the estimates more conservative (lower) and this can result
+in optimisations that use less SRAM, albeit at the cost of performance (inference speed).  
+**Type: Float**  
+**Default: 1.0**  
+
+```bash
+vela network.tflite --weight-estimation-scaling=1.2
+```
+
 ## Verbose Print Options
 
 All of the options below are disabled by default and enabling them will add
