@@ -254,18 +254,12 @@ def main(args=None):
         help="Control if NHCWB16 or NHWC should be used in between cascaded passes (default: %(default)s)",
     )
     parser.add_argument(
-        "--softmax-support",
-        type=ast.literal_eval,
-        default=False,
-        choices=[True, False],
-        help="Control if Softmax should be transformed into a set of npu operations (default: %(default)s)",
-    )
-    parser.add_argument(
         "--weight-estimation-scaling",
         type=float,
         default=1.0,
         help=("Performs an additional scaling of weight compression scale estimate (default: %(default)s)"),
     )
+
     args = parser.parse_args(args=args)
 
     # Read configuration file
@@ -295,7 +289,6 @@ def main(args=None):
         block_config_limit=args.block_config_limit,
         global_memory_clock_scale=args.global_memory_clock_scale,
         max_blockdep=args.max_block_dependency,
-        softmax_support=args.softmax_support,
         weight_estimation_scaling=args.weight_estimation_scaling,
     )
 

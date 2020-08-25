@@ -183,7 +183,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         block_config_limit,
         global_memory_clock_scale,
         max_blockdep,
-        softmax_support,
         weight_estimation_scaling,
     ):
         accelerator_config = accelerator_config.lower()
@@ -332,7 +331,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.generate_block_config_map(Block(ifm_block_max.width, ifm_block_max.height, 128))
 
         # Setup supported operators and restriction checkers class
-        self.supported_operators = SupportedOperators(softmax_support)
+        self.supported_operators = SupportedOperators()
 
     # Returns available number of SHRAM banks depending on activation lookup table
     # being used or not

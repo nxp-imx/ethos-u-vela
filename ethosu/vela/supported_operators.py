@@ -22,8 +22,7 @@ from .data_type import DataType
 
 
 class SupportedOperators:
-    def __init__(self, softmax_support):
-        self.softmax_support = softmax_support
+    def __init__(self):
         # Categorised lists of supported operators
         self.npu_pre_ops = set(("QuantizedResizeBilinear", "SplitSliceRead",))
         self.convolution_ops = set(("Conv2DBiasAct", "Conv2D", "QuantizedConv2D",))
@@ -393,9 +392,6 @@ class SupportedOperators:
 
     def check_activation_ops(self, op):
         if op.type == "Softmax":
-            if not self.softmax_support:
-                return False
-
             ifm_tensor = op.inputs[0]
             ofm_tensor = op.outputs[0]
 

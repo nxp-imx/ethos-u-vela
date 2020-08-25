@@ -24,6 +24,7 @@ import numpy as np
 from . import live_range
 from . import npu_performance
 from . import stats_writer
+from .data_type import DataType
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_pass_list
 from .nn_graph import CascadedPass
 from .nn_graph import PassPlacement
@@ -963,7 +964,7 @@ class DynamicProgrammingScheduler:
                         use_NHCWB16 = True
                         rewrites = []
                         for op in output.consumer_list:
-                            if op is None:
+                            if op is None or (op.type == "ReduceSum" and output.dtype == DataType.int32):
                                 use_NHCWB16 = False
                             elif op.type == "Reshape":
                                 # Detect no-op reshapes by comparing their full input and output tensor shapes.
