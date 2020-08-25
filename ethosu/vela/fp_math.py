@@ -136,3 +136,13 @@ def exp_on_negative_values(a):
         return np.iinfo(np.int32).max
     else:
         return result
+
+
+def multiply_by_quantized_multiplier(x, scale, shift):
+    # Multiplies x (int32) by (scale, shift) which have obtained by a call to scaling.quantize_scale,
+    # returns rounded result
+    shift = 31 - shift
+    left_shift = shift if shift > 0 else 0
+    right_shift = -shift if shift < 0 else 0
+    mul = saturating_rounding_mul(x * (1 << left_shift), scale)
+    return rounding_divide_by_pot(mul, right_shift)

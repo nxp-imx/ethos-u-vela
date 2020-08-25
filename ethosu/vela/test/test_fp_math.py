@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 
 from ethosu.vela import fp_math
+from ethosu.vela import scaling
 from ethosu.vela.softmax import SoftMax
 
 # Turn off black formatting for EXP_LUT to keep it compact
@@ -116,3 +117,39 @@ def test_exp():
     sm = SoftMax(None)
     for (expected, actual) in zip(EXP_LUT, sm.generate_exp_table(1.0, np.float32(0.05123165))):
         assert actual == expected
+
+
+multiply_test_data = [
+    (0, 0, 0),
+    (0, 0.7, 0),
+    (0, 55.8, 0),
+    (6, 0.3, 2),
+    (200, 0, 0),
+    (1, 1, 1),
+    (1, 0.1, 0),
+    (1, 3.49, 3),
+    (1, 3.51, 4),
+    (27, 1, 27),
+    (13, 0.9, 12),
+    (3, 21.2, 64),
+    (1000, 2000, 2000000),
+    (32767, 32767, 32767 * 32767),  # extreme values
+]
+
+
+@pytest.mark.parametrize("x, factor, expected", multiply_test_data)
+def test_multiply_by_quantized_multiplier(x, factor, expected):
+    scale, shift = scaling.quantise_scale(factor)
+    assert fp_math.multiply_by_quantized_multiplier(x, scale, shift) == expected
+    assert fp_math.multiply_by_quantized_multiplier(-x, scale, shift) == -expected
+    assert fp_math.multiply_by_quantized_multiplier(x, -scale, shift) == -expected
+    assert fp_math.multiply_by_quantized_multiplier(-x, -scale, shift) == expected
+
+
+def test_multiply_by_quantized_multiplier_int16_limits():
+    # Tests min/max limits of foreseen practical usage of multiply_by_quantized_multiplier
+    # for the purpose of calculating LUTs
+    for x in [-32768, 32767]:
+        for y in [-32768, 32767]:
+            scale, shift = scaling.quantise_scale(y)
+            assert fp_math.multiply_by_quantized_multiplier(x, scale, shift) == x * y

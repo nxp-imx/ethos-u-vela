@@ -20,8 +20,10 @@ import math
 
 import numpy as np
 
+from . import fp_math
 from . import lut
 from . import rewrite_graph
+from . import scaling
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
@@ -637,7 +639,8 @@ def convert_mul_max_to_abs_or_lrelu(op, arch):
             return op
 
         # make sure the Mul doesn't have any other consumers
-        if len(mul.outputs[0].consumers()) != 1:
+        mul_ofm = mul.outputs[0]
+        if len(mul_ofm.consumers()) != 1:
             return op
         # make sure the Mul doesn't have a faf
         if mul.attrs["fused_activation_function"]:
@@ -645,7 +648,7 @@ def convert_mul_max_to_abs_or_lrelu(op, arch):
         ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
         if ifm.dtype not in (DataType.uint8, DataType.int8) or ifm.dtype != ofm.dtype:
             return op
-        if not ifm.is_scaling_equal(ofm):
+        if not ifm.is_scaling_equal(ofm) or not ifm.is_scaling_equal(mul_ofm):
             # rewrite to LeakyRelu currently only makes sense if the quantization is identical
             return op
 
@@ -671,6 +674,15 @@ def convert_mul_max_to_abs_or_lrelu(op, arch):
         if val >= 0:
             new_op = "LeakyRelu"
             op.attrs["alpha"] = val
+            # to produce bit exact results, the alpha is not enough;
+            # save additional scaling info in attr "alpha_scale", to be used as input
+            # to the LUT construction
+            alpha_scalar = const_tens.quant_values - const_tens.quantization.zero_point
+            mul_ifm_scale = np.double(ifm.quantization.scale_f32)
+            mul_ifm2_scale = np.double(const_tens.quantization.scale_f32)
+            mul_ofm_scale = np.double(mul_ofm.quantization.scale_f32)
+            alpha_scale, alpha_shift = scaling.elementwise_mul_scale(mul_ifm_scale, mul_ifm2_scale, mul_ofm_scale)
+            op.attrs["alpha_scaling"] = (alpha_scalar, alpha_scale, alpha_shift)
         elif val == -1:
             new_op = "Abs"
         else:
@@ -744,15 +756,39 @@ def convert_lrelu_to_lut(op, arch):
     op.attrs["is_nop"] = True
     # Create an input tensor containing scalar zero
     quantization = QuantizationParameters(0.0, 255.0)
-    quantization.scale_f32 = 1.0
+    quantization.scale_f32 = ifm.quantization.scale_f32
     quantization.zero_point = 0
     tens = create_const_tensor(op.inputs[0].name + "_add", [], ifm.dtype, [0], np.uint8, quantization=quantization)
     op.add_input_tensor(tens)
-    alpha = op.attrs["alpha"]
-    zp = ofm.quantization.zero_point
     # Generate the LUT
+    alpha = op.attrs["alpha"]
+    ifm_scale = np.double(ifm.quantization.scale_f32)
+    ofm_scale = np.double(ofm.quantization.scale_f32)
+    zp_in = ifm.quantization.zero_point
+    zp_out = ofm.quantization.zero_point
+    identity_scale, identity_shift = scaling.elementwise_mul_scale(ifm_scale, 1, ofm_scale)
+    alpha_scalar = 1
+    alpha_scale, alpha_shift = scaling.elementwise_mul_scale(ifm_scale, alpha, ofm_scale)
+    if "alpha_scaling" in op.attrs:
+        # The LeakyRelu was the result from convert_mul_max_to_abs_or_lrelu
+        alpha_scalar, alpha_scale, alpha_shift = op.attrs["alpha_scaling"]
+    values = []
     ix = range(256) if ifm.dtype == DataType.uint8 else range(-128, 128)
-    values = [int(x) if x >= zp else int(round(zp - alpha * (zp - x))) for x in ix]
+    quantized_min = min(ix)
+    quantized_max = max(ix)
+    for x in ix:
+        if x < zp_in:
+            lut_result = zp_out + fp_math.multiply_by_quantized_multiplier(
+                alpha_scalar * (x - zp_in), alpha_scale, alpha_shift
+            )
+        else:
+            lut_result = zp_out + fp_math.multiply_by_quantized_multiplier(x - zp_in, identity_scale, identity_shift)
+        lut_result = min(quantized_max, max(quantized_min, lut_result))
+        values.append(lut_result)
+    # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
+    # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
+    # should be the same as the IFM
+    op.attrs["forced_output_quantization"] = ifm.quantization
     lut_tensor = lut.create_lut_tensor(op.name + "_lut", values, DataType.int8)
     op.set_activation_lut(lut_tensor)
     return op
@@ -763,13 +799,12 @@ def convert_lrelu(op, arch):
     if op.type != "LeakyRelu":
         return op
     ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
-    if ifm.is_scaling_equal(ofm) and ifm.dtype == ofm.dtype:
-        if ifm.dtype in (DataType.uint8, DataType.int8):
-            # use LUT
-            return convert_lrelu_to_lut(op, arch)
-        elif ifm.dtype == DataType.int16:
-            # use LeakyRelu unmodified
-            return op
+    if ifm.dtype in (DataType.uint8, DataType.int8) and ifm.dtype == ofm.dtype:
+        # use LUT for int8/uint8
+        return convert_lrelu_to_lut(op, arch)
+    if ifm.is_scaling_equal(ofm) and ifm.dtype == ofm.dtype and ifm.dtype == DataType.int16:
+        # use LeakyRelu unmodified for int16 with equal input/output scaling
+        return op
     return convert_lrelu_to_mul_max(op, arch)
 
 
@@ -802,7 +837,7 @@ def fuse_activation_function_with_prev(op, arch):
     if not fuse:
         return op
     # Move the fused activation function + corresponding info to prev_op
-    for attr in ("fused_activation_function", "alpha"):
+    for attr in ("fused_activation_function", "alpha", "forced_output_quantization"):
         if attr in op.attrs:
             prev_op.attrs[attr] = op.attrs[attr]
     if op.activation_lut is not None:

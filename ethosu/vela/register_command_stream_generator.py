@@ -442,6 +442,13 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             fmf = primary_op.attrs.get("fused_memory_function", None)
             faf = primary_op.attrs.get("fused_activation_function", None)
             fused_quantize = any(op.type == "Quantize" for op in ps.ops)
+            # Force output scale, used in operations with fused LUT
+            # Note: with current LUT support, forced_ofm_quantization is always equal to cmd.ofm_tensor.quantization
+            # except when primary_op is AddAct + 0 (no-op) + LUT
+            forced_ofm_quantization = primary_op.attrs.get("forced_output_quantization", None)
+            ofm_quant = cmd.ofm_tensor.quantization
+            if forced_ofm_quantization is not None:
+                ofm_quant = forced_ofm_quantization
 
             # Specifies which operand to apply scaling to in bitexact elementwise ADD/SUB
             op_to_scale = 0
@@ -476,7 +483,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 if primary_op.type in set(("AddAct", "MulAct", "SubAct",)):
                     input_scale = cmd.ifm_tensor.quantization.scale_f32
                     input2_scale = cmd.ifm2_tensor.quantization.scale_f32
-                    output_scale = cmd.ofm_tensor.quantization.scale_f32
+                    output_scale = ofm_quant.scale_f32
                     use_global_scale = True
 
                     if output_scale is not None and faf in ("Sigmoid", "Tanh"):
@@ -491,7 +498,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)
                     else:  # AddAct/SubAct
                         # Force output scale same as the input scale for
-                        # resizebiliner 1x1 that is converted to add
+                        # resizebilinear 1x1 that is converted to add
                         if "resizebilinear" in primary_op.attrs:
                             output_scale = input2_scale
 
@@ -529,7 +536,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)
 
                 elif primary_op.type in set(("LeakyRelu", "Abs",)):
-                    output_scale = cmd.ofm_tensor.quantization.scale_f32
+                    output_scale = ofm_quant.scale_f32
                     use_global_scale = True
 
                     if primary_op.type == "LeakyRelu":
@@ -664,7 +671,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         elif fused_quantize:
                             # Quantize op requires different scaling
                             ifm_scale_f64 = np.double(cmd.ifm_tensor.quantization.scale_f32)
-                            ofm_scale_f64 = np.double(cmd.ofm_tensor.quantization.scale_f32)
+                            ofm_scale_f64 = np.double(ofm_quant.scale_f32)
                             scale, shift = scaling.quantise_scale(ifm_scale_f64 / ofm_scale_f64)
                         elif primary_op.type == "ResizeBilinear" and "rescale" in primary_op.attrs:
                             rescale = primary_op.attrs["rescale"]
@@ -676,11 +683,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                             # k_height == k_width == 1 is allways true in this case
                             # Normally the scale is maximised, to get maximum precision, which means that
                             # if rescale != 1, scale need to consider the number of bits needed for rescaling
-                            if None not in (
-                                cmd.ofm_tensor.quantization.scale_f32,
-                                cmd.ifm_tensor.quantization.scale_f32,
-                            ):
-                                rescale = cmd.ifm_tensor.quantization.scale_f32 / cmd.ofm_tensor.quantization.scale_f32
+                            if None not in (ofm_quant.scale_f32, cmd.ifm_tensor.quantization.scale_f32,):
+                                rescale = cmd.ifm_tensor.quantization.scale_f32 / ofm_quant.scale_f32
                                 rescale_bits = 0
                                 if k_height == k_width == 1:
                                     if fmf == "ConcatSliceWrite":
@@ -797,9 +801,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     scale_region = base_ptr_idx_map[cmd.scale_tensor.mem_type]
                     emit.cmd0_with_param(cmd0.NPU_SET_SCALE_REGION, scale_region)
 
-            ofm_quant = cmd.ofm_tensor.quantization
-            ofm_quant_qmin = cmd.ofm_tensor.quantization.quant_min
-            ofm_quant_qmax = cmd.ofm_tensor.quantization.quant_max
+            ofm_quant_qmin = ofm_quant.quant_min
+            ofm_quant_qmax = ofm_quant.quant_max
             ifm_min = cmd.ifm_tensor.quantization.min
             ifm_max = cmd.ifm_tensor.quantization.max
 
@@ -912,13 +915,15 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     emit.cmd0_with_param(zero_point_op, 0)
                 else:
                     assert tens.quantization.zero_point is not None, "need an actual zero point set"
-                    if (
+                    if cmd0.NPU_SET_OFM_ZERO_POINT == zero_point_op and forced_ofm_quantization is not None:
+                        zero_point = forced_ofm_quantization.zero_point
+                    elif (
                         "resizebilinear" in primary_op.attrs
                         and primary_op.type == "AddAct"
                         and cmd0.NPU_SET_OFM_ZERO_POINT == zero_point_op
                     ):
                         # Force output zero point same as the input zero point
-                        # for resizebiliner 1x1 that is converted to add
+                        # for resizebilinear 1x1 that is converted to add
                         zero_point = cmd.ifm2_tensor.quantization.zero_point
                     else:
                         zero_point = tens.quantization.zero_point
