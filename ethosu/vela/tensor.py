@@ -232,7 +232,7 @@ def create_const_tensor(name, shape, dtype, values, value_dtype=None, purpose=Te
     const_tensor.purpose = purpose
     const_tensor.quantization = quantization
     const_tensor.values = np.array(values, dtype=value_dtype)
-    const_tensor.quant_values = const_tensor.values
+    const_tensor.quant_values = np.frombuffer(const_tensor.values.tobytes(), dtype=np.uint8)
     # Operator
     const_op = Operation("Const", name)
     const_op.set_output_tensor(const_tensor)

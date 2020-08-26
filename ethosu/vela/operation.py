@@ -81,12 +81,12 @@ input and output tensors, as well as an attribute dictionary."""
         bias_idx = -1
         ofm_idx = -1
         npu_block_type = self.attrs.get("npu_block_type", NpuBlockType.Default)
-        if npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)):
+        if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise):
             ifm_idx = 0
             weight_idx = 1
             ofm_idx = 0
 
-            if self.type in set(("Conv2DBiasAct", "DepthwiseConv2dBiasAct", "TransposeConvAct")):
+            if self.type in ("Conv2DBiasAct", "DepthwiseConv2dBiasAct", "TransposeConvAct"):
                 if len(self.inputs) >= 3:
                     bias_idx = 2
 
@@ -101,7 +101,7 @@ input and output tensors, as well as an attribute dictionary."""
             weight_idx = 1
             ofm_idx = 0
 
-            if self.type in set(("FullyConnectedAct",)):
+            if self.type == "FullyConnectedAct":
                 if len(self.inputs) >= 3:
                     bias_idx = 2
 
@@ -116,7 +116,7 @@ input and output tensors, as well as an attribute dictionary."""
             ofm_idx = 0
 
             # LeakyRelu, Abs and CLZ have a single IFM
-            if self.type in set(("LeakyRelu", "Abs", "CLZ")):
+            if self.type in ("LeakyRelu", "Abs", "CLZ"):
                 ifm2_idx = -1
 
         elif self.type == "Conv2DBackpropInput":
@@ -124,7 +124,7 @@ input and output tensors, as well as an attribute dictionary."""
             weight_idx = 1
             ofm_idx = 0
 
-        elif self.type in set(("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims")):
+        elif self.type in ("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims"):
             ifm_idx = 0
             ofm_idx = 0
 
@@ -149,7 +149,7 @@ input and output tensors, as well as an attribute dictionary."""
         weight_tensor = None
         ofm_tensor = None
 
-        ifm_idx, ifm2_idx, weight_idx, bias_idx, ofm_idx = self.get_ifm_ifm2_weight_bias_ofm_indices()
+        ifm_idx, ifm2_idx, weight_idx, _, ofm_idx = self.get_ifm_ifm2_weight_bias_ofm_indices()
         if ifm_idx != -1:
             ifm_tensor = self.inputs[ifm_idx]
         if ifm2_idx != -1:
@@ -180,7 +180,7 @@ input and output tensors, as well as an attribute dictionary."""
         return ifm_tensor, weight_tensor, bias_tensor, ofm_tensor
 
     def is_concat_op(self):
-        return self.type in set(("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped"))
+        return self.type in ("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped")
 
     def get_concat_inputs_axis(self):
         assert self.is_concat_op()
@@ -215,7 +215,7 @@ input and output tensors, as well as an attribute dictionary."""
         return dilation_h, dilation_w
 
     def is_split_op(self):
-        return self.type in set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped"))
+        return self.type in ("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped")
 
     def get_split_inputs_axis(self):
         assert self.is_split_op()
@@ -324,3 +324,11 @@ input and output tensors, as well as an attribute dictionary."""
     def set_output_tensor(self, tens):
         tens.ops = [self]
         self.outputs = [tens]
+
+    def needs_bias(self):
+        return self.type in (
+            "Conv2DBiasAct",
+            "DepthwiseConv2dBiasAct",
+            "Conv2DBackpropInputSwitchedBias",
+            "FullyConnectedAct",
+        )
