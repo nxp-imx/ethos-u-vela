@@ -206,14 +206,20 @@ class SupportedOperators:
         if weight_tensor.element_size() > 1:
             return False
 
-        # check kernel size
-        dilated_weight_w = weight_tensor.shape[0] + (weight_tensor.shape[0] - 1) * (dilation_w_factor - 1)
-        dilated_weight_h = weight_tensor.shape[1] + (weight_tensor.shape[1] - 1) * (dilation_h_factor - 1)
-        if (
-            dilated_weight_w > 64
-            or dilated_weight_h > 64
-            or dilated_weight_w * dilated_weight_h * weight_tensor.shape[2] > 127 * 65536
-        ):
+        # check kernel size [HWIO]
+        dilated_weight_w = weight_tensor.shape[1] + (weight_tensor.shape[1] - 1) * (dilation_w_factor - 1)
+        dilated_weight_h = weight_tensor.shape[0] + (weight_tensor.shape[0] - 1) * (dilation_h_factor - 1)
+
+        if dilated_weight_w > 64 or dilated_weight_h > 64:
+            return False
+
+        # check weight sums over [HWI]
+        zero_point = weight_tensor.quantization.zero_point
+        quant_weights = weight_tensor.quant_values.astype(np.int64)
+        weights = quant_weights - zero_point
+        totals = np.sum(np.absolute(weights), axis=(0, 1, 2))
+
+        if np.amax(totals) > 127 * 65536:
             return False
 
         # check batch size
