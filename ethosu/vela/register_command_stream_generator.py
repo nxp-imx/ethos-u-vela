@@ -909,8 +909,16 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
                 need_zero_point = (faf is not None) or (fmf == "ConcatSliceWrite") or fused_quantize
                 if (
-                    primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear")) and not need_zero_point
-                ) or tens.quantization is None:
+                    (
+                        primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear", "CLZ", "SHL"))
+                        and not need_zero_point
+                    )
+                    or (
+                        tens.dtype == DataType.int32
+                        and zero_point_op in (cmd0.NPU_SET_IFM_ZERO_POINT, cmd0.NPU_SET_IFM2_ZERO_POINT)
+                    )
+                    or tens.quantization is None
+                ):
                     # Actual integer operation, just set scale to 1 and zero point to 0
                     emit.cmd0_with_param(zero_point_op, 0)
                 else:
