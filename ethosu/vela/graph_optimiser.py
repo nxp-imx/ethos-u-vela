@@ -392,33 +392,34 @@ def fixup_unpack_output(tens, arch):
 
 
 def add_padding_fields(op, arch):
-    if "padding" in op.attrs:
-        if "Conv" in op.type:
-            kernel_size = op.inputs[1].shape[:2]
-            input_shape = op.inputs[0].shape
-        elif "Pool" in op.type or op.type in ("ResizeBilinear", "ReduceSum"):
-            kernel_size = op.attrs["ksize"][1:3]
-            input_shape = op.inputs[0].shape
-        elif op.type == "ExtractImagePatches":
-            kernel_size = op.attrs["ksizes"][1:3]
-            input_shape = op.inputs[0].shape
-        else:
-            raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
+    if op.run_on_npu:
+        if "padding" in op.attrs:
+            if "Conv" in op.type:
+                kernel_size = op.inputs[1].shape[:2]
+                input_shape = op.inputs[0].shape
+            elif "Pool" in op.type or op.type in ("ResizeBilinear", "ReduceSum"):
+                kernel_size = op.attrs["ksize"][1:3]
+                input_shape = op.inputs[0].shape
+            elif op.type == "ExtractImagePatches":
+                kernel_size = op.attrs["ksizes"][1:3]
+                input_shape = op.inputs[0].shape
+            else:
+                raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
-        if op.type == "Conv2DBackpropInputSwitchedBias":
-            upscaling_factor = op.outputs[0].shape[1] // input_shape[1]
-            padding, skirt = calc_upscaled_padding_and_skirt(
-                op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape, upscaling_factor
-            )
-        else:
-            dilation_h, dilation_w = op.get_dilation_h_w()
-            dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
-            padding, skirt = calc_padding_and_skirt(
-                op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape
-            )
+            if op.type == "Conv2DBackpropInputSwitchedBias":
+                upscaling_factor = op.outputs[0].shape[1] // input_shape[1]
+                padding, skirt = calc_upscaled_padding_and_skirt(
+                    op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape, upscaling_factor
+                )
+            else:
+                dilation_h, dilation_w = op.get_dilation_h_w()
+                dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
+                padding, skirt = calc_padding_and_skirt(
+                    op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape
+                )
 
-        op.attrs["explicit_padding"] = padding
-        op.attrs["skirt"] = skirt
+            op.attrs["explicit_padding"] = padding
+            op.attrs["skirt"] = skirt
 
     return op
 
