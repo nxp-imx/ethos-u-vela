@@ -36,6 +36,7 @@ from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
 from .scheduler import ParetoMetric
 from .tensor import MemArea
+from .tensor import Tensor
 
 
 def process(fname, arch, model_reader_options, compiler_options, scheduler_options):
@@ -259,7 +260,12 @@ def main(args=None):
         default=1.0,
         help=("Performs an additional scaling of weight compression scale estimate (default: %(default)s)"),
     )
-
+    parser.add_argument(
+        "--allocation-alignment",
+        type=int,
+        default=Tensor.AllocationQuantum,
+        help=("Controls the allocation byte alignment of cpu tensors (default: %(default)s)"),
+    )
     args = parser.parse_args(args=args)
 
     # Read configuration file
@@ -279,6 +285,12 @@ def main(args=None):
         force_block_config = architecture_features.Block.from_string(args.force_block_config)
     else:
         force_block_config = None
+
+    alignment = args.allocation_alignment
+    if alignment < 16:
+        parser.error("the following argument needs to be greater or equal to 16: ALLOCATION_ALIGNMENT")
+    if alignment & (alignment - 1) != 0:
+        parser.error("the following argument needs to be a power of 2: ALLOCATION_ALIGNMENT")
 
     arch = architecture_features.ArchitectureFeatures(
         vela_config=config,
@@ -307,6 +319,7 @@ def main(args=None):
         tensor_allocator=args.tensor_allocator,
         timing=args.timing,
         output_dir=args.output_dir,
+        allocation_alignment=alignment,
     )
 
     scheduler_options = scheduler.SchedulerOptions(

@@ -36,6 +36,7 @@ from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
 from .rewrite_graph import verify_graph_health
 from .tensor import MemType
+from .tensor import Tensor
 
 
 class CompilerOptions:
@@ -62,6 +63,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         tensor_allocator=TensorAllocator.Greedy,
         timing=False,
         output_dir="outputs",
+        allocation_alignment=Tensor.AllocationQuantum,
     ):
 
         self.verbose_graph = verbose_graph
@@ -78,6 +80,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.tensor_allocator = tensor_allocator
         self.timing = timing
         self.output_dir = output_dir
+        self.allocation_alignment = allocation_alignment
 
     def __str__(self):
         return type(self).__name__ + ": " + str(self.__dict__)
@@ -192,6 +195,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
             options.tensor_allocator,
             options.verbose_allocation,
             options.show_minimum_possible_allocation,
+            allocation_alignment=options.allocation_alignment,
         )
 
     # Generate command streams and serialise Npu-ops into tensors
@@ -231,6 +235,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
         TensorAllocator.LinearAlloc,
         options.verbose_allocation,
         options.show_minimum_possible_allocation,
+        allocation_alignment=options.allocation_alignment,
     )
 
     npu_performance.calc_performance_for_network(nng, arch)

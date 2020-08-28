@@ -22,14 +22,16 @@ import numpy as np
 
 from . import live_range
 from . import numeric_util
+from .errors import AllocationError
 from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_ranges
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
 from .tensor import MemType
+from .tensor import Tensor
 from .tensor import TensorPurpose
 
 
-def linear_allocate_live_ranges(live_ranges, alloc_granularity=16):
+def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.AllocationQuantum):
     # Allocates using increasing addresses. Duplicate constant tensors will be allocated to the same address
     total_sz = 0
     allocated_tensors = []
@@ -55,7 +57,17 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=16):
         if address == total_sz:
             total_sz += numeric_util.round_up(int(math.ceil(lr.size)), alloc_granularity)
 
+    verify_alignment(live_ranges, alloc_granularity)
     return total_sz
+
+
+def verify_alignment(live_ranges, alignment):
+    for lr in live_ranges.ranges.values():
+        for tens in lr.tensors:
+            if not all(op and op.run_on_npu for op in tens.ops + tens.consumer_list):
+                # This is a CPU tensor, verify alignment
+                if tens.address % alignment != 0:
+                    raise AllocationError("Tensor {} not aligned to {} bytes".format(tens.name, alignment))
 
 
 def mark_sram_used_for_cascaded_passes(sg, lrs):
@@ -113,6 +125,7 @@ def allocate_tensors(
     verbose_allocation=False,
     show_minimum_possible_allocation=False,
     lr_graph=None,
+    allocation_alignment=Tensor.AllocationQuantum,
 ):
     ignore_subgraph_input_output_tensors = False
     lrs = live_range.extract_live_ranges_from_cascaded_passes(
@@ -123,14 +136,15 @@ def allocate_tensors(
         use_ifm_ofm_overlap=use_ifm_ofm_overlap,
         ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
         lr_graph=lr_graph,
+        allocation_alignment=allocation_alignment,
     )
 
     if lrs.ranges:
         tens_alloc = tensor_allocator
         if tens_alloc == TensorAllocator.Greedy:
-            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, verbose_allocation)
+            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, allocation_alignment, verbose_allocation)
         elif tens_alloc == TensorAllocator.LinearAlloc:
-            total_sz = linear_allocate_live_ranges(lrs, 16)
+            total_sz = linear_allocate_live_ranges(lrs, allocation_alignment)
         else:
             assert 0
 

@@ -52,6 +52,13 @@ class OptionError(VelaError):
         self.data = "Incorrect argument to CLI option: {} {}: {}".format(option, option_value, msg)
 
 
+class AllocationError(VelaError):
+    """Raised when allocation fails"""
+
+    def __init__(self, msg):
+        self.data = msg
+
+
 def OperatorError(op, msg):
     """Called when parsing an operator results in errors"""
 

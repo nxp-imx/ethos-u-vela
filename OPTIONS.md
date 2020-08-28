@@ -256,6 +256,17 @@ in optimisations that use less SRAM, albeit at the cost of performance (inferenc
 vela network.tflite --weight-estimation-scaling=1.2
 ```
 
+### Allocation alignment
+
+Controls the allocation byte alignment. Only affects CPU tensors, NPU tensors will remain 16-byte
+aligned independent of this option. Alignment has to be a power of two and greater or equal to 16.  
+**Type: Integer**  
+**Default: 16**  
+
+```bash
+vela network.tflite --allocation-alignment 128
+```
+
 ## Verbose Print Options
 
 All of the options below are disabled by default and enabling them will add

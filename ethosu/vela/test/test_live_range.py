@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from ethosu.vela.live_range import LiveRange
+from ethosu.vela.tensor import Tensor
 
 
 class TestLiveRange:
@@ -28,7 +29,7 @@ class TestLiveRange:
         tens.storage_size.return_value = 4
         tens.name = "test"
 
-        live_range = LiveRange(tens=tens)
+        live_range = LiveRange(tens, Tensor.AllocationQuantum)
         assert live_range.size == 4
         assert live_range.name == "test"
         assert live_range.tensors == [tens]
@@ -39,7 +40,7 @@ class TestLiveRange:
         tens.storage_size.side_effect = [4, 3]
         tens.name = "test"
 
-        live_range = LiveRange(tens=tens)
+        live_range = LiveRange(tens, Tensor.AllocationQuantum)
         live_range.add_tensor(tens)
 
         assert live_range.size == 4
@@ -52,7 +53,7 @@ class TestLiveRange:
         tens.storage_size.side_effect = [4, 5]
         tens.name = "test"
 
-        live_range = LiveRange(tens=tens)
+        live_range = LiveRange(tens, Tensor.AllocationQuantum)
         # Expect an AssertionError with a message
         with pytest.raises(AssertionError, match=r".* to the same LiveRange .*"):
             live_range.add_tensor(tens)

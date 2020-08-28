@@ -23,12 +23,13 @@ from .tensor import Tensor
 
 
 class LiveRange:
-    def __init__(self, tens):
+    def __init__(self, tens, alignment):
         self.tensors = []  # Tensors that are assigned to the same LiveRange will be allocated to the same address
         self.start_time = 99999999999
         self.end_time = -1
         self.size = 0
         self.name = ""
+        self.alignment = alignment
 
         if tens:
             self.add_tensor(tens)
@@ -100,15 +101,10 @@ class LiveRange:
         return addr
 
     def get_alignment(self):
-        # Get max alignment of LiveRange's tensors
-        if self.tensors:
-            alignment = 0
-            for tens in self.tensors:
-                alignment = max(alignment, tens.alignment)
+        return self.alignment
 
-            return alignment
-
-        return Tensor.AllocationQuantum
+    def set_alignment(self, alignment):
+        self.alignment = max(self.alignment, alignment)
 
 
 def merge_memory_op_ranges(sg, lr_graph, tensor_should_be_ignored, target_mem_area):
@@ -135,14 +131,15 @@ class LiveRangeGraph:
         self.processed_subgraphs = set()
         self.current_time = 0
 
-    def get_or_create_range(self, tens):
+    def get_or_create_range(self, tens, alignment=Tensor.AllocationQuantum):
         for rng in self.ranges.values():
             # Return the live range of the tensor (or it's cpu/npu clone)
             if any(tensor in rng.tensors for tensor in [tens, tens.npu_tensor, tens.cpu_tensor]):
+                rng.set_alignment(alignment)
                 return rng
 
         # No live range found for the tensor, create a new one
-        rng = LiveRange(tens)
+        rng = LiveRange(tens, alignment)
         self.ranges[tens] = rng
         return rng
 
@@ -225,6 +222,7 @@ def extract_live_ranges_from_cascaded_passes(
     use_ifm_ofm_overlap=True,
     ignore_subgraph_input_output_tensors=False,
     lr_graph=None,
+    allocation_alignment=Tensor.AllocationQuantum,
 ):
     if lr_graph is None:
         lr_graph = LiveRangeGraph()
@@ -277,7 +275,7 @@ def extract_live_ranges_from_cascaded_passes(
         for tens in cps.inputs:
             if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
                 continue
-            rng = lr_graph.get_or_create_range(tens)
+            rng = lr_graph.get_or_create_range(tens, allocation_alignment)
             rng.mark_usage(time_for_pass)
 
         cps_primary_op = cps.passes[0].primary_op
@@ -285,6 +283,7 @@ def extract_live_ranges_from_cascaded_passes(
         if cps_primary_op and cps_primary_op.type == "NpuOp" and MemType.Permanent_CPU not in target_mem_type_set:
             # If the primary-op is an NpuOp that means this is where an Npu subgraph
             # is called. Go into said subgraph and extract live ranges before continuing.
+            # Use default allocation alignment of 16 for Npu tensors
             npu_sg = cps_primary_op.attrs["subgraph"]
             lr_graph = extract_live_ranges_from_cascaded_passes(
                 npu_sg,
@@ -302,13 +301,13 @@ def extract_live_ranges_from_cascaded_passes(
         for tens in cps.intermediates:
             if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
                 continue
-            rng = lr_graph.get_or_create_range(tens)
+            rng = lr_graph.get_or_create_range(tens, allocation_alignment)
             rng.mark_usage(time_for_pass)
 
         for tens in cps.outputs:
             if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
                 continue
-            rng = lr_graph.get_or_create_range(tens)
+            rng = lr_graph.get_or_create_range(tens, allocation_alignment)
             output_time = time_for_pass
             if not mark_output_tensors_overlapping_with_input_tensors and is_element_wise:
                 output_time += 1
@@ -338,7 +337,7 @@ def extract_live_ranges_from_cascaded_passes(
     for tens in sg.output_tensors:
         if tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
             continue
-        rng = lr_graph.get_or_create_range(tens)
+        rng = lr_graph.get_or_create_range(tens, allocation_alignment)
         rng.mark_usage(end_time)
 
     # Add subgraph to set of processed subgraphs
