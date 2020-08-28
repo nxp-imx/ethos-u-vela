@@ -257,6 +257,7 @@ class SoftMax:
 
         # PASS 2 - SHR
         shr2_op = Operation("SHR", self.op.name + "_shr2")
+        shr2_op.attrs["rounding_mode"] = b"NATURAL"
         shr2_op.add_input_tensor(ifm_exp)
         shr2_op.add_input_tensor(
             create_const_tensor(
@@ -454,6 +455,7 @@ class SoftMax:
 
         # PASS 30 - SHR
         shr30_op = Operation("SHR", self.op.name + "_shr30")
+        shr30_op.attrs["rounding_mode"] = b"NATURAL"
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)

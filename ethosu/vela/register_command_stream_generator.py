@@ -436,7 +436,9 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             # Specifies if global scale from the NPU_SET_OFM_SCALE register should be used instead of per-channel scale
             use_global_scale = False
             # Specifies type of rounding to be used.
-            rounding_mode = rounding.TFL
+            rounding_mode = (
+                rounding.NATURAL if primary_op.attrs.get("rounding_mode", "") == b"NATURAL" else rounding.TFL
+            )
             if primary_op.type == "ResizeBilinear":
                 rounding_mode = rounding.TRUNCATE
             fmf = primary_op.attrs.get("fused_memory_function", None)
