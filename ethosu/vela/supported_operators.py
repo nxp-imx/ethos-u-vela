@@ -421,8 +421,8 @@ class SupportedOperators:
 
         # check if values fits in 40-bit
         if bias_tensor.dtype == DataType.int64:
-            for value in bias_tensor.values:
-                if not (-(1 << 39) <= value < (1 << 39)):
+            for quant_value in bias_tensor.quant_values:
+                if not (-(1 << 39) <= quant_value < (1 << 39)):
                     return False
 
         return True
