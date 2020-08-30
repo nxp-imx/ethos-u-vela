@@ -84,7 +84,8 @@ class SharedBufferAllocation:
             else:
                 self.ifm_depth = ifm_tensor.shape[-1]
             if self.ifm_bits == 16:
-                self.use_accumulator_element = SHRAMElements.Acc40
+                if ps.npu_block_type != NpuBlockType.Pooling:
+                    self.use_accumulator_element = SHRAMElements.Acc40
                 self.use_ifm_element = self.use_ifm_element + 1
                 assert (self.use_ifm_element == SHRAMElements.IFM16) or (
                     self.use_ifm_element == SHRAMElements.IFM16_Elementwise
