@@ -416,11 +416,11 @@ class SupportedOperators:
 
     def check_bias_restrictions(self, bias_tensor):
         # check data type
-        if bias_tensor.dtype not in (DataType.int32, DataType.int64):
+        if bias_tensor is not None and bias_tensor.dtype not in (DataType.int32, DataType.int64):
             return False
 
         # check if values fits in 40-bit
-        if bias_tensor.dtype == DataType.int64:
+        if bias_tensor is not None and bias_tensor.dtype == DataType.int64:
             for quant_value in bias_tensor.quant_values:
                 if not (-(1 << 39) <= quant_value < (1 << 39)):
                     return False
