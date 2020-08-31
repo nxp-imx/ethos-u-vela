@@ -460,9 +460,6 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
     else:
         quantised_scales = [quantise_scale(scale) for scale in scales]
 
-    for _, shift in quantised_scales:
-        assert shift >= 16
-
     # pack the biases and scales
     if len(quantised_scales) == 1:
         # If only 1 quantised scale is used, repeat that value for the length of the biases

@@ -46,6 +46,10 @@ def reduced_quantise_scale(scale):
     reduced_multiplier = int((multiplier + (1 << 15)) >> 16)
     reduced_shift = shift - 16
 
+    if not (0 <= shift < (1 << 6)):
+        # Shift outside of valid range, set scale to 0
+        return 0, 16
+
     return reduced_multiplier, reduced_shift
 
 
