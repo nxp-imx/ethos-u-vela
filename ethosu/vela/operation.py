@@ -259,9 +259,17 @@ input and output tensors, as well as an attribute dictionary."""
             size_tens = self.inputs[1]
             assert len(size_tens.ops) == 1 and size_tens.ops[0].type == "Const"
             sizes = size_tens.values
+
             axis_tens = self.inputs[2]
             assert len(axis_tens.ops) == 1 and axis_tens.ops[0].type == "Const"
             axis = int(axis_tens.values)
+
+            for idx, size in enumerate(sizes):
+                # One but only one size might be set to -1, indicating that size should be inferred
+                if size == -1:
+                    sizes[idx] = input_tens.shape[axis] - (sum(sizes) + 1)
+                    break
+
             outputs = self.outputs
             assert num_splits == len(outputs)
             assert sum(sizes) == input_tens.shape[axis]

@@ -378,6 +378,18 @@ class SupportedOperators:
             # check if both new_axis_mask and shrink_axis_mask have bit set
             if op.attrs["new_axis_mask"] != 0 and op.attrs["shrink_axis_mask"] != 0:
                 return False
+        if op.type == "SplitV":
+            # check that maximum one size is set to -1, indicating that size should be inferred
+            sizes = op.inputs[1].values
+            num_to_be_inferred = 0
+            for size in sizes:
+                if size == -1:
+                    num_to_be_inferred += 1
+
+            if num_to_be_inferred > 1:
+                print("Warning:", op.type, "has more than one size to be inferred, which is illegal, placing on CPU")
+                return False
+
         return True
 
     def check_quantization_restrictions_binary_elem_wise(self, op):
