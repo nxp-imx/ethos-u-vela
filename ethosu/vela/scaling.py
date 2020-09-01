@@ -43,7 +43,7 @@ def quantise_scale(scale):
 # Reduced precision quantization for int16
 def reduced_quantise_scale(scale):
     multiplier, shift = quantise_scale(scale)
-    reduced_multiplier = int((multiplier + (1 << 15)) >> 16)
+    reduced_multiplier = int((multiplier + (1 << 15)) >> 16) if multiplier < 32767 << 16 else 32767
     reduced_shift = shift - 16
 
     if not (0 <= shift < (1 << 6)):
