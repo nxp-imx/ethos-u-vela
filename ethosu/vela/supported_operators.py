@@ -192,6 +192,16 @@ class SupportedOperators:
             and op.attrs["fused_activation_function"] not in self.supported_fused_activations
         ):
             return False
+
+        # check inf values
+        for tens in op.get_ifm_ifm2_weights_ofm():
+            if (tens is not None) and (
+                tens.quantization is not None) and (
+                tens.quantization.scale_f32 is not None) and (
+                np.isinf(tens.quantization.scale_f32).any()):
+                print("Warning:", op.type, "has inf valued tensor(s), placing on CPU")
+                return False
+
         return True
 
     def check_convolution_restrictions(self, op):
