@@ -200,6 +200,10 @@ input and output tensors, as well as an attribute dictionary."""
 
         return ifm_tensor, ifm2_tensor, weight_tensor, bias_tensor, ofm_tensor
 
+    def get_ofm(self):
+        _, _, _, ofm = self.get_ifm_ifm2_weights_ofm()
+        return ofm
+
     def is_concat_op(self):
         return self.type in ("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped")
 
@@ -361,3 +365,6 @@ input and output tensors, as well as an attribute dictionary."""
             "Conv2DBackpropInputSwitchedBias",
             "FullyConnectedAct",
         )
+
+    def get_output_quantization(self):
+        return self.attrs.get("forced_output_quantization", self.get_ofm().quantization)

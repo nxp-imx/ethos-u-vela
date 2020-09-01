@@ -909,7 +909,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                 if tens is None:
                     continue
 
-                need_zero_point = (faf is not None) or (fmf == "ConcatSliceWrite") or fused_quantize
+                need_zero_point = (
+                    (faf is not None and forced_ofm_quantization is None)
+                    or (fmf == "ConcatSliceWrite")
+                    or fused_quantize
+                )
                 if (
                     (
                         primary_op.type in set(("AvgPool", "AvgPoolAct", "ResizeBilinear", "CLZ", "SHL"))

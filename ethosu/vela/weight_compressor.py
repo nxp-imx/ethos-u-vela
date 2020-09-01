@@ -416,13 +416,13 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
     first_consumer_op = tens.consumer_list[0]
     ifm_dtype = first_consumer_op.inputs[0].dtype
     ifm_scale = first_consumer_op.inputs[0].quantization.scale_f32
-    ofm_scale = first_consumer_op.outputs[0].quantization.scale_f32
+    ofm_scale = first_consumer_op.get_output_quantization().scale_f32
     weight_scales = first_consumer_op.inputs[1].quantization.scale_f32
 
     # biases can have multiple consumers for rnn cells. if so, then check that they are all the same
     for op in tens.consumer_list[1:]:
         assert ifm_scale == op.inputs[0].quantization.scale_f32
-        assert ofm_scale == op.outputs[0].quantization.scale_f32
+        assert ofm_scale == op.get_output_quantization().scale_f32
         assert weight_scales == op.inputs[1].quantization.scale_f32
 
     if not hasattr(weight_scales, "__iter__"):

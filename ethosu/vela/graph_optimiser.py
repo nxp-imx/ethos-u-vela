@@ -823,28 +823,21 @@ def fuse_activation_function_with_prev(op, arch):
         and len(ifm.ops) == 1
         and len(prev_op.outputs[0].consumers()) == 1
         and prev_op.attrs.get("fused_activation_function", None) is None
-        and ifm.is_scaling_equal(ofm)
     )
     if op.activation_lut is not None and arch.shram_reserved_unused_banks == 0:
         # TODO: if SHRAM LUT space is shared with SHRAM ACC (32, 64 MAC),
         # LUT currently only works correctly for elementwise ops
         fuse = False
-    if fuse and op.activation_lut is not None:
-        # Check if LUT can be used with prev_op
-        prev_ifm, prev_ifm2, _, _ = prev_op.get_ifm_ifm2_weights_ofm()
-        fuse = prev_ifm is not None and prev_ifm.quantization is not None and prev_ifm.is_scaling_equal(ifm)
-        if prev_ifm2 is not None:
-            fuse = fuse and prev_ifm2.quantization is not None and prev_ifm2.is_scaling_equal(ifm)
     if not fuse:
         return op
     # Move the fused activation function + corresponding info to prev_op
-    for attr in ("fused_activation_function", "alpha", "forced_output_quantization"):
+    for attr in ("fused_activation_function", "forced_output_quantization"):
         if attr in op.attrs:
             prev_op.attrs[attr] = op.attrs[attr]
     if op.activation_lut is not None:
         prev_op.set_activation_lut(op.activation_lut)
     # Bypass op
-    prev_op.set_output_tensor(op.outputs[0])
+    prev_op.set_output_tensor(ofm)
     return op
 
 
