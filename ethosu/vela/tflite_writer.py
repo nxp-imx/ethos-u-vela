@@ -75,10 +75,8 @@ class TFLiteSerialiser:
 
         self.scratch_buf_id = 0  # Always assign scratch to buffer 0
         self.scratch_fast_buf_id = 1  # Always assign scratch_fast to buffer 1
-        self.buffer_offsets_map = {}
         self.buffers_to_write = []  # have an empty array there
 
-        self.input_tensors = []
         self.ops_to_ignore = set(("Const", "Placeholder", "SubgraphInput"))
 
         self.tensors_to_reshape = {}
@@ -301,14 +299,20 @@ class TFLiteSerialiser:
     def serialise_subgraph(self, sg):
         builder = self.builder
         tensor_set = set()
-
         all_ops = []
+        placeholder_ops = []
+
         for ps in sg.passes:
             for op in ps.ops:
                 if op.type not in self.ops_to_ignore:
                     all_ops.append(op)
+                elif op.type == "Placeholder":
+                    placeholder_ops.append(op)
 
-        for op in all_ops:
+        # Add the tensors from all valid ops, as well as the tensors from placeholder ops
+        # This allows us to serialise tensors which arent attached to any specific ops,
+        # e.g. due to an empty graph containing no ops
+        for op in all_ops + placeholder_ops:
             for tens in op.inputs + op.outputs:
                 tensor_set.add(tens)
 
