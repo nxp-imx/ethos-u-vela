@@ -178,7 +178,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         vela_config: ConfigParser,
         accelerator_config,
         system_config,
-        permanent_storage,
         override_block_config,
         block_config_limit,
         global_memory_clock_scale,
@@ -258,10 +257,6 @@ Note the difference between ArchitectureFeatures and CompilerOptions
 
         self.default_weight_format = TensorFormat.WeightsCompressed
         self.default_feature_map_format = TensorFormat.NHWC
-
-        # This is to ignore permanent_storage = On/OffChipflash for Yoda
-        if not self.is_yoda_system and permanent_storage != MemArea.OffChipFlash:
-            self.permanent_storage_mem_area = permanent_storage
 
         self.tensor_storage_mem_area = {
             # permanent mem_area

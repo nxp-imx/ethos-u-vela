@@ -23,7 +23,6 @@ from ethosu.vela.nn_graph import Subgraph
 from ethosu.vela.operation import NpuBlockType
 from ethosu.vela.operation import Operation
 from ethosu.vela.tensor import create_const_tensor
-from ethosu.vela.tensor import MemArea
 from ethosu.vela.tensor import Tensor
 
 
@@ -32,7 +31,6 @@ def create_arch():
         vela_config=None,
         system_config=None,
         accelerator_config=architecture_features.Accelerator.Ethos_U55_128.value,
-        permanent_storage=MemArea.OnChipFlash,
         override_block_config=None,
         block_config_limit=None,
         global_memory_clock_scale=1.0,

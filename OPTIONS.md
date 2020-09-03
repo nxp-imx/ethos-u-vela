@@ -132,19 +132,6 @@ File (see section below).
 vela network.tflite --system-config MySysConfig
 ```
 
-### Permanent Storage
-
-Specify memory area to be used for permanent storage. This area is where
-weights, bias and other constant data will be stored. OnChipFlash means reading
-directly from this storage, i.e. not using the DMA. To solely run from SRAM,
-OnChipFlash should be selected.  
-**Type: String**  
-**Default: OffChipFlash**  
-
-```bash
-vela network.tflite --permanent-storage OnChipFlash
-```
-
 ### Tensor Allocator
 
 Specify which allocator algorithm to use for non-constant NPU and CPU tensor

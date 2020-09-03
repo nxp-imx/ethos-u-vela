@@ -181,16 +181,6 @@ def main(args=None):
         help="System configuration to use (default: %(default)s)",
     )
     parser.add_argument(
-        "--permanent-storage",
-        default=MemArea.OffChipFlash,
-        type=lambda s: MemArea[s],
-        choices=list(MemArea)[3:5],
-        help=(
-            "Memory area for permanent storage, only valid for Ethos-U55. "
-            "To store the weights and other constant data in SRAM, select 'OnChipFlash'. (default: %(default)s)"
-        ),
-    )
-    parser.add_argument(
         "--tensor-allocator",
         default=TensorAllocator.Greedy,
         type=lambda s: TensorAllocator[s],
@@ -296,7 +286,6 @@ def main(args=None):
         vela_config=config,
         system_config=args.system_config,
         accelerator_config=args.accelerator_config,
-        permanent_storage=args.permanent_storage,
         override_block_config=force_block_config,
         block_config_limit=args.block_config_limit,
         global_memory_clock_scale=args.global_memory_clock_scale,

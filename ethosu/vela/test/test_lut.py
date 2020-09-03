@@ -79,6 +79,14 @@ def process(arch, op_list):
     return sg
 
 
+def filter_lut_cmds(cmd_list):
+    lut_cmd_list = []
+    for cmd in cmd_list:
+        if "lut" in cmd.in_tensor.name:
+            lut_cmd_list.append(cmd)
+    return lut_cmd_list
+
+
 def test_optimize_high_level_cmd_stream_2K():
     # Tests lut.optimize_high_level_cmd_stream, blending 256 byte and 2K luts
     arch = testutil.create_arch()
@@ -116,6 +124,10 @@ def test_optimize_high_level_cmd_stream_2K():
     cmd_list = sg.high_level_command_stream
     # Check that only the needed DMA commands are left
     expected_dma_ops = [op0, op1, op2, op5_2K, op6_2K, op7]
+
+    cmd_list = filter_lut_cmds(cmd_list)
+    orig_cmd_list = filter_lut_cmds(orig_cmd_list)
+
     for (cmd, op) in zip(cmd_list, expected_dma_ops):
         assert cmd.in_tensor == op.activation_lut
     # Check that lut0, lut1 and lut2 in op0, op1, op2 are stored on different addresses
@@ -165,6 +177,10 @@ def test_optimize_high_level_cmd_stream_1K():
     sg.high_level_command_stream = orig_cmd_list
     lut.optimize_high_level_cmd_stream(sg, arch)
     cmd_list = sg.high_level_command_stream
+
+    cmd_list = filter_lut_cmds(cmd_list)
+    orig_cmd_list = filter_lut_cmds(orig_cmd_list)
+
     # Check that only the needed DMA commands are left
     expected_dma_ops = [op0, op1, op2_1K, op5_2K, op7]
     for (cmd, op) in zip(cmd_list, expected_dma_ops):
