@@ -751,7 +751,7 @@ class Tensor:
         elif d == 2:
             return [self.shape[0], 1, 1, self.shape[1]]
         else:
-            return self.shape
+            return self.shape.copy()
 
     def __str__(self):
         return "<nng.Tensor '%s' shape=%s dtype=%s>" % (self.name, self.shape, self.dtype)

@@ -420,8 +420,8 @@ class SupportedOperators:
             if ifm_tensor.dtype not in (DataType.uint8, DataType.int8, DataType.int16):
                 return False
 
-            # check batch size
-            if len(ifm_tensor.shape) in (2, 4) and ifm_tensor.shape[0] != 1:
+            # check shape
+            if len(ifm_tensor.shape) > 4 or ifm_tensor.shape != ofm_tensor.shape:
                 return False
 
         return True
