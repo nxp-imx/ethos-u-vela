@@ -398,8 +398,8 @@ class SupportedOperators:
 
         if (
             op.inputs[0].quantization is None
-            or not op.inputs[0].quantization.is_scaling_equal(op.inputs[1].quantization)
-            or not op.inputs[0].quantization.is_scaling_equal(op.outputs[0].quantization)
+            or not op.inputs[0].is_scaling_equal(op.inputs[1])
+            or not op.inputs[0].is_scaling_equal(op.outputs[0])
         ):
             print(
                 "Warning: Input/output tensors with different quantization is unsupported for the", op.type, "operator"

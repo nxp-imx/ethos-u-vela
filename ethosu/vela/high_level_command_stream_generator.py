@@ -272,18 +272,21 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                 if (
                     intermediate is not None
                     and intermediate.shape != []
-                    and intermediate.purpose == TensorPurpose.FeatureMap
+                    and intermediate.purpose in (TensorPurpose.FeatureMap, TensorPurpose.LUT)
                 ):
-                    intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                        strides,
-                        skirt,
-                        intermediate.shape,
-                        npu_block_type,
-                        concat_axis,
-                        concat_offset,
-                        split_offsets[0],
-                        upscaling,
-                    )
+                    if intermediate.purpose is TensorPurpose.FeatureMap:
+                        intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
+                            strides,
+                            skirt,
+                            intermediate.shape,
+                            npu_block_type,
+                            concat_axis,
+                            concat_offset,
+                            split_offsets[0],
+                            upscaling,
+                        )
+                    else:
+                        intermediate_box = Box([0] * len(intermediate.shape), list(intermediate.shape))
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
 
             ifm_y_needed = 1
