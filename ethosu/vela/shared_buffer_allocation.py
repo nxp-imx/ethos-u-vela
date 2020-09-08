@@ -90,7 +90,8 @@ class SharedBufferAllocation:
                 assert (self.use_ifm_element == SHRAMElements.IFM16) or (
                     self.use_ifm_element == SHRAMElements.IFM16_Elementwise
                 )
-            elif is_elementwise or ps.npu_block_type == NpuBlockType.ReduceSum and self.ifm_bits == 32:
+            elif self.ifm_bits == 32:
+                assert is_elementwise or ps.npu_block_type == NpuBlockType.ReduceSum, "Unsupported 32-bit IFM operation"
                 self.use_ifm_element = SHRAMElements.IFM32
             else:
                 assert self.ifm_bits == 8, "Unexpected IFM bitdepth"
