@@ -301,7 +301,7 @@ class Subgraph:
             all_ops.append(op)
 
         def visit_tensor(tens):
-            if tens in visit_tensor_set:
+            if tens is None or tens in visit_tensor_set:
                 return
             visit_tensor_set.add(tens)
             for op in tens.ops:
