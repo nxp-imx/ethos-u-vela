@@ -28,6 +28,21 @@ class NpuBlockType(enum.Enum):
     ReduceSum = 6
 
 
+def create_avgpool_nop(name):
+    op = Operation("AvgPool", name)
+    op.attrs["padding"] = b"VALID"
+    op.attrs["npu_block_type"] = NpuBlockType.Pooling
+    op.attrs["stride_w"] = 1
+    op.attrs["stride_h"] = 1
+    op.attrs["filter_width"] = 1
+    op.attrs["filter_height"] = 1
+    op.attrs["strides"] = [1, 1, 1, 1]
+    op.attrs["ksize"] = [1, 1, 1, 1]
+    op.attrs["skirt"] = [0, 0, 0, 0]
+    op.attrs["explicit_padding"] = [0, 0, 0, 0]
+    return op
+
+
 class Operation:
     """Class representing a Neural Network operation. Has a name, a type,
 input and output tensors, as well as an attribute dictionary."""

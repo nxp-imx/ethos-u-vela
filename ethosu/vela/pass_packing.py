@@ -20,8 +20,8 @@ import enum
 
 from .nn_graph import Pass
 from .nn_graph import PassPlacement
+from .operation import create_avgpool_nop
 from .operation import NpuBlockType
-from .operation import Operation
 from .tensor import TensorPurpose
 
 
@@ -455,20 +455,9 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             # Configure a 1x1 AvgPool and attach the op onto it
             op = op_list[0]
             inp = op.inputs[0]
-            avgpool_name = op.name + "_avgpool"
-            avgpool_op = Operation("AvgPool", avgpool_name)
-            avgpool_op.inputs = [inp]
-            avgpool_op.inputs[0].consumer_list.append(avgpool_op)
-            avgpool_op.attrs["padding"] = b"VALID"
-            avgpool_op.attrs["npu_block_type"] = NpuBlockType.Pooling
-            avgpool_op.attrs["stride_w"] = 1
-            avgpool_op.attrs["stride_h"] = 1
-            avgpool_op.attrs["filter_width"] = 1
-            avgpool_op.attrs["filter_height"] = 1
-            avgpool_op.attrs["strides"] = [1, 1, 1, 1]
-            avgpool_op.attrs["ksize"] = [1, 1, 1, 1]
-            avgpool_op.attrs["skirt"] = [0, 0, 0, 0]
-            avgpool_op.attrs["explicit_padding"] = [0, 0, 0, 0]
+
+            avgpool_op = create_avgpool_nop(op.name + "_avgpool")
+            avgpool_op.add_input_tensor(inp)
             avgpool_out = inp.clone("_avgpooled")
             avgpool_out.consumer_list.append(op)
             avgpool_op.set_output_tensor(avgpool_out)

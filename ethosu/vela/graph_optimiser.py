@@ -28,6 +28,7 @@ from .data_type import DataType
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
+from .operation import create_avgpool_nop
 from .operation import NpuBlockType
 from .operation import Operation
 from .softmax import SoftMax
@@ -563,6 +564,25 @@ def convert_conv_to_fc(op, arch):
     return op
 
 
+def fixup_relus_with_differing_ifm_ofm_scaling(op, arch):
+    if op.run_on_npu and op.type in relu_ops:
+        ifm = op.inputs[0]
+        ofm = op.outputs[0]
+        # Relu with differing IFM and OFM scaling cannot be fused with another primary op
+        # and requires its own to be inserted
+        if not ifm.is_scaling_equal(ofm):
+            # Override this op with its own primary op (avgpool)
+            relu_fused_op = create_avgpool_nop(op.name + "_avgpool")
+            # And fuse the original activation function to it
+            relu_fused_op.attrs["fused_activation_function"] = op.type
+            # Tidy up and assign the ifm and ofm to the new op
+            ifm.consumer_list.remove(op)
+            relu_fused_op.add_input_tensor(ifm)
+            relu_fused_op.set_output_tensor(ofm)
+            op = relu_fused_op
+    return op
+
+
 # Reorder activation op if it's after the memory only operations
 def fixup_act_reorder(op, arch):
     if op.type in activation_ops:
@@ -929,6 +949,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         fixup_fully_connected_input,
         fixup_pack_input,
         fixup_conv2d_backprop,
+        fixup_relus_with_differing_ifm_ofm_scaling,
         fixup_act_reorder,
         mark_npu_block_type,
         fixup_elementwise_with_scalars,
