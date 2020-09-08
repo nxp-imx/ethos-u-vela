@@ -38,6 +38,32 @@ from .tensor import Tensor
 
 passthrough_nodes = set(("Identity",))
 
+conv_op = set(("Conv2D", "QuantizedConv2D", "Conv2DBackpropInputSwitchedBias", "Conv2DBiasAct"))
+fc_op = set(
+    (
+        "MatMul",
+        "QuantizedMatMul",
+        "BlockLSTM",
+        "RnnAct",
+        "UnidirectionalSequenceRnnAct",
+        "BidirectionalSequenceRnnAct",
+        "LstmAct",
+        "UnidirectionalSequenceLstmAct",
+        "BidirectionalSequenceLstmAct",
+        "FullyConnectedAct",
+    )
+)
+depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
+pool_op = set(
+    ("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear")
+)
+reduce_sum_ops = set(("ReduceSum",))
+binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
+elementwise_op = set(("LeakyRelu", "Abs", "CLZ", "SHL", "SHR")) | binary_elementwise_op
+relu_ops = set(("Relu", "Relu6", "ReluN1To1"))
+activation_ops = set(("Sigmoid", "Tanh")) | relu_ops
+memory_only_ops = set(("Reshape",))
+
 
 def remove_passthrough_tensor(tens, arch):
     if len(tens.ops) == 1 and tens.ops[0].type in passthrough_nodes:
@@ -394,10 +420,10 @@ def fixup_unpack_output(tens, arch):
 def add_padding_fields(op, arch):
     if op.run_on_npu:
         if "padding" in op.attrs:
-            if "Conv" in op.type:
+            if op.type in conv_op | depthwise_op:
                 kernel_size = op.inputs[1].shape[:2]
                 input_shape = op.inputs[0].shape
-            elif "Pool" in op.type or op.type in ("ResizeBilinear", "ReduceSum"):
+            elif op.type in pool_op | reduce_sum_ops:
                 kernel_size = op.attrs["ksize"][1:3]
                 input_shape = op.inputs[0].shape
             elif op.type == "ExtractImagePatches":
@@ -422,32 +448,6 @@ def add_padding_fields(op, arch):
             op.attrs["skirt"] = skirt
 
     return op
-
-
-conv_op = set(("Conv2D", "QuantizedConv2D", "Conv2DBackpropInputSwitchedBias", "Conv2DBiasAct"))
-fc_op = set(
-    (
-        "MatMul",
-        "QuantizedMatMul",
-        "BlockLSTM",
-        "RnnAct",
-        "UnidirectionalSequenceRnnAct",
-        "BidirectionalSequenceRnnAct",
-        "LstmAct",
-        "UnidirectionalSequenceLstmAct",
-        "BidirectionalSequenceLstmAct",
-        "FullyConnectedAct",
-    )
-)
-depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
-pool_op = set(
-    ("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear")
-)
-reduce_sum_ops = set(("ReduceSum",))
-elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum", "LeakyRelu", "Abs", "CLZ", "SHL", "SHR"))
-binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
-activation_ops = set(("Relu", "Relu6", "ReluN1To1", "Sigmoid", "Tanh"))
-memory_only_ops = set(("Reshape",))
 
 
 # Check if the op can be reordered
@@ -491,7 +491,7 @@ def convert_depthwise_to_conv(op, arch):
     # If those conditions are true, then we can perform a simple
     # switch of the operator type (and weight order)
 
-    if ("DepthwiseConv2d" in op.type) and (op.attrs["depth_multiplier"] != 1):
+    if (op.type in depthwise_op) and (op.attrs["depth_multiplier"] != 1):
         ifm_tensor = op.inputs[0]
         weight_tensor = op.inputs[1]
         ofm_tensor = op.outputs[0]
@@ -513,7 +513,7 @@ def convert_depthwise_to_conv(op, arch):
 
 
 def reorder_depthwise_weights(op, arch):
-    if "DepthwiseConv2d" in op.type:
+    if op.type in depthwise_op:
         weight_tensor = op.inputs[1]
         weight_tensor.quant_values = np.transpose(weight_tensor.quant_values, (0, 1, 3, 2))
         weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
@@ -603,7 +603,7 @@ def fixup_elementwise_with_scalars(op, arch):
 
 # Set input/output tensor equivalence to the same id for memory operations
 def set_tensor_equivalence(op, arch):
-    if op.type == "Reshape":
+    if op.type in memory_only_ops:
         eid = op.outputs[0].equivalence_id
         for inp in op.inputs:
             inp.equivalence_id = eid
