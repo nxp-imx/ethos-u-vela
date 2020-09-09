@@ -35,6 +35,7 @@ from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
 from .softmax import SoftMax
+from .tensor import check_quantized_tens_scaling_equal
 from .tensor import create_const_tensor
 from .tensor import create_reshape_tensor
 from .tensor import QuantizationParameters
@@ -341,7 +342,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
                 # There is a preceding Reshape
                 # Compare input of prev_op and input of op, to see if prev_op can be removed
                 ifm_prev_op = prev_op.inputs[0]
-                if ifm_prev_op.shape == ifm.shape and ifm_prev_op.quantization.is_scaling_equal(ifm.quantization):
+                if ifm_prev_op.shape == ifm.shape and check_quantized_tens_scaling_equal(ifm_prev_op, ifm.quantization):
                     # prev_op can be removed
                     op.set_input_tensor(ifm_prev_op, 0)
                 else:
@@ -369,7 +370,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
                 # There is a subsequent Reshape
                 # Compare desired shape and output of consumer op, to see if consumer op can be removed
                 ofm_cons_op = ofm.consumer_list[0].outputs[0]
-                if desired_shape == ofm_cons_op.shape and ofm.quantization.is_scaling_equal(ofm_cons_op.quantization):
+                if desired_shape == ofm_cons_op.shape and check_quantized_tens_scaling_equal(ofm, ofm_cons_op):
                     op.outputs[0] = ofm_cons_op
                     op.outputs[0].ops = [op]
                 else:
@@ -613,7 +614,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
         ofm = op.outputs[0]
         # Relu with differing IFM and OFM scaling cannot be fused with another primary op
         # and requires its own to be inserted
-        if not ifm.is_scaling_equal(ofm):
+        if not check_quantized_tens_scaling_equal(ifm, ofm):
             # Override this op with its own primary op (avgpool)
             relu_fused_op = create_avgpool_nop(op.name + "_avgpool")
             # And fuse the original activation function to it
@@ -727,9 +728,12 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
         if mul.activation:
             return op
         ifm, ofm = op.get_ifm_ofm()
+        if ifm is None or ofm is None:
+            return op
+
         if ifm.dtype not in (DataType.uint8, DataType.int8) or ifm.dtype != ofm.dtype:
             return op
-        if not ifm.is_scaling_equal(ofm) or not ifm.is_scaling_equal(mul_ofm):
+        if not check_quantized_tens_scaling_equal(ifm, ofm) or not check_quantized_tens_scaling_equal(ifm, mul_ofm):
             # rewrite to LeakyRelu currently only makes sense if the quantization is identical
             return op
 
@@ -780,6 +784,8 @@ def convert_lrelu_to_mul_max(op, arch):
     # Converts LeakyRelu to Max(alpha * IFM, identity * IFM)
     # (the opposite of convert_mul_max_to_abs_or_lrelu)
     ifm, ofm = op.get_ifm_ofm()
+    if ifm is None or ofm is None:
+        return op
 
     # Add multiplication with alpha
     mul_alpha = Operation(Op.Mul, op.name + "_mul_alpha")
@@ -796,7 +802,7 @@ def convert_lrelu_to_mul_max(op, arch):
     fm_alpha = ofm.clone(op.name + "_alpha")
     mul_alpha.set_output_tensor(fm_alpha)
 
-    if ifm.is_scaling_equal(ofm):
+    if check_quantized_tens_scaling_equal(ifm, ofm):
         # No identity multiplication is needed
         fm_id = ifm
     else:
@@ -829,6 +835,8 @@ def convert_lrelu_to_mul_max(op, arch):
 def convert_to_lut(op, lut_values, lut_name):
     # Rewrite the operation by Add with scalar 0 + LUT activation
     ifm = op.inputs[0]
+    if ifm is None:
+        return op
     assert ifm.dtype.size_in_bytes() == 1
     op.type = Op.Add
     op.name = op.name + "_lut_" + lut_name
@@ -908,10 +916,12 @@ def convert_lrelu(op, arch, nng):
     if op.type != Op.LeakyRelu:
         return op
     ifm, ofm = op.get_ifm_ofm()
+    if ifm is None or ofm is None:
+        return op
     if ifm.dtype in (DataType.uint8, DataType.int8) and ifm.dtype == ofm.dtype:
         # use LUT for int8/uint8
         return convert_lrelu_to_lut(op, arch)
-    if ifm.is_scaling_equal(ofm) and ifm.dtype == ofm.dtype and ifm.dtype == DataType.int16:
+    if check_quantized_tens_scaling_equal(ifm, ofm) and ifm.dtype == ofm.dtype == DataType.int16:
         # use LeakyRelu unmodified for int16 with equal input/output scaling
         return op
     return convert_lrelu_to_mul_max(op, arch)
@@ -953,9 +963,9 @@ def remove_unwanted_reshapes(op, arch, nng):
         cons_op_ofm = cons_op.outputs[0]
         if len(prev_op_ifm.shape) == len(cons_op_ofm.shape):
             # Check if quantization is the same in the input and output for the reshape ops
-            if prev_op_ifm.quantization.is_scaling_equal(
-                prev_op_ofm.quantization
-            ) and cons_op_ifm.quantization.is_scaling_equal(cons_op_ofm.quantization):
+            if check_quantized_tens_scaling_equal(prev_op_ifm, prev_op_ofm) and check_quantized_tens_scaling_equal(
+                cons_op_ifm, cons_op_ofm
+            ):
                 op.set_input_tensor(prev_op_ifm, 0)
                 op.set_output_tensor(cons_op_ofm)
     return op
@@ -966,6 +976,8 @@ def fuse_activation_function_with_prev(op, arch, nng):
     if not op.attrs.get("is_nop", False) or op.activation is None:
         return op
     ifm, ofm = op.get_ifm_ofm()
+    if ifm is None or ofm is None:
+        return op
     # finds the input(s) to the operation
     prev_op = ifm.ops[0]
     # Note: the below checks on prev_op require that a first optimize pass on the full graph has been performed
