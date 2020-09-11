@@ -17,6 +17,7 @@
 # Internal representation of a Neural Network Tensor.
 import enum
 import uuid
+from collections import defaultdict
 
 import numpy as np
 
@@ -258,6 +259,25 @@ def create_reshape_tensor(tens, shape, ifm_reshape=True):
     return reshape_ofm if ifm_reshape else reshape_ifm
 
 
+# class that keeps track of all tensor addresses in the different memory types
+class TensorAddressMap:
+    address_map = defaultdict(dict)  # dict (tens.equivalence_id -> dict (mem_type -> address))
+
+    @classmethod
+    def get_address_for_tens(cls, tens_id, mem_type):
+        return cls.address_map[tens_id].get(mem_type)
+
+    @classmethod
+    def set_address_for_tens(cls, tens_id, mem_type, address):
+        # Check previous address if there is one
+        previous_address = cls.address_map[tens_id].get(mem_type)
+        if previous_address is not None:
+            assert previous_address == address, "Two different addresses cannot be assigned to the same tensor."
+
+        # Set tensor's address for memory type
+        cls.address_map[tens_id][mem_type] = address
+
+
 class Tensor:
     __slots__ = (
         "shape",
@@ -285,13 +305,10 @@ class Tensor:
         "weight_compression_config",
         "storage_rounding_quantum",
         "brick_size",
-        "address",
         "quantization",
         "weight_compressed_offsets",
         "element_size_bytes",
         "block_traversal",
-        "cpu_tensor",
-        "npu_tensor",
         "equivalence_id",
         "resampling_mode",
         "avoid_NHCWB16",
@@ -308,10 +325,6 @@ class Tensor:
 
         self.ops = []
         self.consumer_list = []
-        # Below attributes are only set if a tensor has been cloned,
-        # either from Cpu -> Npu or vice versa. Needed for offline allocation
-        self.cpu_tensor = None  # reference to the corresponding Cpu tensor
-        self.npu_tensor = None  # reference to the corresponding Npu tensor
 
         self.values = None
         self.quant_values = None
@@ -333,7 +346,6 @@ class Tensor:
         self.weight_compressed_offsets = []
         self.storage_rounding_quantum = (1, 1, 1, 1)
         self.brick_size = (1, 1, 1, 1)
-        self.address = None  # start address of tensor. will be filled in by tensor allocator
         self.element_size_bytes = 0
 
         # quantization parameters
@@ -342,6 +354,14 @@ class Tensor:
         self.resampling_mode = resampling_mode.NONE
 
         self.avoid_NHCWB16 = False
+
+    @property
+    def address(self):
+        return TensorAddressMap.get_address_for_tens(self.equivalence_id, self.mem_type)
+
+    @address.setter
+    def address(self, address):
+        TensorAddressMap.set_address_for_tens(self.equivalence_id, self.mem_type, address)
 
     def element_size(self):
         if self.element_size_bytes == 0:
@@ -367,7 +387,6 @@ class Tensor:
         res.alignment = self.alignment
         res.bandwidth_compression_scale = self.bandwidth_compression_scale
         res.storage_rounding_quantum = self.storage_rounding_quantum
-        res.address = None
 
         if self.quantization is not None:
             res.quantization = self.quantization.clone()

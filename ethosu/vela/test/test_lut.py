@@ -15,6 +15,8 @@
 # limitations under the License.
 # Description:
 # Unit tests for LUT support
+import random
+
 import numpy as np
 
 from ethosu.vela import insert_dma
@@ -31,29 +33,29 @@ from ethosu.vela.test import testutil
 
 
 def set_256_lut(op, key):
-    values = list(range(256))
+    random.seed(key)
+    values = random.choices(range(256), k=256)
     lut_tensor = create_const_tensor(
         op.name + "_lut", [1, 1, 1, 256], DataType.int8, values, np.uint8, TensorPurpose.LUT
     )
-    lut_tensor.equivalence_id = lut.create_equivalence_id(key)
     op.set_activation_lut(lut_tensor)
 
 
 def set_1K_lut(op, key):
-    values = list(range(256))
+    random.seed(key)
+    values = random.choices(range(256), k=256)
     lut_tensor = create_const_tensor(
         op.name + "_lut", [1, 1, 1, 256], DataType.int32, values, np.uint32, TensorPurpose.LUT
     )
-    lut_tensor.equivalence_id = lut.create_equivalence_id(key)
     op.set_activation_lut(lut_tensor)
 
 
 def set_2K_lut(op, key):
-    values = list(range(512))
+    random.seed(key)
+    values = random.choices(range(512), k=512)
     lut_tensor = create_const_tensor(
         op.name + "_lut", [1, 1, 1, 512], DataType.int32, values, np.uint32, TensorPurpose.LUT
     )
-    lut_tensor.equivalence_id = lut.create_equivalence_id(key)
     op.set_activation_lut(lut_tensor)
 
 

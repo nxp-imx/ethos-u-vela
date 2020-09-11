@@ -70,10 +70,7 @@ def rewrite_tensor_cpu_producer_npu_consumers(
     orig_tens, call_ps, startup_init_ps, npu_subgraph, cpu_subgraph, subgraph_for_pass
 ):
     is_const = orig_tens.ops[0].type == "Const"
-
     new_tens = orig_tens.clone("_npu")
-    orig_tens.npu_tensor = new_tens
-    new_tens.cpu_tensor = orig_tens
 
     op_type = "SubgraphInput"
     if is_const:
@@ -107,9 +104,6 @@ def rewrite_tensor_npu_producer_cpu_consumers(
 ):
 
     new_tens = orig_tens.clone("_cpu")
-    new_tens.npu_tensor = orig_tens
-    orig_tens.cpu_tensor = new_tens
-
     npu_subgraph.output_tensors.append(orig_tens)
 
     call_ps.outputs.append(new_tens)

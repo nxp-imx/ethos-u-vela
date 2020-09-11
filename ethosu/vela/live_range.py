@@ -84,21 +84,11 @@ class LiveRange:
         return self.name < other.name
 
     def set_address(self, address):
-        # Set address of all unaddressed tensors in LiveRange
+        # Set address of all tensors in LiveRange
         for tens in self.tensors:
-            if tens.address is None:
-                addr = address
-            else:
-                # Limit to single tensor for the lr if the tensor address already assigned
-                assert len(self.tensors) == 1
-                addr = tens.address
-            tens.address = addr
-            # Also need to set the address to the tensor's cpu/npu clones
-            if tens.cpu_tensor is not None:
-                tens.cpu_tensor.address = addr
-            if tens.npu_tensor is not None:
-                tens.npu_tensor.address = addr
-        return addr
+            tens.address = address
+
+        return address
 
     def get_alignment(self):
         return self.alignment
@@ -113,10 +103,6 @@ def merge_memory_op_ranges(sg, lr_graph, tensor_should_be_ignored, target_mem_ar
             # For memory only passes, e.g. Reshape. Add input and output tensor to the same LiveRange
             input_tensor = ps.inputs[0]
             output_tensor = ps.outputs[0]
-            # If the input or output tensor is tied to a Cpu tensor, i.e. a subgraph input
-            # or output, fuse the live-range with the Cpu tensors' live-range instead.
-            input_tensor = input_tensor.cpu_tensor if input_tensor.cpu_tensor is not None else input_tensor
-            output_tensor = output_tensor.cpu_tensor if output_tensor.cpu_tensor is not None else output_tensor
             if not tensor_should_be_ignored(input_tensor, target_mem_area) and not tensor_should_be_ignored(
                 output_tensor, target_mem_area
             ):
@@ -132,9 +118,9 @@ class LiveRangeGraph:
         self.current_time = 0
 
     def get_or_create_range(self, tens, alignment=Tensor.AllocationQuantum):
-        for rng in self.ranges.values():
-            # Return the live range of the tensor (or it's cpu/npu clone)
-            if any(tensor in rng.tensors for tensor in [tens, tens.npu_tensor, tens.cpu_tensor]):
+        # Return the live range of the tensor (or any of its clones)
+        for existing_tensor, rng in self.ranges.items():
+            if tens.equivalent(existing_tensor):
                 rng.set_alignment(alignment)
                 return rng
 
@@ -252,10 +238,6 @@ def extract_live_ranges_from_cascaded_passes(
                 # For memory only passes, e.g. Reshape. Add input and output tensor to the same LiveRange
                 input_tensor = ps.inputs[0]
                 output_tensor = ps.outputs[0]
-                # If the input or output tensor is tied to a Cpu tensor, i.e. a subgraph input
-                # or output, fuse the live-range with the Cpu tensors' live-range instead.
-                input_tensor = input_tensor.cpu_tensor if input_tensor.cpu_tensor is not None else input_tensor
-                output_tensor = output_tensor.cpu_tensor if output_tensor.cpu_tensor is not None else output_tensor
                 if not tensor_should_be_ignored(input_tensor, target_mem_area, target_mem_type_set) and not (
                     tensor_should_be_ignored(output_tensor, target_mem_area, target_mem_type_set)
                 ):
