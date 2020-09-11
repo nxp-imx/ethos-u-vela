@@ -53,6 +53,9 @@ def insert_dma_cmd(op, arch):
     if op.type == "DMA" or not op.run_on_npu:
         return op
 
+    is_lut_used         = any(inp.purpose == TensorPurpose.LUT for inp in op.inputs)
+    max_ifm_shram_avail = (arch.available_shram_banks(is_lut_used) - arch.shram_reserved_output_banks) * arch.shram_bank_size // 2
+
     for idx, tens in enumerate(op.inputs):
 
         if tens.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
@@ -63,7 +66,8 @@ def insert_dma_cmd(op, arch):
                 and arch.permanent_storage_mem_area != arch.fast_storage_mem_area
             ) or tens.purpose == TensorPurpose.LUT:
                 if tens.purpose in (TensorPurpose.Weights, TensorPurpose.LUT) or (
-                    tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and tens.shape != []
+                    tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and
+                    tens.shape != [] and tens.shape != op.outputs[0].shape and tens.storage_size() > max_ifm_shram_avail
                 ):
                     only_vector_product_consumers = True
                     for oper in tens.consumers():
