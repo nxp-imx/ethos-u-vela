@@ -227,6 +227,12 @@ class SupportedOperators:
         # check batch size
         if ifm_tensor.shape[0] != 1:
             return False
+
+        # check non const weights
+        if weight_tensor.values is None:
+            print("Warning:", op.type, "has non-const weights, placing on CPU")
+            return False
+
         return True
 
     def check_depthwise_convolution_restrictions(self, op):
@@ -317,6 +323,11 @@ class SupportedOperators:
         if not self.check_bias_restrictions(bias_tensor):
             return False
 
+        # check non const weights
+        if weight_tensor.values is None:
+            print("Warning:", op.type, "has non-const weights, placing on CPU")
+            return False
+
         return True
 
     def check_element_wise_restrictions(self, op):
@@ -360,6 +371,10 @@ class SupportedOperators:
 
         # negative alpha values are not supported
         if op.type == "LeakyRelu" and op.attrs["alpha"] < 0:
+            return False
+
+        # check if ifm or ifm2 has ofm shape
+        if ifm_tensor.shape != ofm_tensor.shape and ifm2_tensor.shape != ofm_tensor.shape:
             return False
 
         return True

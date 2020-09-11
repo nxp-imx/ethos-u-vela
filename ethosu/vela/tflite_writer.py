@@ -90,9 +90,13 @@ class TFLiteSerialiser:
                     if op.type not in self.ops_to_ignore:
                         all_ops.append(op)
                     if op.type.startswith("Conv2D") or op.type.startswith("DepthwiseConv2d"):
-                        self.tensors_to_reshape[op.inputs[1]] = (3, 0, 1, 2)
+                        # If values are None op has non-constant weights
+                        if op.inputs[1].values is not None:
+                            self.tensors_to_reshape[op.inputs[1]] = (3, 0, 1, 2)
                     if op.type.startswith("FullyConnected"):
-                        self.tensors_to_reshape[op.inputs[1]] = (1, 0)
+                        # If values are None op has non-constant weights
+                        if op.inputs[1].values is not None:
+                            self.tensors_to_reshape[op.inputs[1]] = (1, 0)
 
         self.operator_codes = list(sorted(set(op.type for op in all_ops)))
         self.operator_code_map = {}
@@ -314,7 +318,8 @@ class TFLiteSerialiser:
         # e.g. due to an empty graph containing no ops
         for op in all_ops + placeholder_ops:
             for tens in op.inputs + op.outputs:
-                tensor_set.add(tens)
+                if tens is not None:
+                    tensor_set.add(tens)
 
         all_tensors = [tens for nm, idx, tens in sorted((tens.name, idx, tens) for idx, tens in enumerate(tensor_set))]
 

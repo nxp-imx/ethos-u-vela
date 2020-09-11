@@ -318,6 +318,8 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                             print("Warning:", curr_op.type, "operation is unknown or unsupported, placing on CPU")
 
                         for inp in reversed(curr_op.inputs):
+                            if inp is None:
+                                continue
                             can_pack = True
                             if len(inp.ops) == 1:
                                 next_op = inp.ops[0]
@@ -390,6 +392,8 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         # Check primary_op first
         if primary_op is not None:
             for inp in primary_op.inputs:
+                if inp is None:
+                    continue
                 if len(inp.ops) == 1 and inp.ops[0].type == "DMA" and inp.purpose == TensorPurpose.FeatureMap:
                     src_op = inp.ops[0]
                     if src_op in input_ops_list:

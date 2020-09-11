@@ -253,7 +253,6 @@ for ops, input_purpose in tensor_purposes:
 
 def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
     def mark_tensor_helper(tens, purpose):
-
         if tens.purpose == TensorPurpose.Unknown or tens.purpose == purpose:
             tens.purpose = purpose
         elif tens.purpose != TensorPurpose.LUT:
@@ -284,6 +283,8 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
                     )
 
                 for idx, tens in enumerate(op.inputs):
+                    if tens is None:
+                        continue
                     purpose = input_purpose(op, idx) if tens.purpose == TensorPurpose.Unknown else tens.purpose
                     mark_tensor_helper(tens, purpose)
 
