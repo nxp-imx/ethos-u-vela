@@ -88,6 +88,45 @@ Note the difference between ArchitectureFeatures and CompilerOptions
     __repr__ = __str__
 
 
+def next_sram_factor(alloc_results):
+    # Bisects to find the max SRAM usage that successfully can be fitted with the tensor allocator.
+    # Returns tuple (factor, dry_test), with factor is None (stop) or 0 <= factor <= 1 (next SRAM factor to try),
+    # dry_test is True while still bisecting.
+    upper = 1.0
+    lower = 0.7
+    MAX_ITERATIONS = 8
+    if len(alloc_results) == 0:
+        # First iteration, try max SRAM, keep the result if it succeeds
+        return (upper, False)
+    elif len(alloc_results) == 1:
+        if alloc_results[0]:
+            # The allocator succeeded at first try; stop
+            return (None, False)
+        else:
+            # Start bisecting, try lowerbound SRAM
+            return (lower, True)
+    elif len(alloc_results) > MAX_ITERATIONS:
+        # Stop
+        return (None, False)
+    if not alloc_results[1]:
+        # Allocation at lower failed; search interval 0 - lower
+        upper = lower
+        lower = 0
+    best = lower
+    for success in alloc_results[2:]:
+        middle = (lower + upper) / 2
+        if success:
+            best = max(best, middle)
+            lower = middle
+        else:
+            upper = middle
+    if len(alloc_results) == MAX_ITERATIONS:
+        # Done bisecting; repeat the best match, but not as dry test
+        return (best, False)
+    # Next try; run only as dry test
+    return ((lower + upper) / 2, True)
+
+
 def compiler_driver(nng, arch, options, scheduler_options):
     assert verify_graph_health(nng)
     nng = graph_optimiser.optimise_graph_a(nng, arch, options.verbose_graph)
@@ -156,11 +195,11 @@ def compiler_driver(nng, arch, options, scheduler_options):
             arch,
             permanent_storage,
             set((MemType.Permanent_NPU,)),
-            scheduler_options.use_ifm_ofm_overlap,
-            TensorAllocator.LinearAlloc,
-            options.verbose_allocation,
-            options.show_minimum_possible_allocation,
-            lr_graph_flash,
+            use_ifm_ofm_overlap=scheduler_options.use_ifm_ofm_overlap,
+            tensor_allocator=TensorAllocator.LinearAlloc,
+            verbose_allocation=options.verbose_allocation,
+            show_minimum_possible_allocation=options.show_minimum_possible_allocation,
+            lr_graph=lr_graph_flash,
         )
 
     # Allocate all non-constant tensors to the root, i.e. Cpu, subgraph. This step
@@ -175,28 +214,68 @@ def compiler_driver(nng, arch, options, scheduler_options):
     root_sg = nng.get_root_subgraph()
 
     alloc_list = []
-    if arch.feature_map_storage_mem_area == arch.fast_storage_mem_area:
+    feature_maps_in_fast_storage = arch.feature_map_storage_mem_area == arch.fast_storage_mem_area
+    if feature_maps_in_fast_storage:
         mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))
         alloc_list.append(mem_alloc_scratch)
     else:
-        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch,)))
         mem_alloc_scratch_fast = (arch.fast_storage_mem_area, set((MemType.Scratch_fast,)))
-        alloc_list.append(mem_alloc_scratch)
+        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch,)))
+        # Order is important
         alloc_list.append(mem_alloc_scratch_fast)
+        alloc_list.append(mem_alloc_scratch)
 
-    for alloc in alloc_list:
-        tensor_allocation.allocate_tensors(
-            nng,
-            root_sg,
-            arch,
-            alloc[0],
-            alloc[1],
-            scheduler_options.use_ifm_ofm_overlap,
-            options.tensor_allocator,
-            options.verbose_allocation,
-            options.show_minimum_possible_allocation,
-            allocation_alignment=options.allocation_alignment,
-        )
+    for mem_area, mem_type_set in alloc_list:
+        if feature_maps_in_fast_storage or mem_area != arch.fast_storage_mem_area:
+            tensor_allocation.allocate_tensors(
+                nng,
+                root_sg,
+                arch,
+                mem_area,
+                mem_type_set,
+                use_ifm_ofm_overlap=scheduler_options.use_ifm_ofm_overlap,
+                tensor_allocator=options.tensor_allocator,
+                verbose_allocation=options.verbose_allocation,
+                show_minimum_possible_allocation=options.show_minimum_possible_allocation,
+                allocation_alignment=options.allocation_alignment,
+            )
+        else:
+            # For the case where scratch_fast != scratch: attempt to place feature maps used between
+            # cascaded passes in fast storage. Bisection is used to find the max possible usage of SRAM.
+            alloc_results = []
+            while True:
+                assert len(alloc_results) < 10, "Infinite allocator loop"
+                sram_factor, dry_test = next_sram_factor(alloc_results)
+                if sram_factor is None:
+                    break
+                # Try to move as many feature maps as possible to SRAM before allocating
+                sram_limit = sram_factor * arch.sram_size
+                for sg in nng.subgraphs:
+                    scheduler.use_fast_storage_for_feature_maps(sg, sram_limit, arch)
+                alloc_success = tensor_allocation.allocate_tensors(
+                    nng,
+                    root_sg,
+                    arch,
+                    mem_area,
+                    mem_type_set,
+                    max_size=arch.sram_size,
+                    dry_test=dry_test,
+                    use_ifm_ofm_overlap=scheduler_options.use_ifm_ofm_overlap,
+                    tensor_allocator=options.tensor_allocator,
+                    verbose_allocation=options.verbose_allocation,
+                    show_minimum_possible_allocation=options.show_minimum_possible_allocation,
+                    allocation_alignment=options.allocation_alignment,
+                )
+                if dry_test or not alloc_success:
+                    for sg in nng.subgraphs:
+                        scheduler.undo_use_fast_storage(sg, arch)
+                alloc_results.append(alloc_success)
+            if not alloc_results[-1]:
+                raise VelaError(
+                    "Sram limit {} bytes, has been exceeded by the scratch fast tensor. "
+                    "Increasing the value of --weight-estimation-scaling may help to resolve the issue. "
+                    "See OPTIONS.md for more information.".format(arch.sram_size)
+                )
 
     # Generate command streams and serialise Npu-ops into tensors
     for sg in nng.subgraphs:
@@ -213,16 +292,6 @@ def compiler_driver(nng, arch, options, scheduler_options):
 
     npu_serialisation.rewrite_npu_call_ops(nng, root_sg, arch)
 
-    if root_sg is not None and (arch.feature_map_storage_mem_area != arch.fast_storage_mem_area):
-        if root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0) > arch.sram_size:
-            raise VelaError(
-                "Sram limit {} bytes, has been exceeded by the scratch fast tensor {} bytes. "
-                "Increasing the value of --weight-estimation-scaling may help to resolve the issue. "
-                "See OPTIONS.md for more information.".format(
-                    arch.sram_size, root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0)
-                )
-            )
-
     # Allocate all Cpu constant tensors, this is done last because the Npu-ops
     # have to be serialized into flash and scratch tensors first
     tensor_allocation.allocate_tensors(
@@ -231,10 +300,10 @@ def compiler_driver(nng, arch, options, scheduler_options):
         arch,
         permanent_storage,
         set((MemType.Permanent_CPU,)),
-        scheduler_options.use_ifm_ofm_overlap,
-        TensorAllocator.LinearAlloc,
-        options.verbose_allocation,
-        options.show_minimum_possible_allocation,
+        use_ifm_ofm_overlap=scheduler_options.use_ifm_ofm_overlap,
+        tensor_allocator=TensorAllocator.LinearAlloc,
+        verbose_allocation=options.verbose_allocation,
+        show_minimum_possible_allocation=options.show_minimum_possible_allocation,
         allocation_alignment=options.allocation_alignment,
     )
 

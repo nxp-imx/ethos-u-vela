@@ -141,6 +141,8 @@ class Subgraph:
         self.placement = placement
         self.command_stream_tensor = None
         self.flash_tensor = None
+        # Scratch information locally used in the scheduler
+        self.scheduling_info = {}
 
         self.memory_used = {}
         self.memory_used_per_type = {}

@@ -278,7 +278,7 @@ class TensorAddressMap:
     def set_address_for_tens(cls, tens_id, mem_type, address):
         # Check previous address if there is one
         previous_address = cls.address_map[tens_id].get(mem_type)
-        if previous_address is not None:
+        if address is not None and previous_address is not None:
             assert previous_address == address, "Two different addresses cannot be assigned to the same tensor."
 
         # Set tensor's address for memory type
