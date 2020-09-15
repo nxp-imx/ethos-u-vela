@@ -37,6 +37,8 @@ class SharedBufferAllocation:
         self.banks_required = np.zeros(SharedBufferArea.Size)
 
         ifm_tensor, ifm2_tensor, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
+        tensors = [t for t in (ifm_tensor, ifm2_tensor, ofm_tensor) if t is not None]
+        has_scale = None not in (t.quantization.scale_f32 for t in tensors)
 
         strides = (1, 1, 1, 1)
         dilation = (1, 1, 1, 1)
@@ -84,7 +86,7 @@ class SharedBufferAllocation:
             else:
                 self.ifm_depth = ifm_tensor.shape[-1]
             if self.ifm_bits == 16:
-                if ps.npu_block_type != NpuBlockType.Pooling:
+                if ps.npu_block_type != NpuBlockType.Pooling and has_scale:
                     self.use_accumulator_element = SHRAMElements.Acc40
                 self.use_ifm_element = self.use_ifm_element + 1
                 assert (self.use_ifm_element == SHRAMElements.IFM16) or (
