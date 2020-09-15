@@ -25,8 +25,7 @@ compiled model.
 
 ## TensorFlow Support
 
-Vela supports TensorFlow 2.1.0 (for experimental Int16 support please use the
-latest nightly build of TensorFlow).
+Vela supports TensorFlow 2.3.0
 
 ## Environment
 

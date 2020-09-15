@@ -6,3 +6,4 @@ class LSHProjectionType(object):
     UNKNOWN = 0
     SPARSE = 1
     DENSE = 2
+

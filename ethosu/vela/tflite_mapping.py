@@ -27,6 +27,7 @@ from .tflite import AddNOptions
 from .tflite import AddOptions
 from .tflite import ArgMaxOptions
 from .tflite import ArgMinOptions
+from .tflite import BatchMatMulOptions
 from .tflite import BatchToSpaceNDOptions
 from .tflite import BidirectionalSequenceLSTMOptions
 from .tflite import BidirectionalSequenceRNNOptions
@@ -141,9 +142,11 @@ datatype_map = {
     TensorType.INT64: DataType.int64,
     TensorType.FLOAT16: DataType.float16,
     TensorType.FLOAT32: DataType.float32,
+    TensorType.FLOAT64: DataType.float64,
     TensorType.STRING: DataType.string,
     TensorType.BOOL: DataType.bool,
     TensorType.COMPLEX64: DataType.complex64,
+    TensorType.COMPLEX128: DataType.complex128,
 }
 
 datatype_inv_map = inverse_map(datatype_map)
@@ -162,8 +165,10 @@ datatype_map_numpy = {
     TensorType.INT64: np.int64,
     TensorType.FLOAT16: np.float16,
     TensorType.FLOAT32: np.float32,
+    TensorType.FLOAT64: np.float64,
     TensorType.BOOL: np.bool,
     TensorType.COMPLEX64: np.complex64,
+    TensorType.COMPLEX128: np.complex128,
 }
 
 
@@ -268,6 +273,7 @@ builtin_options_map = {
     BuiltinOptions.SegmentSumOptions: SegmentSumOptions.SegmentSumOptions,
     BuiltinOptions.SelectV2Options: SelectV2Options.SelectV2Options,
     BuiltinOptions.WhileOptions: WhileOptions.WhileOptions,
+    BuiltinOptions.BatchMatMulOptions: BatchMatMulOptions.BatchMatMulOptions,
 }
 
 builtin_options_inv_map = inverse_map(builtin_options_map)
@@ -445,21 +451,27 @@ conv2d_opts = OptionsSerializer(
     "Conv2DOptions", (padding, "stride_w", "stride_h", fused_act, "dilation_w_factor", "dilation_h_factor",)
 )
 
-lstm_opts = OptionsSerializer("LSTMOptions", (fused_act, "cell_clip", "proj_clip", "kernel_type"))
+lstm_opts = OptionsSerializer(
+    "LSTMOptions", (fused_act, "cell_clip", "proj_clip", "kernel_type", "asymmetric_quantize_inputs")
+)
 
 unidir_seq_lstm_opts = OptionsSerializer(
-    "UnidirectionalSequenceLSTMOptions", (fused_act, "cell_clip", "proj_clip", "time_major")
+    "UnidirectionalSequenceLSTMOptions",
+    (fused_act, "cell_clip", "proj_clip", "time_major", "asymmetric_quantize_inputs",),
 )
 
 bidir_seq_lstm_opts = OptionsSerializer(
-    "BidirectionalSequenceLSTMOptions", (fused_act, "cell_clip", "proj_clip", "merge_outputs", "time_major")
+    "BidirectionalSequenceLSTMOptions",
+    (fused_act, "cell_clip", "proj_clip", "merge_outputs", "time_major", "asymmetric_quantize_inputs"),
 )
 
-rnn_opts = OptionsSerializer("RNNOptions", (fused_act,))
+rnn_opts = OptionsSerializer("RNNOptions", (fused_act, "asymmetric_quantize_inputs"))
 
-seq_rnn_opts = OptionsSerializer("SequenceRNNOptions", ("time_major", fused_act,))
+seq_rnn_opts = OptionsSerializer("SequenceRNNOptions", ("time_major", fused_act, "asymmetric_quantize_inputs",))
 
-bidir_seq_rnn_opts = OptionsSerializer("BidirectionalSequenceRNNOptions", ("time_major", fused_act, "merge_outputs",))
+bidir_seq_rnn_opts = OptionsSerializer(
+    "BidirectionalSequenceRNNOptions", ("time_major", fused_act, "merge_outputs", "asymmetric_quantize_inputs")
+)
 
 
 reducer_opts = OptionsSerializer("ReducerOptions", ("keep_dims",))
@@ -469,7 +481,7 @@ is_int_vec = True
 custom_prefix = "Custom_"
 
 builtin_operator_map = {
-    BuiltinOperator.ADD: ("AddAct", OptionsSerializer("AddOptions", (fused_act,))),
+    BuiltinOperator.ADD: ("AddAct", OptionsSerializer("AddOptions", (fused_act, "pot_scale_int16"))),
     BuiltinOperator.AVERAGE_POOL_2D: ("AvgPoolAct", pool2d_opts),
     BuiltinOperator.CONCATENATION: ("ConcatTFLite", OptionsSerializer("ConcatenationOptions", ("axis", fused_act))),
     BuiltinOperator.CONV_2D: ("Conv2DBiasAct", conv2d_opts),
@@ -480,10 +492,10 @@ builtin_operator_map = {
     BuiltinOperator.FLOOR: ("Floor", None),
     BuiltinOperator.FULLY_CONNECTED: (
         "FullyConnectedAct",
-        OptionsSerializer("FullyConnectedOptions", (fused_act, "weights_format")),
+        OptionsSerializer("FullyConnectedOptions", (fused_act, "weights_format", "asymmetric_quantize_inputs")),
     ),
     BuiltinOperator.HASHTABLE_LOOKUP: ("HashtableLookup", None),
-    BuiltinOperator.L2_NORMALIZATION : ("L2NormAct", OptionsSerializer("L2NormOptions", (fused_act,))),
+    BuiltinOperator.L2_NORMALIZATION: ("L2NormAct", OptionsSerializer("L2NormOptions", (fused_act,))),
     BuiltinOperator.L2_POOL_2D: ("L2Pool2D", pool2d_opts),
     BuiltinOperator.LOCAL_RESPONSE_NORMALIZATION: (
         "LRN",
@@ -505,25 +517,34 @@ builtin_operator_map = {
     BuiltinOperator.RNN: ("RnnAct", rnn_opts),
     BuiltinOperator.SOFTMAX: ("Softmax", OptionsSerializer("SoftmaxOptions", ("beta",))),
     BuiltinOperator.SPACE_TO_DEPTH: ("SpaceToDepth", OptionsSerializer("SpaceToDepthOptions", ("block_size",))),
-    BuiltinOperator.SVDF: ("SvdfAct", OptionsSerializer("SVDFOptions", ("rank", fused_act))),
+    BuiltinOperator.SVDF: (
+        "SvdfAct",
+        OptionsSerializer("SVDFOptions", ("rank", fused_act, "asymmetric_quantize_inputs")),
+    ),
     BuiltinOperator.TANH: ("Tanh", None),
     BuiltinOperator.CONCAT_EMBEDDINGS: (
         "ConcatEmbeddings",
         OptionsSerializer(
             "ConcatEmbeddingsOptions",
-            ("num_channels", "num_columns_per_channel", "num_columns_per_channel_as_numpy",
-             "num_columns_per_channel_as_length", "embedding_dim_per_channel", "embedding_dim_per_channel_as_numpy",
-             "embedding_dim_per_channel_as_length",)
+            (
+                "num_channels",
+                "num_columns_per_channel",
+                "num_columns_per_channel_as_numpy",
+                "num_columns_per_channel_as_length",
+                "embedding_dim_per_channel",
+                "embedding_dim_per_channel_as_numpy",
+                "embedding_dim_per_channel_as_length",
+            ),
         ),
     ),
     BuiltinOperator.SKIP_GRAM: (
         "SkipGram",
-        OptionsSerializer("SkipGramOptions", ("ngram_size", "max_skip_size", "include_all_ngrams"))
+        OptionsSerializer("SkipGramOptions", ("ngram_size", "max_skip_size", "include_all_ngrams")),
     ),
     BuiltinOperator.CALL: ("Call", OptionsSerializer("CallOptions", ("subgraph",))),
     BuiltinOperator.EMBEDDING_LOOKUP_SPARSE: (
         "EmbeddingLookupSparse",
-        OptionsSerializer("EmbeddingLookupSparseOptions", ("combiner",))
+        OptionsSerializer("EmbeddingLookupSparseOptions", ("combiner",)),
     ),
     BuiltinOperator.PAD: ("Pad", OptionsSerializer("PadOptions")),
     BuiltinOperator.UNIDIRECTIONAL_SEQUENCE_RNN: ("UnidirectionalSequenceRnnAct", seq_rnn_opts),
@@ -532,7 +553,7 @@ builtin_operator_map = {
     BuiltinOperator.SPACE_TO_BATCH_ND: ("SpaceToBatchND", OptionsSerializer("SpaceToBatchNDOptions")),
     BuiltinOperator.TRANSPOSE: ("Transpose", OptionsSerializer("TransposeOptions")),
     BuiltinOperator.MEAN: ("Mean", None),
-    BuiltinOperator.SUB: ("SubAct", OptionsSerializer("SubOptions", (fused_act,))),
+    BuiltinOperator.SUB: ("SubAct", OptionsSerializer("SubOptions", (fused_act, "pot_scale_int16",))),
     BuiltinOperator.DIV: ("DivAct", OptionsSerializer("DivOptions", (fused_act,))),
     BuiltinOperator.SQUEEZE: ("Squeeze", OptionsSerializer("SqueezeOptions", (("squeeze_dims", is_int_vec),))),
     BuiltinOperator.UNIDIRECTIONAL_SEQUENCE_LSTM: ("UnidirectionalSequenceLstmAct", unidir_seq_lstm_opts),
@@ -547,7 +568,7 @@ builtin_operator_map = {
     BuiltinOperator.TOPK_V2: ("TopKV2", OptionsSerializer("TopKV2Options")),
     BuiltinOperator.SPLIT: ("Split", OptionsSerializer("SplitOptions", ("num_splits",))),
     BuiltinOperator.LOG_SOFTMAX: ("LogSoftmax", OptionsSerializer("LogSoftmaxOptions")),
-    BuiltinOperator.DELEGATE : ("Delegate", None),
+    BuiltinOperator.DELEGATE: ("Delegate", None),
     BuiltinOperator.BIDIRECTIONAL_SEQUENCE_LSTM: ("BidirectionalSequenceLstmAct", bidir_seq_lstm_opts),
     BuiltinOperator.CAST: (
         "Cast",
@@ -622,7 +643,7 @@ builtin_operator_map = {
     BuiltinOperator.RANGE: ("Range", OptionsSerializer("RangeOptions")),
     BuiltinOperator.RESIZE_NEAREST_NEIGHBOR: (
         "ResizeNearestNeighbor",
-        OptionsSerializer("ResizeNearestNeighborOptions", ("align_corners",)),
+        OptionsSerializer("ResizeNearestNeighborOptions", ("align_corners", "half_pixel_centers")),
     ),
     BuiltinOperator.LEAKY_RELU: ("LeakyRelu", OptionsSerializer("LeakyReluOptions", ("alpha",))),
     BuiltinOperator.SQUARED_DIFFERENCE: ("SquaredDifference", OptionsSerializer("SquaredDifferenceOptions")),
@@ -658,6 +679,7 @@ builtin_operator_map = {
     BuiltinOperator.SELECT_V2: ("SelectV2", OptionsSerializer("SelectV2Options")),
     BuiltinOperator.DENSIFY: ("Densify", OptionsSerializer("DensifyOptions")),
     BuiltinOperator.SEGMENT_SUM: ("SegmentSum", OptionsSerializer("SegmentSumOptions")),
+    BuiltinOperator.BATCH_MATMUL: ("BatchMatMul", OptionsSerializer("BatchMatMulOptions", ("adj_x", "adj_y"))),
     BuiltinOperator.CUSTOM: (custom_prefix, CustomOptionsSerializer()),
 }
 

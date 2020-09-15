@@ -13,3 +13,6 @@ class TensorType(object):
     INT16 = 7
     COMPLEX64 = 8
     INT8 = 9
+    FLOAT64 = 10
+    COMPLEX128 = 11
+
