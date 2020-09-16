@@ -91,7 +91,7 @@ def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_m
             print("allocation for", mem_area, "- constant tensors in", sg.placement.name, "subgraph(s)")
         else:
             print("allocation for", mem_area, "- non-constant tensors in Cpu and Npu subgraphs")
-
+        mem_usage = 0
         for start_time, start, end, name, end_time in sorted(
             (
                 lr.start_time,
@@ -104,6 +104,8 @@ def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_m
         ):
             name = name.replace("\x00", "")
             print("%9d: %#12x - %#12x: %3d - %3d %s" % ((end - start), start, end, start_time, end_time, name))
+            mem_usage = max(mem_usage, end)
+        print("Memory usage: {} ({:#x}) bytes / {:.1f} KB".format(mem_usage, mem_usage, mem_usage / 1024))
         print()
 
     if show_minimum_possible_allocation and mem_area == MemArea.Sram:

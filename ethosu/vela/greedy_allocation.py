@@ -59,7 +59,7 @@ class GreedyAllocator:
     def allocate_live_ranges(self, verbose_allocation, alignment):
         lrs = set()
         for lr in self.live_ranges.ranges.values():
-            lrs.add((lr.start_time, lr.end_time, lr))
+            lrs.add((lr.start_time, -lr.end_time, lr))
 
         lrs = sorted(lrs)
 
