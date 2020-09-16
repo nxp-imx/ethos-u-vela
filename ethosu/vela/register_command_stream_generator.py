@@ -968,13 +968,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         emit.cmd0_with_param(cmd0.NPU_SET_IFM2_WIDTH0_M1, width_0 - 1)
                 else:
                     if len(out_shape) == 2:
-                        # TODO: N is put in W-dimension for now
-                        # Should be spread over H and W, but then block size selectetion,
-                        # and stride calculation should be changed
+                        assert out_shape[0] == 1
                         if tens == cmd.ifm_tensor:
-                            emit.cmd0_with_param(cmd0.NPU_SET_IFM_WIDTH0_M1, out_shape[-2] - 1)
+                            emit.cmd0_with_param(cmd0.NPU_SET_IFM_WIDTH0_M1, 0)
                         elif tens == cmd.ofm_tensor:
-                            emit.cmd0_with_param(cmd0.NPU_SET_OFM_WIDTH0_M1, out_shape[-2] - 1)
+                            emit.cmd0_with_param(cmd0.NPU_SET_OFM_WIDTH0_M1, 0)
                     else:
                         assert False
 
