@@ -56,6 +56,14 @@ def create_elemwise_op(type, name, ifm_shape, ifm2_shape, ofm_shape, datatype=Da
     return op
 
 
+def create_op(op_type, inputs, output, attrs=dict()):
+    op = Operation(op_type, output.name + "_op")
+    op.inputs = inputs
+    op.outputs = [output]
+    op.attrs = attrs
+    return op
+
+
 def create_subgraph(op_list):
     # Creates subgraph using the given list of operations
     sg = Subgraph()
