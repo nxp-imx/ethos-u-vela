@@ -16,24 +16,14 @@
 # Description:
 # Functionality for lookup table support.
 import uuid
-from functools import lru_cache
 
 import numpy as np
 
 from . import numeric_util
 from .high_level_command_stream import CommandType
 from .tensor import create_const_tensor
+from .tensor import create_equivalence_id
 from .tensor import TensorPurpose
-
-
-@lru_cache(maxsize=None)
-def create_equivalence_id(key):
-    # Generates equivalence_id based on key.
-    # The DMA optimization of LUT-s assumes that 2 LUT tensors are identical
-    # if they have the same equivalence_id.
-    # So for example all created 256-byte tanh LUT tensors should have
-    # the same equivalence id.
-    return uuid.uuid4()
 
 
 class LUTState:

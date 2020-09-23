@@ -30,6 +30,7 @@ from .numeric_util import round_up_divide
 from .operation import NpuBlockType
 from .scaling import quantise_scale
 from .scaling import reduced_quantise_scale
+from .tensor import create_equivalence_id
 from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
@@ -40,7 +41,7 @@ from ethosu import mlw_codec
 # Contains meta info for a weight compression. If two tensors have identical weight compression config,
 # then they also will have identical compressed weights.
 WeightCompressionConfig = namedtuple(
-    "WeightCompressionConfig", ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "dilation", "equivalence_id"]
+    "WeightCompressionConfig", ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "dilation", "value_id"]
 )
 
 
@@ -136,7 +137,7 @@ def create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_
     # Note: for an ofm block only its depth is used in weight compression.
     # And block depth > ofm depth gives same result as block depth == ofm depth
     block_depth = min(ofm_block_depth, tens.quant_values.shape[-1])
-    return WeightCompressionConfig(npu_block_type, block_depth, ofm_depth_step, dilation, tens.equivalence_id)
+    return WeightCompressionConfig(npu_block_type, block_depth, ofm_depth_step, dilation, tens.value_id)
 
 
 def set_storage_shape(tens):
@@ -286,13 +287,15 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         nng.weight_cache = CompressedWeightCache()
     wcc = create_weight_compression_config(tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation)
     tens.weight_compression_config = wcc
+    # Reassign equivalence id such that tensors with same weight compression get identical equivalence ids,
+    # but tensors with the same values but different compression get different equivalence ids
+    tens.equivalence_id = create_equivalence_id(wcc)
     tens_cached = nng.weight_cache.get_tensor_with_same_compression(wcc)
     if tens_cached is not None:
         # Cache hit, copy weights from the cache
         tens.copy_compressed_weight_info(tens_cached)
         set_storage_shape(tens)
         return
-
     # No cache hit, perform the compression
     assert tens.quantization is not None
     assert tens.quantization.scale_f32 is not None
