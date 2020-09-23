@@ -103,7 +103,7 @@ def rewrite_concat(tens, arch):
         # multiple of 16. This as, it is only then the address offset for the ofm, for all operations, will be 16 byte
         # aligned. For other values of axis the address offsets will be 16 byte aligned, as they are all based on c = 0
         # and those addresses are always 16 byte aligned due to the NHCWB16 format.
-        if axis == (len(tens.shape) - 1):
+        if axis == -1 or axis == (len(tens.shape) - 1):
             for op in tens.ops:
                 if op.attrs["concat_start"] % 16 != 0:
                     tens.avoid_NHCWB16 = True
