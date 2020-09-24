@@ -25,9 +25,12 @@ import numpy as np
 
 from . import numeric_util
 from .architecture_features import Block
+from .architecture_features import SHRAMElements
+from .data_type import DataType
 from .nn_graph import PassPlacement
 from .nn_graph import SchedulerRewrite
 from .operation import NpuBlockType
+from .operation import Op
 from .register_command_stream_generator import get_op_kernel
 from .tensor import MemArea
 from .tensor import shape_num_elements
@@ -210,6 +213,66 @@ def get_n_blocks_and_area(
     return total_blocks, total_area, block_setup
 
 
+def get_output_cycle_estimate(arch, ps):
+    primary_op = ps.primary_op
+    assert primary_op
+    npu_block_type = primary_op.type.npu_block_type
+    faf = primary_op.activation
+
+    if npu_block_type == NpuBlockType.ElementWise and ps.ifm_tensor.dtype == DataType.int32:
+        if ps.ifm2_tensor is None:
+            # Unary op
+            output_perf_index = 0
+        else:
+            # Binary op
+            output_perf_index = 1
+    elif ps.primary_op.type == Op.Mul and ps.ofm_tensor.dtype == DataType.int32:
+        output_perf_index = 2
+    elif ps.primary_op.type == Op.Mul or (
+        npu_block_type
+        in (
+            NpuBlockType.ConvolutionMxN,
+            NpuBlockType.ConvolutionDepthWise,
+            NpuBlockType.Pooling,
+            NpuBlockType.ReduceSum,
+            NpuBlockType.VectorProduct,
+        )
+        and ps.shared_buffer.use_accumulator_element == SHRAMElements.Acc40
+    ):
+        output_perf_index = 3
+    elif ps.primary_op.type in (Op.Add, Op.Sub):
+        input_scale = ps.ifm_tensor.quantization.scale_f32
+        input2_scale = ps.ifm2_tensor.quantization.scale_f32
+        output_scale = ps.ofm_tensor.quantization.scale_f32
+
+        if "resizebilinear" in primary_op.attrs:
+            output_scale = input2_scale
+
+        if None in (input_scale, input2_scale, output_scale) or input_scale == input2_scale:
+            # Simple Add/Sub
+            output_perf_index = 4
+        else:
+            # Advanced Add/Sub
+            output_perf_index = 5
+    elif ps.primary_op.type.is_maxpool_op():
+        output_perf_index = 6
+    else:
+        output_perf_index = 7
+
+    if faf in (Op.Sigmoid, Op.Tanh, Op.LUT):
+        activation_perf_index = 0
+    elif faf in (Op.Relu, Op.Relu6, Op.ReluN1To1):
+        activation_perf_index = 1
+    else:
+        activation_perf_index = 2
+
+    num_elems = ps.outputs[0].elements()
+    cycle_per_elem = max(
+        arch.output_cycles_per_elem[output_perf_index], arch.activation_cycles_per_elem[activation_perf_index]
+    )
+    return num_elems * cycle_per_elem
+
+
 def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], force_outputs_to_fast_storage=False):
     if block_config is None:
         block_config = ps.block_config
@@ -385,14 +448,9 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             replacement_read_bws[weight_tensor] = weight_tensor.bandwidth() * non_zero_fraction
             ifm_read_multiple = 1
             weight_read_multiple = non_zero_fraction
-    else:
-        if ps.placement == PassPlacement.Npu and len(ps.outputs):
-            # Assume element-wise operation going through the element pipelines.
+        elif npu_block_type == NpuBlockType.ElementWise:
             # Work out how many elements we have and calculate performance.
-            out = ps.outputs[0]
-            elms = out.elements()
-
-            cycles[PassCycles.ElementWise] = numeric_util.round_up_divide(elms, arch.num_elem_wise_units)
+            cycles[PassCycles.ElementWise] = get_output_cycle_estimate(arch, ps)
 
     # apply the desired rewrites
     for rewrite_op, tens, _, _, _, ps_to_rewrite in rewrite_list:

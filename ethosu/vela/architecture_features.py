@@ -136,15 +136,14 @@ class Accelerator(enum.Enum):
 
 class ArchitectureFeatures:
     """This class is a container for various parameters of the Ethos-U55 core
-and system configuration that can be tuned, either by command line
-parameters or by the Ethos-U55 architects. The class is often passed
-around to passes that need to do architecture-dependent actions.
+    and system configuration that can be tuned, either by command line
+    parameters or by the Ethos-U55 architects. The class is often passed
+    around to passes that need to do architecture-dependent actions.
 
-Note the difference between ArchitectureFeatures and CompilerOptions
-- ArchitectureFeatures is for changing the Ethos-U55 and system architecture
-- CompilerOptions is for changing the behaviour of the compiler
-
-"""
+    Note the difference between ArchitectureFeatures and CompilerOptions
+    - ArchitectureFeatures is for changing the Ethos-U55 and system architecture
+    - CompilerOptions is for changing the behaviour of the compiler
+    """
 
     ArchitectureConfig = namedtuple(
         "ArchitectureConfig", "macs cores ofm_ublock ifm_ublock shram_banks shram_granules elem_units"
@@ -238,6 +237,9 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.memory_bandwidths_per_cycle = self.memory_port_widths * self.memory_clock_scales / 8
 
         self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.npu_clock
+
+        # Get output/activation performance numbers
+        self._generate_output_perf_tables(self.accelerator_config)
 
         # sizes as N x H x W x C. we need to round up to these when allocating storage
         self.storage_rounding_quantums = {
@@ -373,6 +375,24 @@ Note the difference between ArchitectureFeatures and CompilerOptions
                 for c in [4, 8, 12, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128]:
                     key = ArchitectureFeatures.make_block_config_key(w, h, c)
                     self.block_config_map[key] = self.generate_block_config(w, h, c)
+
+    def _generate_output_perf_tables(self, accel_config):
+        if accel_config == Accelerator.Ethos_U55_32:
+            self.output_cycles_per_elem = (2.0, 3.0, 3.0, 3.0, 4.0, 6.0, 1.0, 2.0)
+            self.activation_cycles_per_elem = (1.0, 1.0, 0.0)
+        elif accel_config == Accelerator.Ethos_U55_64:
+            self.output_cycles_per_elem = (1.0, 1.5, 1.5, 1.5, 2.0, 3.0, 0.5, 1.0)
+            self.activation_cycles_per_elem = (1.0, 1.0, 0.0)
+        elif accel_config == Accelerator.Ethos_U55_128:
+            self.output_cycles_per_elem = (0.75, 1.25, 0.75, 0.75, 1.0, 1.5, 0.25, 0.5)
+            self.activation_cycles_per_elem = (1.0, 0.5, 0.0)
+        elif accel_config in (Accelerator.Ethos_U55_256, Accelerator.Yoda_256):
+            self.output_cycles_per_elem = (0.625, 1.125, 0.5, 0.375, 0.5, 0.75, 0.125, 0.25)
+            self.activation_cycles_per_elem = (1.0, 0.25, 0.0)
+        else:
+            assert accel_config == Accelerator.Yoda_512
+            self.output_cycles_per_elem = (0.3125, 0.5625, 0.25, 0.1875, 0.25, 0.375, 0.0625, 0.125)
+            self.activation_cycles_per_elem = (0.5, 0.125, 0.0)
 
     def calc_ifm_block_depth(self, ifm_depth, ifm_bits):
         assert ifm_bits in (8, 16, 32)
