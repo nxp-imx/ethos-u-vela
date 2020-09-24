@@ -215,6 +215,11 @@ class SupportedOperators:
         if dilated_weight_w > 64 or dilated_weight_h > 64:
             return False
 
+        # check non const weights
+        if weight_tensor.values is None:
+            print("Warning:", op.type, "has non-const weights, placing on CPU")
+            return False
+
         # check weight sums over [HWI]
         zero_point = weight_tensor.quantization.zero_point
         quant_weights = weight_tensor.quant_values.astype(np.int64)
@@ -226,11 +231,6 @@ class SupportedOperators:
 
         # check batch size
         if ifm_tensor.shape[0] != 1:
-            return False
-
-        # check non const weights
-        if weight_tensor.values is None:
-            print("Warning:", op.type, "has non-const weights, placing on CPU")
             return False
 
         return True
