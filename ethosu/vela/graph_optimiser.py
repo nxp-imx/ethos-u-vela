@@ -28,6 +28,8 @@ from .data_type import DataType
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
+from .numeric_util import round_away_zero
+from .numeric_util import sigmoid
 from .operation import create_avgpool_nop
 from .operation import NpuBlockType
 from .operation import Operation
@@ -863,9 +865,9 @@ def convert_lrelu_to_mul_max(op, arch):
     return op
 
 
-def convert_lrelu_to_lut(op, arch):
-    # Rewrite LeakyRelu by Add with scalar 0 + LUT activation
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+def convert_to_lut(op, lut_values):
+    # Rewrite the operation by Add with scalar 0 + LUT activation
+    ifm = op.inputs[0]
     assert ifm.dtype.size_in_bytes() == 1
     op.type = "AddAct"
     op.name = op.name + "_add"
@@ -878,6 +880,41 @@ def convert_lrelu_to_lut(op, arch):
     quantization.zero_point = 0
     tens = create_const_tensor(op.inputs[0].name + "_add", [], ifm.dtype, [0], np.uint8, quantization=quantization)
     op.add_input_tensor(tens)
+    # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
+    # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
+    # should be the same as the IFM
+    op.attrs["forced_output_quantization"] = ifm.quantization
+    lut_tensor = lut.create_lut_tensor(op.name + "_lut", lut_values, DataType.int8)
+    op.set_activation_lut(lut_tensor)
+    return op
+
+
+def convert_to_lut8(op, fn):
+    # Converts op to a no-op + int8/uint8 LUT which is generated with the given function.
+    # fn is a function(real) -> real
+    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    if ifm.dtype not in (DataType.uint8, DataType.int8) or ifm.dtype != ofm.dtype:
+        return op
+    # Generate the LUT
+    ifm_scale = np.double(ifm.quantization.scale_f32)
+    ofm_scale = np.double(ofm.quantization.scale_f32)
+    zp_in = ifm.quantization.zero_point
+    zp_out = ofm.quantization.zero_point
+    values = []
+    ix = range(256) if ifm.dtype == DataType.uint8 else range(-128, 128)
+    quantized_min = min(ix)
+    quantized_max = max(ix)
+    for x in ix:
+        x_real = ifm_scale * (x - zp_in)
+        y_real = fn(x_real)
+        lut_result = round_away_zero(zp_out + y_real / ofm_scale)
+        lut_result = min(quantized_max, max(quantized_min, lut_result))
+        values.append(lut_result)
+    return convert_to_lut(op, values)
+
+
+def convert_lrelu_to_lut(op, arch):
+    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
     # Generate the LUT
     alpha = op.attrs["alpha"]
     ifm_scale = np.double(ifm.quantization.scale_f32)
@@ -903,13 +940,7 @@ def convert_lrelu_to_lut(op, arch):
             lut_result = zp_out + fp_math.multiply_by_quantized_multiplier(x - zp_in, identity_scale, identity_shift)
         lut_result = min(quantized_max, max(quantized_min, lut_result))
         values.append(lut_result)
-    # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
-    # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
-    # should be the same as the IFM
-    op.attrs["forced_output_quantization"] = ifm.quantization
-    lut_tensor = lut.create_lut_tensor(op.name + "_lut", values, DataType.int8)
-    op.set_activation_lut(lut_tensor)
-    return op
+    return convert_to_lut(op, values)
 
 
 def convert_lrelu(op, arch):
@@ -924,6 +955,15 @@ def convert_lrelu(op, arch):
         # use LeakyRelu unmodified for int16 with equal input/output scaling
         return op
     return convert_lrelu_to_mul_max(op, arch)
+
+
+def convert_tanh_sigmoid_to_lut(op, arch):
+    # Converts int8/uint8 Sigmoid and Tanh to a LUT based solution
+    if op.type == "Sigmoid":
+        return convert_to_lut8(op, sigmoid)
+    elif op.type == "Tanh":
+        return convert_to_lut8(op, math.tanh)
+    return op
 
 
 def remove_unwanted_reshapes(op, arch):
@@ -971,6 +1011,7 @@ def fuse_activation_function_with_prev(op, arch):
     # Note: the below checks on prev_op require that a first optimize pass on the full graph has been performed
     fuse = (
         prev_op.run_on_npu
+        and "npu_block_type" in prev_op.attrs
         and prev_op.attrs["npu_block_type"] != NpuBlockType.Default
         and len(ifm.ops) == 1
         and len(prev_op.outputs[0].consumers()) == 1
@@ -1058,6 +1099,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_mul_max_to_abs_or_lrelu,
         remove_unwanted_reshapes,
         convert_lrelu,
+        convert_tanh_sigmoid_to_lut,
     ]
 
     for idx, sg in enumerate(nng.subgraphs):

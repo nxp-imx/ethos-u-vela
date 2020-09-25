@@ -77,13 +77,17 @@ def clamp_tanh(x):
     return y
 
 
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
+
 def clamp_sigmoid(x):
     if x <= -8:
         y = 0.0
     elif x >= 8:
         y = 1.0
     else:
-        y = 1 / (1 + math.exp(-x))
+        y = sigmoid(x)
     return y
 
 

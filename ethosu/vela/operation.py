@@ -152,7 +152,7 @@ input and output tensors, as well as an attribute dictionary."""
             weight_idx = 1
             ofm_idx = 0
 
-        elif self.type in ("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims"):
+        elif self.type in ("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims", "Sigmoid", "Tanh"):
             ifm_idx = 0
             ofm_idx = 0
 

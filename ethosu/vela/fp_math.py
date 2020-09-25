@@ -21,6 +21,7 @@
 # point implementation.
 import numpy as np
 
+
 # Convert floating point to fixed point, default Q5.26
 def from_float(x, integer_bits=5):
     i32info = np.iinfo(np.int32)
