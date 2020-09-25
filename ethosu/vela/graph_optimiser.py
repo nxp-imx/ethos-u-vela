@@ -657,6 +657,15 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch):
             relu_fused_op.attrs["fused_activation_function"] = op.type
             # Tidy up and assign the ifm and ofm to the new op
             ifm.consumer_list.remove(op)
+
+            # if not 4d, reshape ifm/ofm
+            if len(ifm.shape) < 4:
+                ifm_shaped = create_reshape_tensor(ifm, full_shape(4, ifm.shape, 1))
+                ifm = ifm_shaped
+            if len(ofm.shape) < 4:
+                ofm_shaped = create_reshape_tensor(ofm, full_shape(4, ofm.shape, 1), False)
+                ofm = ofm_shaped
+
             relu_fused_op.add_input_tensor(ifm)
             relu_fused_op.set_output_tensor(ofm)
             op = relu_fused_op
