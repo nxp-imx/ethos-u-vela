@@ -37,9 +37,6 @@ class SharedBufferAllocation:
         self.banks_required = np.zeros(SharedBufferArea.Size)
 
         ifm_tensor, ifm2_tensor, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
-        tensors = [t for t in (ifm_tensor, ifm2_tensor, ofm_tensor) if t is not None]
-        scales = [t.quantization.scale_f32 for t in tensors if t.quantization is not None]
-        has_scale = len(tensors) == len(scales) and None not in scales
 
         self.kernel = Kernel(1, 1)
         self.is_elementwise = ps.npu_block_type == NpuBlockType.ElementWise
@@ -81,7 +78,7 @@ class SharedBufferAllocation:
                     self.ifm_count = 1
 
             if self.ifm_bits == 16:
-                if ps.npu_block_type != NpuBlockType.Pooling and has_scale:
+                if is_acc_40bits_used(ps.npu_block_type, ifm_tensor, ofm_tensor, ifm2_tensor):
                     self.use_accumulator_element = SHRAMElements.Acc40
                 self.use_ifm_element = self.use_ifm_element + 1
                 assert (self.use_ifm_element == SHRAMElements.IFM16) or (
@@ -169,6 +166,13 @@ class SharedBufferAllocation:
         return MemoryRangeSet(
             MemArea.Shram, 0, self.arch.available_shram_banks(self.uses_lut) * self.arch.shram_bank_size
         )
+
+
+def is_acc_40bits_used(npu_block_type, ifm_tensor, ofm_tensor, ifm2_tensor=None):
+    tensors = [t for t in (ifm_tensor, ifm2_tensor, ofm_tensor) if t is not None]
+    scales = [t.quantization.scale_f32 for t in tensors if t.quantization is not None]
+    has_scale = len(tensors) == len(scales) and None not in scales
+    return npu_block_type != NpuBlockType.Pooling and has_scale
 
 
 def shared_buffer_allocation_for_pass_and_block_config(arch, ps, block_config):
