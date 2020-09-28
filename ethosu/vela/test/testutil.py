@@ -22,6 +22,7 @@ from ethosu.vela.data_type import DataType
 from ethosu.vela.nn_graph import Subgraph
 from ethosu.vela.operation import Operation
 from ethosu.vela.tensor import create_const_tensor
+from ethosu.vela.tensor import QuantizationParameters
 from ethosu.vela.tensor import Tensor
 
 
@@ -38,7 +39,17 @@ def create_arch():
     )
 
 
-def create_elemwise_op(type, name, ifm_shape, ifm2_shape, ofm_shape, datatype=DataType.uint8):
+def create_elemwise_op(
+    type,
+    name,
+    ifm_shape,
+    ifm2_shape,
+    ofm_shape,
+    datatype=DataType.uint8,
+    ifm_quant=QuantizationParameters(),
+    ifm2_quant=QuantizationParameters(),
+    ofm_quant=QuantizationParameters(),
+):
     # Creates elementwise operation with constant IFM/IFM2
     if datatype.size_in_bytes() == 1:
         np_type = np.uint8
@@ -47,9 +58,16 @@ def create_elemwise_op(type, name, ifm_shape, ifm2_shape, ofm_shape, datatype=Da
     else:
         np_type = np.int32
     op = Operation(type, name)
-    op.add_input_tensor(create_const_tensor(name + "_ifm", ifm_shape, datatype, np.zeros(ifm_shape), np_type))
-    op.add_input_tensor(create_const_tensor(name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), np_type))
+    op.add_input_tensor(
+        create_const_tensor(name + "_ifm", ifm_shape, datatype, np.zeros(ifm_shape), np_type, quantization=ifm_quant)
+    )
+    op.add_input_tensor(
+        create_const_tensor(
+            name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), np_type, quantization=ifm2_quant
+        )
+    )
     ofm = Tensor(ofm_shape, datatype, name + "_ofm")
+    ofm.quantization = ofm_quant
     op.set_output_tensor(ofm)
     return op
 

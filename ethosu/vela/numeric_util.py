@@ -93,3 +93,13 @@ def full_shape(dim, shape, fill):
 
 def overlaps(start1, end1, start2, end2):
     return start1 < end2 and start2 < end1
+
+
+def is_integer(num):
+    if isinstance(num, (int, np.integer)):
+        return True
+    if type(num) is float and num.is_integer():
+        return True
+    if isinstance(num, np.inexact) and np.mod(num, 1) == 0:
+        return True
+    return False

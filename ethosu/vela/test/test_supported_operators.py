@@ -30,11 +30,14 @@ support = SupportedOperators()
 
 
 def create_strided_slice_op(in_shape, out_shape, start_offsets, end_offsets):
+    qp = QuantizationParameters()
     in0 = Tensor(in_shape, DataType.uint8, "in")
-    in1 = create_const_tensor("begin", [len(start_offsets)], DataType.uint8, start_offsets)
-    in2 = create_const_tensor("end", [len(end_offsets)], DataType.uint8, end_offsets)
-    in3 = create_const_tensor("strides", [len(end_offsets)], DataType.uint8, len(end_offsets) * [1])
+    in0.quantization = qp
+    in1 = create_const_tensor("begin", [len(start_offsets)], DataType.uint8, start_offsets, quantization=qp)
+    in2 = create_const_tensor("end", [len(end_offsets)], DataType.uint8, end_offsets, quantization=qp)
+    in3 = create_const_tensor("strides", [len(end_offsets)], DataType.uint8, len(end_offsets) * [1], quantization=qp)
     out = Tensor(out_shape, DataType.uint8, "out")
+    out.quantization = qp
     attrs = {"ellipsis_mask": 0, "new_axis_mask": 0, "shrink_axis_mask": 0, "begin_mask": 0, "end_mask": 0}
     return testutil.create_op(Op.StridedSlice, [in0, in1, in2, in3], out, attrs=attrs)
 
