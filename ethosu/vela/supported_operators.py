@@ -152,6 +152,9 @@ class SupportedOperators:
                     "placing on CPU",
                 )
                 return False
+            if len(t.shape) > 4:
+                print("Warning:", op.type, "has input(s) of unsupported shape", t.shape, "placing on CPU")
+                return False
         for t in op.outputs:
             if not t.has_fully_defined_shape():
                 print("Warning:", op.type, "has output(s) of undefined shape, placing on CPU")
@@ -164,6 +167,9 @@ class SupportedOperators:
                     "Scalar input or broadcasting is not supported for this operator,",
                     "placing on CPU",
                 )
+                return False
+            if len(t.shape) > 4:
+                print("Warning:", op.type, "has output(s) of unsupported shape", t.shape, "placing on CPU")
                 return False
 
         # check data type
@@ -447,6 +453,25 @@ class SupportedOperators:
             if num_to_be_inferred > 1:
                 print("Warning:", op.type, "has more than one size to be inferred, which is illegal, placing on CPU")
                 return False
+        if op.type.find("Concat") != -1:
+            axis = op.attrs.get("axis", None)
+            if axis is None:
+                print("Warning:", op.type, "invalid or missing axis, placing on CPU")
+                return False
+            if axis < 0:
+                axis += len(op.inputs[0].shape)
+            if not 0 < axis < len(op.inputs[0].shape):
+                print("Warning:", op.type, "invalid axis", axis, ", placing on CPU")
+                return False
+            ofm = op.outputs[0]
+            ofm_dims = len(ofm.shape)
+            for ifm in op.inputs:
+                if len(ifm.shape) != ofm_dims:
+                    return False
+                for i in range(ofm_dims):
+                    if i != axis and ifm.shape[i] != ofm.shape[i]:
+                        print("Warning:", op.type, "invalid ifm:", ifm.name, ifm.shape, "mismatch in dimension", i, ", placing on CPU")
+                        return False
 
         return True
 

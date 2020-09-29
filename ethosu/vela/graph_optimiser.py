@@ -433,6 +433,20 @@ def fixup_pack_input(op, arch):
     return op
 
 
+def unfuse_activation_function(op, arch):
+    unfuse_ops = ("ConcatTFLite",)
+    if op.type in unfuse_ops and op.run_on_npu and op.attrs.get("fused_activation_function", None) is not None:
+        act = op.attrs["fused_activation_function"]
+        del op.attrs["fused_activation_function"]
+        act_op = Operation(act, op.name + act)
+        out_tens = op.outputs[0]
+        intermediate_tens = out_tens.clone("_act_intermediate")
+        act_op.set_output_tensor(out_tens)
+        act_op.add_input_tensor(intermediate_tens)
+        op.set_output_tensor(intermediate_tens)
+
+    return op
+
 def fixup_unpack_output(tens, arch):
     op = tens.ops[0]
     if op.type in set(("Unpack", "StridedSlice")):
@@ -1087,6 +1101,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         fixup_fully_connected_input,
         convert_batched_fc_to_conv,
         fixup_pack_input,
+        unfuse_activation_function,
         fixup_conv2d_backprop,
         fixup_relus_with_differing_ifm_ofm_scaling,
         fixup_act_reorder,

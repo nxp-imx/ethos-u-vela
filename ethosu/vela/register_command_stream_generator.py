@@ -483,9 +483,9 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
 
                 # Calculate scales needed for arithmetic elementwise operators
                 if primary_op.type in set(("AddAct", "MulAct", "SubAct",)):
-                    input_scale = cmd.ifm_tensor.quantization.scale_f32
-                    input2_scale = cmd.ifm2_tensor.quantization.scale_f32
-                    output_scale = ofm_quant.scale_f32
+                    input_scale = cmd.ifm_tensor.quantization.scale_f32 if cmd.ifm_tensor.quantization else None
+                    input2_scale = cmd.ifm2_tensor.quantization.scale_f32 if cmd.ifm2_tensor.quantization else None
+                    output_scale = ofm_quant.scale_f32 if ofm_quant else None
                     use_global_scale = True
 
                     if output_scale is not None and faf in ("Sigmoid", "Tanh"):
@@ -803,10 +803,10 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                     scale_region = base_ptr_idx_map[cmd.scale_tensor.mem_type]
                     emit.cmd0_with_param(cmd0.NPU_SET_SCALE_REGION, scale_region)
 
-            ofm_quant_qmin = ofm_quant.quant_min
-            ofm_quant_qmax = ofm_quant.quant_max
-            ifm_min = cmd.ifm_tensor.quantization.min
-            ifm_max = cmd.ifm_tensor.quantization.max
+            ofm_quant_qmin = ofm_quant.quant_min if ofm_quant else np.iinfo(np.int16).min
+            ofm_quant_qmax = ofm_quant.quant_max if ofm_quant else np.iinfo(np.int16).max
+            ifm_min = cmd.ifm_tensor.quantization.min if cmd.ifm_tensor.quantization else np.iinfo(np.int16).min
+            ifm_max = cmd.ifm_tensor.quantization.max if cmd.ifm_tensor.quantization else np.iinfo(np.int16).max
 
             # Emit commands for any fused activation function
             if faf is None:

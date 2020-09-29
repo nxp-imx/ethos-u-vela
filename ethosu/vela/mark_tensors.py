@@ -367,6 +367,8 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
                 visit_tens(tens, ps)
 
     for tens, fmt in formats_for_tensor.items():
+        if len(tens.shape) > 4:
+            continue
         tens.set_format(fmt, arch)
         if fmt == TensorFormat.WeightsCompressed and tens.values is not None:
             src_tens = tens.get_dma_src_tensor()

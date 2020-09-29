@@ -38,7 +38,8 @@ class SharedBufferAllocation:
 
         ifm_tensor, ifm2_tensor, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
         tensors = [t for t in (ifm_tensor, ifm2_tensor, ofm_tensor) if t is not None]
-        has_scale = None not in (t.quantization.scale_f32 for t in tensors)
+        scales = [t.quantization.scale_f32 for t in tensors if t.quantization is not None]
+        has_scale = len(tensors) == len(scales) and not None in scales
 
         strides = (1, 1, 1, 1)
         dilation = (1, 1, 1, 1)
@@ -192,7 +193,7 @@ def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps):
 
     # Constrain the search space if the OFM is smaller than the max block size
     # - Add other block search constraints here if required
-    if len(alloc.ofm_tensor.shape) == 2:
+    if len(alloc.ofm_tensor.shape) <= 2:
         max_block_height = max_block_width = alloc.ofm_tensor.shape[0]
     else:
         max_block_width = alloc.ofm_tensor.shape[-2]

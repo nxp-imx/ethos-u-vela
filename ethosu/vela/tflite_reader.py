@@ -149,8 +149,6 @@ class TFLiteSubgraph:
         for out in op.outputs:
             out.ops = [op]
 
-        activation_function_to_split_out = None
-
         if op_type.startswith("DepthwiseConv2d") or op_type.startswith("Conv2D"):
             if inputs[1].values is not None:
                 inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 2, 3, 0))
@@ -192,21 +190,6 @@ class TFLiteSubgraph:
             if "depth_multiplier" in op.attrs:
                 op.attrs["channel_multiplier"] = op.attrs["depth_multiplier"]
 
-            if "fused_activation_function" in op.attrs:
-                if op_type in set(("ConcatTFLite",)):
-                    act = op.attrs["fused_activation_function"]
-                    del op.attrs["fused_activation_function"]
-                    if act is not None:
-                        activation_function_to_split_out = act
-
-        if activation_function_to_split_out is not None:
-            act_op = Operation(activation_function_to_split_out, name + activation_function_to_split_out)
-            out_tens = op.outputs[0]
-            intermediate_tens = out_tens.clone("_act_intermediate")
-            act_op.set_output_tensor(out_tens)
-            intermediate_tens.ops = [op]
-            op.outputs[0] = intermediate_tens
-            act_op.inputs = [intermediate_tens]
 
     @staticmethod
     def len1_array_to_scalar(arr):
