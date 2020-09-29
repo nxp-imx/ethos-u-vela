@@ -996,8 +996,8 @@ def remove_unwanted_reshapes(op, arch):
             if prev_op_ifm.quantization.is_scaling_equal(
                 prev_op_ofm.quantization
             ) and cons_op_ifm.quantization.is_scaling_equal(cons_op_ofm.quantization):
-                op.inputs[0] = prev_op_ifm
-                op.outputs[0] = cons_op_ofm
+                op.set_input_tensor(prev_op_ifm, 0)
+                op.set_output_tensor(cons_op_ofm)
     return op
 
 
