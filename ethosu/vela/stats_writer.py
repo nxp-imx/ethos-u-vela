@@ -29,9 +29,15 @@ from .tensor import MemArea
 from .tensor import TensorPurpose
 
 
+def mem_areas_to_report():
+    # Exclude SHRAM, as the SHRAM performance numbers only cover LUT usage
+    return [area for area in MemArea.all() if area != MemArea.Shram]
+
+
 def write_summary_metrics_csv(nng, summary_filename, arch):
     with open(summary_filename, "w") as f:
         writer = csv.writer(f)
+        mem_areas = mem_areas_to_report()
 
         labels = [
             "experiment",
@@ -40,7 +46,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
 
         labels += (
             ["accelerator_configuration", "system_config", "npu_clock", "sram_size"]
-            + [area.identifier_name() + "_bandwidth" for area in MemArea.all()]
+            + [area.identifier_name() + "_bandwidth" for area in mem_areas]
             + ["weights_storage_area", "feature_map_storage_area"]
         )
 
@@ -51,10 +57,10 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
             "passes_before_fusing",
             "passes_after_fusing",
         ]
-        labels += [area.identifier_name() + "_memory_used" for area in MemArea.all()]
+        labels += [area.identifier_name() + "_memory_used" for area in mem_areas]
         labels += ["on_chip_flash_bits_per_element", "off_chip_flash_bits_per_element"]
 
-        for mem_area in MemArea.all():
+        for mem_area in mem_areas:
             labels += [
                 mem_area.identifier_name() + "_feature_map_read_bytes",
                 mem_area.identifier_name() + "_feature_map_write_bytes",
@@ -77,7 +83,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
         if arch:
             data_items += (
                 [arch.accelerator_config, arch.system_config, arch.npu_clock, arch.sram_size / 1024]
-                + [arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000 for mem_area in MemArea.all()]
+                + [arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000 for mem_area in mem_areas]
                 + [
                     arch.tensor_storage_mem_area[TensorPurpose.Weights].display_name(),
                     arch.tensor_storage_mem_area[TensorPurpose.FeatureMap].display_name(),
@@ -94,14 +100,14 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
         n_cascaded_passes = sum(len(sg.cascaded_passes) for sg in nng.subgraphs)
 
         data_items += [midpoint_fps, nng.batch_size, midpoint_inference_time, n_passes, n_cascaded_passes]
-        data_items += [nng.memory_used.get(mem_area, 0) / 1024.0 for mem_area in MemArea.all()]
+        data_items += [nng.memory_used.get(mem_area, 0) / 1024.0 for mem_area in mem_areas]
 
         data_items += [
             nng.bits_per_element.get(MemArea.OnChipFlash, 0.0),
             nng.bits_per_element.get(MemArea.OffChipFlash, 0.0),
         ]
 
-        for mem_area in MemArea.all():
+        for mem_area in mem_areas:
             bws = nng.bandwidths[mem_area]
             total_bw = np.sum(bws)
             weight_bws = bws[TensorPurpose.Weights]
@@ -144,7 +150,7 @@ def write_pass_metrics_csv(nng, pass_filename):
         )
         bandwidth_names = []
         bandwidth_indices = []
-        for mem_area in MemArea.all():
+        for mem_area in mem_areas_to_report():
             for purpose, purpose_candidates in purpose_list:
                 for direction, direction_candidates in direction_list:
                     label = "bytes_%s_%s_%s" % (mem_area.identifier_name(), purpose, direction)
@@ -231,7 +237,7 @@ def print_performance_metrics_for_strat(
     f=sys.stdout,
 ):
 
-    orig_mem_areas_labels = [(v, v.display_name()) for v in MemArea.all()]
+    orig_mem_areas_labels = [(v, v.display_name()) for v in mem_areas_to_report()]
 
     midpoint_inference_time = cycles[PassCycles.Total] / arch.npu_clock
     if midpoint_inference_time > 0:
