@@ -32,6 +32,7 @@ from .numeric_util import full_shape
 from .numeric_util import round_away_zero
 from .operation import create_avgpool_nop
 from .operation import NpuBlockType
+from .operation import Op
 from .operation import Operation
 from .softmax import SoftMax
 from .tensor import create_const_tensor
@@ -39,33 +40,9 @@ from .tensor import create_reshape_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
-passthrough_nodes = set(("Identity",))
+passthrough_nodes = set((Op.Identity,))
 
-conv_op = set(("Conv2D", "QuantizedConv2D", "Conv2DBackpropInputSwitchedBias", "Conv2DBiasAct"))
-fc_op = set(
-    (
-        "MatMul",
-        "QuantizedMatMul",
-        "BlockLSTM",
-        "RnnAct",
-        "UnidirectionalSequenceRnnAct",
-        "BidirectionalSequenceRnnAct",
-        "LstmAct",
-        "UnidirectionalSequenceLstmAct",
-        "BidirectionalSequenceLstmAct",
-        "FullyConnectedAct",
-    )
-)
-depthwise_op = set(("DepthwiseConv2dNative", "DepthwiseConv2dBiasAct",))
-pool_op = set(
-    ("AvgPool", "MaxPool", "QuantizedAvgPool", "QuantizedMaxPool", "AvgPoolAct", "MaxPoolAct", "ResizeBilinear")
-)
-reduce_sum_ops = set(("ReduceSum",))
-binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
-elementwise_op = set(("LeakyRelu", "Abs", "CLZ", "SHL", "SHR")) | binary_elementwise_op
-relu_ops = set(("Relu", "Relu6", "ReluN1To1"))
-activation_ops = set(("Sigmoid", "Tanh")) | relu_ops
-memory_only_ops = set(("Reshape",))
+memory_only_ops = set((Op.Reshape,))
 
 
 def remove_passthrough_tensor(tens, arch, nng):
@@ -76,7 +53,7 @@ def remove_passthrough_tensor(tens, arch, nng):
 
 
 def rewrite_concat(tens, arch, nng):
-    if len(tens.ops) == 1 and tens.ops[0].is_concat_op():
+    if len(tens.ops) == 1 and tens.ops[0].type.is_concat_op():
         concat_op = tens.ops[0]
         if tens != concat_op.outputs[0]:
             return tens  # don't attempt to rewrite the min/max outputs of QuantizedConcat
@@ -90,7 +67,7 @@ def rewrite_concat(tens, arch, nng):
         tens.ops = []
         offset = 0
         for idx, inp in enumerate(inputs):
-            new_op = Operation("ConcatSliceWrite", concat_op.name + str(idx))
+            new_op = Operation(Op.ConcatSliceWrite, concat_op.name + str(idx))
             new_op.inputs = [inp]
             new_op.outputs = [tens]
             new_op.attrs["concat_axis"] = axis
@@ -116,7 +93,7 @@ def rewrite_concat(tens, arch, nng):
 
 def rewrite_split(tens, arch, nng):
 
-    if len(tens.ops) == 1 and tens.ops[0].is_split_op():
+    if len(tens.ops) == 1 and tens.ops[0].type.is_split_op():
         split_op = tens.ops[0]
 
         # Not supported so leave it and run on CPU
@@ -126,7 +103,7 @@ def rewrite_split(tens, arch, nng):
         inp, outputs, axis, offset_start, offset_end = split_op.get_split_inputs_axis()
 
         tens.ops = []
-        new_op = Operation("SplitSliceRead", split_op.name)
+        new_op = Operation(Op.SplitSliceRead, split_op.name)
         new_op.inputs = [inp]
 
         # For Split the offset cannot be extracted from the tensor so it has to
@@ -206,10 +183,10 @@ def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dim
 
 
 def fixup_conv2d_backprop(op, arch, nng):
-    if op.type == "Conv2DBackpropInput":
+    if op.type == Op.Conv2DBackpropInput:
         # flip the inputs
         op.inputs[0], op.inputs[2] = op.inputs[2], op.inputs[0]
-        op.type = "Conv2DBackpropInputSwitchedBias"
+        op.type = Op.Conv2DBackpropInputSwitchedBias
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
@@ -219,9 +196,8 @@ def fixup_conv2d_backprop(op, arch, nng):
 
 # Convert the op to an elementwise add
 def convert_resizebilinear_1x1_to_add(op):
-    op.type = "AddAct"
+    op.type = Op.Add
     op.name = op.name + "_add"
-    op.attrs.update({"npu_block_type": NpuBlockType.ElementWise})
     op.attrs["resizebilinear"] = True
     # Create an input tensor filled with zeros
     shape = op.outputs[0].shape
@@ -296,11 +272,11 @@ def convert_resizebilinear_to_2x2_pool(op):
 
 
 def fixup_resizebilinear(op, arch, nng):
-    if op.type == "ResizeBilinear" and op.run_on_npu:
+    if op.type == Op.ResizeBilinear and op.run_on_npu:
         if op.inputs[0].shape == op.outputs[0].shape:
             # Bypass nop resizebilinear
             op.inputs = op.inputs[:1]
-            op.type = "Identity"
+            op.type = Op.Identity
         elif op.inputs[0].shape[1] == 1 and op.inputs[0].shape[2] == 1:
             convert_resizebilinear_1x1_to_add(op)
         else:
@@ -310,16 +286,16 @@ def fixup_resizebilinear(op, arch, nng):
 
 
 def convert_nop_split_to_identity(op, arch, nng):
-    if op.type == "Split" and op.attrs.get("num_splits") == 1:
+    if op.type == Op.Split and op.attrs.get("num_splits") == 1:
         # the list comprehension should return a list with a single tensor
         # if it shouldn't, remove_passthrough_tensor will fail appropriately
         op.inputs = [i for i in op.inputs if i.shape == op.outputs[0].shape]
-        op.type = "Identity"
+        op.type = Op.Identity
     return op
 
 
 def fixup_fully_connected_input(op, arch, nng):
-    if op.type == "FullyConnectedAct":
+    if op.type == Op.FullyConnected:
         inp = op.inputs[0]
         weights = op.inputs[1]
 
@@ -337,7 +313,7 @@ def fixup_fully_connected_input(op, arch, nng):
 
 
 def convert_batched_fc_to_conv(op, arch, nng):
-    if op.type == "FullyConnectedAct":
+    if op.type == Op.FullyConnected:
         ifm = op.inputs[0]
         ofm = op.outputs[0]
         # Check if the FC is 2D and first dimension indicates batching
@@ -348,14 +324,11 @@ def convert_batched_fc_to_conv(op, arch, nng):
 
             # Convert to convolution
             op.name += "_conv"
-            op.type = "Conv2DBiasAct"
-            faf = op.attrs.get("fused_activation_function", None)
+            op.type = Op.Conv2DBias
             op.attrs = {
                 "dilation": (1, 1, 1, 1),
                 "dilation_h_factor": 1,
                 "dilation_w_factor": 1,
-                "fused_activation_function": faf,
-                "npu_block_type": NpuBlockType.ConvolutionMxN,
                 "padding": b"SAME",
                 "stride_h": 1,
                 "stride_w": 1,
@@ -364,7 +337,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
 
             prev_op = ifm.ops[0]
             desired_shape = [1, h, w, ifm.shape[-1]]
-            if len(ifm.consumer_list) == 1 and prev_op is not None and prev_op.type == "Reshape":
+            if len(ifm.consumer_list) == 1 and prev_op is not None and prev_op.type == Op.Reshape:
                 # There is a preceding Reshape
                 # Compare input of prev_op and input of op, to see if prev_op can be removed
                 ifm_prev_op = prev_op.inputs[0]
@@ -391,7 +364,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
             if (
                 len(ofm.consumer_list) == 1
                 and ofm.consumer_list[0] is not None
-                and ofm.consumer_list[0].type == "Reshape"
+                and ofm.consumer_list[0].type == Op.Reshape
             ):
                 # There is a subsequent Reshape
                 # Compare desired shape and output of consumer op, to see if consumer op can be removed
@@ -408,7 +381,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
 
 
 def fixup_pack_input(op, arch, nng):
-    if op.type == "Pack":
+    if op.type == Op.Pack:
         # Pack is also referred to as Stack
         # Requires the rewrite_concat function to be called on the op afterwards
         axis = int(op.attrs["axis"])
@@ -421,24 +394,22 @@ def fixup_pack_input(op, arch, nng):
             reshape_out = inp.clone("_reshaped")
             reshape_out.set_all_shapes(desired_shape)
 
-            reshape_op = Operation("Reshape", "{}{}_reshape".format(op.name, idx))
+            reshape_op = Operation(Op.Reshape, "{}{}_reshape".format(op.name, idx))
             reshape_op.attrs["new_shape"] = desired_shape
             reshape_op.inputs = [inp, new_shape_tens]
             reshape_op.set_output_tensor(reshape_out)
 
             op.inputs[idx] = reshape_out
 
-        op.type = "PackReshaped"
+        op.type = Op.PackReshaped
 
     return op
 
 
 def unfuse_activation_function(op, arch, nng):
-    unfuse_ops = ("ConcatTFLite",)
-    if op.type in unfuse_ops and op.run_on_npu and op.attrs.get("fused_activation_function", None) is not None:
-        act = op.attrs["fused_activation_function"]
-        del op.attrs["fused_activation_function"]
-        act_op = Operation(act, op.name + act)
+    if op.type == Op.ConcatTFLite and op.run_on_npu and op.activation is not None:
+        act_op = Operation(op.activation, op.name + op.activation.name)
+        op.activation = None
         out_tens = op.outputs[0]
         intermediate_tens = out_tens.clone("_act_intermediate")
         act_op.set_output_tensor(out_tens)
@@ -450,12 +421,12 @@ def unfuse_activation_function(op, arch, nng):
 
 def fixup_unpack_output(tens, arch, nng):
     op = tens.ops[0]
-    if op.type in set(("Unpack", "StridedSlice")):
+    if op.type in set((Op.Unpack, Op.StridedSlice)):
         # Unpack is also referred to as Unstack
         # Requires the rewrite_split function to be called on the op afterwards
 
         reshape_input_shape = tens.shape
-        if op.type == "StridedSlice":
+        if op.type == Op.StridedSlice:
             new_axis_mask = op.attrs["new_axis_mask"]
             shrink_axis_mask = op.attrs["shrink_axis_mask"]
             ellipsis_mask = op.attrs["ellipsis_mask"]
@@ -494,7 +465,7 @@ def fixup_unpack_output(tens, arch, nng):
                 op.attrs["new_axis_mask"] = 0
         else:
             axis = int(op.attrs["axis"])
-            op.type = "UnpackReshaped"
+            op.type = Op.UnpackReshaped
             reshape_input_shape = tens.shape[:axis] + [1] + tens.shape[axis:]
 
         # Construct 1 shape tensor to be used by all inserted reshape ops
@@ -505,7 +476,7 @@ def fixup_unpack_output(tens, arch, nng):
             reshape_in.set_all_shapes(reshape_input_shape)
             reshape_in.ops = [op]
 
-            reshape_op = Operation("Reshape", "{}{}_reshape".format(op.name, idx))
+            reshape_op = Operation(Op.Reshape, "{}{}_reshape".format(op.name, idx))
             reshape_op.attrs["new_shape"] = reshape_input_shape
             reshape_op.inputs = [reshape_in, new_shape_tens]
             reshape_op.set_output_tensor(out_tens)
@@ -518,19 +489,16 @@ def fixup_unpack_output(tens, arch, nng):
 def add_padding_fields(op, arch, nng):
     if op.run_on_npu:
         if "padding" in op.attrs:
-            if op.type in conv_op | depthwise_op:
+            if op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op():
                 kernel_size = op.inputs[1].shape[:2]
                 input_shape = op.inputs[0].shape
-            elif op.type in pool_op | reduce_sum_ops:
+            elif op.type.is_pool_op() or op.type.npu_block_type == NpuBlockType.ReduceSum:
                 kernel_size = op.attrs["ksize"][1:3]
-                input_shape = op.inputs[0].shape
-            elif op.type == "ExtractImagePatches":
-                kernel_size = op.attrs["ksizes"][1:3]
                 input_shape = op.inputs[0].shape
             else:
                 raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
 
-            if op.type == "Conv2DBackpropInputSwitchedBias":
+            if op.type == Op.Conv2DBackpropInputSwitchedBias:
                 upscaling_factor = op.outputs[0].shape[1] // input_shape[1]
                 padding, skirt = calc_upscaled_padding_and_skirt(
                     op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape, upscaling_factor
@@ -564,38 +532,19 @@ def get_prepend_op(op):
     return None
 
 
-def mark_npu_block_type(op, arch, nng):
-    npu_block_type = NpuBlockType.Default
-    if op.type in conv_op:
-        npu_block_type = NpuBlockType.ConvolutionMxN
-    elif op.type in fc_op:
-        npu_block_type = NpuBlockType.VectorProduct
-    elif op.type in depthwise_op:
-        npu_block_type = NpuBlockType.ConvolutionDepthWise
-    elif op.type in pool_op:
-        npu_block_type = NpuBlockType.Pooling
-    elif op.type in elementwise_op:
-        npu_block_type = NpuBlockType.ElementWise
-    elif op.type in reduce_sum_ops:
-        npu_block_type = NpuBlockType.ReduceSum
-
-    op.attrs["npu_block_type"] = npu_block_type
-    return op
-
-
 def convert_depthwise_to_conv(op, arch, nng):
     # Depthwise is equivalent to a single conv2d if the ifm depth is 1 and
     # the ofm depth equals the depth multipler.
     # If those conditions are true, then we can perform a simple
     # switch of the operator type (and weight order)
 
-    if (op.type in depthwise_op) and (op.attrs["depth_multiplier"] != 1):
+    if op.type == Op.DepthwiseConv2DBias and (op.attrs["depth_multiplier"] != 1):
         ifm_tensor = op.inputs[0]
         weight_tensor = op.inputs[1]
         ofm_tensor = op.outputs[0]
         if (ifm_tensor.shape[3] == 1) and (ofm_tensor.shape[3] == op.attrs["depth_multiplier"]):
             # Change op type to Conv2d
-            op.type = op.type.replace("DepthwiseConv2d", "Conv2D")
+            op.type = Op.Conv2DBias
             del op.attrs["channel_multiplier"]
             del op.attrs["depth_multiplier"]
 
@@ -611,7 +560,7 @@ def convert_depthwise_to_conv(op, arch, nng):
 
 
 def reorder_depthwise_weights(op, arch, nng):
-    if op.type in depthwise_op:
+    if op.type.is_depthwise_conv2d_op():
         weight_tensor = op.inputs[1]
         weight_tensor.quant_values = np.transpose(weight_tensor.quant_values, (0, 1, 3, 2))
         weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
@@ -625,18 +574,15 @@ def convert_conv_to_fc(op, arch, nng):
     # By representing certain convs as fully connected layers, Vela can better determine wether or not to use
     # caching/double buffering for the weights.
     # (Weights dont need to be reloaded for convs when IFM H and W are 1)
-    if op.type == "Conv2DBiasAct":
+    if op.type == Op.Conv2DBias:
         _, h, w, _ = op.inputs[0].shape
         kh, kw, _, _ = op.inputs[1].shape
         if h == 1 and w == 1 and kh == 1 and kw == 1:
             # Overwrite this op as a Fully Connected Op
             op.name += "_fc"
-            op.type = "FullyConnectedAct"
-            faf = op.attrs.get("fused_activation_function", None)
+            op.type = Op.FullyConnected
             op.attrs = {
-                "fused_activation_function": faf,
                 "weights_format": 0,
-                "npu_block_type": NpuBlockType.VectorProduct,
             }
             # Reshape Weights to be 2D. HWIO becomes just IO (as H and W are 1, they can just be dropped)
             weight_tensor = op.inputs[1]
@@ -652,7 +598,7 @@ def convert_conv_to_fc(op, arch, nng):
             # Add a reshape after the new OFM to convert it back to the original 4D shape
             reshape_name = op.name + "_reshape"
             new_shape_tens = create_const_tensor(reshape_name + "_shape", [1], DataType.int32, orig_ofm_tensor.shape)
-            reshape_op = Operation("Reshape", reshape_name)
+            reshape_op = Operation(Op.Reshape, reshape_name)
             reshape_op.attrs["new_shape"] = orig_ofm_tensor.shape
             reshape_op.inputs = [fc_ofm_tensor, new_shape_tens]
             reshape_op.set_output_tensor(orig_ofm_tensor)
@@ -662,7 +608,7 @@ def convert_conv_to_fc(op, arch, nng):
 
 
 def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
-    if op.run_on_npu and op.type in relu_ops:
+    if op.run_on_npu and op.type.is_relu_op():
         ifm = op.inputs[0]
         ofm = op.outputs[0]
         # Relu with differing IFM and OFM scaling cannot be fused with another primary op
@@ -671,7 +617,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             # Override this op with its own primary op (avgpool)
             relu_fused_op = create_avgpool_nop(op.name + "_avgpool")
             # And fuse the original activation function to it
-            relu_fused_op.attrs["fused_activation_function"] = op.type
+            relu_fused_op.activation = op.type
             # Tidy up and assign the ifm and ofm to the new op
             ifm.consumer_list.remove(op)
 
@@ -691,7 +637,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
 
 # Reorder activation op if it's after the memory only operations
 def fixup_act_reorder(op, arch, nng):
-    if op.type in activation_ops:
+    if op.type.is_relu_op() or op in set((Op.Sigmoid, Op.Tanh)):
         prep_op = get_prepend_op(op)
         if prep_op is not None:
             act_op = op.clone("_reordered")
@@ -711,12 +657,12 @@ def fixup_act_reorder(op, arch, nng):
             prep_op.outputs[0].quantization = act_op_out.quantization.clone()
 
             # Mark the op so that it will be removed as passthrough later on
-            op.type = "Identity"
+            op.type = Op.Identity
     return op
 
 
 def fixup_elementwise_with_scalars(op, arch, nng):
-    if op.type in binary_elementwise_op:
+    if op.type.is_binary_elementwise_op():
         ifm_tensor, ifm2_tensor, _, _ = op.get_ifm_ifm2_weights_ofm()
         if ifm2_tensor.shape != [] and ifm_tensor.shape != []:
             diff = len(ifm_tensor.shape) - len(ifm2_tensor.shape)
@@ -745,7 +691,7 @@ def set_tensor_equivalence(op, arch, nng):
 
 
 def convert_softmax(op, arch, nng):
-    if op.type == "Softmax" and op.run_on_npu:
+    if op.type == Op.Softmax and op.run_on_npu:
         softmax = SoftMax(op)
         op = softmax.get_graph()
     return op
@@ -761,9 +707,9 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
        Max
     """
 
-    if op.type == "Maximum":
+    if op.type == Op.Maximum:
         # finds the Mul input(s) to the Max
-        muls = [i for i in op.inputs if i.ops[0].type == "MulAct"]
+        muls = [i for i in op.inputs if i.ops[0].type == Op.Mul]
         if len(muls) == 1:
             mul = muls[0].ops[0]
         elif len(muls) == 2:
@@ -777,10 +723,10 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
         mul_ofm = mul.outputs[0]
         if len(mul_ofm.consumers()) != 1:
             return op
-        # make sure the Mul doesn't have a faf
-        if mul.attrs["fused_activation_function"]:
+        # make sure the Mul doesn't have a fused activation function
+        if mul.activation:
             return op
-        ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+        ifm, ofm = op.get_ifm_ofm()
         if ifm.dtype not in (DataType.uint8, DataType.int8) or ifm.dtype != ofm.dtype:
             return op
         if not ifm.is_scaling_equal(ofm) or not ifm.is_scaling_equal(mul_ofm):
@@ -798,7 +744,7 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
                 return op
             const = const_tens.ops[0]
             # check that it is a constant
-            if const.type != "Const":
+            if const.type != Op.Const:
                 return op
             # Remove the Mul from the shared input's consumers
             shared_in.consumer_list.remove(mul)
@@ -807,7 +753,7 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
 
         val = const.outputs[0].values
         if val >= 0:
-            new_op = "LeakyRelu"
+            new_op = Op.LeakyRelu
             op.attrs["alpha"] = val
             # to produce bit exact results, the alpha is not enough;
             # save additional scaling info in attr "alpha_scale", to be used as input
@@ -819,13 +765,13 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
             alpha_scale, alpha_shift = scaling.elementwise_mul_scale(mul_ifm_scale, mul_ifm2_scale, mul_ofm_scale)
             op.attrs["alpha_scaling"] = (alpha_scalar, alpha_scale, alpha_shift)
         elif val == -1:
-            new_op = "Abs"
+            new_op = Op.Abs
         else:
             return op
 
-        op.type = op.type.replace("Maximum", new_op)
-        op.name = op.name.replace("Maximum", new_op)
-        op.outputs[0].name = op.outputs[0].name.replace("Maximum", new_op)
+        op.type = new_op
+        op.name = op.name.replace("Maximum", new_op.name)
+        op.outputs[0].name = op.outputs[0].name.replace("Maximum", new_op.name)
         op.inputs = [shared_in]
     return op
 
@@ -833,10 +779,10 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
 def convert_lrelu_to_mul_max(op, arch):
     # Converts LeakyRelu to Max(alpha * IFM, identity * IFM)
     # (the opposite of convert_mul_max_to_abs_or_lrelu)
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    ifm, ofm = op.get_ifm_ofm()
 
     # Add multiplication with alpha
-    mul_alpha = Operation("MulAct", op.name + "_mul_alpha")
+    mul_alpha = Operation(Op.Mul, op.name + "_mul_alpha")
     mul_alpha.add_input_tensor(ifm)
     # Create const tensor containing alpha as scalar
     alpha = op.attrs["alpha"]
@@ -855,7 +801,7 @@ def convert_lrelu_to_mul_max(op, arch):
         fm_id = ifm
     else:
         # Add multiplication with identity
-        mul_identity = Operation("MulAct", op.name + "_mul_identity")
+        mul_identity = Operation(Op.Mul, op.name + "_mul_identity")
         mul_identity.add_input_tensor(ifm)
         # Create const tensor containing identity as scalar
         quantization = ifm.quantization.clone()
@@ -871,7 +817,7 @@ def convert_lrelu_to_mul_max(op, arch):
         mul_identity.set_output_tensor(fm_id)
 
     # Convert LeakyRelu to Max, add the results of the multiplication(s) as inputs
-    op.type = "Maximum"
+    op.type = Op.Maximum
     op.name = op.name.replace("LeakyRelu", "Maximum")
     op.inputs = []
     ifm.consumer_list.remove(op)
@@ -884,9 +830,8 @@ def convert_to_lut(op, lut_values):
     # Rewrite the operation by Add with scalar 0 + LUT activation
     ifm = op.inputs[0]
     assert ifm.dtype.size_in_bytes() == 1
-    op.type = "AddAct"
+    op.type = Op.Add
     op.name = op.name + "_add"
-    op.attrs.update({"npu_block_type": NpuBlockType.ElementWise})
     # Mark as no-op to enable potential fusing optimizations
     op.attrs["is_nop"] = True
     # Create an input tensor containing scalar zero
@@ -898,7 +843,7 @@ def convert_to_lut(op, lut_values):
     # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
     # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
     # should be the same as the IFM
-    op.attrs["forced_output_quantization"] = ifm.quantization
+    op.forced_output_quantization = ifm.quantization
     lut_tensor = lut.create_lut_tensor(op.name + "_lut", lut_values, DataType.int8)
     op.set_activation_lut(lut_tensor)
     return op
@@ -907,7 +852,7 @@ def convert_to_lut(op, lut_values):
 def convert_to_lut8(op, fn):
     # Converts op to a no-op + int8/uint8 LUT which is generated with the given function.
     # fn is a function(real) -> real
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    ifm, ofm = op.get_ifm_ofm()
     if ifm.dtype not in (DataType.uint8, DataType.int8) or ifm.dtype != ofm.dtype:
         return op
     # Generate the LUT
@@ -929,7 +874,7 @@ def convert_to_lut8(op, fn):
 
 
 def convert_lrelu_to_lut(op, arch):
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    ifm, ofm = op.get_ifm_ofm()
     # Generate the LUT
     alpha = op.attrs["alpha"]
     ifm_scale = np.double(ifm.quantization.scale_f32)
@@ -960,9 +905,9 @@ def convert_lrelu_to_lut(op, arch):
 
 def convert_lrelu(op, arch, nng):
     # Converts LeakyRelu to a LUT based solution if possible, otherwise a mul + max
-    if op.type != "LeakyRelu":
+    if op.type != Op.LeakyRelu:
         return op
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    ifm, ofm = op.get_ifm_ofm()
     if ifm.dtype in (DataType.uint8, DataType.int8) and ifm.dtype == ofm.dtype:
         # use LUT for int8/uint8
         return convert_lrelu_to_lut(op, arch)
@@ -974,20 +919,20 @@ def convert_lrelu(op, arch, nng):
 
 def convert_tanh_sigmoid_to_lut(op, arch, nng):
     # Converts int8/uint8 Sigmoid and Tanh to a LUT based solution
-    if op.type == "Sigmoid":
+    if op.type == Op.Sigmoid:
         return convert_to_lut8(op, clamp_sigmoid)
-    elif op.type == "Tanh":
+    elif op.type == Op.Tanh:
         return convert_to_lut8(op, math.tanh)
     return op
 
 
 def remove_unwanted_reshapes(op, arch, nng):
     # Try to remove reshapes enclosing ElementWise operator with only one non-constant input
-    if not op.run_on_npu or op.attrs["npu_block_type"] != NpuBlockType.ElementWise:
+    if not op.run_on_npu or not op.type.is_elementwise_op():
         return op
 
     # Check if the ElementWise operator only have one non-constant input
-    non_const_tens = [x for x in op.inputs if x.ops[0].type != "Const"]
+    non_const_tens = [x for x in op.inputs if x.ops[0].type != Op.Const]
     if len(non_const_tens) != 1:
         return op
     ifm = non_const_tens[0]
@@ -997,12 +942,12 @@ def remove_unwanted_reshapes(op, arch, nng):
     prev_op = ifm.ops[0]
     if (
         len(ifm.consumer_list) == 1
-        and prev_op.type == "Reshape"
+        and prev_op.type == Op.Reshape
         and len(ofm.consumer_list) == 1
-        and ofm.consumer_list[0].type == "Reshape"
+        and ofm.consumer_list[0].type == Op.Reshape
     ):
         # Operation is enclosed by reshapes, check if they can be removed
-        prev_op_ifm, _, _, prev_op_ofm = prev_op.get_ifm_weights_biases_ofm()
+        prev_op_ifm, prev_op_ofm = prev_op.get_ifm_ofm()
         cons_op = ofm.consumer_list[0]
         cons_op_ifm = ofm
         cons_op_ofm = cons_op.outputs[0]
@@ -1018,19 +963,18 @@ def remove_unwanted_reshapes(op, arch, nng):
 
 def fuse_activation_function_with_prev(op, arch, nng):
     # if op is a no-op: attempts to move the activation function to the preceding op
-    if not op.attrs.get("is_nop", False) or op.attrs.get("fused_activation_function", None) is None:
+    if not op.attrs.get("is_nop", False) or op.activation is None:
         return op
-    ifm, _, _, ofm = op.get_ifm_weights_biases_ofm()
+    ifm, ofm = op.get_ifm_ofm()
     # finds the input(s) to the operation
     prev_op = ifm.ops[0]
     # Note: the below checks on prev_op require that a first optimize pass on the full graph has been performed
     fuse = (
         prev_op.run_on_npu
-        and "npu_block_type" in prev_op.attrs
-        and prev_op.attrs["npu_block_type"] != NpuBlockType.Default
+        and prev_op.type.npu_block_type != NpuBlockType.Default
         and len(ifm.ops) == 1
         and len(prev_op.outputs[0].consumers()) == 1
-        and prev_op.attrs.get("fused_activation_function", None) is None
+        and prev_op.activation is None
     )
     if op.activation_lut is not None and arch.shram_reserved_unused_banks == 0:
         # TODO: if SHRAM LUT space is shared with SHRAM ACC (32, 64 MAC),
@@ -1039,9 +983,8 @@ def fuse_activation_function_with_prev(op, arch, nng):
     if not fuse:
         return op
     # Move the fused activation function + corresponding info to prev_op
-    for attr in ("fused_activation_function", "forced_output_quantization"):
-        if attr in op.attrs:
-            prev_op.attrs[attr] = op.attrs[attr]
+    prev_op.activation = op.activation
+    prev_op.forced_output_quantization = op.forced_output_quantization
     if op.activation_lut is not None:
         prev_op.set_activation_lut(op.activation_lut)
     # Bypass op
@@ -1050,7 +993,7 @@ def fuse_activation_function_with_prev(op, arch, nng):
 
 
 def add_attrs_to_resizebilinear(op, arch, nng):
-    if op.type == "ResizeBilinear" and op.run_on_npu:
+    if op.type == Op.ResizeBilinear and op.run_on_npu:
         input_tensor = op.inputs[0]
         upscaled_shape = [input_tensor.shape[1] * 2, input_tensor.shape[2] * 2]
         out_shape = op.outputs[0].shape[1:3]
@@ -1070,7 +1013,7 @@ def add_attrs_to_resizebilinear(op, arch, nng):
 
 
 def fixup_bias_tensors(op, arch, nng):
-    if op.needs_bias() and not op.inputs[-1]:
+    if op.type.needs_bias() and op.bias is None:
         # Op has no bias, add bias tensor filled with zeros
         nr_biases = op.inputs[1].shape[-1]
         bias_values = [0] * nr_biases
@@ -1091,8 +1034,6 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         nng.print_graph()
 
     op_rewrite_list = [
-        # mark block type and check if the operations are supported
-        mark_npu_block_type,
         set_tensor_equivalence,
         supported_operator_check,
         # then do any rewrites of supported operators
@@ -1106,7 +1047,6 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         fixup_conv2d_backprop,
         fixup_relus_with_differing_ifm_ofm_scaling,
         fixup_act_reorder,
-        mark_npu_block_type,
         fixup_elementwise_with_scalars,
         reorder_depthwise_weights,
         fixup_resizebilinear,

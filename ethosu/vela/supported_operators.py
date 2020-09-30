@@ -20,6 +20,7 @@ import numpy as np
 from .data_type import BaseType
 from .data_type import DataType
 from .operation import get_slice_offsets
+from .operation import Op
 
 
 # Custom decorator function to allow formatting docstrings containing "{}"
@@ -37,18 +38,18 @@ def warn_cpu(op, msg):
 
 class SupportedOperators:
     # Categorised lists of supported operators
-    npu_pre_ops = set(("QuantizedResizeBilinear", "SplitSliceRead",))
-    convolution_ops = set(("Conv2DBiasAct", "Conv2D", "QuantizedConv2D",))
-    depthwise_convolution_ops = set(("DepthwiseConv2dBiasAct", "DepthwiseConv2dNative", "QuantizedDepthwiseConv2D",))
-    transpose_convolution_ops = set(("Conv2DBackpropInput",))
-    max_pooling_ops = set(("QuantizedMaxPool", "MaxPool", "MaxPoolAct",))
-    avg_pooling_ops = set(("QuantizedAvgPool", "AvgPool", "AvgPoolAct",))
-    pooling_ops = set(("ReduceSum",)) | max_pooling_ops | avg_pooling_ops
-    resizing_ops = set(("ResizeBilinear",))
-    fc_vector_products = set(("QuantizedMatMul", "MatMul", "FullyConnectedAct",))
+    npu_pre_ops = set((Op.SplitSliceRead,))
+    convolution_ops = set((Op.Conv2DBias, Op.Conv2D, Op.QuantizedConv2D,))
+    depthwise_convolution_ops = set((Op.DepthwiseConv2DBias,))
+    transpose_convolution_ops = set((Op.Conv2DBackpropInput,))
+    max_pooling_ops = Op.op_set(Op.is_maxpool_op)
+    avg_pooling_ops = Op.op_set(Op.is_avgpool_op)
+    pooling_ops = set((Op.ReduceSum,)) | max_pooling_ops | avg_pooling_ops
+    resizing_ops = set((Op.ResizeBilinear,))
+    fc_vector_products = set((Op.QuantizedMatMul, Op.MatMul, Op.FullyConnected,))
     mac_main_ops = (
         # RNN/LSTM/GRU
-        set(("BlockLSTM",))
+        set((Op.BlockLSTM,))
         # convolutions
         | convolution_ops
         # depth-wise convolutions
@@ -62,45 +63,29 @@ class SupportedOperators:
         # FC layers
         | fc_vector_products
     )
-    unary_elem_wise_main_ops = set(("LeakyRelu", "Abs", "CLZ",))
-    binary_elem_wise_min_max_ops = set(("Minimum", "Maximum",))
-    binary_elem_wise_shift_ops = set(("SHL", "SHR",))
-    binary_elem_wise_add_mul_sub = set(
-        ("AddAct", "MulAct", "SubAct", "QuantizedAdd", "QuantizedSub", "QuantizedMul", "Mul", "Add", "Sub",)
-    )
+    unary_elem_wise_main_ops = Op.op_set(Op.is_unary_elementwise_op)
+    binary_elem_wise_min_max_ops = set((Op.Minimum, Op.Maximum,))
+    binary_elem_wise_shift_ops = set((Op.SHL, Op.SHR,))
+    binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.Sub,))
     binary_elem_wise_main_ops = binary_elem_wise_min_max_ops | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
     elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
     supported_int32_tensor_ops = (
-        set(("Requantize", "ReduceSum", "CLZ",)) | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
+        set((Op.ReduceSum, Op.CLZ,)) | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
     )
-    activation_ops = set(
-        (
-            "QuantizedRelu",
-            "QuantizedRelu1",
-            "QuantizedRelu6",
-            "Relu",
-            "Relu6",
-            "ReluN1To1",
-            "Sigmoid",
-            "Tanh",
-            "Softmax",
-        )
-    )
+    activation_ops = set((Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Sigmoid, Op.Tanh, Op.Softmax,))
     npu_post_ops = (
-        # concatenation write direction
-        set(("ConcatSliceWrite",))
-        # bias add and batch norm
-        | set(("QuantizedBiasAdd", "Requantize", "QuantizedBatchNorm", "BiasAdd", "FusedBatchNorm",))
-        # Quantization
-        | set(("Quantize",))
         # activation functions
-        | activation_ops
+        activation_ops
+        # concatenation write direction
+        | set((Op.ConcatSliceWrite,))
+        # Quantization
+        | set((Op.Quantize,))
     )
-    split_ops = set(("Split", "SplitV", "StridedSlice", "Slice", "UnpackReshaped", "Unpack",))
-    concat_ops = set(("Concat", "ConcatV2", "QuantizedConcat", "ConcatTFLite", "PackReshaped", "Pack",))
-    memory_only_ops = set(("Squeeze", "Reshape", "QuantizedReshape", "ExpandDims",)) | concat_ops | split_ops
-    shapeless_input_ops = set(("Split", "SplitV",)) | binary_elem_wise_main_ops
-    supported_fused_activations = set(("Relu", "Relu6", "ReluN1To1", "Tanh", "Sigmoid", "LUT",))
+    split_ops = set((Op.Split, Op.SplitV, Op.StridedSlice, Op.Slice, Op.UnpackReshaped, Op.Unpack,))
+    concat_ops = set((Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack,))
+    memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape, Op.ExpandDims,)) | concat_ops | split_ops
+    shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV,))
+    supported_fused_activations = set((Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Tanh, Op.Sigmoid, Op.LUT,))
     supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | npu_post_ops | memory_only_ops
     supported_dtypes = set((DataType.uint8, DataType.int8, DataType.int16, DataType.int32))
     # Defined ranges for allowed values:
@@ -233,7 +218,7 @@ class SupportedOperators:
     @docstring_format_args([supported_fused_activations])
     def constraint_faf(cls, op):
         "The fused activation function (if present) must be one of type: {}"
-        faf = op.attrs.get("fused_activation_function")
+        faf = op.activation
         valid = (faf is None) or (faf in cls.supported_fused_activations)
         extra = "fused_activation_function={}".format(faf)
         return valid, extra
@@ -300,7 +285,7 @@ class SupportedOperators:
     @classmethod
     def check_depthwise_convolution_restrictions(cls, op):
         # check depth
-        ifm_tensor, _, _, ofm_tensor = op.get_ifm_ifm2_weights_ofm()
+        ifm_tensor, ofm_tensor = op.get_ifm_ofm()
         if op.attrs["depth_multiplier"] > 1 and not (
             (ifm_tensor.shape[3] == 1) and (ofm_tensor.shape[3] == op.attrs["depth_multiplier"])
         ):
@@ -337,9 +322,9 @@ class SupportedOperators:
             return False
 
         # check data type
-        ifm_tensor, _, _, ofm_tensor = op.get_ifm_ifm2_weights_ofm()
+        ifm_tensor, ofm_tensor = op.get_ifm_ofm()
         if ifm_tensor.dtype != ofm_tensor.dtype:
-            if op.type != "ReduceSum":
+            if op.type != Op.ReduceSum:
                 return False
             # TODO: else check ReduceSum restrictions.
 
@@ -365,7 +350,7 @@ class SupportedOperators:
     @classmethod
     def check_resize_restrictions(cls, op):
         # check unsupported upscaling factor
-        if op.type == "ResizeBilinear":
+        if op.type == Op.ResizeBilinear:
             if op.inputs[0].shape[1] == 1 and op.inputs[0].shape[2] == 1:
                 return True
             if op.inputs[0].shape == op.outputs[0].shape:
@@ -424,10 +409,10 @@ class SupportedOperators:
                 ifm_tensor.dtype == ofm_tensor.dtype or ofm_tensor.dtype == DataType.int32
             ):
                 return False
-        elif op.type in cls.binary_elem_wise_shift_ops | set(("CLZ")):
+        elif op.type in cls.binary_elem_wise_shift_ops:
             if ifm_tensor.dtype != DataType.int32 or ifm2_tensor.dtype != DataType.int32:
                 return False
-            if op.type in ("CLZ", "SHL") and ofm_tensor.dtype != DataType.int32:
+            if op.type in (Op.CLZ, Op.SHL) and ofm_tensor.dtype != DataType.int32:
                 return False
 
         # check batch size
@@ -438,7 +423,7 @@ class SupportedOperators:
                 return False
 
         # negative alpha values are not supported
-        if op.type == "LeakyRelu" and op.attrs["alpha"] < 0:
+        if op.type == Op.LeakyRelu and op.attrs["alpha"] < 0:
             return False
 
         # check if ifm or ifm2 has ofm shape
@@ -452,7 +437,7 @@ class SupportedOperators:
 
     @classmethod
     def check_memory_only_restrictions(cls, op):
-        if op.type == "StridedSlice":
+        if op.type == Op.StridedSlice:
             if len(op.inputs) != 4:
                 warn_cpu(op, "has {} input tensors, only 4 inputs are supported".format(len(op.inputs)))
                 return False
@@ -493,7 +478,7 @@ class SupportedOperators:
                     ),
                 )
                 return False
-        if op.type == "SplitV":
+        if op.type == Op.SplitV:
             # check that maximum one size is set to -1, indicating that size should be inferred
             sizes = op.inputs[1].values
             num_to_be_inferred = 0
@@ -504,7 +489,7 @@ class SupportedOperators:
             if num_to_be_inferred > 1:
                 print("Warning:", op.type, "has more than one size to be inferred, which is illegal, placing on CPU")
                 return False
-        if op.type.find("Concat") != -1:
+        if op.type in set((Op.Concat, Op.ConcatTFLite,)):
             axis = op.attrs.get("axis", None)
             if axis is None:
                 print("Warning:", op.type, "invalid or missing axis, placing on CPU")
@@ -554,7 +539,7 @@ class SupportedOperators:
 
     @classmethod
     def check_activation_ops(cls, op):
-        if op.type == "Softmax":
+        if op.type == Op.Softmax:
             ifm_tensor = op.inputs[0]
             ofm_tensor = op.outputs[0]
 

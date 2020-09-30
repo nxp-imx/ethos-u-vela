@@ -22,6 +22,7 @@ import numpy as np
 from . import driver_actions
 from .data_type import DataType
 from .nn_graph import PassPlacement
+from .operation import Op
 from .operation import Operation
 from .tensor import MemArea
 from .tensor import MemType
@@ -125,7 +126,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
                     # For DMA ops, ps.weight_tensor is referring to the SRAM weight tensor and therefore the address
                     # is pointing at the destination address of where the weights should be placed in SRAM.
                     # This ensures that the Flash weight tensor is used instead and thus gets the correct address.
-                    if ps.weight_tensor.ops[0].type == "DMA":
+                    if ps.weight_tensor.ops[0].type == Op.DMA:
                         copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.weight_tensor.ops[0].inputs[0])
                     else:
                         copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.weight_tensor)
@@ -150,7 +151,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
 
 
 def add_const_tens_to_startup_cascaded_pass(startup_cps, tens):
-    op = Operation("Const", tens.name + "_const")
+    op = Operation(Op.Const, tens.name + "_const")
     op.set_output_tensor(tens)
     startup_cps.passes[0].ops.insert(0, op)
     startup_cps.passes[0].outputs.insert(0, tens)
@@ -166,9 +167,8 @@ def rewrite_npu_call_ops(nng, sg, arch):
     for idx, cps in enumerate(sg.cascaded_passes):
         for ps in cps.passes:
             for op in ps.ops:
-                if op.type == "NpuOp":
+                if op.type == Op.CustomNpuOp:
                     callee = op.attrs["subgraph"]
-                    op.attrs["custom_type"] = op.type
 
                     sz = 0
                     for tens in [

@@ -41,10 +41,7 @@ def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_conf
 
     if ps2.npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct)):
         op = ps2.primary_op
-        ifm_idx, _, _, _, _ = op.get_ifm_ifm2_weight_bias_ofm_indices()
-        ifm_block_depth = arch.calc_ifm_block_depth(
-            op.inputs[ifm_idx].shape[-1], op.inputs[ifm_idx].dtype.size_in_bits()
-        )
+        ifm_block_depth = arch.calc_ifm_block_depth(op.ifm.shape[-1], op.ifm.dtype.size_in_bits())
     else:
         ifm_block_depth = block_config_ps2[-1]
 
@@ -237,8 +234,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
     elif primary_op:
         skirt = primary_op.attrs.get("skirt", skirt)
         explicit_padding = primary_op.attrs.get("explicit_padding", explicit_padding)
-        assert primary_op.attrs["npu_block_type"] == ps.npu_block_type
-        npu_block_type = primary_op.attrs["npu_block_type"]
+        assert primary_op.type.npu_block_type == ps.npu_block_type
+        npu_block_type = primary_op.type.npu_block_type
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
 

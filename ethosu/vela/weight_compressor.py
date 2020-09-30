@@ -28,6 +28,7 @@ from .nn_graph import SchedulingStrategy
 from .numeric_util import round_up
 from .numeric_util import round_up_divide
 from .operation import NpuBlockType
+from .operation import Op
 from .scaling import quantise_scale
 from .scaling import reduced_quantise_scale
 from .tensor import create_equivalence_id
@@ -336,7 +337,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
     is_depthwise = tens.block_traversal == TensorBlockTraversal.DepthWise
     is_partkernel = tens.block_traversal == TensorBlockTraversal.PartKernelFirst
 
-    if tens.consumer_list[0].type == "Conv2DBackpropInputSwitchedBias":
+    if tens.consumer_list[0].type == Op.Conv2DBackpropInputSwitchedBias:
         # Transpose Convoluion, reverse weights in H and W axes
         weights = np.flip(weights, axis=(0, 1))
 
@@ -406,9 +407,9 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
     assert tens.purpose == TensorPurpose.FeatureMap
     assert tens.format == TensorFormat.NHWC
     # the connected operator should expect a bias input unless it is a FullyConnected
-    assert "Bias" in tens.consumer_list[0].type or tens.consumer_list[0].type.startswith("FullyConnected")
+    assert tens.consumer_list[0].type.needs_bias()
     # the input bias tensor is the same as that connected to the operator
-    _, _, bias_tens, _ = tens.consumer_list[0].get_ifm_weights_biases_ofm()
+    bias_tens = tens.consumer_list[0].bias
     assert tens is bias_tens
 
     # the operator should only have a single output
@@ -508,14 +509,13 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                 op = tens.find_npu_op()
                 if op is None:
                     continue
-                npu_usage_of_tensor = op.attrs["npu_block_type"]
                 needs_dma = tens.needs_dma()
                 if ps.cascade.strategy == SchedulingStrategy.WeightStream and needs_dma:
                     ofm_depth_step = ps.block_config[-1]
                 else:
                     ofm_depth_step = tens.shape[-1]
                 compress_weights(
-                    arch, nng, tens, npu_usage_of_tensor, ps.block_config[-1], ofm_depth_step, op.get_dilation_h_w()
+                    arch, nng, tens, op.type.npu_block_type, ps.block_config[-1], ofm_depth_step, op.get_dilation_h_w()
                 )
                 # Update source tensor
                 if needs_dma:
@@ -527,7 +527,7 @@ def update_pass_weight_and_scale_tensors(nng, arch):
 
             if ps.scale_tensor is not None:
                 rescale_for_faf = False
-                activation_ops = set(("Sigmoid", "Tanh"))
+                activation_ops = set((Op.Sigmoid, Op.Tanh))
                 if (ps.ops[-1].type in activation_ops) and (ps.npu_block_type != NpuBlockType.ElementWise):
                     rescale_for_faf = True
                 calc_scales_and_pack_biases(ps.scale_tensor, arch, ofm_depth_step, rescale_for_faf)

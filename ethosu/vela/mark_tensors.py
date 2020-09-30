@@ -18,10 +18,11 @@
 from . import rewrite_graph
 from . import weight_compressor
 from .errors import OperatorError
+from .operation import CustomType
+from .operation import Op
 from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
-from .tflite_mapping import custom_prefix
 
 
 def purpose_from_list(lst):
@@ -59,72 +60,53 @@ tensor_purposes = [  # ops, input_purpose
     (
         set(
             (
-                "Relu",
-                "Relu6",
-                "Mul",
-                "Add",
-                "Sub",
-                "Rsqrt",
-                "Abs",
-                "Cast",
-                "Exp",
-                "Floor",
-                "FloorDiv",
-                "FloorMod",
-                "SquaredDifference",
-                "AddN",
-                "BiasAdd",
-                "RealDiv",
-                "Maximum",
-                "Minimum",
-                "Sigmoid",
-                "Tanh",
-                "FusedBatchNorm",
-                "AvgPool",
-                "MaxPool",
-                "Squeeze",
-                "Softmax",
-                "LRN",
-                "Assign",
-                "BatchMatMul",
-                "ZerosLike",
-                "ExtractImagePatches",
-                "MulAct",
-                "AddAct",
-                "SubAct",
-                "DivAct",
-                "AvgPoolAct",
-                "MaxPoolAct",
-                "LeakyRelu",
-                "CLZ",
-                "SHL",
-                "SHR",
-                "ReduceSum",
+                Op.Relu,
+                Op.Relu6,
+                Op.Rsqrt,
+                Op.Abs,
+                Op.Cast,
+                Op.Exp,
+                Op.Floor,
+                Op.FloorDiv,
+                Op.FloorMod,
+                Op.SquaredDifference,
+                Op.AddN,
+                Op.Maximum,
+                Op.Minimum,
+                Op.Sigmoid,
+                Op.Tanh,
+                Op.AvgPool,
+                Op.MaxPool,
+                Op.Squeeze,
+                Op.Softmax,
+                Op.LRN,
+                Op.BatchMatMul,
+                Op.ZerosLike,
+                Op.Mul,
+                Op.Add,
+                Op.Sub,
+                Op.Div,
+                Op.LeakyRelu,
+                Op.CLZ,
+                Op.SHL,
+                Op.SHR,
+                Op.ReduceSum,
             )
         ),
         all_fm,
     ),
     (
-        set(
-            (
-                "Conv2D",
-                "DepthwiseConv2dNative",
-                "MatMul",
-                "Conv2DBiasAct",
-                "DepthwiseConv2dBiasAct",
-                "FullyConnectedAct",
-            )
-        ),
+        set((Op.Conv2D, Op.MatMul, Op.Conv2DBias, Op.DepthwiseConv2DBias, Op.FullyConnected,)),
         purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.Weights, TensorPurpose.FeatureMap]),
     ),
     (
-        set(("Conv2DBackpropInputSwitchedBias",)),
+        set((Op.Conv2DBackpropInputSwitchedBias,)),
         purpose_from_list(
             [TensorPurpose.FeatureMap, TensorPurpose.Weights, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]
         ),
     ),
     (
-        set(("QuantizedConv2D", "QuantizedMatMul")),
+        set((Op.QuantizedConv2D, Op.QuantizedMatMul)),
         purpose_from_list(
             [
                 TensorPurpose.FeatureMap,
@@ -139,66 +121,39 @@ tensor_purposes = [  # ops, input_purpose
     (
         set(
             (
-                "Reshape",
-                "Min",
-                "Max",
-                "Mean",
-                "Pad",
-                "MirrorPad",
-                "ArgMax",
-                "ArgMin",
-                "ExpandDims",
-                "ResizeNearestNeighbor",
-                "ResizeBilinear",
-                "Tile",
-                "Transpose",
-                "Mfcc",
+                Op.Reshape,
+                Op.Min,
+                Op.Max,
+                Op.Mean,
+                Op.Pad,
+                Op.MirrorPad,
+                Op.ArgMax,
+                Op.ArgMin,
+                Op.ExpandDims,
+                Op.ResizeNearestNeighbor,
+                Op.ResizeBilinear,
+                Op.Tile,
+                Op.Transpose,
             )
         ),
         purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]),
     ),
     (
-        set(("QuantizedReshape", "QuantizedResizeBilinear")),
+        set((Op.QuantizedReshape,)),
         purpose_from_list(
             [TensorPurpose.FeatureMap, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]
         ),
     ),
     (
-        set(("QuantizedBiasAdd", "QuantizedAdd", "QuantizedMul")),
-        purpose_from_list(
-            [
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-            ]
-        ),
-    ),
-    (
-        set(
-            (
-                "Dequantize",
-                "Quantize",
-                "QuantizeV2",
-                "QuantizedRelu",
-                "QuantizedRelu1",
-                "QuantizedRelu6",
-                "QuantizedAvgPool",
-                "QuantizedMaxPool",
-                "Slice",
-                "SplitV",
-            )
-        ),
+        set((Op.Dequantize, Op.Quantize, Op.QuantizedAvgPool, Op.QuantizedMaxPool, Op.Slice, Op.SplitV,)),
         purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]),
     ),
     (
-        set(("BatchToSpaceND", "SpaceToBatchND", "DepthToSpaceND", "SpaceToDepthND")),
+        set((Op.BatchToSpaceND, Op.SpaceToBatchND, Op.DepthToSpace, Op.SpaceToDepth)),
         purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]),
     ),
     (
-        set(("BlockLSTM",)),
+        set((Op.BlockLSTM,)),
         purpose_from_list(
             [
                 TensorPurpose.FeatureMap,
@@ -213,33 +168,18 @@ tensor_purposes = [  # ops, input_purpose
             ]
         ),
     ),
-    (set(("SplitSliceRead",)), purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.FeatureMap])),
-    (set(("Shape", "ConcatSliceWrite", "AudioSpectrogram")), purpose_from_list([TensorPurpose.FeatureMap])),
+    (set((Op.SplitSliceRead,)), purpose_from_list([TensorPurpose.FeatureMap, TensorPurpose.FeatureMap])),
+    (set((Op.Shape, Op.ConcatSliceWrite)), purpose_from_list([TensorPurpose.FeatureMap])),
     (
-        set(("StridedSlice",)),
+        set((Op.StridedSlice,)),
         purpose_from_list(
             [TensorPurpose.FeatureMap, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap, TensorPurpose.FeatureMap]
         ),
     ),
-    (set(("Fill", "Pack", "Range")), all_parameter),
-    (
-        set(("Requantize",)),
-        purpose_from_list(
-            [
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-                TensorPurpose.FeatureMap,
-            ]
-        ),
-    ),
-    (set(("Placeholder", "SubgraphInput", "Const", "VariableV2")), purpose_from_list([])),
-    (set(("FakeQuantWithMinMaxArgs", "FakeQuantWithMinMaxVars")), input0_from_output_rest_parameter),
-    (
-        set(("Square", "Sqrt", "Log", "Less", "Enter", "Exit", "Identity", "StopGradient", "Merge", "Switch")),
-        inputs_from_output,
-    ),
+    (set((Op.Fill, Op.Pack, Op.Range)), all_parameter),
+    (set((Op.Placeholder, Op.SubgraphInput, Op.Const,)), purpose_from_list([])),
+    (set((Op.FakeQuantWithMinMaxArgs,)), input0_from_output_rest_parameter),
+    (set((Op.Square, Op.Sqrt, Op.Log, Op.Less, Op.Identity,)), inputs_from_output,),
     (None, all_fm),
 ]
 
@@ -247,8 +187,6 @@ tensor_purposes = [  # ops, input_purpose
 for ops, input_purpose in tensor_purposes:
     if ops is None:
         continue
-    for op in ops:
-        assert len(op) > 1, "string literal has been decomposed"
 
 
 def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
@@ -260,7 +198,7 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
         tens.mem_area = arch.tensor_storage_mem_area[tens.purpose]
         tens.mem_type = arch.tensor_storage_mem_type[tens.purpose]
 
-        if len(tens.ops) == 1 and tens.ops[0].type == "Const":
+        if len(tens.ops) == 1 and tens.ops[0].type == Op.Const:
             tens.mem_area = (
                 arch.permanent_storage_mem_area
             )  # special case constants, as they must be in permanent storage
@@ -288,11 +226,11 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
                     purpose = input_purpose(op, idx) if tens.purpose == TensorPurpose.Unknown else tens.purpose
                     mark_tensor_helper(tens, purpose)
 
-                if op.type == "Reshape":
+                if op.type == Op.Reshape:
                     # Reshape's input and output point to same data
                     op.outputs[0].mem_area = op.inputs[0].mem_area
 
-                if op.type.startswith(custom_prefix) and op.attrs.get("custom_type", "") == "ExistingNpuOp":
+                if op.type == Op.Custom and op.attrs.get("custom_type") == CustomType.ExistingNpuOp:
                     scratch_tensor = None
 
                     if len(op.inputs) >= 3:
@@ -301,7 +239,7 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
                             scratch_tensor.purpose = TensorPurpose.Scratch
 
                     if scratch_tensor is None:
-                        raise OperatorError(op, "Scratch tensor not found.")
+                        OperatorError(op, "Scratch tensor not found.")
 
                 break
 
@@ -316,21 +254,6 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
         nng.print_graph_with_tensors()
 
     return nng
-
-
-reshape_operations = set(
-    (
-        "Reshape",
-        "QuantizedReshape",
-        "ExpandDims",
-        "Squeeze",
-        "BatchToSpaceND",
-        "SpaceToBatchND",
-        "DepthToSpaceND",
-        "SpaceToDepthND",
-        "Placeholder",
-    )
-)
 
 
 def mark_tensor_format(nng, arch, verbose_tensor_format=False):
@@ -375,8 +298,9 @@ def mark_tensor_format(nng, arch, verbose_tensor_format=False):
             if src_tens is not None:
                 op = tens.find_npu_op()
                 if op is not None:
-                    npu_block_type = op.attrs["npu_block_type"]
-                    weight_compressor.compress_weights(arch, nng, tens, npu_block_type, 16, 16, op.get_dilation_h_w())
+                    weight_compressor.compress_weights(
+                        arch, nng, tens, op.type.npu_block_type, 16, 16, op.get_dilation_h_w()
+                    )
                     # Alias compressed weights back into source tensor
                     src_tens.copy_compressed_weight_info(tens)
 

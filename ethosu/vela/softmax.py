@@ -25,6 +25,7 @@ import numpy as np
 from . import fp_math
 from . import scaling
 from .data_type import DataType
+from .operation import Op
 from .operation import Operation
 from .tensor import create_const_tensor
 from .tensor import create_reshape_tensor
@@ -229,7 +230,7 @@ class SoftMax:
 
         # PASS 0 - Depthwise Maxpool
         maxpool_op = self.op.clone("_maxpool0")
-        maxpool_op.type = "MaxPool"
+        maxpool_op.type = Op.MaxPool
         maxpool_h = ifm.shape[1] * ifm.shape[2]
         maxpool_w = ifm.shape[3]
         maxpool_ifm_shape = [1, maxpool_h, maxpool_w, 1]
@@ -246,7 +247,7 @@ class SoftMax:
         maxpool_op.set_output_tensor(ifm_max)
 
         # PASS 1 - Sub+LUT(exp)
-        sub_op = Operation("SubAct", self.op.name + "_sub1")
+        sub_op = Operation(Op.Sub, self.op.name + "_sub1")
         sub_op.add_input_tensor(ifm)
         sub_op.add_input_tensor(create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1]))
         sub_op.set_activation_lut(
@@ -262,7 +263,7 @@ class SoftMax:
         sub_op.set_output_tensor(ifm_exp)
 
         # PASS 2 - SHR
-        shr2_op = Operation("SHR", self.op.name + "_shr2")
+        shr2_op = Operation(Op.SHR, self.op.name + "_shr2")
         shr2_op.attrs["rounding_mode"] = b"NATURAL"
         shr2_op.add_input_tensor(ifm_exp)
         shr2_op.add_input_tensor(
@@ -275,7 +276,7 @@ class SoftMax:
         shr2_op.set_output_tensor(rescaled_exp)
 
         # PASS 3 - Reduce sum
-        reduce_sum_op = Operation("ReduceSum", self.op.name + "_reduce_sum3")
+        reduce_sum_op = Operation(Op.ReduceSum, self.op.name + "_reduce_sum3")
         reduce_sum_op.attrs["padding"] = b"VALID"
         reduce_sum_op.attrs["stride_w"] = 1
         reduce_sum_op.attrs["stride_h"] = 1
@@ -291,14 +292,14 @@ class SoftMax:
         reduce_sum_op.set_output_tensor(sum_of_exp)
 
         # PASS 4 - CLZ
-        clz_op = Operation("CLZ", self.op.name + "_clz4")
+        clz_op = Operation(Op.CLZ, self.op.name + "_clz4")
         clz_op.add_input_tensor(sum_of_exp)
         headroom_plus_one = Tensor(reduce_sum_shape, DataType.int32, clz_op.name + "_0")
         headroom_plus_one.quantization = no_scale_quant
         clz_op.set_output_tensor(headroom_plus_one)
 
         # PASS 5 - Sub
-        sub5_op = Operation("SubAct", self.op.name + "_sub5")
+        sub5_op = Operation(Op.Sub, self.op.name + "_sub5")
         sub5_op.add_input_tensor(
             create_const_tensor(
                 "headroom_offset_const",
@@ -316,7 +317,7 @@ class SoftMax:
 
         # PASS 6 - Sub
         one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant)
-        sub6_op = Operation("SubAct", self.op.name + "_sub6")
+        sub6_op = Operation(Op.Sub, self.op.name + "_sub6")
         sub6_op.add_input_tensor(headroom_plus_one)
         sub6_op.add_input_tensor(one)
         headroom = Tensor(reduce_sum_shape, DataType.int32, sub6_op.name + "_0")
@@ -324,7 +325,7 @@ class SoftMax:
         sub6_op.set_output_tensor(headroom)
 
         # PASS 7 - SHL
-        shl7_op = Operation("SHL", self.op.name + "_shl7")
+        shl7_op = Operation(Op.SHL, self.op.name + "_shl7")
         shl7_op.add_input_tensor(sum_of_exp)
         shl7_op.add_input_tensor(headroom)
         shifted_sum = Tensor(reduce_sum_shape, DataType.int32, shl7_op.name + "_0")
@@ -332,7 +333,7 @@ class SoftMax:
         shl7_op.set_output_tensor(shifted_sum)
 
         # PASS 8 - Sub
-        sub8_op = Operation("SubAct", self.op.name + "_sub8")
+        sub8_op = Operation(Op.Sub, self.op.name + "_sub8")
         sub8_op.add_input_tensor(shifted_sum)
         sub8_op.add_input_tensor(
             create_const_tensor(
@@ -344,7 +345,7 @@ class SoftMax:
         sub8_op.set_output_tensor(shifted_sum_minus_one)
 
         # PASS 9 - SHL
-        shl9_op = Operation("SHL", self.op.name + "_shl9")
+        shl9_op = Operation(Op.SHL, self.op.name + "_shl9")
         shl9_op.add_input_tensor(shifted_sum_minus_one)
         shl9_op.add_input_tensor(one)
         shifted_sum_minus_one = Tensor(reduce_sum_shape, DataType.int32, shl9_op.name + "_0")
@@ -352,7 +353,7 @@ class SoftMax:
         shl9_op.set_output_tensor(shifted_sum_minus_one)
 
         # PASS 10 - Add
-        add10_op = Operation("AddAct", self.op.name + "_add10")
+        add10_op = Operation(Op.Add, self.op.name + "_add10")
         add10_op.add_input_tensor(
             create_const_tensor(
                 "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], np.int32, quantization=no_scale_quant
@@ -365,7 +366,7 @@ class SoftMax:
         add10_op.set_output_tensor(half_denominator)
 
         # PASS 11 - Multiply
-        mul11_op = Operation("MulAct", self.op.name + "_mul11")
+        mul11_op = Operation(Op.Mul, self.op.name + "_mul11")
         mul11_op.add_input_tensor(half_denominator)
         mul11_op.add_input_tensor(
             create_const_tensor(
@@ -383,7 +384,7 @@ class SoftMax:
         mul11_op.set_output_tensor(rescaled)
 
         # PASS 12 - Add
-        add12_op = Operation("AddAct", self.op.name + "_add12")
+        add12_op = Operation(Op.Add, self.op.name + "_add12")
         add12_op.add_input_tensor(rescaled)
         add12_op.add_input_tensor(
             create_const_tensor(
@@ -403,7 +404,7 @@ class SoftMax:
         )
         for i in range(3):
             # PASS 13, 18, 23 - MUL
-            mul_op = Operation("MulAct", self.op.name + "_mul%d" % (13 + i * 5))
+            mul_op = Operation(Op.Mul, self.op.name + "_mul%d" % (13 + i * 5))
             mul_op.add_input_tensor(nr_x)
             mul_op.add_input_tensor(half_denominator)
             half_denominator_times_x = Tensor(reduce_sum_shape, DataType.int32, mul_op.name + "_0")
@@ -411,14 +412,14 @@ class SoftMax:
             half_denominator_times_x.quantization.scale_f32 = 2.0
             mul_op.set_output_tensor(half_denominator_times_x)
             # PASS 14, 19, 24 - SUB
-            sub_op = Operation("SubAct", self.op.name + "_sub%d" % (14 + i * 5))
+            sub_op = Operation(Op.Sub, self.op.name + "_sub%d" % (14 + i * 5))
             sub_op.add_input_tensor(F2_one)
             sub_op.add_input_tensor(half_denominator_times_x)
             one_minus_half_denominator_times_x = Tensor(reduce_sum_shape, DataType.int32, sub_op.name + "_0")
             one_minus_half_denominator_times_x.quantization = one_scale_quant
             sub_op.set_output_tensor(one_minus_half_denominator_times_x)
             # PASS 15, 20, 25 - MUL
-            mul_op = Operation("MulAct", self.op.name + "_mul%d" % (15 + i * 5))
+            mul_op = Operation(Op.Mul, self.op.name + "_mul%d" % (15 + i * 5))
             mul_op.add_input_tensor(nr_x)
             mul_op.add_input_tensor(one_minus_half_denominator_times_x)
             to_rescale = Tensor(reduce_sum_shape, DataType.int32, mul_op.name + "_0")
@@ -426,14 +427,14 @@ class SoftMax:
             to_rescale.quantization.scale_f32 = 2.0
             mul_op.set_output_tensor(to_rescale)
             # PASS 16, 21, 26 - MUL
-            shl_op = Operation("MulAct", self.op.name + "_mul%d" % (16 + i * 5))
+            shl_op = Operation(Op.Mul, self.op.name + "_mul%d" % (16 + i * 5))
             shl_op.add_input_tensor(to_rescale)
             shl_op.add_input_tensor(four)
             to_add = Tensor(reduce_sum_shape, DataType.int32, shl_op.name + "_0")
             to_add.quantization = no_scale_quant
             shl_op.set_output_tensor(to_add)
             # PASS 17, 22, 27 - ADD
-            add_op = Operation("AddAct", self.op.name + "_add%d" % (17 + i * 5))
+            add_op = Operation(Op.Add, self.op.name + "_add%d" % (17 + i * 5))
             add_op.add_input_tensor(nr_x)
             add_op.add_input_tensor(to_add)
             nr_x = Tensor(reduce_sum_shape, DataType.int32, add_op.name + "_0")
@@ -441,7 +442,7 @@ class SoftMax:
             add_op.set_output_tensor(nr_x)
 
         # PASS 28 - Multiply
-        mul28_op = Operation("MulAct", self.op.name + "_mul28")
+        mul28_op = Operation(Op.Mul, self.op.name + "_mul28")
         mul28_op.add_input_tensor(nr_x)
         mul28_op.add_input_tensor(
             create_const_tensor("two_const", [1, 1, 1, 1], DataType.int32, [2], np.int32, quantization=no_scale_quant)
@@ -451,7 +452,7 @@ class SoftMax:
         mul28_op.set_output_tensor(scale_factor)
 
         # PASS 29 - Multiply
-        mul_op = Operation("MulAct", self.op.name + "_mul29")
+        mul_op = Operation(Op.Mul, self.op.name + "_mul29")
         mul_op.add_input_tensor(ifm_exp)
         mul_op.add_input_tensor(scale_factor)
         scaled_exp = Tensor(ifm_exp.shape, DataType.int32, mul_op.name + "_0")
@@ -460,7 +461,7 @@ class SoftMax:
         mul_op.set_output_tensor(scaled_exp)
 
         # PASS 30 - SHR
-        shr30_op = Operation("SHR", self.op.name + "_shr30")
+        shr30_op = Operation(Op.SHR, self.op.name + "_shr30")
         shr30_op.attrs["rounding_mode"] = b"NATURAL"
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
@@ -474,7 +475,7 @@ class SoftMax:
 
         # PASS 0 - Depthwise Maxpool
         maxpool_op = self.op.clone("_maxpool0")
-        maxpool_op.type = "MaxPool"
+        maxpool_op.type = Op.MaxPool
         maxpool_h = ifm.shape[1] * ifm.shape[2]
         maxpool_w = ifm.shape[3]
         maxpool_ifm_shape = [1, maxpool_h, maxpool_w, 1]
@@ -491,7 +492,7 @@ class SoftMax:
         maxpool_op.set_output_tensor(maxpool_ofm)
 
         # PASS 1 - Sub
-        sub1_op = Operation("SubAct", self.op.name + "_sub1")
+        sub1_op = Operation(Op.Sub, self.op.name + "_sub1")
         sub1_op.add_input_tensor(ifm)
         sub1_op.add_input_tensor(create_reshape_tensor(maxpool_ofm, [1, ifm.shape[1], ifm.shape[2], 1]))
         sub1_ofm = Tensor(ifm.shape, DataType.int32, sub1_op.name + "_0")
@@ -504,7 +505,7 @@ class SoftMax:
         mul2_scale, _ = scaling.elementwise_mul_scale(sub1_ofm.quantization.scale_f32, beta, mul2_out_range)
         mul2_quant = ifm.quantization.clone()
         mul2_quant.scale_f32 = beta
-        mul2_op = Operation("MulAct", self.op.name + "_mul2")
+        mul2_op = Operation(Op.Mul, self.op.name + "_mul2")
         mul2_op.add_input_tensor(sub1_ofm)
         mul2_op.add_input_tensor(
             create_const_tensor(
@@ -517,7 +518,7 @@ class SoftMax:
         mul2_op.set_output_tensor(mul2_ofm)
 
         # PASS 3 - Add+LUT(exp)
-        add_op = Operation("AddAct", self.op.name + "_add3")
+        add_op = Operation(Op.Add, self.op.name + "_add3")
         add_op.add_input_tensor(mul2_ofm)
         add_op.add_input_tensor(
             create_const_tensor(
@@ -534,7 +535,7 @@ class SoftMax:
         add_op.set_output_tensor(exp_ofm)
 
         # PASS 4 - Reduce sum
-        reduce_sum_op = Operation("ReduceSum", self.op.name + "_reduce_sum4")
+        reduce_sum_op = Operation(Op.ReduceSum, self.op.name + "_reduce_sum4")
         reduce_sum_op.attrs["padding"] = b"VALID"
         reduce_sum_op.attrs["stride_w"] = 1
         reduce_sum_op.attrs["stride_h"] = 1
@@ -550,14 +551,14 @@ class SoftMax:
         reduce_sum_op.set_output_tensor(sum_of_exp)
 
         # PASS 5 - CLZ
-        clz_op = Operation("CLZ", self.op.name + "_clz5")
+        clz_op = Operation(Op.CLZ, self.op.name + "_clz5")
         clz_op.add_input_tensor(sum_of_exp)
         headroom_plus_one = Tensor(reduce_sum_shape, DataType.int32, clz_op.name + "_0")
         headroom_plus_one.quantization = no_scale_quant
         clz_op.set_output_tensor(headroom_plus_one)
 
         # PASS 6 - Sub
-        sub6_op = Operation("SubAct", self.op.name + "_sub6")
+        sub6_op = Operation(Op.Sub, self.op.name + "_sub6")
         sub6_op.add_input_tensor(
             create_const_tensor(
                 sub6_op.name + "_const", [1, 1, 1, 1], DataType.int32, [31], np.int32, quantization=no_scale_quant
@@ -569,7 +570,7 @@ class SoftMax:
         sub6_op.set_output_tensor(reciprocal_right_shift)
 
         # PASS 7 - SHL
-        shl7_op = Operation("SHL", self.op.name + "_shl7")
+        shl7_op = Operation(Op.SHL, self.op.name + "_shl7")
         shl7_op.add_input_tensor(
             create_const_tensor(
                 shl7_op.name + "_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant
@@ -581,7 +582,7 @@ class SoftMax:
         shl7_op.set_output_tensor(constant_one)
 
         # PASS 8 - Sub
-        sub8_op = Operation("SubAct", self.op.name + "_sub8")
+        sub8_op = Operation(Op.Sub, self.op.name + "_sub8")
         sub8_op.add_input_tensor(sum_of_exp)
         sub8_op.add_input_tensor(constant_one)
         sum_of_exps_minus_one = Tensor(reduce_sum_shape, DataType.int32, sub8_op.name + "_0")
@@ -589,7 +590,7 @@ class SoftMax:
         sub8_op.set_output_tensor(sum_of_exps_minus_one)
 
         # PASS 9 - SHL
-        shl9_op = Operation("SHL", self.op.name + "_shl9")
+        shl9_op = Operation(Op.SHL, self.op.name + "_shl9")
         shl9_op.add_input_tensor(sum_of_exps_minus_one)
         shl9_op.add_input_tensor(headroom_plus_one)
         shifted_sum_minus_one = Tensor(reduce_sum_shape, DataType.int32, shl9_op.name + "_0")
@@ -597,7 +598,7 @@ class SoftMax:
         shl9_op.set_output_tensor(shifted_sum_minus_one)
 
         # PASS 10 - SHR
-        shr10_op = Operation("SHR", self.op.name + "_shr10")
+        shr10_op = Operation(Op.SHR, self.op.name + "_shr10")
         shr10_op.add_input_tensor(shifted_sum_minus_one)
         shr10_op.add_input_tensor(
             create_const_tensor(
@@ -609,7 +610,7 @@ class SoftMax:
         shr10_op.set_output_tensor(shifted_sum_minus_one_16)
 
         # PASS 11 - Sub+LUT(one over one plus x)
-        sub11_op = Operation("SubAct", self.op.name + "_sub11")
+        sub11_op = Operation(Op.Sub, self.op.name + "_sub11")
         sub11_op.add_input_tensor(shifted_sum_minus_one_16)
         sub11_op.add_input_tensor(
             create_const_tensor(
@@ -631,7 +632,7 @@ class SoftMax:
         sub11_op.set_output_tensor(reciprocal_scale)
 
         # PASS 12 - Multiply
-        mul_op = Operation("MulAct", self.op.name + "_mul12")
+        mul_op = Operation(Op.Mul, self.op.name + "_mul12")
         mul_op.add_input_tensor(exp_ofm)
         mul_op.add_input_tensor(reciprocal_scale)
         mul_ofm = Tensor(exp_ofm.shape, DataType.int32, mul_op.name + "_0")
@@ -639,7 +640,7 @@ class SoftMax:
         mul_op.set_output_tensor(mul_ofm)
 
         # PASS 13 - SHR
-        shr13_op = Operation("SHR", self.op.name + "_shr13")
+        shr13_op = Operation(Op.SHR, self.op.name + "_shr13")
         shr13_op.add_input_tensor(mul_ofm)
         shr13_op.add_input_tensor(reciprocal_right_shift)
         shr13_op.set_output_tensor(ofm)

@@ -26,6 +26,7 @@ from ethosu.vela import pass_packing
 from ethosu.vela.data_type import DataType
 from ethosu.vela.high_level_command_stream import DMA
 from ethosu.vela.nn_graph import Graph
+from ethosu.vela.operation import Op
 from ethosu.vela.rewrite_graph import verify_graph_health
 from ethosu.vela.tensor import create_const_tensor
 from ethosu.vela.tensor import TensorPurpose
@@ -94,28 +95,28 @@ def test_optimize_high_level_cmd_stream_2K():
     arch = testutil.create_arch()
     shape = [1, 1, 1, 1]
     # u8 LUT op, should lead to DMA
-    op0 = testutil.create_elemwise_op("AddAct", "op0", shape, shape, shape)
+    op0 = testutil.create_elemwise_op(Op.Add, "op0", shape, shape, shape)
     set_256_lut(op0, "lut0")
     # u8 LUT op, should lead to DMA
-    op1 = testutil.create_elemwise_op("AddAct", "op1", shape, shape, shape)
+    op1 = testutil.create_elemwise_op(Op.Add, "op1", shape, shape, shape)
     set_256_lut(op1, "lut1")
     # u8 LUT op with different LUT, should lead to DMA
-    op2 = testutil.create_elemwise_op("AddAct", "op2", shape, shape, shape)
+    op2 = testutil.create_elemwise_op(Op.Add, "op2", shape, shape, shape)
     set_256_lut(op2, "lut2")
     # u8 LUT op with same LUT as in op1, should not lead to DMA
-    op3 = testutil.create_elemwise_op("AddAct", "op3", shape, shape, shape)
+    op3 = testutil.create_elemwise_op(Op.Add, "op3", shape, shape, shape)
     set_256_lut(op3, "lut1")
     # u8 LUT op with same LUT as in op2, should not lead to DMA
-    op4 = testutil.create_elemwise_op("AddAct", "op4", shape, shape, shape)
+    op4 = testutil.create_elemwise_op(Op.Add, "op4", shape, shape, shape)
     set_256_lut(op4, "lut2")
     # 2K LUT op, should lead to DMA, and will overwrite all previous LUTs in SHRAM
-    op5_2K = testutil.create_elemwise_op("AddAct", "op5", shape, shape, shape)
+    op5_2K = testutil.create_elemwise_op(Op.Add, "op5", shape, shape, shape)
     set_2K_lut(op5_2K, "lut5")
     # Another 2K LUT op, should lead to DMA, and will overwrite the previous LUT in SHRAM
-    op6_2K = testutil.create_elemwise_op("AddAct", "op6", shape, shape, shape)
+    op6_2K = testutil.create_elemwise_op(Op.Add, "op6", shape, shape, shape)
     set_2K_lut(op6_2K, "lut6")
     # u8 LUT op with same LUT as in op1, should lead to DMA
-    op7 = testutil.create_elemwise_op("AddAct", "op7", shape, shape, shape)
+    op7 = testutil.create_elemwise_op(Op.Add, "op7", shape, shape, shape)
     set_256_lut(op7, "lut1")
 
     op_list = [op0, op1, op2, op3, op4, op5_2K, op6_2K, op7]
@@ -149,28 +150,28 @@ def test_optimize_high_level_cmd_stream_1K():
     arch = testutil.create_arch()
     shape = [1, 1, 1, 1]
     # u8 LUT op, should lead to DMA
-    op0 = testutil.create_elemwise_op("AddAct", "op0", shape, shape, shape)
+    op0 = testutil.create_elemwise_op(Op.Add, "op0", shape, shape, shape)
     set_256_lut(op0, "lut0")
     # u8 LUT op, should lead to DMA
-    op1 = testutil.create_elemwise_op("AddAct", "op1", shape, shape, shape)
+    op1 = testutil.create_elemwise_op(Op.Add, "op1", shape, shape, shape)
     set_256_lut(op1, "lut1")
     # 1K LUT op with different LUT, should lead to DMA
-    op2_1K = testutil.create_elemwise_op("AddAct", "op2", shape, shape, shape)
+    op2_1K = testutil.create_elemwise_op(Op.Add, "op2", shape, shape, shape)
     set_1K_lut(op2_1K, "lut2")
     # u8 LUT op with same LUT as in op1, should not lead to DMA
-    op3 = testutil.create_elemwise_op("AddAct", "op3", shape, shape, shape)
+    op3 = testutil.create_elemwise_op(Op.Add, "op3", shape, shape, shape)
     set_256_lut(op3, "lut1")
     # 1K LUT op with same LUT as in op2, should not lead to DMA
-    op4_1K = testutil.create_elemwise_op("AddAct", "op4", shape, shape, shape)
+    op4_1K = testutil.create_elemwise_op(Op.Add, "op4", shape, shape, shape)
     set_1K_lut(op4_1K, "lut2")
     # 1K LUT op, should lead to DMA, and will overwrite lut2
-    op5_2K = testutil.create_elemwise_op("AddAct", "op5", shape, shape, shape)
+    op5_2K = testutil.create_elemwise_op(Op.Add, "op5", shape, shape, shape)
     set_1K_lut(op5_2K, "lut5")
     # u8 LUT op, lut0 should still be present, should not lead to DMA
-    op6 = testutil.create_elemwise_op("AddAct", "op6", shape, shape, shape)
+    op6 = testutil.create_elemwise_op(Op.Add, "op6", shape, shape, shape)
     set_256_lut(op6, "lut0")
     # 1K LUT op with same LUT as in op2, should lead to DMA
-    op7 = testutil.create_elemwise_op("AddAct", "op7", shape, shape, shape)
+    op7 = testutil.create_elemwise_op(Op.Add, "op7", shape, shape, shape)
     set_1K_lut(op7, "lut2")
 
     op_list = [op0, op1, op2_1K, op3, op4_1K, op5_2K, op6, op7]

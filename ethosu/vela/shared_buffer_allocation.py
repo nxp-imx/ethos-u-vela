@@ -25,6 +25,7 @@ from .architecture_features import SHRAMElements
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .operation import NpuBlockType
+from .operation import Op
 from .range_set import MemoryRangeSet
 from .tensor import MemArea
 
@@ -39,7 +40,7 @@ class SharedBufferAllocation:
         ifm_tensor, ifm2_tensor, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
         tensors = [t for t in (ifm_tensor, ifm2_tensor, ofm_tensor) if t is not None]
         scales = [t.quantization.scale_f32 for t in tensors if t.quantization is not None]
-        has_scale = len(tensors) == len(scales) and not None in scales
+        has_scale = len(tensors) == len(scales) and None not in scales
 
         strides = (1, 1, 1, 1)
         dilation = (1, 1, 1, 1)
@@ -53,7 +54,7 @@ class SharedBufferAllocation:
             k_h = 1
             k_w = 1
             if weight_tensor:
-                if ps.primary_op.type != "FullyConnectedAct":
+                if ps.primary_op.type != Op.FullyConnected:
                     k_h = weight_tensor.shape[0]
                     k_w = weight_tensor.shape[1]
             else:
@@ -94,7 +95,9 @@ class SharedBufferAllocation:
                     self.use_ifm_element == SHRAMElements.IFM16_Elementwise
                 )
             elif self.ifm_bits == 32:
-                assert self.is_elementwise or ps.npu_block_type == NpuBlockType.ReduceSum, "Unsupported 32-bit IFM operation"
+                assert (
+                    self.is_elementwise or ps.npu_block_type == NpuBlockType.ReduceSum
+                ), "Unsupported 32-bit IFM operation"
                 self.use_ifm_element = SHRAMElements.IFM32
             else:
                 assert self.ifm_bits == 8, "Unexpected IFM bitdepth"

@@ -25,6 +25,7 @@ from .npu_performance import BandwidthDirection
 from .npu_performance import MacCount
 from .npu_performance import PassCycles
 from .numeric_util import round_up_to_int
+from .operation import Op
 from .tensor import MemArea
 from .tensor import TensorPurpose
 
@@ -192,11 +193,11 @@ def write_pass_metrics_csv(nng, pass_filename):
                     continue  # skip the dummy init pass
 
                 for ps in cps.passes:
-                    if len(ps.ops) == 1 and ps.ops[0].type == "NpuOp":
+                    if len(ps.ops) == 1 and ps.ops[0].type == Op.CustomNpuOp:
                         # just treat this as a call, unroll it
                         write_subgraph(ps.ops[0].attrs["subgraph"])
                         continue
-                    stats = [ps.name, " ".join(op.type for op in ps.ops)]
+                    stats = [ps.name, " ".join(op.type.name for op in ps.ops)]
                     stats += [ps.placement.name]
                     stats += [cps.strategy.name]
                     stats += list(ps.block_config)

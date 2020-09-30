@@ -574,7 +574,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         Cortex-Mx.intercept=<some float value>
         Cortex-Mx.slope=<some float value>
         """
-        section = "CpuPerformance." + op.type
+        section = "CpuPerformance." + op.type.name
         if self.vela_config is not None and section in self.vela_config:
             op_config = self.vela_config[section]
             try:

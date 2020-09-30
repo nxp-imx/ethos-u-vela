@@ -20,7 +20,6 @@ import numpy as np
 from ethosu.vela import architecture_features
 from ethosu.vela.data_type import DataType
 from ethosu.vela.nn_graph import Subgraph
-from ethosu.vela.operation import NpuBlockType
 from ethosu.vela.operation import Operation
 from ethosu.vela.tensor import create_const_tensor
 from ethosu.vela.tensor import Tensor
@@ -52,7 +51,6 @@ def create_elemwise_op(type, name, ifm_shape, ifm2_shape, ofm_shape, datatype=Da
     op.add_input_tensor(create_const_tensor(name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), np_type))
     ofm = Tensor(ofm_shape, datatype, name + "_ofm")
     op.set_output_tensor(ofm)
-    op.attrs["npu_block_type"] = NpuBlockType.ElementWise
     return op
 
 

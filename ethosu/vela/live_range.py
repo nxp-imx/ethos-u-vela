@@ -18,6 +18,7 @@
 # Can work with either a pass packed subgraph or a scheduled subgraph.
 from .high_level_command_stream_generator import calc_allowed_ofm_ifm_overlap_for_cascaded_pass
 from .nn_graph import PassPlacement
+from .operation import Op
 from .tensor import MemType
 from .tensor import Tensor
 
@@ -262,7 +263,11 @@ def extract_live_ranges_from_cascaded_passes(
 
         cps_primary_op = cps.passes[0].primary_op
 
-        if cps_primary_op and cps_primary_op.type == "NpuOp" and MemType.Permanent_CPU not in target_mem_type_set:
+        if (
+            cps_primary_op
+            and cps_primary_op.type == Op.CustomNpuOp
+            and MemType.Permanent_CPU not in target_mem_type_set
+        ):
             # If the primary-op is an NpuOp that means this is where an Npu subgraph
             # is called. Go into said subgraph and extract live ranges before continuing.
             # Use default allocation alignment of 16 for Npu tensors
