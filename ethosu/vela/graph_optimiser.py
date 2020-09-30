@@ -27,9 +27,9 @@ from . import scaling
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
+from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
-from .numeric_util import sigmoid
 from .operation import create_avgpool_nop
 from .operation import NpuBlockType
 from .operation import Operation
@@ -446,6 +446,7 @@ def unfuse_activation_function(op, arch):
         op.set_output_tensor(intermediate_tens)
 
     return op
+
 
 def fixup_unpack_output(tens, arch):
     op = tens.ops[0]
@@ -974,7 +975,7 @@ def convert_lrelu(op, arch):
 def convert_tanh_sigmoid_to_lut(op, arch):
     # Converts int8/uint8 Sigmoid and Tanh to a LUT based solution
     if op.type == "Sigmoid":
-        return convert_to_lut8(op, sigmoid)
+        return convert_to_lut8(op, clamp_sigmoid)
     elif op.type == "Tanh":
         return convert_to_lut8(op, math.tanh)
     return op
