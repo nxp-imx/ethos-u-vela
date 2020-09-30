@@ -121,9 +121,6 @@ class SupportedOperators:
         self.supported_operator_restrictions.update(
             {op: self.check_memory_only_restrictions for op in self.memory_only_ops}
         )
-        self.supported_operator_restrictions.update(
-            {op: self.check_quantization_restrictions_binary_elem_wise for op in self.binary_elem_wise_min_max_ops}
-        )
         self.supported_operator_restrictions.update({op: self.check_activation_ops for op in self.activation_ops})
 
     def is_operator_supported(self, op):
@@ -201,10 +198,12 @@ class SupportedOperators:
 
         # check inf values
         for tens in op.get_ifm_ifm2_weights_ofm():
-            if (tens is not None) and (
-                tens.quantization is not None) and (
-                tens.quantization.scale_f32 is not None) and (
-                np.isinf(tens.quantization.scale_f32).any()):
+            if (
+                (tens is not None)
+                and (tens.quantization is not None)
+                and (tens.quantization.scale_f32 is not None)
+                and (np.isinf(tens.quantization.scale_f32).any())
+            ):
                 print("Warning:", op.type, "has inf valued tensor(s), placing on CPU")
                 return False
 
@@ -398,6 +397,11 @@ class SupportedOperators:
         if ifm_tensor.shape != ofm_tensor.shape and ifm2_tensor.shape != ofm_tensor.shape:
             return False
 
+        if op.type in self.binary_elem_wise_min_max_ops and not self.check_quantization_restrictions_binary_elem_wise(
+            op
+        ):
+            return False
+
         return True
 
     def check_memory_only_restrictions(self, op):
@@ -470,7 +474,16 @@ class SupportedOperators:
                     return False
                 for i in range(ofm_dims):
                     if i != axis and ifm.shape[i] != ofm.shape[i]:
-                        print("Warning:", op.type, "invalid ifm:", ifm.name, ifm.shape, "mismatch in dimension", i, ", placing on CPU")
+                        print(
+                            "Warning:",
+                            op.type,
+                            "invalid ifm:",
+                            ifm.name,
+                            ifm.shape,
+                            "mismatch in dimension",
+                            i,
+                            ", placing on CPU",
+                        )
                         return False
 
         return True
