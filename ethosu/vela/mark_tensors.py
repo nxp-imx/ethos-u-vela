@@ -266,7 +266,7 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
             )  # special case constants, as they must be in permanent storage
             tens.mem_type = MemType.Permanent_NPU
 
-    def rewrite_mark_tensor_purpose(op, arch):
+    def rewrite_mark_tensor_purpose(op, arch, nng):
         # find disconnected outputs and mark as parameters
         for tens in op.outputs:
             if not tens.consumers():
@@ -308,7 +308,7 @@ def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):
         return op
 
     for sg in nng.subgraphs:
-        sg = rewrite_graph.rewrite_graph_pre_order(sg, arch, [], [rewrite_mark_tensor_purpose])
+        sg = rewrite_graph.rewrite_graph_pre_order(nng, sg, arch, [], [rewrite_mark_tensor_purpose])
         for tens in sg.output_tensors:
             mark_tensor_helper(tens, TensorPurpose.FeatureMap)
 

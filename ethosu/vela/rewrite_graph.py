@@ -24,7 +24,7 @@
 # Post-order traversal, this does not support rewrites. Therefore, functions must return the original value.
 
 
-def rewrite_graph_pre_order(sg, arch, tensor_rewrite_list, op_rewrite_list, rewrite_unsupported=True):
+def rewrite_graph_pre_order(nng, sg, arch, tensor_rewrite_list, op_rewrite_list, rewrite_unsupported=True):
 
     op_visit_dict = dict()
     tens_visit_dict = dict()
@@ -38,7 +38,7 @@ def rewrite_graph_pre_order(sg, arch, tensor_rewrite_list, op_rewrite_list, rewr
             prev_res = res
             for rewrite in op_rewrite_list:
                 if res.run_on_npu or rewrite_unsupported:
-                    res = rewrite(res, arch)
+                    res = rewrite(res, arch, nng)
 
         op_visit_dict[op] = res
         op_visit_dict[res] = res
@@ -64,7 +64,7 @@ def rewrite_graph_pre_order(sg, arch, tensor_rewrite_list, op_rewrite_list, rewr
         while prev_res != res:
             prev_res = res
             for rewrite in tensor_rewrite_list:
-                res = rewrite(res, arch)
+                res = rewrite(res, arch, nng)
 
         tens_visit_dict[tens] = res
         tens_visit_dict[res] = res

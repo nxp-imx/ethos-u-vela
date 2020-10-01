@@ -21,12 +21,13 @@ from .operation import Operation
 from .tensor import MemArea
 from .tensor import MemType
 from .tensor import TensorPurpose
+from .weight_compressor import compress_weights
 
 
 binary_elementwise_op = set(("AddAct", "MulAct", "SubAct", "Maximum", "Minimum"))
 
 
-def weights_fit_sram(arch, tens):
+def weights_fit_sram(arch, op, tens, nng):
     if tens.purpose != TensorPurpose.Weights:
         return True
 
@@ -36,25 +37,33 @@ def weights_fit_sram(arch, tens):
     elif len(tens.shape) == 2:
         min_weight_size = tens.shape[0] * arch.OFMSplitDepth
 
-    w_compression = 1  # TODO worst compression ratio currently assumed
-
     # Need to be fit into Sram, as a double buffer
-    if (w_compression * min_weight_size * 2) > arch.sram_size:
-        print(
-            "Weights, {}, are too big to be DMAed to SRAM, estimated minimum size is {} bytes".format(
-                tens.name, (w_compression * min_weight_size * 2)
+    # Only evaluate when the compression test limit will make it impossible to fit
+    w_comp_test_limit = 2
+    if (w_comp_test_limit * min_weight_size * 2) > arch.sram_size:
+        # check worst compression ratio
+        npu_block_type = op.attrs.get("npu_block_type", NpuBlockType.Default)
+        compress_weights(arch, nng, tens, npu_block_type, 16, 16, op.get_dilation_h_w())
+
+        worst_buffer_size = tens.compression_scale_for_worst_weight_stream * min_weight_size * 2
+        if worst_buffer_size > arch.sram_size:
+            print(
+                "Weights, {}, are too big to be DMAed to SRAM, estimated minimum size is {} bytes".format(
+                    tens.name, worst_buffer_size
+                )
             )
-        )
-        return False
+            return False
     return True
 
 
-def insert_dma_cmd(op, arch):
+def insert_dma_cmd(op, arch, nng):
     if op.type == "DMA" or not op.run_on_npu:
         return op
 
-    is_lut_used         = any(inp.purpose == TensorPurpose.LUT for inp in op.inputs)
-    max_ifm_shram_avail = (arch.available_shram_banks(is_lut_used) - arch.shram_reserved_output_banks) * arch.shram_bank_size // 2
+    is_lut_used = any(inp.purpose == TensorPurpose.LUT for inp in op.inputs)
+    max_ifm_shram_avail = (
+        (arch.available_shram_banks(is_lut_used) - arch.shram_reserved_output_banks) * arch.shram_bank_size // 2
+    )
 
     for idx, tens in enumerate(op.inputs):
 
@@ -66,8 +75,11 @@ def insert_dma_cmd(op, arch):
                 and arch.permanent_storage_mem_area != arch.fast_storage_mem_area
             ) or tens.purpose == TensorPurpose.LUT:
                 if tens.purpose in (TensorPurpose.Weights, TensorPurpose.LUT) or (
-                    tens.purpose == TensorPurpose.FeatureMap and op.type in binary_elementwise_op and
-                    tens.shape != [] and tens.shape != op.outputs[0].shape and tens.storage_size() > max_ifm_shram_avail
+                    tens.purpose == TensorPurpose.FeatureMap
+                    and op.type in binary_elementwise_op
+                    and tens.shape != []
+                    and tens.shape != op.outputs[0].shape
+                    and tens.storage_size() > max_ifm_shram_avail
                 ):
                     only_vector_product_consumers = True
                     for oper in tens.consumers():
@@ -79,7 +91,7 @@ def insert_dma_cmd(op, arch):
                     # Other operations re-reads tensors, this is better done from SRAM.
                     # LUTs must be placed in the last 2 blocks of SHRAM.
                     if (
-                        not only_vector_product_consumers and weights_fit_sram(arch, tens)
+                        not only_vector_product_consumers and weights_fit_sram(arch, op, tens, nng)
                     ) or tens.purpose == TensorPurpose.LUT:
                         # Insert a DMA command here, as well as a new tensor situated in SRAM of the same size.
                         new_tens = tens.clone_into_fast_storage(arch)
@@ -98,7 +110,7 @@ def insert_dma_cmd(op, arch):
 def insert_dma_commands(nng, arch, verbose_graph=False):
 
     for idx, sg in enumerate(nng.subgraphs):
-        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(sg, arch, [], [insert_dma_cmd])
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(nng, sg, arch, [], [insert_dma_cmd])
     if verbose_graph:
         nng.print_graph()
     return nng

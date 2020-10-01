@@ -280,7 +280,6 @@ def core_deinterleave(hwio, core, ncores):
 # Compress the weights
 def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
     assert tens.purpose == TensorPurpose.Weights
-    assert tens.format == TensorFormat.WeightsCompressed
 
     # Check the weight cache
     if nng.weight_cache is None:
