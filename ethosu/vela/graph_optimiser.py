@@ -421,7 +421,7 @@ def unfuse_activation_function(op, arch, nng):
 
 def fixup_unpack_output(tens, arch, nng):
     op = tens.ops[0]
-    if op.type in set((Op.Unpack, Op.StridedSlice)):
+    if op.run_on_npu and op.type in set((Op.Unpack, Op.StridedSlice)):
         # Unpack is also referred to as Unstack
         # Requires the rewrite_split function to be called on the op afterwards
 
@@ -1061,7 +1061,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
     for idx, sg in enumerate(nng.subgraphs):
         # rewrite graph pass
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
-            nng, sg, arch, [fixup_unpack_output], op_rewrite_list, rewrite_unsupported=False
+            nng, sg, arch, [], op_rewrite_list, rewrite_unsupported=False,
         )
 
     for idx, sg in enumerate(nng.subgraphs):
@@ -1081,7 +1081,9 @@ def optimise_graph_b(nng, arch, verbose_graph=False):
 
     for idx, sg in enumerate(nng.subgraphs):
         # combined rewrite graph pass
-        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(nng, sg, arch, [rewrite_concat, rewrite_split], [])
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
+            nng, sg, arch, [fixup_unpack_output, rewrite_concat, rewrite_split], []
+        )
 
     if verbose_graph:
         nng.print_graph()

@@ -314,7 +314,7 @@ def get_slice_offsets(input_shape, offset_tens, offset_mask, is_begin=True):
 
 class Operation:
     """Class representing a Neural Network operation. Has a name, a type,
-input and output tensors, as well as an attribute dictionary."""
+    input and output tensors, as well as an attribute dictionary."""
 
     __slots__ = (
         "type",
