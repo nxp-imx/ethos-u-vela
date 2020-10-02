@@ -57,21 +57,19 @@ def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_conf
 
 
 class PassCycles(enum.IntEnum):
-    Dpu = 0
-    ElementWise = 1
-    Cpu = 2
-    SramAccess = 3
-    TotalPerPass = 4
-    DramAccess = 5
-    OnChipFlashAccess = 6
-    OffChipFlashAccess = 7
-    Total = 8
-    Size = 9
+    Npu = 0
+    Cpu = 1
+    SramAccess = 2
+    TotalPerPass = 3
+    DramAccess = 4
+    OnChipFlashAccess = 5
+    OffChipFlashAccess = 6
+    Total = 7
+    Size = 8
 
     def display_name(self):
         return (
-            "DPU",
-            "Element wise",
+            "NPU",
             "CPU",
             "SRAM Access",
             "Total per Pass",
@@ -84,8 +82,7 @@ class PassCycles(enum.IntEnum):
 
     def identifier_name(self):
         return (
-            "dpu",
-            "element_wise",
+            "npu",
             "cpu",
             "sram_access",
             "total_per_pass",
@@ -99,8 +96,7 @@ class PassCycles(enum.IntEnum):
     @staticmethod
     def all():
         return (
-            PassCycles.Dpu,
-            PassCycles.ElementWise,
+            PassCycles.Npu,
             PassCycles.Cpu,
             PassCycles.SramAccess,
             PassCycles.DramAccess,
@@ -213,7 +209,21 @@ def get_n_blocks_and_area(
     return total_blocks, total_area, block_setup
 
 
-def get_output_cycle_estimate(
+def get_ifm_block_depth(npu_block_type, ifm_depth, ifm_elemwidth, block_traversal, ofm_blk_depth):
+    ifm_blk_depth = ofm_blk_depth
+
+    if npu_block_type == NpuBlockType.ConvolutionMxN or npu_block_type == NpuBlockType.ReduceSum:
+        if ifm_elemwidth == 16 or block_traversal == TensorBlockTraversal.PartKernelFirst:
+            ifm_blk_depth = 16
+        elif ifm_elemwidth == 8:
+            ifm_blk_depth = 32
+        else:
+            ifm_blk_depth = 8
+
+    return min(ifm_depth, ifm_blk_depth)
+
+
+def estimate_output_cycles(
     arch, npu_block_type, primary_op, num_elems, ifm_tensor, ofm_tensor, ifm2_tensor, use_acc_40bits=False
 ):
     faf = primary_op.activation
@@ -270,7 +280,7 @@ def get_output_cycle_estimate(
     return num_elems * cycle_per_elem
 
 
-def get_conv_pooling_cycle_estimate(
+def estimate_conv_pooling_cycles(
     arch, npu_block_type, primary_op, block_config: Block, block_traversal, kernel_dims, ifm_tensor, ofm_tensor
 ):
     num_ublk = (
@@ -296,15 +306,9 @@ def get_conv_pooling_cycle_estimate(
     ]
     sub_kernel_size = (x * y for y in sub_kernel_y for x in sub_kernel_x)
 
-    ifm_blk_depth = 0
-    if npu_block_type != NpuBlockType.Pooling:
-        if ifm_tensor.dtype.size_in_bits() == 16 or block_traversal == TensorBlockTraversal.PartKernelFirst:
-            ifm_blk_depth = 16
-        elif ifm_tensor.dtype.size_in_bits() == 8:
-            ifm_blk_depth = 32
-        else:
-            ifm_blk_depth = 8
-
+    ifm_blk_depth = get_ifm_block_depth(
+        npu_block_type, ifm_tens_shape[3], ifm_tensor.dtype.size_in_bits(), block_traversal, block_config.depth
+    )
     cycles_dpu_blk = 0
 
     for num_kernel_elems in sub_kernel_size:
@@ -341,7 +345,7 @@ def get_conv_pooling_cycle_estimate(
         * numeric_util.round_up_divide(ofm_tens_shape[3], block_config.depth)
     )
 
-    cycles_output_blk = get_output_cycle_estimate(
+    cycles_output_blk = estimate_output_cycles(
         arch, npu_block_type, primary_op, num_elems_blk, ifm_tensor, ofm_tensor, None, use_acc_40bits
     )
 
@@ -379,6 +383,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
         explicit_padding = primary_op.attrs.get("explicit_padding", explicit_padding)
         assert primary_op.type.npu_block_type == ps.npu_block_type
         npu_block_type = primary_op.type.npu_block_type
+        block_traversal = TensorBlockTraversal.Default
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
 
@@ -395,14 +400,12 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             ifm_tensor_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
             ifm_tensor_bandwidth_shape = numeric_util.full_shape(4, ifm_tensor.bandwidth_shape, 1)
 
-            batch_size = ifm_tensor.shape[0]
+            batch_size = ifm_tensor_shape[0]
             ifm_depth = ifm_tensor_bandwidth_shape[3]
 
             # add in padding
             ifm_tensor_shape[1] += explicit_padding[0] + explicit_padding[2]  # height += top and bottom
             ifm_tensor_shape[2] += explicit_padding[1] + explicit_padding[3]  # width  += left and right
-
-            block_traversal = TensorBlockTraversal.Default
 
             strides = primary_op.attrs["strides"]
             if npu_block_type != NpuBlockType.Pooling:
@@ -514,7 +517,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
 
             macs[MacCount.NeuralNetworkMacs] += nn_ops
             macs[MacCount.HardwareMacs] += num_mac_ops
-            cycles[PassCycles.Dpu] = get_conv_pooling_cycle_estimate(
+            cycles[PassCycles.Npu] = estimate_conv_pooling_cycles(
                 arch,
                 npu_block_type,
                 primary_op,
@@ -532,7 +535,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             )
             num_mac_ops = nn_macs
 
-            cycles[PassCycles.Dpu] = get_conv_pooling_cycle_estimate(
+            cycles[PassCycles.Npu] = estimate_conv_pooling_cycles(
                 arch,
                 npu_block_type,
                 primary_op,
@@ -558,9 +561,19 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             weight_read_multiple = non_zero_fraction
         elif npu_block_type == NpuBlockType.ElementWise:
             # Work out how many elements we have and calculate performance.
-            cycles[PassCycles.ElementWise] = get_output_cycle_estimate(
+            cycles[PassCycles.Npu] = estimate_output_cycles(
                 arch, npu_block_type, primary_op, ofm_tensor.elements(), ps.ifm_tensor, ps.ofm_tensor, ps.ifm2_tensor
             )
+
+        prev_npu_pass = next((npu_ps for npu_ps in ps.dag_predecessors if npu_ps.placement is PassPlacement.Npu), None)
+        if prev_npu_pass is None:
+            # cycles for DMA ops in first pass
+            dma_ops = (op for op in ps.ops if op.type == Op.DMA)
+            for dma_op in dma_ops:
+                mem_area = dma_op.attrs["source"]
+                for tens in dma_op.inputs:
+                    cycles[PassCycles.Npu] += tens.storage_size() / arch.memory_bandwidths_per_cycle[mem_area]
+
     # apply the desired rewrites
     for rewrite_op, tens, _, _, _, ps_to_rewrite in rewrite_list:
         if ps != ps_to_rewrite:
