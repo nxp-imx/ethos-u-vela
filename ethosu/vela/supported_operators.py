@@ -511,7 +511,7 @@ class SupportedOperators:
                 return False
             if axis < 0:
                 axis += len(op.inputs[0].shape)
-            if not 0 < axis < len(op.inputs[0].shape):
+            if not 0 <= axis < len(op.inputs[0].shape):
                 print("Warning:", op.type, "invalid axis", axis, ", placing on CPU")
                 return False
             ofm = op.outputs[0]
