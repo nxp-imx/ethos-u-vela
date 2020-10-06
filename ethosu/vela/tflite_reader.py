@@ -159,7 +159,7 @@ class TFLiteSubgraph:
             if op.type.needs_bias() and len(inputs) <= op_type.info.indices.biases[0]:
                 # No Bias tensor
                 inputs.append(None)
-            if inputs[-1]:
+            if inputs[-1] and inputs[-1].values is not None:
                 inputs[-1] = clone_and_reshape_tensor(inputs[-1], (0,))
 
         if opt_serializer is not None:
