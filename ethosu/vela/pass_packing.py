@@ -276,7 +276,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                             ):
                                 assert len(curr_op.inputs) >= 1
                                 ifm_tensor = curr_op.ifm
-                                assert ifm_tensor is not None
+                                assert ifm_tensor is not None, "IFM missing in {}".format(curr_op)
                                 assert ifm_tensor.purpose == TensorPurpose.FeatureMap
 
                         if flags_to_set & PassFlags.Dma:
