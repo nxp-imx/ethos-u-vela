@@ -826,30 +826,30 @@ def convert_lrelu_to_mul_max(op, arch):
     return op
 
 
-def convert_to_lut(op, lut_values):
+def convert_to_lut(op, lut_values, lut_name):
     # Rewrite the operation by Add with scalar 0 + LUT activation
     ifm = op.inputs[0]
     assert ifm.dtype.size_in_bytes() == 1
     op.type = Op.Add
-    op.name = op.name + "_add"
+    op.name = op.name + "_lut_" + lut_name
     # Mark as no-op to enable potential fusing optimizations
     op.attrs["is_nop"] = True
     # Create an input tensor containing scalar zero
     quantization = QuantizationParameters(0.0, 255.0)
     quantization.scale_f32 = ifm.quantization.scale_f32
     quantization.zero_point = 0
-    tens = create_const_tensor(op.inputs[0].name + "_add", [], ifm.dtype, [0], np.uint8, quantization=quantization)
+    tens = create_const_tensor(op.inputs[0].name + "_scalar0", [], ifm.dtype, [0], np.uint8, quantization=quantization)
     op.add_input_tensor(tens)
     # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
     # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
     # should be the same as the IFM
     op.forced_output_quantization = ifm.quantization
-    lut_tensor = lut.create_lut_tensor(op.name + "_lut", lut_values, DataType.int8)
+    lut_tensor = lut.create_lut_tensor(op.name + "_values", lut_values, DataType.int8)
     op.set_activation_lut(lut_tensor)
     return op
 
 
-def convert_to_lut8(op, fn):
+def convert_to_lut8(op, fn, fn_name):
     # Converts op to a no-op + int8/uint8 LUT which is generated with the given function.
     # fn is a function(real) -> real
     ifm, ofm = op.get_ifm_ofm()
@@ -870,7 +870,7 @@ def convert_to_lut8(op, fn):
         lut_result = round_away_zero(zp_out + y_real / ofm_scale)
         lut_result = min(quantized_max, max(quantized_min, lut_result))
         values.append(lut_result)
-    return convert_to_lut(op, values)
+    return convert_to_lut(op, values, fn_name)
 
 
 def convert_lrelu_to_lut(op, arch):
@@ -900,7 +900,7 @@ def convert_lrelu_to_lut(op, arch):
             lut_result = zp_out + fp_math.multiply_by_quantized_multiplier(x - zp_in, identity_scale, identity_shift)
         lut_result = min(quantized_max, max(quantized_min, lut_result))
         values.append(lut_result)
-    return convert_to_lut(op, values)
+    return convert_to_lut(op, values, "lrelu")
 
 
 def convert_lrelu(op, arch, nng):
@@ -920,9 +920,9 @@ def convert_lrelu(op, arch, nng):
 def convert_tanh_sigmoid_to_lut(op, arch, nng):
     # Converts int8/uint8 Sigmoid and Tanh to a LUT based solution
     if op.type == Op.Sigmoid:
-        return convert_to_lut8(op, clamp_sigmoid)
+        return convert_to_lut8(op, clamp_sigmoid, "sigmoid")
     elif op.type == Op.Tanh:
-        return convert_to_lut8(op, math.tanh)
+        return convert_to_lut8(op, math.tanh, "tanh")
     return op
 
 

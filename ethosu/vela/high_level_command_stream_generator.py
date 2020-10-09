@@ -51,7 +51,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
     npu_block_type = ps.npu_block_type
     split_offsets = [None, None]  # offset for [ifm, ifm2]
 
-    if len(ps.inputs) == 2 and npu_block_type == NpuBlockType.ElementWise:
+    if ps.ifm_tensor is not None and ps.ifm2_tensor is not None and npu_block_type == NpuBlockType.ElementWise:
         # Ensure correct ifm and ifm2 order
         if match_tensor(ps.inputs[0], ps.primary_op.inputs[1]) and match_tensor(ps.inputs[1], ps.primary_op.inputs[0]):
             ps.ifm_tensor, ps.ifm2_tensor = ps.ifm2_tensor, ps.ifm_tensor
