@@ -101,13 +101,16 @@ def test_constraint_tens_defined_shape():
     assert not support.is_operator_supported(op)
 
 
-def test_constraint_tens_shapeless():
-    # Shapeless input is allowed if its of a certain type:
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8])
-    assert support.is_operator_supported(op)
+def test_constraint_tens_output_shapeless():
     # Shapeless output is not allowed at all:
     op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [1, 8, 8, 8], [])
     assert not support.is_operator_supported(op)
+
+
+def test_constraint_tens_input_shapeless():
+    # Shapeless input is allowed if its of a certain type:
+    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8])
+    assert support.is_operator_supported(op)
     # Invalid shapeless input due to op type:
     inp = Tensor([], DataType.uint8, "in")
     out = Tensor([1, 8, 8, 8], DataType.uint8, "out")
@@ -124,11 +127,14 @@ def test_constraint_tens_shape_size():
 
 
 def test_constraint_tens_dtype():
-    # Tensors can only be of type uint8, int8, int16 (and int32)
+    # Tensors can only be of type uint8, int8, int16 and int32
     inp = Tensor([1, 8, 8, 8], DataType.float32, "in")
     out = Tensor([1, 8, 8, 8], DataType.float32, "out")
     op = testutil.create_op(Op.Relu, [inp], out)
     assert not support.is_operator_supported(op)
+
+
+def test_constraint_tens_int32_ops():
     # For int32, only select op types are allowed:
     op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8], DataType.int32)
     assert support.is_operator_supported(op)
@@ -150,18 +156,24 @@ def test_constraint_tens_dimension():
     assert not support.is_operator_supported(op)
 
 
+def test_constraint_tens_quant_none_check():
+    # Tensors must have quantization parameters
+    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm2_quant=None)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_tens_quant_scale():
+    # Quantization scale cannot be infinit
+    qp = QuantizationParameters()
+    qp.scale_f32 = np.inf
+    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm_quant=qp)
+    assert not support.is_operator_supported(op)
+
+
 def test_constraint_faf():
     # Fused activation functions, if set, must be a valid op type
     inp = Tensor([1, 8, 8, 8], DataType.uint8, "in")
     out = Tensor([1, 8, 8, 8], DataType.uint8, "out")
     op = testutil.create_op(Op.Relu, [inp], out)
     op.activation = Op.Conv2D
-    assert not support.is_operator_supported(op)
-
-
-def test_constraint_tens_quant_scale():
-    # Quantization scale cannot be infinit
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8])
-    op.inputs[0].quantization = QuantizationParameters()
-    op.inputs[0].quantization.scale_f32 = np.inf
     assert not support.is_operator_supported(op)
