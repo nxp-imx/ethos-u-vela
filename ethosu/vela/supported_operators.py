@@ -458,12 +458,6 @@ class SupportedOperators:
             print("Warning: only 8-bit datatypes supported for {}, placing on CPU".format(op.type))
             return False
 
-        # check batch size
-        batch_sizes = {1, 2, 4, 8}
-        if ifm_tensor.shape[0] not in batch_sizes:
-            print("Warning: only batch sizes {} supported for {}, placing on CPU".format(batch_sizes, op.type))
-            return False
-
         if not cls.check_bias_restrictions(bias_tensor):
             return False
 
