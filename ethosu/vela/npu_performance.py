@@ -283,16 +283,32 @@ def estimate_output_cycles(
 def estimate_conv_pooling_cycles(
     arch, npu_block_type, primary_op, block_config: Block, block_traversal, kernel_dims, ifm_tensor, ofm_tensor
 ):
+    ofm_ublock = Block(arch.config.ofm_ublock.width, arch.config.ofm_ublock.height, arch.config.ofm_ublock.depth)
+    ifm_tens_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
+    ofm_tens_shape = numeric_util.full_shape(4, ofm_tensor.shape, 1)
+
+    if (
+        arch.config.ofm_ublock.height == 2
+        and npu_block_type
+        in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.VectorProduct)
+        and ofm_tens_shape[1] == 1
+        # Optimisation only applies for even width tensors
+        and ofm_tens_shape[2] % 2 == 0
+        and kernel_dims[0] == 1
+    ):
+        ofm_ublock.width = 4
+        ofm_ublock.height = 1
+        block_config.height = 1
+
     num_ublk = (
-        (block_config.width // arch.config.ofm_ublock.width)
-        * (block_config.height // arch.config.ofm_ublock.height)
-        * (block_config.depth // arch.config.ofm_ublock.depth)
+        numeric_util.round_up_divide(block_config.width, ofm_ublock.width)
+        * (block_config.height // ofm_ublock.height)
+        * (block_config.depth // ofm_ublock.depth)
     )
     num_ofm_blk = 0
     total_cycles = 0
     num_elems_blk = block_config.width * block_config.height * block_config.depth
-    ifm_tens_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
-    ofm_tens_shape = numeric_util.full_shape(4, ofm_tensor.shape, 1)
+
     use_acc_40bits = is_acc_40bits_used(npu_block_type, ifm_tensor, ofm_tensor)
 
     sub_kernel_limits = arch.sub_kernel_limits[npu_block_type]
