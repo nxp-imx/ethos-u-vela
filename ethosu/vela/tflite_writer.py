@@ -77,7 +77,7 @@ class TFLiteSerialiser:
         self.scratch_fast_buf_id = 1  # Always assign scratch_fast to buffer 1
         self.buffers_to_write = []  # have an empty array there
 
-        self.ops_to_ignore = set((Op.Const, Op.Placeholder, Op.SubgraphInput))
+        self.ops_to_ignore = Op.op_set(Op.is_startup_init_op)
 
         self.tensors_to_reshape = {}
 

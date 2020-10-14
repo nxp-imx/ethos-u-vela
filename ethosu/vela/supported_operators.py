@@ -137,7 +137,8 @@ class SupportedOperators:
 
     def is_operator_supported(self, op):
         if op.type not in SupportedOperators.supported_operators:
-            print('Info: "{}" is not supported on the NPU. Placing on CPU instead'.format(op.type))
+            if not op.type.is_startup_init_op():
+                print('Info: "{}" is not supported on the NPU. Placing on CPU instead'.format(op.type))
             return False
         for constraint in self.generic_constraints:
             valid, extra = constraint(op)
