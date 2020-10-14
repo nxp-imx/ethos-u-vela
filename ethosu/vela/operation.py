@@ -271,9 +271,6 @@ class Op(Enum):
     def needs_bias(self):
         return bool(self.info.indices.biases)
 
-    def is_startup_init_op(self):
-        return self in (Op.Const, Op.Placeholder, Op.SubgraphInput)
-
     @classmethod
     def op_set(cls, predicate):
         # Returns the set of all operator codes that fulfill the given predicate

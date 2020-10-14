@@ -90,7 +90,7 @@ quantization_ops = set((Op.Dequantize, Op.Max, Op.Min))
 cpu_ops = set((Op.Softmax, Op.LRN, Op.Shape, Op.Pad, Op.AddN)) | quantization_ops
 
 npu_dma_ops = set((Op.DMA,))
-startup_init_ops = Op.op_set(Op.is_startup_init_op)
+startup_init_ops = set((Op.Const, Op.Placeholder, Op.SubgraphInput))
 memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape, Op.ExpandDims,))
 
 
