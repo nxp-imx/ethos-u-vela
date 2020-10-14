@@ -585,7 +585,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         # Set IFM2_IB_START to the latter half of the IB space
                         ifm_ib_start = shared_buffer.bank_locations[SharedBufferArea.IFM]
                         emit.cmd0_with_param(
-                            cmd0.NPU_SET_IFM2_IB_START, (shram_required - ifm_ib_start) / 2 + ifm_ib_start
+                            cmd0.NPU_SET_IFM2_IB_START, (shram_required - ifm_ib_start) // shared_buffer.ifm_count + ifm_ib_start
                         )
 
                     emit.cmd0_with_param(cmd0.NPU_SET_IFM2_BROADCAST, ifm2_broadcast)
