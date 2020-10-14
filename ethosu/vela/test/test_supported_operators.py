@@ -95,70 +95,54 @@ def test_strided_slice():
 
 def test_constraint_tens_defined_shape():
     # Tensors cannot have None in them
-    inp = Tensor([1, 8, None, 8], DataType.uint8, "in")
-    out = Tensor([1, 8, 8, 8], DataType.uint8, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, None, 8], [1, 8, 8, 8])
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_output_shapeless():
     # Shapeless output is not allowed at all:
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [1, 8, 8, 8], [])
+    op = testutil.create_elemwise_op(Op.Mul, "op", [1, 8, 8, 8], [1, 8, 8, 8], [])
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_input_shapeless():
     # Shapeless input is allowed if its of a certain type:
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8])
+    op = testutil.create_elemwise_op(Op.Mul, "op", [1, 8, 8, 8], [], [1, 8, 8, 8])
     assert support.is_operator_supported(op)
     # Invalid shapeless input due to op type:
-    inp = Tensor([], DataType.uint8, "in")
-    out = Tensor([1, 8, 8, 8], DataType.uint8, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [], [1, 8, 8, 8])
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_shape_size():
     # Tensors cannot be > 4D
-    inp = Tensor([1, 1, 8, 8, 8], DataType.uint8, "in")
-    out = Tensor([1, 1, 8, 8, 8], DataType.uint8, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 1, 8, 8, 8], [1, 1, 8, 8, 8])
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_dtype():
     # Tensors can only be of type uint8, int8, int16 and int32
-    inp = Tensor([1, 8, 8, 8], DataType.float32, "in")
-    out = Tensor([1, 8, 8, 8], DataType.float32, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8], datatype=DataType.float32)
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_int32_ops():
     # For int32, only select op types are allowed:
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8], DataType.int32)
+    op = testutil.create_elemwise_op(Op.Mul, "op", [1, 8, 8, 8], [], [1, 8, 8, 8], datatype=DataType.int32)
     assert support.is_operator_supported(op)
-    inp = Tensor([1, 8, 8, 8], DataType.int32, "in")
-    out = Tensor([1, 8, 8, 8], DataType.int32, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8], datatype=DataType.int32)
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_dimension():
     # Tensors can only have values in the inclusive range of 1-65535
-    inp = Tensor([1, 8, 8, 0], DataType.uint8, "in")
-    out = Tensor([1, 8, 8, 0], DataType.uint8, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
-    assert not support.is_operator_supported(op)
-    inp = Tensor([1, 8, 8, 65536], DataType.uint8, "in")
-    out = Tensor([1, 8, 8, 65536], DataType.uint8, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 0], [1, 8, 8, 65536])
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_tens_quant_none_check():
     # Tensors must have quantization parameters
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm2_quant=None)
+    op = testutil.create_elemwise_op(Op.Mul, "op", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm2_quant=None)
     assert not support.is_operator_supported(op)
 
 
@@ -166,14 +150,113 @@ def test_constraint_tens_quant_scale():
     # Quantization scale cannot be infinit
     qp = QuantizationParameters()
     qp.scale_f32 = np.inf
-    op = testutil.create_elemwise_op(Op.Mul, "scalar_mul", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm_quant=qp)
+    op = testutil.create_elemwise_op(Op.Mul, "op", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm_quant=qp)
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_faf():
     # Fused activation functions, if set, must be a valid op type
-    inp = Tensor([1, 8, 8, 8], DataType.uint8, "in")
-    out = Tensor([1, 8, 8, 8], DataType.uint8, "out")
-    op = testutil.create_op(Op.Relu, [inp], out)
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8])
     op.activation = Op.Conv2D
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_conv_pass():
+    # First test a simple conv passes
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 1, 1, 1], [1, 1, 1, 1], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    assert support.is_operator_supported(op)
+
+
+def test_constraint_stride_type():
+    # Stride width and height must be integer types
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8])
+    op.attrs = {"stride_w": 1.5, "stride_h": "1"}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_stride_range():
+    # Stride width and height must lie within a certain range
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8])
+    op.attrs = {"stride_w": 0, "stride_h": 20}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_dilation_type():
+    # Dilation width and height must be integer types
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8])
+    op.attrs = {"stride_w": 1, "stride_h": 1, "dilation_w_factor": 1.5, "dilation_h_factor": "1"}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_dilation_range():
+    # Dilation width and height must lie within a certain range
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8])
+    op.attrs = {"stride_w": 1, "stride_h": 1, "dilation_w_factor": 0, "dilation_h_factor": 20}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_dilated_height_range():
+    # Dilated kernel height must lie within a certain range
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8], weights_shape=[65, 64, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_dilated_product_range():
+    # Dilated kernel width x height must lie within a certain range
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8], weights_shape=[64, 65, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_weights_type():
+    # Weight tensor must be 8-bit
+    op = testutil.create_op_with_quant_tensors(
+        Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8], weights_shape=[1, 1, 1, 1], datatype=DataType.int16
+    )
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_weights_nonconst():
+    # Weight tensor cannot be non-const tensors
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    weights = Tensor([64, 64, 1, 1], DataType.uint8, "weights")
+    weights.quantization = QuantizationParameters()
+    op.add_input_tensor(weights)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_weights_limit():
+    # Sum of weights has a limit
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 8, 8, 8], [1, 8, 8, 8], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    op.weights.quantization.zero_point = np.array([[[[(127 * 65536) + 1]]]])
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_bias_type():
+    # Bias must have a certain datatype
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 8, 8, 8], [1, 8, 8, 8], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    bias = Tensor([1, 8, 8, 8], DataType.uint8, "bias")
+    op.add_input_tensor(bias)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_bias_40bit():
+    # Bias must not exceed 40-bit
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 1, 1, 1], [1, 1, 1, 1], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    bias = Tensor([1, 1, 1, 1], DataType.int64, "bias")
+    bias.quant_values = np.array([0x1FF_FFFF_FFFF])
+    op.add_input_tensor(bias)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_batch_size():
+    op = testutil.create_op_with_quant_tensors(Op.Conv2D, [2, 8, 8, 8], [1, 8, 8, 8], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 1}
     assert not support.is_operator_supported(op)

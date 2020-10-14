@@ -72,6 +72,31 @@ def create_elemwise_op(
     return op
 
 
+def create_op_with_quant_tensors(op_type, ifm_shape, ofm_shape, weights_shape=None, datatype=DataType.uint8):
+    qp = QuantizationParameters()
+    ifm = Tensor(ifm_shape, datatype, "in")
+    ifm.quantization = qp
+    ofm = Tensor(ofm_shape, datatype, "out")
+    ofm.quantization = qp
+    op = Operation(op_type, "op")
+    op.add_input_tensor(ifm)
+    op.set_output_tensor(ofm)
+    # Optional weight tensor
+    if weights_shape is not None:
+        if datatype.size_in_bytes() == 1:
+            np_type = np.uint8
+        elif datatype.size_in_bytes() == 2:
+            np_type = np.int16
+        else:
+            np_type = np.int32
+        qp.zero_point = np.zeros(weights_shape)
+        weights = create_const_tensor(
+            "weights", weights_shape, datatype, np.zeros(weights_shape), np_type, quantization=qp
+        )
+        op.add_input_tensor(weights)
+    return op
+
+
 def create_op(op_type, inputs, output, attrs=dict()):
     op = Operation(op_type, output.name + "_op")
     op.inputs = inputs
