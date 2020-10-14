@@ -82,14 +82,16 @@ def rewrite_graph_pre_order(nng, sg, arch, tensor_rewrite_list, op_rewrite_list,
     return sg
 
 
-def visit_graph_post_order(sg, arch, tensor_visit_list, op_visit_list):
-
+def visit_graph_post_order(start_tensors, arch, tensor_visit_list, op_visit_list):
+    # Depth-first graph traversal, starting from the given list of tensors
+    # (typically a subgraph's output_tensors).
+    # Visits ops and tensors in input to output order.
     op_visit_dict = dict()
     tens_visit_dict = dict()
 
     def visit_op(op):
         if op in op_visit_dict:
-            return op_visit_dict[op]
+            return
         op_visit_dict[op] = op
 
         for tens in op.inputs:
@@ -101,11 +103,9 @@ def visit_graph_post_order(sg, arch, tensor_visit_list, op_visit_list):
         for tens in op.outputs:
             visit_tens(tens)
 
-        return op
-
     def visit_tens(tens):
-        if tens in tens_visit_dict:
-            return tens_visit_dict[tens]
+        if tens is None or tens in tens_visit_dict:
+            return
 
         tens_visit_dict[tens] = tens
 
@@ -115,14 +115,8 @@ def visit_graph_post_order(sg, arch, tensor_visit_list, op_visit_list):
         for visit in tensor_visit_list:
             visit(tens, arch)
 
-        return tens
-
-    for tens in sg.output_tensors:
+    for tens in start_tensors:
         visit_tens(tens)
-
-    sg.refresh_after_modification()
-
-    return sg
 
 
 def verify_graph_health(nng):

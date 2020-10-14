@@ -26,6 +26,7 @@ from .weight_compressor import compress_weights
 
 
 def weights_fit_sram(arch, op, tens, nng):
+    # Compresses weights and checks if they fit in SRAM
     if tens.purpose != TensorPurpose.Weights:
         return True
 
@@ -35,22 +36,17 @@ def weights_fit_sram(arch, op, tens, nng):
     elif len(tens.shape) == 2:
         min_weight_size = tens.shape[0] * arch.OFMSplitDepth
 
-    # Need to be fit into Sram, as a double buffer
-    # Only evaluate when the compression test limit will make it impossible to fit
-    w_comp_test_limit = 2
-    if (w_comp_test_limit * min_weight_size * 2) > arch.sram_size:
-        # check worst compression ratio
-        npu_block_type = op.attrs.get("npu_block_type", NpuBlockType.Default)
-        compress_weights(arch, nng, tens, npu_block_type, 16, 16, op.get_dilation_h_w())
+    compress_weights(arch, nng, tens, op.type.npu_block_type, 16, 16, op.get_dilation_h_w())
 
-        worst_buffer_size = tens.compression_scale_for_worst_weight_stream * min_weight_size * 2
-        if worst_buffer_size > arch.sram_size:
-            print(
-                "Weights, {}, are too big to be DMAed to SRAM, estimated minimum size is {} bytes".format(
-                    tens.name, worst_buffer_size
-                )
+    # Need to be fit into Sram, as a double buffer
+    worst_buffer_size = tens.compression_scale_for_worst_weight_stream * min_weight_size * 2
+    if worst_buffer_size > arch.sram_size:
+        print(
+            "Weights, {}, are too big to be DMAed to SRAM, estimated minimum size is {} bytes".format(
+                tens.name, worst_buffer_size
             )
-            return False
+        )
+        return False
     return True
 
 

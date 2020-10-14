@@ -147,7 +147,6 @@ def compiler_driver(nng, arch, options, scheduler_options):
 
     extract_npu_subgraphs.extract_npu_subgraphs(nng, arch)
 
-    mark_tensors.mark_tensor_format(nng, arch, options.verbose_tensor_format)
     assert verify_graph_health(nng)
     if options.timing:
         start = time.time()
