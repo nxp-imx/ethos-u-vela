@@ -137,7 +137,6 @@ def allocate_tensors(
         sg,
         mem_area,
         mem_type_set,
-        mark_output_tensors_overlapping_with_input_tensors=False,
         use_ifm_ofm_overlap=use_ifm_ofm_overlap,
         ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
         lr_graph=lr_graph,

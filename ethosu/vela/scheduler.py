@@ -480,10 +480,7 @@ class DynamicProgrammingScheduler:
     def calc_non_local_mem_usage(self):
         ignore_subgraph_input_output_tensors = self.sg.placement == PassPlacement.Cpu
         range_set = live_range.extract_live_ranges_from_passes(
-            self.sg,
-            self.mem_area,
-            mark_output_tensors_overlapping_with_input_tensors=True,
-            ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
+            self.sg, self.mem_area, ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
         )
         range_dict = range_set.ranges
 
