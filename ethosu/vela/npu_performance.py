@@ -31,7 +31,6 @@ from .nn_graph import PassPlacement
 from .nn_graph import SchedulerRewrite
 from .operation import NpuBlockType
 from .operation import Op
-from .register_command_stream_generator import get_op_kernel
 from .tensor import MemArea
 from .tensor import shape_num_elements
 from .tensor import TensorBlockTraversal
@@ -40,7 +39,7 @@ from .tensor import TensorPurpose
 
 def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_config_ps2):
     ofm_block = Block(block_config_ps2[-3], block_config_ps2[-4], block_config_ps2[-1])
-    kernel = get_op_kernel(ps2)
+    kernel = ps2.primary_op.kernel
 
     if ps2.npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct)):
         op = ps2.primary_op

@@ -25,15 +25,14 @@ from .errors import OptionError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import round_up
 from .numeric_util import round_up_divide
+from .operation import Kernel
 from .operation import NpuBlockType
+from .operation import PointXYZ
 from .supported_operators import SupportedOperators
 from .tensor import MemArea
 from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
-
-PointXY = namedtuple("PointXY", "x y")
-PointXYZ = namedtuple("PointXYZ", "x y z")
 
 
 class Block:
@@ -77,16 +76,6 @@ class Rect:
 
     def __repr__(self):
         return "<Rect: ({0},{1},{2}) ({3},{4},{5})>".format(self.x, self.y, self.z, self.x2, self.y2, self.z2)
-
-
-class Kernel:
-    def __init__(self, w, h, sx=1, sy=1, dx=1, dy=1):
-        assert sx > 0 and sy > 0
-        assert dx > 0 and dy > 0
-        self.width = w
-        self.height = h
-        self.stride = PointXY(sx, sy)
-        self.dilation = PointXY(dx, dy)
 
 
 class SHRAMElements:

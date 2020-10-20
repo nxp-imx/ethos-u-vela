@@ -19,13 +19,12 @@ import numpy as np
 
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
-from .architecture_features import Kernel
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
+from .operation import Kernel
 from .operation import NpuBlockType
-from .operation import Op
 from .range_set import MemoryRangeSet
 from .tensor import MemArea
 
@@ -42,34 +41,19 @@ class SharedBufferAllocation:
         scales = [t.quantization.scale_f32 for t in tensors if t.quantization is not None]
         has_scale = len(tensors) == len(scales) and None not in scales
 
-        strides = (1, 1, 1, 1)
-        dilation = (1, 1, 1, 1)
         self.kernel = Kernel(1, 1)
         self.is_elementwise = ps.npu_block_type == NpuBlockType.ElementWise
         self.uses_lut = False
         self.ifm_count = 1
 
         if ps.primary_op:
-            strides = ps.primary_op.attrs.get("strides", strides)
-            dilation = ps.primary_op.attrs.get("dilation", dilation)
-            k_h = 1
-            k_w = 1
-            if weight_tensor:
-                if ps.primary_op.type != Op.FullyConnected:
-                    k_h = weight_tensor.shape[0]
-                    k_w = weight_tensor.shape[1]
-            else:
-                k_h = ps.primary_op.attrs.get("filter_height", 1)
-                k_w = ps.primary_op.attrs.get("filter_width", 1)
-
-            self.kernel = Kernel(k_w, k_h, strides[2], strides[1], dilation[2], dilation[1])
+            self.kernel = ps.primary_op.kernel
             self.uses_lut = ps.primary_op.activation_lut is not None
 
         self.is_equal_depth_op = self.is_elementwise or ps.npu_block_type in (
             NpuBlockType.ConvolutionDepthWise,
             NpuBlockType.Pooling,
         )
-        self.strides = strides
 
         self.use_accumulator_element = SHRAMElements.Acc32
         if self.is_elementwise:
@@ -89,11 +73,11 @@ class SharedBufferAllocation:
 
             if self.is_elementwise:
                 self.ifm_count = 2
-                if ifm_tensor.shape == []: # Scalar in ifm1
+                if ifm_tensor.shape == []:  # Scalar in ifm1
                     assert ifm2_tensor
                     self.ifm_depth = ifm2_tensor.shape[-1]
                     self.ifm_count = 1
-                elif not ifm2_tensor or ifm2_tensor.shape == []: # Scalar in ifm2
+                elif not ifm2_tensor or ifm2_tensor.shape == []:  # Scalar in ifm2
                     self.ifm_count = 1
 
             if self.ifm_bits == 16:

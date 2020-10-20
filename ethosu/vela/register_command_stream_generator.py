@@ -27,7 +27,6 @@ import numpy as np
 from . import scaling
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
-from .architecture_features import Kernel
 from .architecture_features import Rect
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
@@ -239,26 +238,6 @@ def get_cmd_wait_dependency(arch, cmd_stream, memory_accesses, cmd_index, waterm
     return watermark, outstanding
 
 
-def get_op_kernel(ps):
-    if ps.primary_op is None:
-        return None
-
-    strides = ps.primary_op.attrs.get("strides", (1, 1, 1, 1))
-    dilation = ps.primary_op.attrs.get("dilation", (1, 1, 1, 1))
-    if ps.weight_tensor:
-        if ps.npu_block_type in set((NpuBlockType.VectorProduct, NpuBlockType.ElementWise)):
-            k_h = 1
-            k_w = 1
-        else:
-            k_h = ps.weight_tensor.shape[0]
-            k_w = ps.weight_tensor.shape[1]
-    else:
-        k_h = ps.primary_op.attrs.get("filter_height", 1)
-        k_w = ps.primary_op.attrs.get("filter_width", 1)
-
-    return Kernel(k_w, k_h, strides[2], strides[1], dilation[2], dilation[1])
-
-
 def has_prev_op_dependency(prev_cmd, cmd):
     if prev_cmd is None:
         return False
@@ -462,7 +441,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             prev_ofm_rect = cur_ofm_rect
             prev_ofm_block = cur_ofm_block
             prev_kernel = cur_kernel
-            cur_kernel = get_op_kernel(ps)
+            cur_kernel = ps.primary_op.kernel if ps.primary_op else None
 
             block_config = ps.block_config
             emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, block_config[0] - 1)
@@ -585,7 +564,8 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
                         # Set IFM2_IB_START to the latter half of the IB space
                         ifm_ib_start = shared_buffer.bank_locations[SharedBufferArea.IFM]
                         emit.cmd0_with_param(
-                            cmd0.NPU_SET_IFM2_IB_START, (shram_required - ifm_ib_start) // shared_buffer.ifm_count + ifm_ib_start
+                            cmd0.NPU_SET_IFM2_IB_START,
+                            (shram_required - ifm_ib_start) // shared_buffer.ifm_count + ifm_ib_start,
                         )
 
                     emit.cmd0_with_param(cmd0.NPU_SET_IFM2_BROADCAST, ifm2_broadcast)
