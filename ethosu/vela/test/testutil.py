@@ -39,16 +39,23 @@ def create_arch():
     )
 
 
+def default_quant_params():
+    qp = QuantizationParameters()
+    qp.scale_f32 = np.float32(1)
+    qp.zero_point = 0
+    return qp
+
+
 def create_elemwise_op(
-    type,
+    op_type,
     name,
     ifm_shape,
     ifm2_shape,
     ofm_shape,
     datatype=DataType.uint8,
-    ifm_quant=QuantizationParameters(),
-    ifm2_quant=QuantizationParameters(),
-    ofm_quant=QuantizationParameters(),
+    ifm_quant=default_quant_params(),
+    ifm2_quant=default_quant_params(),
+    ofm_quant=default_quant_params(),
 ):
     # Creates elementwise operation with constant IFM/IFM2
     if datatype.size_in_bytes() == 1:
@@ -57,15 +64,16 @@ def create_elemwise_op(
         np_type = np.int16
     else:
         np_type = np.int32
-    op = Operation(type, name)
+    op = Operation(op_type, name)
     op.add_input_tensor(
         create_const_tensor(name + "_ifm", ifm_shape, datatype, np.zeros(ifm_shape), np_type, quantization=ifm_quant)
     )
-    op.add_input_tensor(
-        create_const_tensor(
-            name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), np_type, quantization=ifm2_quant
+    if ifm2_shape is not None:
+        op.add_input_tensor(
+            create_const_tensor(
+                name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), np_type, quantization=ifm2_quant
+            )
         )
-    )
     ofm = Tensor(ofm_shape, datatype, name + "_ofm")
     ofm.quantization = ofm_quant
     op.set_output_tensor(ofm)
@@ -73,11 +81,10 @@ def create_elemwise_op(
 
 
 def create_op_with_quant_tensors(op_type, ifm_shape, ofm_shape, weights_shape=None, datatype=DataType.uint8):
-    qp = QuantizationParameters()
     ifm = Tensor(ifm_shape, datatype, "in")
-    ifm.quantization = qp
+    ifm.quantization = default_quant_params()
     ofm = Tensor(ofm_shape, datatype, "out")
-    ofm.quantization = qp
+    ofm.quantization = default_quant_params()
     op = Operation(op_type, "op")
     op.add_input_tensor(ifm)
     op.set_output_tensor(ofm)
@@ -89,6 +96,7 @@ def create_op_with_quant_tensors(op_type, ifm_shape, ofm_shape, weights_shape=No
             np_type = np.int16
         else:
             np_type = np.int32
+        qp = default_quant_params()
         qp.zero_point = np.zeros(weights_shape)
         weights = create_const_tensor(
             "weights", weights_shape, datatype, np.zeros(weights_shape), np_type, quantization=qp
