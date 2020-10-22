@@ -800,7 +800,7 @@ class Tensor:
         if (self.dtype.type & BaseType.Int) == 0 or self.quantization is None:
             return False
 
-        assert isinstance(self.quantisation, QuantizationParameters)
+        assert isinstance(self.quantization, QuantizationParameters)
         assert self.quantization.is_valid()
 
         return True
