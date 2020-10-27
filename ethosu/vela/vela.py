@@ -188,7 +188,7 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    parser = argparse.ArgumentParser(prog="vela", description="Neural network model compiler for Ethos-U55")
+    parser = argparse.ArgumentParser(prog="vela", description="Neural network model compiler for Ethos-U")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
         "--api-version", action="version", version=api_version, help="Displays the version of the external API."

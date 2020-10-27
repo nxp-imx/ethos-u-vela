@@ -46,7 +46,7 @@ class CompilerOptions:
     """Set of options to change compiler behaviour - verbosity, targets, turning off passes.
 
 Note the difference between ArchitectureFeatures and CompilerOptions
-- ArchitectureFeatures is for changing the Ethos-U55 and system architecture
+- ArchitectureFeatures is for changing the Ethos-U and system architecture
 - CompilerOptions is for changing the behaviour of the compiler
 """
 

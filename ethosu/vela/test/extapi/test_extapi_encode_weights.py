@@ -30,8 +30,8 @@ from ethosu.vela.architecture_features import Accelerator
         Accelerator.Ethos_U55_64,
         Accelerator.Ethos_U55_128,
         Accelerator.Ethos_U55_256,
-        Accelerator.Yoda_256,
-        Accelerator.Yoda_512,
+        Accelerator.Ethos_U65_256,
+        Accelerator.Ethos_U65_512,
     ],
 )
 @pytest.mark.parametrize("dilation_x", [1, 2])

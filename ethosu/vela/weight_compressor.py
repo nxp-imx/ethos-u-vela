@@ -57,13 +57,13 @@ def encode_weights(
     block_traversal: NpuBlockTraversal,
 ):
     """
-    Public facing API to use the ethosu weight encoding.
+    Public facing API to use the Ethos-U weight encoding.
 
-    :param accelerator: architecture_features.Accelerator enum to pick the correct ethosu accelerator
+    :param accelerator: architecture_features.Accelerator enum to pick the correct Ethos-U accelerator
     :param weights_volume: numpy.ndarray in OHWI layout with a shape of four
     :param dilation_xy: a two element tuple of dilation attributes in x,y dimension
     :param ifm_bitdepth: the bitdepth of input feature map
-    :param ofm_block_depth: the depth of blocks for ethosu processing
+    :param ofm_block_depth: the depth of blocks for Ethos-U processing
     :param is_depthwise: a boolean indicating these weights are used for a depthwise traversal
     :param block_traversal: indicates how these weights are traversed on sub-kernal basis
     :return: a bytearray of compressed weights
@@ -108,7 +108,8 @@ def encode_weights(
 
 def encode_bias(bias: np.int64, scale: int, shift: int):
     """
-    Public facing API to pack bias and scale values as required by the hardware
+    Public facing API to pack bias and scale values as required by the Ethos-U
+
     :param bias: 64bit signed number that includes 40bit signed bias
     :param scale: 32bit scale value
     :param shift: 6bit shift value

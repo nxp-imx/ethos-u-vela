@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Description:
-# Shared buffer allocation works out how to allocate the Ethos-U55 shared buffer for a given pass.
+# Shared buffer allocation works out how to allocate the Ethos-U shared buffer for a given pass.
 from typing import List
 from typing import Tuple
 

@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Description:
-# Register level (low-level) command stream generation for Ethos-U55. Takes a list of NPU operations and generates
+# Register level (low-level) command stream generation for Ethos-U. Takes a list of NPU operations and generates
 # all the register settings. Calculates dependencies between commands and inserts wait operations. And generates a bit
-# stream suitable for interpretation by the Ethos-U55 processor.
+# stream suitable for interpretation by the Ethos-U processor.
 from collections import defaultdict
 from collections import namedtuple
 from enum import Enum
@@ -1210,7 +1210,7 @@ def generate_command_stream(
             memory_accesses[npu_op] = get_dma_memory_accesses(npu_op)
         else:
             memory_accesses[npu_op] = get_op_memory_accesses(npu_op, arch)
-    if arch.is_yoda_system:
+    if arch.is_ethos_u65_system:
         emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
     dep_watermark = Watermark(0, 0)
     prev_op = None
@@ -1272,12 +1272,12 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
 
 def generate_register_command_stream(npu_op_list: List[NpuOperation], accelerator: Accelerator) -> List[int]:
     """
-    Public facing API for generating an ethosu register command stream.
+    Public facing API for generating an Ethos-U register command stream.
     Calculates dependencies between commands and inserts wait operations if needed.
 
     :param npu_op_list: List[NpuOperation] list of high level NPU operations
-    :param accelerator: architecture_features.Accelerator enum to pick the correct ethosu accelerator
-    :return ethosu instructions, as a list of 32-bit integers
+    :param accelerator: architecture_features.Accelerator enum to pick the correct Ethos-U accelerator
+    :return Ethos-U instructions, as a list of 32-bit integers
     """
     emit = CommandStreamEmitter()
     arch = ArchitectureFeatures(

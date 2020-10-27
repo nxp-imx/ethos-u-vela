@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Description:
-# Holds a container for Ethos-U55/System architecture parameters.
+# Holds a container for Ethos-U and System architecture parameters.
 import enum
 from collections import namedtuple
 from configparser import ConfigParser
@@ -109,7 +109,7 @@ class SHRAMBlockConfig:
         self.banks = banks
 
 
-# Area indices must match Ethos-U55 SHRAM layout spec
+# Area indices must match Ethos-U SHRAM layout spec
 class SharedBufferArea(enum.IntEnum):
     OFM = 0
     Weights = 1
@@ -123,8 +123,8 @@ class Accelerator(enum.Enum):
     Ethos_U55_64 = "ethos-u55-64"
     Ethos_U55_128 = "ethos-u55-128"
     Ethos_U55_256 = "ethos-u55-256"
-    Yoda_256 = "yoda-256"
-    Yoda_512 = "yoda-512"
+    Ethos_U65_256 = "ethos-u65-256"
+    Ethos_U65_512 = "ethos-u65-512"
 
     @classmethod
     def member_list(cls):
@@ -132,13 +132,13 @@ class Accelerator(enum.Enum):
 
 
 class ArchitectureFeatures:
-    """This class is a container for various parameters of the Ethos-U55 core
+    """This class is a container for various parameters of the Ethos-U core
     and system configuration that can be tuned, either by command line
-    parameters or by the Ethos-U55 architects. The class is often passed
+    parameters or by the Ethos-U architects. The class is often passed
     around to passes that need to do architecture-dependent actions.
 
     Note the difference between ArchitectureFeatures and CompilerOptions
-    - ArchitectureFeatures is for changing the Ethos-U55 and system architecture
+    - ArchitectureFeatures is for changing the Ethos-U and system architecture
     - CompilerOptions is for changing the behaviour of the compiler
     """
 
@@ -146,10 +146,10 @@ class ArchitectureFeatures:
         "ArchitectureConfig", "macs cores ofm_ublock ifm_ublock shram_banks shram_granules elem_units"
     )
     accelerator_configs = {
-        Accelerator.Yoda_512: ArchitectureConfig(
+        Accelerator.Ethos_U65_512: ArchitectureConfig(
             256, 2, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 16, 8, 16, 20], 8
         ),
-        Accelerator.Yoda_256: ArchitectureConfig(
+        Accelerator.Ethos_U65_256: ArchitectureConfig(
             256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 16, 8, 16, 20], 8
         ),
         Accelerator.Ethos_U55_256: ArchitectureConfig(
@@ -189,9 +189,9 @@ class ArchitectureFeatures:
         self.config = accel_config
 
         self.system_config = system_config
-        self.is_yoda_system = self.accelerator_config in (Accelerator.Yoda_256, Accelerator.Yoda_512)
+        self.is_ethos_u65_system = self.accelerator_config in (Accelerator.Ethos_U65_256, Accelerator.Ethos_U65_512)
 
-        self.max_outstanding_dma = 2 if self.is_yoda_system else 1
+        self.max_outstanding_dma = 2 if self.is_ethos_u65_system else 1
         self.max_outstanding_kernels = 3
 
         self.ncores = accel_config.cores
@@ -224,7 +224,7 @@ class ArchitectureFeatures:
         self.memory_port_widths = np.zeros(MemArea.Size)
 
         # Get system configuration
-        self.__read_sys_config(self.is_yoda_system)
+        self.__read_sys_config(self.is_ethos_u65_system)
 
         # apply the global memory clock scales to the individual ones from the system config
         for mem in MemArea.all():
@@ -303,7 +303,7 @@ class ArchitectureFeatures:
         self.cycles_weight = 40
         self.max_sram_used_weight = 1000
 
-        if self.is_yoda_system and (self.fast_storage_mem_area != self.feature_map_storage_mem_area):
+        if self.is_ethos_u65_system and (self.fast_storage_mem_area != self.feature_map_storage_mem_area):
             self.max_sram_used_weight = 0
 
         # Shared Buffer Block allocations
@@ -383,11 +383,11 @@ class ArchitectureFeatures:
         elif accel_config == Accelerator.Ethos_U55_128:
             self.output_cycles_per_elem = (0.75, 1.25, 0.75, 0.75, 1.0, 1.5, 0.25, 0.5)
             self.activation_cycles_per_elem = (1.0, 0.5, 0.0)
-        elif accel_config in (Accelerator.Ethos_U55_256, Accelerator.Yoda_256):
+        elif accel_config in (Accelerator.Ethos_U55_256, Accelerator.Ethos_U65_256):
             self.output_cycles_per_elem = (0.625, 1.125, 0.5, 0.375, 0.5, 0.75, 0.125, 0.25)
             self.activation_cycles_per_elem = (1.0, 0.25, 0.0)
         else:
-            assert accel_config == Accelerator.Yoda_512
+            assert accel_config == Accelerator.Ethos_U65_512
             self.output_cycles_per_elem = (0.3125, 0.5625, 0.25, 0.1875, 0.25, 0.375, 0.0625, 0.125)
             self.activation_cycles_per_elem = (0.5, 0.125, 0.0)
 
@@ -607,7 +607,7 @@ class ArchitectureFeatures:
         print("Warning: No configured CPU performance estimate for", op.type)
         return 0
 
-    def __read_sys_config(self, is_yoda_system):
+    def __read_sys_config(self, is_ethos_u65_system):
         """
         Gets the system configuration with the given name from the vela configuration file
         Example configuration snippet:
@@ -646,20 +646,20 @@ class ArchitectureFeatures:
             self.feature_map_storage_mem_area = MemArea[self.__sys_config("feature_map_storage_mem_area", "Sram")]
 
             self.permanent_storage_mem_area = MemArea[self.__sys_config("permanent_storage_mem_area", "OffChipFlash")]
-            if is_yoda_system:
+            if is_ethos_u65_system:
                 if self.permanent_storage_mem_area is not MemArea.Dram:
                     raise Exception(
                         "Invalid permanent_storage_mem_area = "
                         + str(self.permanent_storage_mem_area)
-                        + " (must be 'DRAM' for Yoda)."
+                        + " (must be 'DRAM' for Ethos-U65)."
                     )
             else:
                 if self.permanent_storage_mem_area not in set((MemArea.OnChipFlash, MemArea.OffChipFlash)):
                     raise Exception(
                         "Invalid permanent_storage_mem_area = "
                         + str(self.permanent_storage_mem_area)
-                        + " (must be 'OnChipFlash' or 'OffChipFlash' for ethosu-55)."
-                        " To store the weights and other constant data in SRAM on ethosu-55 select 'OnChipFlash'"
+                        + " (must be 'OnChipFlash' or 'OffChipFlash' for Ethos-U55)."
+                        " To store the weights and other constant data in SRAM on Ethos-U55 select 'OnChipFlash'"
                     )
 
             self.sram_size = 1024 * int(self.__sys_config("sram_size_kb", "204800"))
