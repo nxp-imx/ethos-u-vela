@@ -333,7 +333,7 @@ def convert_batched_fc_shape(op, arch, nng):
                 # There is a preceding Reshape
                 # Compare input of prev_op and input of op, to see if prev_op can be removed
                 ifm_prev_op = prev_op.inputs[0]
-                if ifm_prev_op.shape == ifm.shape and check_quantized_tens_scaling_equal(ifm_prev_op, ifm.quantization):
+                if ifm_prev_op.shape == ifm.shape and check_quantized_tens_scaling_equal(ifm_prev_op, ifm):
                     # prev_op can be removed
                     op.set_input_tensor(ifm_prev_op, 0)
                 else:
