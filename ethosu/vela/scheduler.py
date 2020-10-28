@@ -38,6 +38,7 @@ from .npu_performance import PassCycles
 from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .operation import Op
+from .operation import Operation
 from .shared_buffer_allocation import find_block_configs_suitable_for_pass_and_shared_buffer
 from .shared_buffer_allocation import shared_buffer_allocation_for_pass_and_block_config
 from .tensor import MemArea
@@ -64,6 +65,7 @@ class SchedulerOptions:
         use_ifm_streaming=True,
         pareto_metric=ParetoMetric.BwCycMem,
         use_nhcwb16_between_cascaded_passes=True,
+        keep_scale_placement=False,
     ):
         self.use_cascading = use_cascading
         self.verbose_schedule = verbose_schedule
@@ -71,6 +73,7 @@ class SchedulerOptions:
         self.use_ifm_streaming = use_ifm_streaming
         self.pareto_metric = pareto_metric
         self.use_nhcwb16_between_cascaded_passes = use_nhcwb16_between_cascaded_passes
+        self.keep_scale_placement = keep_scale_placement
 
     def __str__(self):
         return type(self).__name__ + ": " + str(self.__dict__)
@@ -1022,6 +1025,45 @@ class DynamicProgrammingScheduler:
                 # in use_fast_storage_for_feature_maps
                 self.sg.scheduling_info["feature_map_rewrites"] = fast_storage_tensor_rewrites
 
+    def move_scales_to_fast_storage(self, sg, arch):
+        # IFM streamed ops reads bias tensors several times, move these to fast storage
+        for cp in sg.cascaded_passes:
+            if cp.strategy == SchedulingStrategy.IfmStream:
+                for ps in cp.passes:
+                    if ps.scale_tensor and (cp.sram_used + ps.scale_tensor.storage_size()) <= self.sram_limit:
+                        tens = ps.scale_tensor
+
+                        # Find op using scale tensor
+                        op = next((op for op in ps.ops if tens in op.inputs), None)
+                        assert op
+
+                        # Create fast storage tensor
+                        new_tens = tens.clone_into_fast_storage(arch)
+                        new_tens.consumer_list = tens.consumer_list.copy()
+                        new_tens.purpose = TensorPurpose.FSBias
+
+                        # Create DMA cmd
+                        dma_cmd = Operation(Op.DMA, tens.ops[0].name + "_dma")
+                        dma_cmd.inputs = [tens]
+                        dma_cmd.set_output_tensor(new_tens)
+                        dma_cmd.attrs["source"] = tens.mem_area
+                        dma_cmd.attrs["destination"] = new_tens.mem_area
+                        dma_cmd.run_on_npu = True
+
+                        tens.consumer_list.clear()
+                        tens.consumer_list.append(dma_cmd)
+
+                        # Replace tensor and op
+                        idx = op.inputs.index(tens)
+                        op.inputs[idx] = new_tens
+
+                        ps.ops.insert(0, dma_cmd)
+                        ps.scale_tensor = new_tens
+                        ps.intermediates.append(new_tens)
+                        ps.cascade.intermediates.append(new_tens)
+
+                        cp.sram_used += tens.storage_size()
+
 
 def schedule_passes(nng, arch, options: SchedulerOptions):
 
@@ -1040,6 +1082,9 @@ def schedule_passes(nng, arch, options: SchedulerOptions):
         strat_set = dps.search()
 
         dps.apply_result(strat_set, arch)
+
+        if not options.keep_scale_placement:
+            dps.move_scales_to_fast_storage(sg, arch)
 
         if options.verbose_schedule:
             sg.print_cascaded_passes()

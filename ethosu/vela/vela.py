@@ -152,6 +152,9 @@ def main(args=None):
         "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
     )
     parser.add_argument(
+        "--keep-scale-placement", action="store_true", help="Keep scale tensors memory placement during scheduling"
+    )
+    parser.add_argument(
         "--cascading",
         type=ast.literal_eval,
         default=True,
@@ -311,6 +314,7 @@ def main(args=None):
         use_ifm_streaming=args.ifm_streaming,
         pareto_metric=args.pareto_metric,
         use_nhcwb16_between_cascaded_passes=args.nhcwb16_between_cascaded_passes,
+        keep_scale_placement=args.keep_scale_placement,
     )
 
     model_reader_options = model_reader.ModelReaderOptions()

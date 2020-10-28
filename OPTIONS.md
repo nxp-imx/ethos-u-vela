@@ -72,6 +72,15 @@ system's SRAM this optimisation is required.
 vela network.tflite --cascading False
 ```
 
+### Keep scale placement
+
+Prevents scheduler from placing scale tensors for IFM streamed passes in SRAM
+and keeps these in flash.  
+
+```bash
+vela network.tflite --keep-scale-placement
+```
+
 ### Force Block Config
 
 Force a specific block configuration in the format HxWxC, where H, W, and C are

@@ -404,7 +404,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
 
 
 def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=False):
-    assert tens.purpose == TensorPurpose.FeatureMap
+    assert tens.purpose in [TensorPurpose.FeatureMap, TensorPurpose.FSBias]
     assert tens.format == TensorFormat.NHWC
     # the connected operator should expect a bias input unless it is a FullyConnected
     assert tens.consumer_list[0].type.needs_bias()
@@ -531,3 +531,9 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                 if (ps.ops[-1].type in activation_ops) and (ps.npu_block_type != NpuBlockType.ElementWise):
                     rescale_for_faf = True
                 calc_scales_and_pack_biases(ps.scale_tensor, arch, ofm_depth_step, rescale_for_faf)
+                if ps.scale_tensor.ops[0].type == Op.DMA:
+                    src_tens = ps.scale_tensor.get_dma_src_tensor()
+                    src_tens.shape = ps.scale_tensor.shape
+                    src_tens.quant_values = ps.scale_tensor.quant_values
+                    src_tens.element_size_bytes = ps.scale_tensor.element_size_bytes
+                    src_tens.copy_compressed_weight_info(ps.scale_tensor)

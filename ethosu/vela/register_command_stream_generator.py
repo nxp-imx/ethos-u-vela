@@ -388,8 +388,11 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             dst_addr = cmd.out_tensor.address_for_coordinate(start_coord)
 
             if cmd.in_tensor.compressed_values is not None:
-                stream_index = cmd.in_tensor.compressed_stream_index_from_coord(start_coord)
-                sz = cmd.in_tensor.size_of_compressed_stream(stream_index)
+                if cmd.out_tensor.purpose == TensorPurpose.FSBias:
+                    sz = cmd.in_tensor.storage_size()
+                else:
+                    stream_index = cmd.in_tensor.compressed_stream_index_from_coord(start_coord)
+                    sz = cmd.in_tensor.size_of_compressed_stream(stream_index)
             else:
                 sz = cmd.in_tensor.address_for_coordinate(cmd.box.end_coord, is_top_box=True) - src_addr
 

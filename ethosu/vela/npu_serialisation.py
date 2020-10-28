@@ -128,7 +128,10 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
                     else:
                         copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.weight_tensor)
 
-                    copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor)
+                    if ps.scale_tensor.ops[0].type == Op.DMA:
+                        copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor.ops[0].inputs[0])
+                    else:
+                        copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor)
 
                 if ps.lut_tensor is not None:
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.lut_tensor)

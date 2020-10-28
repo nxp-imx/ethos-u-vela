@@ -238,6 +238,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                     y_step = y_dim
 
         weight_box = None
+        scale_box = None
 
         for start in range(y_start, y_dim, y_step):
             end = min(start + y_step, y_dim)
@@ -298,6 +299,10 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                         ifm_y_present = max(ifm_y_present, rng[1])
                         if ifm_y_present >= ifm_y_needed:
                             break
+
+            if scale_tensor is not None and scale_tensor.purpose == TensorPurpose.FSBias and scale_box is None:
+                scale_box = Box([0] * len(scale_tensor.shape), list(scale_tensor.shape))
+                yield from dma_if_necessary(ps, scale_box, scale_tensor)
 
             if weight_tensor is not None and weight_box is None:
                 weight_box = Box.make_weight_box(

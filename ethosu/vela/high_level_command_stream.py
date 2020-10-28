@@ -21,6 +21,7 @@ import numpy as np
 
 from .numeric_util import round_up_divide
 from .operation import NpuBlockType
+from .operation import Op
 from .range_set import AccessDirection
 from .range_set import MemoryAccessSet
 from .range_set import MemoryRangeSet
@@ -234,6 +235,11 @@ class NpuStripe(Command):
                 self.weight_tensor.get_address_ranges_for_coordinates(
                     self.weight_box.start_coord, self.weight_box.end_coord
                 ),
+                AccessDirection.Read,
+            )
+        if self.scale_tensor is not None and self.scale_tensor.ops[0].type == Op.DMA:
+            res.add(
+                self.scale_tensor.get_address_ranges_for_coordinates([0], self.scale_tensor.shape),
                 AccessDirection.Read,
             )
         # Add read access to SHRAM by any LUT-s
