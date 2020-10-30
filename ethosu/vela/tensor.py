@@ -440,6 +440,7 @@ class Tensor:
         self.weight_transpose_depthwise = src_tens.weight_transpose_depthwise
         self.compression_scale_for_worst_weight_stream = src_tens.compression_scale_for_worst_weight_stream
         self.storage_compression_scale = src_tens.storage_compression_scale
+        self.bandwidth_compression_scale = src_tens.bandwidth_compression_scale
         self.block_traversal = src_tens.block_traversal
         self.weight_compression_config = src_tens.weight_compression_config
         self.value_id = src_tens.value_id
