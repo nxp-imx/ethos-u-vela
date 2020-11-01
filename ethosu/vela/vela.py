@@ -234,10 +234,6 @@ def main(args=None):
         "--verbose-register-command-stream", action="store_true", help="Verbose register command stream"
     )
     parser.add_argument("--verbose-operators", action="store_true", help="Verbose operator list")
-
-    parser.add_argument(
-        "--show-minimum-possible-allocation", action="store_true", help="Show the minimum possible allocation"
-    )
     parser.add_argument(
         "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
     )
@@ -316,8 +312,8 @@ def main(args=None):
         default=architecture_features.ArchitectureFeatures.MAX_BLOCKDEP,
         choices=range(0, architecture_features.ArchitectureFeatures.MAX_BLOCKDEP + 1),
         help=(
-            "Set the maximum value that can be used for the block dependency between npu kernel operations "
-            "(default: %(default)s)"
+            "Set the maximum value that can be used for the block dependency between npu kernel operations"
+            " (default: %(default)s)"
         ),
     )
     parser.add_argument(
@@ -334,10 +330,13 @@ def main(args=None):
         help=("Performs an additional scaling of weight compression scale estimate (default: %(default)s)"),
     )
     parser.add_argument(
-        "--allocation-alignment",
+        "--cpu-tensor-alignment",
         type=int,
         default=Tensor.AllocationQuantum,
-        help=("Controls the allocation byte alignment of cpu tensors (default: %(default)s)"),
+        help=(
+            "Controls the allocation byte alignment of cpu tensors including Ethos-U Custom operator inputs and outputs"
+            " (default: %(default)s)"
+        ),
     )
     args = parser.parse_args(args=args)
 
@@ -362,11 +361,11 @@ def main(args=None):
     else:
         force_block_config = None
 
-    alignment = args.allocation_alignment
-    if alignment < 16:
-        parser.error("the following argument needs to be greater or equal to 16: ALLOCATION_ALIGNMENT")
-    if alignment & (alignment - 1) != 0:
-        parser.error("the following argument needs to be a power of 2: ALLOCATION_ALIGNMENT")
+    if args.cpu_tensor_alignment < 16 or args.cpu_tensor_alignment & (args.cpu_tensor_alignment - 1) != 0:
+        parser.error(
+            "Invalid argument to --cpu-tensor-alignment = {} (must be greater than or equal to 16 and a power of 2)"
+            "".format(args.cpu_tensor_alignment)
+        )
 
     arch = architecture_features.ArchitectureFeatures(
         vela_config_files=args.config,
@@ -390,12 +389,11 @@ def main(args=None):
         verbose_high_level_command_stream=args.verbose_high_level_command_stream,
         verbose_register_command_stream=args.verbose_register_command_stream,
         verbose_operators=args.verbose_operators,
-        show_minimum_possible_allocation=args.show_minimum_possible_allocation,
         show_cpu_operations=args.show_cpu_operations,
         tensor_allocator=args.tensor_allocator,
         timing=args.timing,
         output_dir=args.output_dir,
-        allocation_alignment=alignment,
+        cpu_tensor_alignment=args.cpu_tensor_alignment,
     )
 
     scheduler_options = scheduler.SchedulerOptions(

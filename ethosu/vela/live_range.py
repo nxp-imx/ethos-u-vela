@@ -236,7 +236,7 @@ def extract_live_ranges_from_cascaded_passes(
     target_mem_type_set,
     ignore_subgraph_input_output_tensors=False,
     lr_graph=None,
-    allocation_alignment=Tensor.AllocationQuantum,
+    cpu_tensor_alignment=Tensor.AllocationQuantum,
 ):
     if lr_graph is None:
         lr_graph = LiveRangeGraph()
@@ -261,7 +261,7 @@ def extract_live_ranges_from_cascaded_passes(
         for tens in cps.inputs:
             if tensor_should_be_ignored(lr_graph, tens, target_mem_area, target_mem_type_set):
                 continue
-            rng = lr_graph.get_or_create_range(tens, allocation_alignment)
+            rng = lr_graph.get_or_create_range(tens, cpu_tensor_alignment)
             rng.mark_usage(time_for_pass)
 
         cps_primary_op = cps.passes[0].primary_op
@@ -285,7 +285,7 @@ def extract_live_ranges_from_cascaded_passes(
         for tens in cps.intermediates + cps.outputs:
             if tensor_should_be_ignored(lr_graph, tens, target_mem_area, target_mem_type_set):
                 continue
-            rng = lr_graph.get_or_create_range(tens, allocation_alignment)
+            rng = lr_graph.get_or_create_range(tens, cpu_tensor_alignment)
             rng.mark_usage(time_for_pass)
 
         lr_graph.current_time += 2
@@ -298,7 +298,7 @@ def extract_live_ranges_from_cascaded_passes(
     for tens in sg.output_tensors:
         if tensor_should_be_ignored(lr_graph, tens, target_mem_area, target_mem_type_set):
             continue
-        rng = lr_graph.get_or_create_range(tens, allocation_alignment)
+        rng = lr_graph.get_or_create_range(tens, cpu_tensor_alignment)
         rng.mark_usage(end_time)
 
     # Add subgraph to set of processed subgraphs

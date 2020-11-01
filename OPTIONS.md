@@ -280,11 +280,14 @@ SRAM, albeit at the cost of performance (inference speed).
 vela network.tflite --weight-estimation-scaling=1.2
 ```
 
-### Allocation alignment
+### CPU Tensor Alignment
 
-Controls the allocation byte alignment.  Only affects CPU tensors, NPU tensors
-will remain 16-byte aligned independent of this option.  Alignment has to be a
-power of two and greater or equal to 16.  
+Controls the allocation byte alignment.  This affects all CPU tensors including
+Ethos-U Custom operator inputs and outputs.  In this instance a CPU tensor is
+defined as any tensor that is explicitly listed in the resulting `.tflite` file.
+The Ethos-U NPU internal tensors will remain 16-byte aligned independent of this
+option, these tensors are contained within the command stream.  Alignment has to
+be a power of two and greater or equal to 16.  
 **Type: Integer**  
 **Default: 16**  
 
@@ -303,14 +306,6 @@ Prints a summary of all the subgraphs and their inputs and outputs.
 
 ```bash
 vela network.tflite --show-subgraph-io-summary
-```
-
-### Show Minimum Possible Allocation
-
-Prints the minimum possible allocation.  
-
-```bash
-vela network.tflite --show-minimum-possible-allocation
 ```
 
 ### Show Cpu Operations

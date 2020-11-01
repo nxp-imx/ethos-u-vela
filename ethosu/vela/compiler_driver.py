@@ -61,12 +61,11 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         verbose_high_level_command_stream=False,
         verbose_register_command_stream=False,
         verbose_operators=False,
-        show_minimum_possible_allocation=False,
         show_cpu_operations=False,
         tensor_allocator=TensorAllocator.Greedy,
         timing=False,
         output_dir="outputs",
-        allocation_alignment=Tensor.AllocationQuantum,
+        cpu_tensor_alignment=Tensor.AllocationQuantum,
     ):
 
         self.verbose_graph = verbose_graph
@@ -78,12 +77,11 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.verbose_high_level_command_stream = verbose_high_level_command_stream
         self.verbose_register_command_stream = verbose_register_command_stream
         self.verbose_operators = verbose_operators
-        self.show_minimum_possible_allocation = show_minimum_possible_allocation
         self.show_cpu_operations = show_cpu_operations
         self.tensor_allocator = tensor_allocator
         self.timing = timing
         self.output_dir = output_dir
-        self.allocation_alignment = allocation_alignment
+        self.cpu_tensor_alignment = cpu_tensor_alignment
 
     def __str__(self):
         return type(self).__name__ + ": " + str(self.__dict__)
@@ -209,7 +207,6 @@ def compiler_driver(nng, arch, options, scheduler_options):
             set((MemType.Permanent_NPU,)),
             tensor_allocator=TensorAllocator.LinearAlloc,
             verbose_allocation=options.verbose_allocation,
-            show_minimum_possible_allocation=options.show_minimum_possible_allocation,
             lr_graph=lr_graph_flash,
         )
 
@@ -259,8 +256,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
                     dry_test=dry_test,
                     tensor_allocator=options.tensor_allocator,
                     verbose_allocation=options.verbose_allocation,
-                    show_minimum_possible_allocation=options.show_minimum_possible_allocation,
-                    allocation_alignment=options.allocation_alignment,
+                    cpu_tensor_alignment=options.cpu_tensor_alignment,
                 )
                 if dry_test or not alloc_success:
                     for sg in nng.subgraphs:
@@ -281,8 +277,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
                 mem_type_set,
                 tensor_allocator=options.tensor_allocator,
                 verbose_allocation=options.verbose_allocation,
-                show_minimum_possible_allocation=options.show_minimum_possible_allocation,
-                allocation_alignment=options.allocation_alignment,
+                cpu_tensor_alignment=options.cpu_tensor_alignment,
             )
 
     # Generate command streams and serialise Npu-ops into tensors
@@ -316,8 +311,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
         set((MemType.Permanent_CPU,)),
         tensor_allocator=TensorAllocator.LinearAlloc,
         verbose_allocation=options.verbose_allocation,
-        show_minimum_possible_allocation=options.show_minimum_possible_allocation,
-        allocation_alignment=options.allocation_alignment,
+        cpu_tensor_alignment=options.cpu_tensor_alignment,
     )
 
     npu_performance.calc_performance_for_network(nng, arch)

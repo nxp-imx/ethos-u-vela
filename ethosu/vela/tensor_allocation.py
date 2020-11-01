@@ -85,7 +85,7 @@ def mark_sram_used_for_cascaded_passes(sg, lrs):
             ps.sram_used = sram_used
 
 
-def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_minimum_possible_allocation):
+def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation):
     if verbose_allocation:
         if mem_type_set == set((MemType.Permanent_NPU,)) or mem_type_set == set((MemType.Permanent_CPU,)):
             print("allocation for", mem_area, "- constant tensors in", sg.placement.name, "subgraph(s)")
@@ -108,13 +108,6 @@ def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_m
         print("Memory usage: {} ({:#x}) bytes / {:.1f} KB".format(mem_usage, mem_usage, mem_usage / 1024))
         print()
 
-    if show_minimum_possible_allocation and mem_area == MemArea.Sram:
-        min_possible_allocation = max(cps.sram_used for cps in sg.cascaded_passes)
-        print(
-            "Min possible allocation %d bytes / %.1f KB / %.1f MB"
-            % (min_possible_allocation, min_possible_allocation / 1024, min_possible_allocation / 1024 / 1024)
-        )
-
 
 def allocate_tensors(
     nng,
@@ -124,9 +117,8 @@ def allocate_tensors(
     mem_type_set,
     tensor_allocator=TensorAllocator.Greedy,
     verbose_allocation=False,
-    show_minimum_possible_allocation=False,
     lr_graph=None,
-    allocation_alignment=Tensor.AllocationQuantum,
+    cpu_tensor_alignment=Tensor.AllocationQuantum,
     max_size=None,
     dry_test=False,
 ):
@@ -138,15 +130,15 @@ def allocate_tensors(
         mem_type_set,
         ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
         lr_graph=lr_graph,
-        allocation_alignment=allocation_alignment,
+        cpu_tensor_alignment=cpu_tensor_alignment,
     )
 
     if lrs.ranges:
         tens_alloc = tensor_allocator
         if tens_alloc == TensorAllocator.Greedy:
-            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, allocation_alignment, verbose_allocation)
+            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment, verbose_allocation)
         elif tens_alloc == TensorAllocator.LinearAlloc:
-            total_sz = linear_allocate_live_ranges(lrs, allocation_alignment)
+            total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
         else:
             assert 0
         alloc_ok = max_size is None or total_sz <= max_size
@@ -171,7 +163,7 @@ def allocate_tensors(
         nng.total_size[mem_area] = nng.total_size.get(mem_area, 0) + sum(tens.storage_size() for tens in lrs.ranges)
         nng.total_elements[mem_area] = nng.total_elements.get(mem_area, 0) + sum(tens.elements() for tens in lrs.ranges)
 
-        print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation, show_minimum_possible_allocation)
+        print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation)
 
         if mem_area == MemArea.Sram:
             # Mark Sram usage for all subgraphs
