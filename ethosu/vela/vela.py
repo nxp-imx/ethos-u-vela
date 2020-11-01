@@ -19,8 +19,7 @@
 # Provides command line interface, options parsing, and network loading. Before calling the compiler driver.
 import argparse
 import ast
-import configparser
-import os.path
+import os
 import sys
 import time
 
@@ -196,13 +195,13 @@ def main(args=None):
     parser.add_argument(
         "--supported-ops-report",
         action="store_true",
-        help="Generate the SUPPORTED_OPS.md file in the current working directory and exits.",
+        help="Generate the SUPPORTED_OPS.md file in the current working directory and exit",
     )
 
+    # set network nargs to be optional to allow the support-ops-report CLI option to be used standalone
     parser.add_argument(
         "network", metavar="NETWORK", type=str, default=None, nargs="?", help="Filename of network to process"
     )
-
     parser.add_argument(
         "--output-dir", type=str, default="output", help="Output directory to write files to (default: %(default)s)"
     )
@@ -212,9 +211,10 @@ def main(args=None):
         default=None,
         help="Enables the calculation and writing of a network debug database to output directory",
     )
-
-    parser.add_argument("--config", type=str, help="Location of vela configuration file")
-
+    parser.add_argument(
+        "--config", type=str, action="append", help="Vela configuration file(s) in Python ConfigParser .ini file format"
+    )
+    parser.add_argument("--verbose-config", action="store_true", help="Verbose system configuration and memory mode")
     parser.add_argument("--verbose-graph", action="store_true", help="Verbose graph rewriter")
     parser.add_argument("--verbose-quantization", action="store_true", help="Verbose quantization")
     parser.add_argument("--verbose-packing", action="store_true", help="Verbose pass packing")
@@ -263,8 +263,14 @@ def main(args=None):
     parser.add_argument(
         "--system-config",
         type=str,
-        default="internal-default",
-        help="System configuration to use (default: %(default)s)",
+        default=architecture_features.ArchitectureFeatures.DEFAULT_CONFIG,
+        help="System configuration to select from the Vela configuration file (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--memory-mode",
+        type=str,
+        default=architecture_features.ArchitectureFeatures.DEFAULT_CONFIG,
+        help="Memory mode to select from the Vela configuration file (default: %(default)s)",
     )
     parser.add_argument(
         "--tensor-allocator",
@@ -290,15 +296,6 @@ def main(args=None):
         type=int,
         default=16,
         help="Limit block config search space, use zero for unlimited (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--global-memory-clock-scale",
-        type=float,
-        default=1.0,
-        help=(
-            "Performs an additional scaling of the individual memory clock scales specified by the system config "
-            "(default: %(default)s)"
-        ),
     )
     parser.add_argument(
         "--pareto-metric",
@@ -344,14 +341,6 @@ def main(args=None):
     )
     args = parser.parse_args(args=args)
 
-    # Read configuration file
-    config_file = args.config
-    config = None
-    if config_file is not None:
-        with open(config_file) as f:
-            config = configparser.ConfigParser()
-            config.read_file(f)
-
     # Generate the supported ops report and exit
     if args.supported_ops_report:
         generate_supported_ops()
@@ -359,6 +348,12 @@ def main(args=None):
 
     if args.network is None:
         parser.error("the following argument is required: NETWORK")
+
+    # check all config files exist because they will be read as a group
+    if args.config is not None:
+        for filename in args.config:
+            if not os.access(filename, os.R_OK):
+                raise InputFileError(filename, "File not found or is not readable.")
 
     sys.setrecursionlimit(args.recursion_limit)
 
@@ -374,14 +369,15 @@ def main(args=None):
         parser.error("the following argument needs to be a power of 2: ALLOCATION_ALIGNMENT")
 
     arch = architecture_features.ArchitectureFeatures(
-        vela_config=config,
+        vela_config_files=args.config,
         system_config=args.system_config,
+        memory_mode=args.memory_mode,
         accelerator_config=args.accelerator_config,
         override_block_config=force_block_config,
         block_config_limit=args.block_config_limit,
-        global_memory_clock_scale=args.global_memory_clock_scale,
         max_blockdep=args.max_block_dependency,
         weight_estimation_scaling=args.weight_estimation_scaling,
+        verbose_config=args.verbose_config,
     )
 
     compiler_options = compiler_driver.CompilerOptions(

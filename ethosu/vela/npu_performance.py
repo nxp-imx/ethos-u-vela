@@ -60,7 +60,6 @@ def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_conf
 
 class PassCycles(IntEnum):
     Npu = 0
-    Cpu = auto()
     SramAccess = auto()
     DramAccess = auto()
     OnChipFlashAccess = auto()
@@ -69,34 +68,19 @@ class PassCycles(IntEnum):
     Size = auto()
 
     def display_name(self):
-        return (
-            "NPU",
-            "CPU",
-            "SRAM Access",
-            "DRAM Access",
-            "On-chip Flash Access",
-            "Off-chip Flash Access",
-            "Total",
-            "Size",
-        )[self.value]
+        return ("NPU", "SRAM Access", "DRAM Access", "On-chip Flash Access", "Off-chip Flash Access", "Total", "Size",)[
+            self.value
+        ]
 
     def identifier_name(self):
-        return (
-            "npu",
-            "cpu",
-            "sram_access",
-            "dram_access",
-            "on_chip_flash_access",
-            "off_chip_flash_access",
-            "total",
-            "size",
-        )[self.value]
+        return ("npu", "sram_access", "dram_access", "on_chip_flash_access", "off_chip_flash_access", "total", "size",)[
+            self.value
+        ]
 
     @staticmethod
     def all():
         return (
             PassCycles.Npu,
-            PassCycles.Cpu,
             PassCycles.SramAccess,
             PassCycles.DramAccess,
             PassCycles.OnChipFlashAccess,
@@ -460,9 +444,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
     ofm_block = Block(block_config[1], block_config[0], block_config[3])
     ifm_block = Block(block_config[1], block_config[0], block_config[3])
 
-    if ps.placement == PassPlacement.Cpu:
-        cycles[PassCycles.Cpu] = arch.cpu_cycle_estimate(ps.ops[0])
-    elif primary_op:
+    if ps.placement == PassPlacement.Npu and primary_op:
         skirt = primary_op.attrs.get("skirt", skirt)
         explicit_padding = primary_op.attrs.get("explicit_padding", explicit_padding)
         assert primary_op.type.npu_block_type == ps.npu_block_type

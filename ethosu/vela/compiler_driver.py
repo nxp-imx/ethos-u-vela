@@ -225,31 +225,18 @@ def compiler_driver(nng, arch, options, scheduler_options):
     root_sg = nng.get_root_subgraph()
 
     alloc_list = []
-    feature_maps_in_fast_storage = arch.feature_map_storage_mem_area == arch.fast_storage_mem_area
-    if feature_maps_in_fast_storage:
-        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))
-        alloc_list.append(mem_alloc_scratch)
-    else:
+    if arch.is_spilling_enabled():
         mem_alloc_scratch_fast = (arch.fast_storage_mem_area, set((MemType.Scratch_fast,)))
         mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch,)))
         # Order is important
         alloc_list.append(mem_alloc_scratch_fast)
         alloc_list.append(mem_alloc_scratch)
+    else:
+        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))
+        alloc_list.append(mem_alloc_scratch)
 
     for mem_area, mem_type_set in alloc_list:
-        if feature_maps_in_fast_storage or mem_area != arch.fast_storage_mem_area:
-            tensor_allocation.allocate_tensors(
-                nng,
-                root_sg,
-                arch,
-                mem_area,
-                mem_type_set,
-                tensor_allocator=options.tensor_allocator,
-                verbose_allocation=options.verbose_allocation,
-                show_minimum_possible_allocation=options.show_minimum_possible_allocation,
-                allocation_alignment=options.allocation_alignment,
-            )
-        else:
+        if arch.is_spilling_enabled() and mem_area == arch.fast_storage_mem_area:
             # For the case where scratch_fast != scratch: attempt to place feature maps used between
             # cascaded passes in fast storage. Bisection is used to find the max possible usage of SRAM.
             alloc_results = []
@@ -285,6 +272,18 @@ def compiler_driver(nng, arch, options, scheduler_options):
                     "Increasing the value of --weight-estimation-scaling may help to resolve the issue. "
                     "See OPTIONS.md for more information.".format(arch.sram_size)
                 )
+        else:
+            tensor_allocation.allocate_tensors(
+                nng,
+                root_sg,
+                arch,
+                mem_area,
+                mem_type_set,
+                tensor_allocator=options.tensor_allocator,
+                verbose_allocation=options.verbose_allocation,
+                show_minimum_possible_allocation=options.show_minimum_possible_allocation,
+                allocation_alignment=options.allocation_alignment,
+            )
 
     # Generate command streams and serialise Npu-ops into tensors
     for sg in nng.subgraphs:

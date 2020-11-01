@@ -21,7 +21,8 @@ from configparser import ConfigParser
 
 import numpy as np
 
-from .errors import OptionError
+from .errors import CliOptionError
+from .errors import ConfigOptionError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
 from .numeric_util import round_up
@@ -131,6 +132,12 @@ class Accelerator(enum.Enum):
         return [e.value for e in cls]
 
 
+@enum.unique
+class MemPort(enum.Enum):
+    Axi0 = enum.auto()
+    Axi1 = enum.auto()
+
+
 class ArchitectureFeatures:
     """This class is a container for various parameters of the Ethos-U core
     and system configuration that can be tuned, either by command line
@@ -169,26 +176,29 @@ class ArchitectureFeatures:
     OFMSplitDepth = 16
     SubKernelMax = Block(8, 8, 65536)
 
+    DEFAULT_CONFIG = "internal-default"
+
     def __init__(
         self,
-        vela_config: ConfigParser,
+        vela_config_files,
         accelerator_config,
         system_config,
+        memory_mode,
         override_block_config,
         block_config_limit,
-        global_memory_clock_scale,
         max_blockdep,
         weight_estimation_scaling,
+        verbose_config,
     ):
         accelerator_config = accelerator_config.lower()
-        self.vela_config = vela_config
         if accelerator_config not in Accelerator.member_list():
-            raise OptionError("--accelerator-config", self.accelerator_config, "Unknown accelerator configuration")
+            raise CliOptionError("--accelerator-config", self.accelerator_config, "Unknown accelerator configuration")
         self.accelerator_config = Accelerator(accelerator_config)
         accel_config = ArchitectureFeatures.accelerator_configs[self.accelerator_config]
         self.config = accel_config
 
         self.system_config = system_config
+        self.memory_mode = memory_mode
         self.is_ethos_u65_system = self.accelerator_config in (Accelerator.Ethos_U65_256, Accelerator.Ethos_U65_512)
 
         self.max_outstanding_dma = 2 if self.is_ethos_u65_system else 1
@@ -201,14 +211,6 @@ class ArchitectureFeatures:
         self.override_block_config = override_block_config
         self.block_config_limit = block_config_limit
 
-        self.global_memory_clock_scale = global_memory_clock_scale
-        if self.global_memory_clock_scale <= 0.0 or self.global_memory_clock_scale > 1.0:
-            raise Exception(
-                "Invalid global_memory_clock_scale = "
-                + str(self.global_memory_clock_scale)
-                + " (must be > 0.0 and <= 1.0)"
-            )
-
         self.max_blockdep = max_blockdep
         self.weight_estimation_scaling = weight_estimation_scaling
 
@@ -220,20 +222,13 @@ class ArchitectureFeatures:
         self.num_elem_wise_units = accel_config.elem_units
         self.num_macs_per_cycle = dpu_min_height * dpu_min_width * dpu_dot_product_width * dpu_min_ofm_channels
 
-        self.memory_clock_scales = np.zeros(MemArea.Size)
-        self.memory_port_widths = np.zeros(MemArea.Size)
+        # Get system configuration and memory mode
+        self._get_vela_config(vela_config_files, verbose_config)
 
-        # Get system configuration
-        self.__read_sys_config(self.is_ethos_u65_system)
+        self.axi_port_width = 128 if self.is_ethos_u65_system else 64
+        self.memory_bandwidths_per_cycle = self.axi_port_width * self.memory_clock_scales / 8
 
-        # apply the global memory clock scales to the individual ones from the system config
-        for mem in MemArea.all():
-            self.memory_clock_scales[mem] *= self.global_memory_clock_scale
-
-        self.memory_clocks = self.memory_clock_scales * self.npu_clock
-        self.memory_bandwidths_per_cycle = self.memory_port_widths * self.memory_clock_scales / 8
-
-        self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.npu_clock
+        self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.core_clock
 
         # Get output/activation performance numbers
         self._generate_output_perf_tables(self.accelerator_config)
@@ -303,7 +298,7 @@ class ArchitectureFeatures:
         self.cycles_weight = 40
         self.max_sram_used_weight = 1000
 
-        if self.is_ethos_u65_system and (self.fast_storage_mem_area != self.feature_map_storage_mem_area):
+        if self.is_spilling_enabled():
             self.max_sram_used_weight = 0
 
         # Shared Buffer Block allocations
@@ -582,100 +577,226 @@ class ArchitectureFeatures:
 
         return blockdep
 
-    def cpu_cycle_estimate(self, op):
+    def is_spilling_enabled(self):
         """
-        Gets estimated performance of a CPU operation, based on a linear model of intercept, slope,
-        specified in the vela config file, in ConfigParser file format (.ini file).
-        Example configuration snippet:
-        [CpuPerformance.MyOperationType]
-        Cortex-Mx.intercept=<some float value>
-        Cortex-Mx.slope=<some float value>
+        Spilling is a feature that allows the Ethos-U to use a dedicated SRAM as a cache for various types of data
         """
-        section = "CpuPerformance." + op.type.name
-        if self.vela_config is not None and section in self.vela_config:
-            op_config = self.vela_config[section]
-            try:
-                intercept = float(op_config.get(self.cpu_config + ".intercept", op_config["default.intercept"]))
-                slope = float(op_config.get(self.cpu_config + ".slope", op_config["default.slope"]))
-                n_elements = op.inputs[0].elements()
-                cycles = intercept + n_elements * slope
-                return cycles
-            except Exception:
-                print("Error: Reading CPU cycle estimate in vela configuration file, section {}".format(section))
-                raise
+        return (
+            self._mem_port_mapping(self.cache_mem_area) == MemArea.Sram and self.cache_mem_area != self.arena_mem_area
+        )
 
-        print("Warning: No configured CPU performance estimate for", op.type)
-        return 0
+    def _mem_port_mapping(self, mem_port):
+        mem_port_mapping = {MemPort.Axi0: self.axi0_port, MemPort.Axi1: self.axi1_port}
+        return mem_port_mapping[mem_port]
 
-    def __read_sys_config(self, is_ethos_u65_system):
-        """
-        Gets the system configuration with the given name from the vela configuration file
-        Example configuration snippet:
-        [SysConfig.MyConfigName]
-        npu_freq=<some float value>
-        cpu=Cortex-Mx
-        ...
-        """
-        # Get system configuration from the vela configuration file
-        if self.vela_config is None:
-            print("Warning: Using default values for system configuration")
+    def _set_default_sys_config(self):
+        print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
+        # ArchitectureFeatures.DEFAULT_CONFIG values
+        if self.is_ethos_u65_system:
+            # Default Ethos-U65 system configuration
+            # Ethos-U65 Client-Server: SRAM (16 GB/s) and DRAM (12 GB/s)
+            self.core_clock = 1e9
+            self.axi0_port = MemArea.Sram
+            self.axi1_port = MemArea.Dram
+            self.memory_clock_scales[MemArea.Sram] = 1.0
+            self.memory_clock_scales[MemArea.Dram] = 0.75  # 3 / 4
         else:
-            section_key = "SysConfig." + self.system_config
-            if section_key not in self.vela_config:
-                raise OptionError("--system-config", self.system_config, "Unknown system configuration")
+            # Default Ethos-U55 system configuration
+            # Ethos-U55 High-End Embedded: SRAM (4 GB/s) and Flash (0.5 GB/s)
+            self.core_clock = 500e6
+            self.axi0_port = MemArea.Sram
+            self.axi1_port = MemArea.OffChipFlash
+            self.memory_clock_scales[MemArea.Sram] = 1.0
+            self.memory_clock_scales[MemArea.OffChipFlash] = 0.125  # 1 / 8
 
-        try:
-            self.npu_clock = float(self.__sys_config("npu_freq", "500e6"))
-            self.cpu_config = self.__sys_config("cpu", "Cortex-M7")
+    def _set_default_mem_mode(self):
+        print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
+        # ArchitectureFeatures.DEFAULT_CONFIG values
+        if self.is_ethos_u65_system:
+            # Default Ethos-U65 memory mode
+            # Dedicated SRAM: SRAM is only used by the Ethos-U
+            self.const_mem_area = MemPort.Axi1
+            self.arena_mem_area = MemPort.Axi1
+            self.cache_mem_area = MemPort.Axi0
+            self.cache_sram_size = 384 * 1024
+        else:
+            # Default Ethos-U65 memory mode
+            self.const_mem_area = MemPort.Axi1
+            self.arena_mem_area = MemPort.Axi0
+            self.cache_mem_area = MemPort.Axi0
 
-            self.memory_clock_scales[MemArea.Sram] = float(self.__sys_config("Sram_clock_scale", "1"))
-            self.memory_port_widths[MemArea.Sram] = int(self.__sys_config("Sram_port_width", "64"))
+    def _get_vela_config(self, vela_config_files, verbose_config):
+        """
+        Gets the system configuration and memory modes from one or more Vela configuration file(s) or uses some
+        defaults.
+        """
 
-            self.memory_clock_scales[MemArea.OnChipFlash] = float(self.__sys_config("OnChipFlash_clock_scale", "1"))
-            self.memory_port_widths[MemArea.OnChipFlash] = int(self.__sys_config("OnChipFlash_port_width", "64"))
+        # all properties are optional and are initialised to a value of 1 (or the equivalent)
+        self.core_clock = 1
+        self.axi0_port = MemArea(1)
+        self.axi1_port = MemArea(1)
+        self.memory_clock_scales = np.ones(MemArea.Size)
+        self.const_mem_area = MemPort(1)
+        self.arena_mem_area = MemPort(1)
+        self.cache_mem_area = MemPort(1)
+        self.cache_sram_size = 1
 
-            self.memory_clock_scales[MemArea.OffChipFlash] = float(
-                self.__sys_config("OffChipFlash_clock_scale", "0.25")
+        # read configuration file(s)
+        self.vela_config = None
+
+        if vela_config_files is not None:
+            self.vela_config = ConfigParser()
+            self.vela_config.read(vela_config_files)
+
+        # read system configuration
+        sys_cfg_section = "System_Config." + self.system_config
+
+        if self.vela_config is not None and self.vela_config.has_section(sys_cfg_section):
+            self.core_clock = float(self._read_config(sys_cfg_section, "core_clock", self.core_clock))
+            self.axi0_port = MemArea[self._read_config(sys_cfg_section, "axi0_port", self.axi0_port)]
+            self.axi1_port = MemArea[self._read_config(sys_cfg_section, "axi1_port", self.axi1_port)]
+
+            for mem_area in (self.axi0_port, self.axi1_port):
+                self.memory_clock_scales[mem_area] = float(
+                    self._read_config(
+                        sys_cfg_section, mem_area.name + "_clock_scale", self.memory_clock_scales[mem_area]
+                    )
+                )
+
+        elif self.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
+            self._set_default_sys_config()
+
+        elif vela_config_files is None:
+            raise CliOptionError("--config", vela_config_files, "CLI Option not specified")
+
+        else:
+            raise CliOptionError(
+                "--system-config",
+                self.system_config,
+                "Section {} not found in Vela config file".format(sys_cfg_section),
             )
-            self.memory_port_widths[MemArea.OffChipFlash] = int(self.__sys_config("OffChipFlash_port_width", "32"))
 
-            self.memory_clock_scales[MemArea.Dram] = float(self.__sys_config("Dram_clock_scale", "1"))
-            self.memory_port_widths[MemArea.Dram] = int(self.__sys_config("Dram_port_width", "32"))
+        # read the memory mode
+        mem_mode_section = "Memory_Mode." + self.memory_mode
 
-            self.fast_storage_mem_area = MemArea[self.__sys_config("fast_storage_mem_area", "Sram")]
-            self.feature_map_storage_mem_area = MemArea[self.__sys_config("feature_map_storage_mem_area", "Sram")]
+        if self.vela_config is not None and self.vela_config.has_section(mem_mode_section):
+            self.const_mem_area = MemPort[
+                self._read_config(mem_mode_section, "const_mem_area", self.const_mem_area.name)
+            ]
+            self.arena_mem_area = MemPort[
+                self._read_config(mem_mode_section, "arena_mem_area", self.arena_mem_area.name)
+            ]
+            self.cache_mem_area = MemPort[
+                self._read_config(mem_mode_section, "cache_mem_area", self.cache_mem_area.name)
+            ]
+            self.cache_sram_size = int(self._read_config(mem_mode_section, "cache_sram_size", self.cache_sram_size))
 
-            self.permanent_storage_mem_area = MemArea[self.__sys_config("permanent_storage_mem_area", "OffChipFlash")]
-            if is_ethos_u65_system:
-                if self.permanent_storage_mem_area is not MemArea.Dram:
-                    raise Exception(
-                        "Invalid permanent_storage_mem_area = "
-                        + str(self.permanent_storage_mem_area)
-                        + " (must be 'DRAM' for Ethos-U65)."
-                    )
-            else:
-                if self.permanent_storage_mem_area not in set((MemArea.OnChipFlash, MemArea.OffChipFlash)):
-                    raise Exception(
-                        "Invalid permanent_storage_mem_area = "
-                        + str(self.permanent_storage_mem_area)
-                        + " (must be 'OnChipFlash' or 'OffChipFlash' for Ethos-U55)."
-                        " To store the weights and other constant data in SRAM on Ethos-U55 select 'OnChipFlash'"
-                    )
+        elif self.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
+            self._set_default_mem_mode()
 
-            self.sram_size = 1024 * int(self.__sys_config("sram_size_kb", "204800"))
+        elif vela_config_files is None:
+            raise CliOptionError("--config", vela_config_files, "CLI Option not specified")
 
-        except Exception:
-            print("Error: Reading System Configuration in vela configuration file, section {}".format(section_key))
-            raise
+        else:
+            raise CliOptionError(
+                "--memory-mode", self.memory_mode, "Section {} not found in Vela config file".format(mem_mode_section),
+            )
 
-    def __sys_config(self, key, default_value):
+        # override sram to onchipflash
+        if self._mem_port_mapping(self.const_mem_area) == MemArea.Sram:
+            if self.const_mem_area == self.arena_mem_area == self.cache_mem_area:
+                print(
+                    "Info: Changing const_mem_area from Sram to OnChipFlash. This will use the same characteristics as"
+                    " Sram."
+                )
+                if self.const_mem_area == MemPort.Axi0:
+                    self.const_mem_area = MemPort.Axi1
+                    self.axi1_port = MemArea.OnChipFlash
+                else:
+                    self.const_mem_area = MemPort.Axi0
+                    self.axi0_port = MemArea.OnChipFlash
+                self.memory_clock_scales[MemArea.OnChipFlash] = self.memory_clock_scales[MemArea.Sram]
+
+        # check configuration
+        if self._mem_port_mapping(self.cache_mem_area) != MemArea.Sram:
+            raise ConfigOptionError("cache_mem_area", self._mem_port_mapping(self.cache_mem_area).name, "Sram")
+
+        if self.is_ethos_u65_system:
+            if self._mem_port_mapping(self.const_mem_area) not in (
+                MemArea.Dram,
+                MemArea.OnChipFlash,
+                MemArea.OffChipFlash,
+            ):
+                raise ConfigOptionError(
+                    "const_mem_area",
+                    self._mem_port_mapping(self.const_mem_area).name,
+                    "Dram or OnChipFlash or OffChipFlash",
+                )
+
+            if self._mem_port_mapping(self.arena_mem_area) not in (MemArea.Sram, MemArea.Dram):
+                raise ConfigOptionError(
+                    "arena_mem_area", self._mem_port_mapping(self.arena_mem_area).name, "Sram or Dram"
+                )
+        else:
+            if self._mem_port_mapping(self.const_mem_area) not in (MemArea.OnChipFlash, MemArea.OffChipFlash):
+                raise ConfigOptionError(
+                    "const_mem_area", self._mem_port_mapping(self.const_mem_area).name, "OnChipFlash or OffChipFlash"
+                )
+
+            if self._mem_port_mapping(self.arena_mem_area) != MemArea.Sram:
+                raise ConfigOptionError("arena_mem_area", self._mem_port_mapping(self.arena_mem_area).name, "Sram")
+
+        # assign existing memory areas
+        self.permanent_storage_mem_area = self._mem_port_mapping(self.const_mem_area)
+        self.feature_map_storage_mem_area = self._mem_port_mapping(self.arena_mem_area)
+        self.fast_storage_mem_area = self._mem_port_mapping(self.cache_mem_area)
+
+        self.sram_size = self.cache_sram_size if self.is_spilling_enabled() else 9999 * 1024 * 1024
+
+        # display the system configuration and memory mode
+        if verbose_config:
+            print(f"System Configuration ({self.system_config}):")
+            print(f"   core_clock = {self.core_clock}")
+            print(f"   axi0_port = {self.axi0_port.name}")
+            print(f"   axi1_port = {self.axi1_port.name}")
+            for mem in (MemArea.Sram, MemArea.Dram, MemArea.OnChipFlash, MemArea.OffChipFlash):
+                print(f"   {mem.name}_clock_scales = {self.memory_clock_scales[mem]}")
+
+            print(f"Memory Mode ({self.memory_mode}):")
+            print(f"   const_mem_area = {self.const_mem_area.name}")
+            print(f"   arena_mem_area = {self.arena_mem_area.name}")
+            print(f"   cache_mem_area = {self.cache_mem_area.name}")
+            print(f"   cache_sram_size = {self.cache_sram_size}")
+
+            print("Architecture Settings:")
+            print(f"   permanent_storage_mem_area = {self.permanent_storage_mem_area.name}")
+            print(f"   feature_map_storage_mem_area = {self.feature_map_storage_mem_area.name}")
+            print(f"   fast_storage_mem_area = {self.fast_storage_mem_area.name}")
+            print(f"   sram_size = {self.sram_size}")
+
+    def _read_config(self, section, key, current_value):
         """
-        Gets the system configuration value with the given key from the vela config file.
+        Reads a given key from a particular section in the Vela config file. If the section contains the 'inherit'
+        option then we recurse into the section specified. If inherited sections result in multiple keys for a
+        particular option then the key from the parent section is used, regardless of the parsing order
         """
-        if self.vela_config is None:
-            return default_value
-        section = "SysConfig." + self.system_config
-        result = self.vela_config[section].get(key, None)
-        if result is None:
-            raise Exception("Error: System Configuration Missing key {} in section [{}] ".format(key, section))
+        if not self.vela_config.has_section(section):
+            raise ConfigOptionError(
+                "section", "{}. The section was not found in the Vela config file(s)".format(section)
+            )
+
+        result = str(current_value)
+        if self.vela_config.has_option(section, "inherit"):
+            inheritance_section = self.vela_config.get(section, "inherit")
+            # check for recursion loop
+            if inheritance_section == section:
+                raise ConfigOptionError(
+                    "inherit",
+                    "{}. This references its own section and recursion is not allowed".format(inheritance_section),
+                )
+            result = self._read_config(inheritance_section, key, result)
+
+        if self.vela_config.has_option(section, key):
+            result = self.vela_config.get(section, key)
+
         return result

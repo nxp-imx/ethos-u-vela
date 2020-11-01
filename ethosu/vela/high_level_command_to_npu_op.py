@@ -171,20 +171,17 @@ def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
 
 
 def get_region(tens: Tensor, arch: ArchitectureFeatures) -> int:
-    if arch.feature_map_storage_mem_area == arch.fast_storage_mem_area:
-        base_ptr_idx_map = {
-            MemType.Permanent_NPU: BasePointerIndex.WeightTensor,
-            MemType.Permanent_CPU: BasePointerIndex.WeightTensor,
-            MemType.Scratch: BasePointerIndex.ScratchTensor,
-            MemType.Scratch_fast: BasePointerIndex.ScratchTensor,
-        }
+    base_ptr_idx_map = {
+        MemType.Permanent_NPU: BasePointerIndex.WeightTensor,
+        MemType.Permanent_CPU: BasePointerIndex.WeightTensor,
+        MemType.Scratch: BasePointerIndex.ScratchTensor,
+    }
+
+    if arch.is_spilling_enabled():
+        base_ptr_idx_map[MemType.Scratch_fast] = BasePointerIndex.ScratchFastTensor
     else:
-        base_ptr_idx_map = {
-            MemType.Permanent_NPU: BasePointerIndex.WeightTensor,
-            MemType.Permanent_CPU: BasePointerIndex.WeightTensor,
-            MemType.Scratch: BasePointerIndex.ScratchTensor,
-            MemType.Scratch_fast: BasePointerIndex.ScratchFastTensor,
-        }
+        base_ptr_idx_map[MemType.Scratch_fast] = BasePointerIndex.ScratchTensor
+
     return int(base_ptr_idx_map[tens.mem_type])
 
 

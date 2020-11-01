@@ -46,7 +46,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
         ]
 
         labels += (
-            ["accelerator_configuration", "system_config", "npu_clock", "sram_size"]
+            ["accelerator_configuration", "system_config", "memory_mode", "core_clock", "sram_size"]
             + [area.identifier_name() + "_bandwidth" for area in mem_areas]
             + ["weights_storage_area", "feature_map_storage_area"]
         )
@@ -83,7 +83,13 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
 
         if arch:
             data_items += (
-                [arch.accelerator_config, arch.system_config, arch.npu_clock, arch.sram_size / 1024]
+                [
+                    arch.accelerator_config.name,
+                    arch.system_config,
+                    arch.memory_mode,
+                    arch.core_clock,
+                    arch.sram_size / 1024,
+                ]
                 + [arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000 for mem_area in mem_areas]
                 + [
                     arch.tensor_storage_mem_area[TensorPurpose.Weights].display_name(),
@@ -91,7 +97,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
                 ]
             )
 
-        midpoint_inference_time = nng.cycles[PassCycles.Total] / arch.npu_clock
+        midpoint_inference_time = nng.cycles[PassCycles.Total] / arch.core_clock
         if midpoint_inference_time > 0:
             midpoint_fps = 1 / midpoint_inference_time
         else:
@@ -162,7 +168,6 @@ def write_pass_metrics_csv(nng, pass_filename):
         all_cycles = (
             PassCycles.Total,
             PassCycles.Npu,
-            PassCycles.Cpu,
             PassCycles.SramAccess,
             PassCycles.DramAccess,
             PassCycles.OnChipFlashAccess,
@@ -239,7 +244,7 @@ def print_performance_metrics_for_strat(
 
     orig_mem_areas_labels = [(v, v.display_name()) for v in mem_areas_to_report()]
 
-    midpoint_inference_time = cycles[PassCycles.Total] / arch.npu_clock
+    midpoint_inference_time = cycles[PassCycles.Total] / arch.core_clock
     if midpoint_inference_time > 0:
         midpoint_fps = 1 / midpoint_inference_time
     else:
@@ -252,9 +257,10 @@ def print_performance_metrics_for_strat(
     if name:
         print("", file=f)
         print("Network summary for", name, file=f)
-    print("Accelerator configuration        {:20}".format(arch.accelerator_config), file=f)
-    print("System configuration             {:20}".format(arch.system_config), file=f)
-    print("Accelerator clock                        {:12d} MHz".format(int(arch.npu_clock / 1e6)), file=f)
+    print("Accelerator configuration        {:>20}".format(arch.accelerator_config.name), file=f)
+    print("System configuration             {:>20}".format(arch.system_config), file=f)
+    print("Memory mode                      {:>20}".format(arch.memory_mode), file=f)
+    print("Accelerator clock                        {:12d} MHz".format(int(arch.core_clock / 1e6)), file=f)
     for mem_area, label in mem_area_labels:
         print(
             "Design peak {:25}    {:12.2f} GB/s".format(

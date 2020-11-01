@@ -28,14 +28,15 @@ from ethosu.vela.tensor import Tensor
 
 def create_arch():
     return architecture_features.ArchitectureFeatures(
-        vela_config=None,
-        system_config=None,
+        vela_config_files=None,
         accelerator_config=architecture_features.Accelerator.Ethos_U55_128.value,
+        system_config=architecture_features.ArchitectureFeatures.DEFAULT_CONFIG,
+        memory_mode=architecture_features.ArchitectureFeatures.DEFAULT_CONFIG,
         override_block_config=None,
         block_config_limit=None,
-        global_memory_clock_scale=1.0,
         max_blockdep=0,
         weight_estimation_scaling=1.0,
+        verbose_config=False,
     )
 
 

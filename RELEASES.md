@@ -5,6 +5,21 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 2.0.0
+
+**Main feature changes:**
+
+* New Vela configuration file format
+
+**Interface changes:**
+
+* Non-backwards compatible changes to the Vela configuration file
+* Addition of CLI options: `--memory-mode`
+
+**Reported defect fixes:**
+
+* Vela config file examples (MLCE-277)
+
 ## Release 1.2.0 - 31/08/2020
 
 **Main feature changes:**

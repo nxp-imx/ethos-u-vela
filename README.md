@@ -117,7 +117,7 @@ The build flags used for this module are as follows:
 ## Running
 
 Vela is run with an input `.tflite` file passed on the command line.  This file
-contains the neural network to be compiled. The tool then outputs an optimised
+contains the neural network to be compiled.  The tool then outputs an optimised
 version with a `_vela.tflite` file prefix, along with the performance estimate
 (EXPERIMENTAL) CSV files, all to the output directory.
 
@@ -133,30 +133,36 @@ environment or not.
 
 Example usage:
 
-1) Compile the network `my_model.tflite`. The optimised version will be output
+1) Compile the network `my_model.tflite`.  The optimised version will be output
 to `./output/my_network_vela.tflite`.
 
 ```bash
 vela my_model.tflite
 ```
 
-1) Compile the network `/path/to/my_model.tflite` and specify the output to go
+2) Compile the network `/path/to/my_model.tflite` and specify the output to go
 in the directory `./results_dir/`.
 
 ```bash
 vela --output-dir ./results_dir /path/to/my_model.tflite
 ```
 
-1) To specify information about the embedded system's configuration use Vela's
-system configuration file. The following command selects the `MySysConfig`
-settings that are described in the `sys_cfg_vela.ini` system configuration file.
-More details can be found in the next section.
+3) Compile a network using a particular Ethos-U NPU.  The following command
+selects an Ethos-U65 NPU accelerator configured with 512 MAC units.
 
 ```bash
-vela --config sys_cfg_vela.ini --system-config MySysConfig my_model.tflite
+vela --accelerator-config ethos-u65-512 my_model.tflite
 ```
 
-1) To get a list of all available options:
+4) Compile a network using a particular embedded system configuration defined in
+Vela's configuration file.  The following command selects the `My_Sys_Config`
+system configuration along with the `My_Mem_Mode` memory mode from the `vela_cfg.ini` configuration file.
+
+```bash
+vela --config vela_cfg.ini --system-config My_Sys_Config --memory-mode My_Mem_Mode my_model.tflite
+```
+
+5) To get a list of all available options:
 
 ```bash
 vela --help

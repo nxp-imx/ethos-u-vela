@@ -15,8 +15,6 @@
 # limitations under the License.
 # Description:
 # Defines custom exceptions.
-import sys
-
 from .operation import Operation
 from .tensor import Tensor
 
@@ -25,31 +23,52 @@ class VelaError(Exception):
     """Base class for vela exceptions"""
 
     def __init__(self, data):
-        self.data = data
+        self.data = "Error: " + data
 
     def __str__(self):
         return repr(self.data)
 
 
 class InputFileError(VelaError):
-    """Raised when reading the input file results in errors"""
+    """Raised when reading an input file results in errors"""
 
     def __init__(self, file_name, msg):
-        self.data = "Error reading input file {}: {}".format(file_name, msg)
+        self.data = "Reading input file {}: {}".format(file_name, msg)
 
 
 class UnsupportedFeatureError(VelaError):
-    """Raised when the input file uses non-supported features that cannot be handled"""
+    """Raised when the input network uses non-supported features that cannot be handled"""
 
     def __init__(self, data):
-        self.data = "The input file uses a feature that is currently not supported: {}".format(data)
+        self.data = "Input network uses a feature that is currently not supported: {}".format(data)
 
 
-class OptionError(VelaError):
-    """Raised when an incorrect command line option is used"""
+class CliOptionError(VelaError):
+    """Raised for errors encountered with a command line option
+
+    :param option: str object that contains the name of the command line option
+    :param option_value: the command line option that resulted in the error
+    :param msg: str object that contains a description of the specific error encountered
+    """
 
     def __init__(self, option, option_value, msg):
-        self.data = "Incorrect argument to CLI option: {} {}: {}".format(option, option_value, msg)
+        self.data = "Incorrect argument to CLI option: {} = {}: {}".format(option, option_value, msg)
+
+
+class ConfigOptionError(VelaError):
+    """Raised for errors encountered with a configuration option
+
+    :param option: str object that contains the name of the configuration option
+    :param option_value: the configuration option that resulted in the error
+    :param option_valid_values (optional): str object that contains the valid configuration option values
+    """
+
+    def __init__(self, option, option_value, option_valid_values=None):
+        self.data = "Invalid configuration of {} = {}".format(option, option_value)
+        if option_valid_values is not None:
+            self.data += " (must be {}).".format(option_valid_values)
+        else:
+            self.data += "."
 
 
 class AllocationError(VelaError):
@@ -60,7 +79,12 @@ class AllocationError(VelaError):
 
 
 def OperatorError(op, msg):
-    """Called when parsing an operator results in errors"""
+    """
+    Raises a VelaError exception for errors encountered when parsing an Operation
+
+    :param op: Operation object that resulted in the error
+    :param msg: str object that contains a description of the specific error encountered
+    """
 
     assert isinstance(op, Operation)
 
@@ -91,12 +115,16 @@ def OperatorError(op, msg):
 
     data = data[:-1]  # remove last newline
 
-    print("Error: {}".format(data))
-    sys.exit(1)
+    raise VelaError(data)
 
 
 def TensorError(tens, msg):
-    """Called when parsing a tensor results in errors"""
+    """
+    Raises a VelaError exception for errors encountered when parsing a Tensor
+
+    :param tens: Tensor object that resulted in the error
+    :param msg: str object that contains a description of the specific error encountered
+    """
 
     assert isinstance(tens, Tensor)
 
@@ -126,5 +154,4 @@ def TensorError(tens, msg):
 
     data = data[:-1]  # remove last newline
 
-    print("Error: {}".format(data))
-    sys.exit(1)
+    raise VelaError(data)

@@ -2,13 +2,13 @@
 
 This file contains a more verbose and detailed description of the Vela
 Compiler's CLI options than the built-in help strings.  It also defines and
-describes the Vela system configuration file format.
+describes Vela's configuration file format.
 
 ## Command Line Interface
 
 ### Network (required)
 
-Filename of the network model to compile. The file has to be a `.tflite` file.  
+Filename of the network model to compile.  The file has to be a `.tflite` file.  
 **Type: POSIX path**  
 **Default: N/A**  
 
@@ -18,7 +18,7 @@ vela path/to/network.tflite
 
 ### Help
 
-Displays the help strings of all CLI options. Can be used without the required
+Displays the help strings of all CLI options.  Can be used without the required
 Network argument.  
 **Type: N/A**  
 **Default: N/A**  
@@ -29,7 +29,7 @@ vela --help
 
 ### Version
 
-Displays the version of the installed Vela Compiler. Can be used without the
+Displays the version of the installed Vela Compiler.  Can be used without the
 required Network argument.  
 **Type: N/A**  
 **Default: N/A**  
@@ -75,19 +75,21 @@ vela network.tflite --output-dir ./custom_directory
 
 ### Config
 
-Specifies the path to the config file. The file has to be a `.ini` file. The
-format is described further in a the Config section below.  
+Specifies the path to the Vela configuration file.  The format of the file is a
+Python ConfigParser `.ini` file.  This option can be specified multiple times to
+allow multiple files to be searched for the required system config and memory
+mode.  More details can be found in the Configuration File section below.  
 **Type: POSIX path**  
 **Default: use default configuration**  
 
 ```bash
-vela network.tflite --config custom_config.ini
+vela network.tflite --config my_vela_cfg1.ini --config my_vela_cfg2.ini --system-config My_Sys_Cfg --memory-mode My_Mem_Mode
 ```
 
 ### Cascading
 
-Controls the packing of multiple passes into cascades. This allows for lower
-memory usage. If the network's intermediate feature maps are too large for the
+Controls the packing of multiple passes into cascades.  This allows for lower
+memory usage.  If the network's intermediate feature maps are too large for the
 system's SRAM this optimisation is required.  
 **Type: Boolean**  
 **Default: True**  
@@ -109,7 +111,7 @@ vela network.tflite --keep-scale-placement
 
 Force a specific block configuration in the format HxWxC, where H, W, and C are
 positive integers specifying height, width, and channels (depth), respectively.
-The default behaviour is Vela searching for an optimal block configuration. An
+The default behaviour is Vela searching for an optimal block configuration.  An
 exception will be raised if the chosen block configuration is incompatible.  
 **Type: String**  
 **Default: N/A**  
@@ -121,7 +123,7 @@ vela network.tflite --force-block-config 2x2x8
 ### Timing
 
 Measure time taken for different compiler steps, e.g. model reading and
-scheduling. Prints the results to standard out.  
+scheduling.  Prints the results to standard out.  
 **Type: Set True**  
 **Default: False**  
 
@@ -131,9 +133,9 @@ vela network.tflite --timing
 
 ### Accelerator Configuration
 
-Choose which hardware accelerator configuration to compile for. Format is
+Choose which hardware accelerator configuration to compile for.  Format is
 accelerator name followed by a hyphen, followed by the number of MACs in the
-configuration.
+configuration.  
 **Type: String**  
 **Default: ethos-u55-256**  
 **Choices: [ethos-u55-32, ethos-u55-64, ethos-u55-128, ethos-u55-256]**  
@@ -144,13 +146,24 @@ vela network.tflite --accelerator-config ethos-u55-64
 
 ### System Config
 
-Selects the system configuration to use as specified in the System Configuration
-File (see section below).  
+Selects the system configuration to use as specified in the Vela configuration
+file (see section below).  
 **Type: String**  
 **Default: Use internal default config**  
 
 ```bash
-vela network.tflite --system-config MySysConfig
+vela network.tflite --config my_vela_cfg.ini --system-config My_Sys_Cfg
+```
+
+### Memory Mode
+
+Selects the memory mode to use as specified in the Vela configuration file (see
+section below).  
+**Type: String**  
+**Default: Use internal default config**  
+
+```bash
+vela network.tflite --config my_vela_cfg.ini --memory-mode My_Mem_Mode
 ```
 
 ### Tensor Allocator
@@ -167,9 +180,9 @@ vela network.tflite --tensor-allocator=LinearAlloc
 
 ### Ifm Streaming
 
-Controls scheduler IFM streaming search. Vela's scheduler will choose between
-IFM Streaming and Weight Streaming for optimal memory usage. Disabling this will
-cause Vela to always choose Weight Streaming.  
+Controls scheduler IFM streaming search.  Vela's scheduler will choose between
+IFM Streaming and Weight Streaming for optimal memory usage.  Disabling this
+will cause Vela to always choose Weight Streaming.  
 **Type: Boolean**  
 **Default: True**  
 
@@ -179,8 +192,8 @@ vela network.tflite --ifm-streaming False
 
 ### Block Config Limit
 
-Limit the block config search space. This will result in faster compilation
-times but may impact the performance of the output network. Use 0 for unlimited
+Limit the block config search space.  This will result in faster compilation
+times but may impact the performance of the output network.  Use 0 for unlimited
 search.  
 **Type: Integer**  
 **Default: 16**  
@@ -190,22 +203,10 @@ search.
 vela network.tflite --block-config-limit 0
 ```
 
-### Global Memory Clock Scale
-
-Performs an additional scaling of the individual memory clock scales specified
-by the system configuration. Used to globally adjust the bandwidth of the
-various memories  
-**Type: Float**  
-**Default: 1.0**  
-
-```bash
-vela network.tflite --global-memory-clock-scale 1.5
-```
-
 ### Pareto Metric
 
-Controls the calculation of the pareto metric. Use 'BwCycMemBlkH' to consider
-Block Height in addition to Bandwidth, Cycle count and Memory. This can reduce
+Controls the calculation of the pareto metric.  Use 'BwCycMemBlkH' to consider
+Block Height in addition to Bandwidth, Cycle count and Memory.  This can reduce
 SRAM usage in some circumstances.  
 **Type: String**  
 **Default: BwCycMem**  
@@ -218,9 +219,9 @@ vela network.tflite --pareto-metric BwCycMemBlkH
 ### Recursion Limit
 
 Some of Vela's algorithms use recursion and the required depth can be network
-dependant. This option allows the limit to be increased if needed. The maximum
-limit is platform dependent. If limit is set too low then compilation will raise
-a RecursionError exception.  
+dependant.  This option allows the limit to be increased if needed.  The maximum
+limit is platform dependent.  If limit is set too low then compilation will
+raise a RecursionError exception.  
 **Type: Integer**  
 **Default: 10000**  
 
@@ -244,7 +245,7 @@ vela network.tflite --enable-debug-db
 ### Max Block Dependency
 
 Set the maximum value that can be used for the block dependency delay between
-NPU kernel operations. A lower value may result in longer execution time.  
+NPU kernel operations.  A lower value may result in longer execution time.  
 **Type: Integer**  
 **Default: 3**  
 **Choices: [0, 1, 2, 3]**  
@@ -255,8 +256,9 @@ vela network.tflite --max-block-dependency 0
 
 ### Tensor Format Between Cascaded Passes
 
-Controls if NHCWB16 or NHWC Tensor format should be used in between cascaded passes. NHWCB16 means FeatureMaps are laid
-out in 1x1x16B bricks in row-major order. This enables more efficient FeatureMap reading from external memory.  
+Controls if NHCWB16 or NHWC Tensor format should be used in between cascaded
+passes.  NHWCB16 means FeatureMaps are laid out in 1x1x16B bricks in row-major
+order.  This enables more efficient FeatureMap reading from external memory.  
 **Type: Boolean**  
 **Default: True**  
 **Choices: [True, False]**  
@@ -267,9 +269,10 @@ vela network.tflite --nhcwb16-between-cascaded-passes
 
 ### Scaling of weight estimates
 
-Performs an additional scaling of weight compression estimate used by Vela to estimate SRAM usage.
-Increasing this scaling factor will make the estimates more conservative (lower) and this can result
-in optimisations that use less SRAM, albeit at the cost of performance (inference speed).  
+Performs an additional scaling of weight compression estimate used by Vela to
+estimate SRAM usage.  Increasing this scaling factor will make the estimates
+more conservative (lower) and this can result in optimisations that use less
+SRAM, albeit at the cost of performance (inference speed).  
 **Type: Float**  
 **Default: 1.0**  
 
@@ -279,8 +282,9 @@ vela network.tflite --weight-estimation-scaling=1.2
 
 ### Allocation alignment
 
-Controls the allocation byte alignment. Only affects CPU tensors, NPU tensors will remain 16-byte
-aligned independent of this option. Alignment has to be a power of two and greater or equal to 16.  
+Controls the allocation byte alignment.  Only affects CPU tensors, NPU tensors
+will remain 16-byte aligned independent of this option.  Alignment has to be a
+power of two and greater or equal to 16.  
 **Type: Integer**  
 **Default: 16**  
 
@@ -315,6 +319,16 @@ Show the operations that fall back to the CPU.
 
 ```bash
 vela network.tflite --show-cpu-operations
+```
+
+### Verbose Config
+
+Verbose system configuration and memory mode.  If no `--system-config` or
+`--memory-mode` CLI options are specified then the `internal-default` values
+will be displayed.  
+
+```bash
+vela network.tflite --verbose-config
 ```
 
 ### Verbose Graph
@@ -405,62 +419,79 @@ Verbose operator list.
 vela network.tflite --verbose-operators
 ```
 
-## System Configuration File
+## Configuration File
 
-This is used to describe various properties of the embedded system that the
-network will run in. The configuration file is selected with the `--config` CLI
-option. The system config is selected by Name (defined in the
-`[SysConfig.Name]` field) with the CLI option `--system-config`. The `cpu=X`
-attribute in the `[SysConfig.Name]` is used to cross-reference and select CPU
-operator attributes in the `[CpuPerformance.OpName]` section.  
-Example usage based on the file below:  
+This is used to describe various properties of the Ethos-U embedded system.  The
+configuration file is selected using the `--config` CLI option along with a file
+that describes the properties.  The format of the file is a Python ConfigParser
+`.ini` file format consists of sections used to identify a configuration, and
+key/value pair options used to specify the properties.  All sections and
+key/value pairs are case-sensitive.
+
+There are two types of section, system configuration `[System_Config.*]`
+sections and memory mode `[Memory_Mode.*]` sections.  A complete Ethos-U
+embedded system should define at least one entry in each section, where an entry
+is identified using the format `[Part.Name]` (Part = {System_Config or
+Memory_Mode}, Name = {a string with no spaces}.).  A configuration file may
+contain multiple entries per section, with the entries `.Name` being used to
+select it using the `--system-config` and `--memory-mode` CLI options.  If the
+CLI options are not specified then the sections named `internal-default` are
+used.  These are special sections which are defined internally and contain
+default values.
+
+Each section contains a number of options which are described in more detail
+below.  All options are optional.  If they are not specified, then they will be
+assigned a value of 1 (or the equivalent).  They will not be assigned the value
+of `internal-default`.
+
+One special option is the `inherit` option.  This can be used in any section and
+its value is the name of another section to inherit options from.  The only
+restriction on this option is that recursion is not allowed and so it cannot
+reference its own section.
+
+To see the configuration values being used by Vela use the `--verbose_config`
+CLI option.  This can also be used to display the internal-default values and to
+see a full list of all the available options.
+
+An example Vela configuration file, called `vela_cfg.ini`, is included in the
+directory containing this file.  Example usage based on this file is:  
 
 ```bash
-vela network.tflite --config sys_cfg_vela.ini --system-config MySysConfig
+vela network.tflite --accelerator-config ethos-u55-256 --config vela_cfg.ini --system-config Ethos_U55_High_End_Embedded --memory-mode Shared_Sram
 ```
 
-Example of a Vela system configuration file.  
+The following is an in-line explanation of the Vela configuration file format:
 
 ```ini
-; File: sys_cfg_vela.ini
-; The file contains two parts; a system config part and a CPU operator
-; performance part.
+; file: my_vela_cfg.ini
+; -----------------------------------------------------------------------------
+; Vela configuration file
 
-; System config
-; Specifies properties such as the core clock speed, the size and speed of the
-; four potential memory areas, and for various types of data which memory area
-; is used to store them. The cpu property is used to link with the CPU operator
-; performance.
-; The four potential memory areas are: Sram, Dram, OnChipFlash, OffChipFlash.
+; -----------------------------------------------------------------------------
+; System Configuration
 
-[SysConfig.MySysConfig]
-npu_freq=500e6
-cpu=MyCpu
-Sram_clock_scale=1
-Sram_port_width=64
-Dram_clock_scale=1
-Dram_port_width=64
-OnChipFlash_clock_scale=1
-OnChipFlash_port_width=64
-OffChipFlash_clock_scale=0.25
-OffChipFlash_port_width=32
-permanent_storage_mem_area=OffChipFlash
-feature_map_storage_mem_area=Sram
-fast_storage_mem_area=Sram
+; My_Sys_Cfg
+[System_Config.My_Sys_Cfg]
+core_clock=???               ---> Clock frequency of the Ethos-U.  ??? = {float in Hz} 
+axi0_port=???                ---> Memory type connected to AXI0.  ??? = {Sram, Dram, OnChipFlash or OffChipFlash}
+axi1_port=???                ---> Memory type connected to AXI1.  ??? = {Sram, Dram, OnChipFlash or OffChipFlash}
+Sram_clock_scale=???         ---> Scaling of core_clock to specify the Sram bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+Dram_clock_scale=???         ---> Scaling of core_clock to specify the Dram bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+OnChipFlash_clock_scale=???  ---> Scaling of core_clock to specify the OnChipFlash bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+OffChipFlash_clock_scale=??? ---> Scaling of core_clock to specify the OffChipFlash bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
 
-; CPU operator performance
-; Specifies properties that are used by a linear model to estimate the
-; performance for any operations that will be run on the CPU (such as those not
-; supported by the NPU). Setting the intercept and slope to 0 will result in
-; the operator being excluded from the performance estimation. This is the same
-; as not specifying the operator. If an explicit cpu is specified rather than
-; using the default then the cpu name must match the cpu specified in the
-; SysConfig.<system config name> section.
+; -----------------------------------------------------------------------------
+; Memory Mode
 
-[CpuPerformance.MyCpuOperator]
-default.intercept=0.0
-default.slope=1.0
+; My_Mem_Mode_Parent
+[Memory_Mode.My_Mem_Mode_Parent]
+const_mem_area=???          ---> AXI port used by the read-only data (e.g. weight tensors, scale & bias tensors).  ??? = {Axi0, Axi1}
+arena_mem_area=???          ---> AXI port used by the read-write data (e.g. feature map tensors, internal buffers).  ??? = {Axi0, Axi1}
+cache_mem_area=???          ---> AXI port used by the dedicated SRAM read-write (e.g. feature map part-tensors, internal buffers).  ??? = {Axi0, Axi1}
+cache_sram_size=???         ---> Size of the dedicated cache SRAM.  Only required when cache_mem_area != arena_mem_area.  ??? = {int in Bytes}
 
-MyCpu.intercept=0.0
-MyCpu.slope=1.0
+; My_Mem_Mode_Child
+[Memory_Mode.My_Mem_Mode_Child]
+inherit=???                 ---> Parent section to inherit from.  An option in the child overwrites an identical option in the parent.  ??? = {[Part.Name]}
+cache_sram_size=???         ---> Size of the dedicated cache SRAM.  Only required when cache_mem_area != arena_mem_area.  ??? = {int in Bytes}
 ```

@@ -7,24 +7,25 @@ then we encourage you to responsibly disclose it to us as soon as possible.
 
 Arm takes security issues seriously and welcomes feedback from researchers
 and the security community in order to improve the security of its products
-and services. We operate a coordinated disclosure policy for disclosing
+and services.  We operate a coordinated disclosure policy for disclosing
 vulnerabilities and other security issues.
 
 Security issues can be complex and one single timescale doesn't fit all
-circumstances. We will make best endeavours to inform you when we expect
+circumstances.  We will make best endeavours to inform you when we expect
 security notifications and fixes to be available and facilitate coordinated
 disclosure when notifications and patches/mitigations are available.
 
 ### Report
 
-For all security issues, contact Arm by email at [arm-security@arm.com](mailto:arm-security@arm.com).
-In the body of the email include as much information as possible about the issue
-or vulnerability and any additional contact details.
+For all security issues, contact Arm by email at
+[arm-security@arm.com](mailto:arm-security@arm.com).  In the body of the email
+include as much information as possible about the issue or vulnerability and any
+additional contact details.
 
 ### Secure submission using PGP
 
 We support and encourage secure submission of vulnerability reports using PGP,
-using the key below. If you would like replies to be encrypted, please provide
+using the key below.  If you would like replies to be encrypted, please provide
 your own public key through a secure mechanism.
 
 ~~~none
@@ -80,4 +81,5 @@ yYCr2gCFPymkkRYhPr2w5EgbWyzLaBIwqjyIbXaveuB3DYi2Lhbf64I=
 -----END PGP PUBLIC KEY BLOCK-----
 ~~~
 
-For more information visit <https://developer.arm.com/support/arm-security-updates/report-security-vulnerabilities>
+For more information visit
+<https://developer.arm.com/support/arm-security-updates/report-security-vulnerabilities>

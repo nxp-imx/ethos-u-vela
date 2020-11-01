@@ -249,10 +249,6 @@ class DynamicProgrammingScheduler:
 
         self.n_combinations_searched = 0
 
-        self.feature_maps_not_in_fast_storage = (
-            arch.tensor_storage_mem_area[TensorPurpose.FeatureMap] != arch.fast_storage_mem_area
-        )
-
         self.pareto_max_candidates = 16
 
         self.ifm_stream_npu_blocks = set(
@@ -694,7 +690,7 @@ class DynamicProgrammingScheduler:
         all_candidates = []
         for pred_pass in pred_pass_list:
             # recurse into the next pass
-            ifm_strat_data = self.search_ifm_streaming_body(pred_pass, self.feature_maps_not_in_fast_storage)
+            ifm_strat_data = self.search_ifm_streaming_body(pred_pass, self.arch.is_spilling_enabled())
 
             strat_data = self.search_all_but_one_predecessor(ps, pred_pass, ifm_strat_data)
             for strat_opt in strat_data:
@@ -1020,7 +1016,7 @@ class DynamicProgrammingScheduler:
                         output.set_format(TensorFormat.NHCWB16, arch)
                         for rewrite_op in rewrites:
                             rewrite_op.outputs[0].set_format(TensorFormat.NHCWB16, arch)
-            if self.feature_maps_not_in_fast_storage:
+            if arch.is_spilling_enabled():
                 # Remember feature maps that can be moved to fast storage for later use
                 # in use_fast_storage_for_feature_maps
                 self.sg.scheduling_info["feature_map_rewrites"] = fast_storage_tensor_rewrites
