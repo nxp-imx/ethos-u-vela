@@ -278,8 +278,7 @@ class TFLiteSerialiser:
                 attrs["dilation_w_factor"] = attrs["dilation"][2]
             if "channel_multiplier" in attrs:
                 attrs["depth_multiplier"] = attrs["channel_multiplier"]
-            if op.activation is not None:
-                attrs["fused_activation_function"] = op.activation.op_type
+            attrs["fused_activation_function"] = op.activation.op_type if op.activation is not None else None
 
             builtin_opt_offset, custom_opt_offset = opt_serializer.serialize(builder, attrs)
 
