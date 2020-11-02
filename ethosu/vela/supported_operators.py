@@ -774,6 +774,12 @@ class SupportedOperators:
                 print("Warning:", op.type, "input shape differs from output shape, placing on CPU")
                 return False
 
+        elif op.type.is_relu_op():
+            ifm_tensor, ofm_tensor = op.get_ifm_ofm()
+            if np.isinf(ifm_tensor.quantization.scale_f32 / ofm_tensor.quantization.scale_f32):
+                print("Warning:", op.type, "has an infinite scale value, placing on CPU")
+                return False
+
         return True
 
     @classmethod
