@@ -21,6 +21,7 @@ from configparser import ConfigParser
 
 import numpy as np
 
+from .api import NpuAccelerator
 from .errors import CliOptionError
 from .errors import ConfigOptionError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
@@ -130,6 +131,20 @@ class Accelerator(enum.Enum):
     @classmethod
     def member_list(cls):
         return [e.value for e in cls]
+
+    @classmethod
+    def from_npu_accelerator(cls, npu_accelerator: NpuAccelerator) -> "Accelerator":
+        """Converts the given public API object to Accelerator (used internally)"""
+        accelerator_map = {
+            NpuAccelerator.Ethos_U55_32: cls.Ethos_U55_32,
+            NpuAccelerator.Ethos_U55_64: cls.Ethos_U55_64,
+            NpuAccelerator.Ethos_U55_128: cls.Ethos_U55_128,
+            NpuAccelerator.Ethos_U55_256: cls.Ethos_U55_256,
+            NpuAccelerator.Ethos_U65_256: cls.Ethos_U65_256,
+            NpuAccelerator.Ethos_U65_512: cls.Ethos_U65_512,
+        }
+        assert npu_accelerator in accelerator_map, f"Unsupported accelerator {npu_accelerator}"
+        return accelerator_map[npu_accelerator]
 
 
 @enum.unique

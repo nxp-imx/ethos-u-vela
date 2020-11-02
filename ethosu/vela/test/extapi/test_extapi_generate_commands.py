@@ -15,7 +15,9 @@
 # limitations under the License.
 #
 # Description:
-# Contains unit tests for generate_register_command_stream API for an external consumer
+# Contains unit tests for npu_generate_register_command_stream API for an external consumer
+from ethosu.vela.api import npu_generate_register_command_stream
+from ethosu.vela.api import NpuAccelerator
 from ethosu.vela.api import NpuActivation
 from ethosu.vela.api import NpuActivationOp
 from ethosu.vela.api import NpuAddressRange
@@ -35,11 +37,9 @@ from ethosu.vela.api import NpuPoolingOperation
 from ethosu.vela.api import NpuQuantization
 from ethosu.vela.api import NpuShape3D
 from ethosu.vela.api import NpuTileBox
-from ethosu.vela.architecture_features import Accelerator
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd0
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd1
 from ethosu.vela.register_command_stream_generator import CmdMode
-from ethosu.vela.register_command_stream_generator import generate_register_command_stream
 from ethosu.vela.register_command_stream_generator import get_address_ranges
 
 
@@ -109,7 +109,7 @@ def test_conv2d():
     # In this example we assume that the weights were compressed with ofm depth 16;
     # let vela choose suitable block width and height by setting these to -1
     op.block_config = NpuShape3D(height=-1, width=-1, depth=16)
-    cmds = generate_register_command_stream([op], Accelerator.Ethos_U55_128)
+    cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_128)
     check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1)
     check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 512)
     check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE1, 0)
@@ -203,7 +203,7 @@ def create_fully_connected_op() -> NpuConv2DOperation:
 def test_fully_connected():
     """Tests command stream generation for a fully connected operation"""
     op = create_fully_connected_op()
-    cmds = generate_register_command_stream([op], Accelerator.Ethos_U55_128)
+    cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_128)
     check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
     assert len(cmds) > 20
 
@@ -223,7 +223,7 @@ def test_depthwise():
     op.weights = [weights_dest]
     op.biases = [NpuAddressRange(region=0, address=0, length=80)]
     op.block_config = NpuShape3D(height=-1, width=-1, depth=8)
-    cmds = generate_register_command_stream([dma_op, op], Accelerator.Ethos_U55_128)
+    cmds = npu_generate_register_command_stream([dma_op, op], NpuAccelerator.Ethos_U55_128)
     check_cmd0(cmds, cmd0.NPU_SET_DMA0_SRC_REGION, 0)
     check_cmd1(cmds, cmd1.NPU_SET_DMA0_SRC, 0x40)
     check_cmd0(cmds, cmd0.NPU_SET_DMA0_DST_REGION, 1)
@@ -248,7 +248,7 @@ def test_mul_with_broadcast_and_relu():
     op.activation = NpuActivation(NpuActivationOp.NONE_OR_RELU)
     op.activation.min = 0  # RELU
     # Do not set a block config, let vela choose one
-    cmds = generate_register_command_stream([op], Accelerator.Ethos_U55_32)
+    cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_32)
     check_cmd1(cmds, cmd1.NPU_SET_OFM_SCALE, 1073741824, 30)
     check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1)
     check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 32)
@@ -337,7 +337,7 @@ def create_avg_pool_op() -> NpuPoolingOperation:
 def test_avg_pool():
     """Tests average pool operation"""
     op = create_avg_pool_op()
-    cmds = generate_register_command_stream([op], Accelerator.Ethos_U55_128)
+    cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_128)
     check_cmd0(cmds, cmd0.NPU_OP_POOL, 1)
     assert len(cmds) > 10
 
@@ -346,7 +346,7 @@ def test_two_operations():
     """Tests code generation with 2 operations"""
     op1 = create_fully_connected_op()
     op2 = create_avg_pool_op()
-    cmds = generate_register_command_stream([op1, op2], Accelerator.Ethos_U55_64)
+    cmds = npu_generate_register_command_stream([op1, op2], NpuAccelerator.Ethos_U55_64)
     check_cmd0(cmds, cmd0.NPU_OP_POOL, 1)
     check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
     check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0)
@@ -363,7 +363,7 @@ def test_dma_op():
     assert dest is not None
     src = NpuAddressRange(0, 0x24000, dest.length)
     dma_op = NpuDmaOperation(src, dest)
-    cmds = generate_register_command_stream([dma_op, pool_op], Accelerator.Ethos_U55_64)
+    cmds = npu_generate_register_command_stream([dma_op, pool_op], NpuAccelerator.Ethos_U55_64)
     check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0)
     # A DMA WAIT should have been inserted
     check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0)

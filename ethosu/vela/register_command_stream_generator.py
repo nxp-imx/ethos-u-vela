@@ -28,6 +28,7 @@ import numpy as np
 
 from . import numeric_util
 from . import scaling
+from .api import NpuAccelerator
 from .api import NpuActivation
 from .api import NpuActivationOp
 from .api import NpuAddressRange
@@ -1270,15 +1271,16 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
         print("command stream length in words", len(sg.register_command_stream))
 
 
-def generate_register_command_stream(npu_op_list: List[NpuOperation], accelerator: Accelerator) -> List[int]:
+def generate_register_command_stream(npu_op_list: List[NpuOperation], npu_accelerator: NpuAccelerator) -> List[int]:
     """
-    Public facing API for generating an Ethos-U register command stream.
+    Internal implementation of the public facing API for generating an Ethos-U register command stream.
     Calculates dependencies between commands and inserts wait operations if needed.
 
     :param npu_op_list: List[NpuOperation] list of high level NPU operations
     :param accelerator: architecture_features.Accelerator enum to pick the correct Ethos-U accelerator
     :return Ethos-U instructions, as a list of 32-bit integers
     """
+    accelerator = Accelerator.from_npu_accelerator(npu_accelerator)
     emit = CommandStreamEmitter()
     arch = ArchitectureFeatures(
         vela_config_files=None,

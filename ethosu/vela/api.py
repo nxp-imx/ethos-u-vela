@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 # Description:
-# Contains data types used in the external API for code generation
+# Contains external APIs
 from enum import auto
 from enum import Enum
 from typing import List
@@ -23,9 +23,24 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 
+import numpy
+
 API_version_major = 1
 API_version_minor = 0
 api_version = f"{API_version_major}.{API_version_minor}"
+
+
+class NpuAccelerator(Enum):
+    """
+    Supported accelerators
+    """
+
+    Ethos_U55_32 = auto()
+    Ethos_U55_64 = auto()
+    Ethos_U55_128 = auto()
+    Ethos_U55_256 = auto()
+    Ethos_U65_256 = auto()
+    Ethos_U65_512 = auto()
 
 
 class NpuElementWiseOp(Enum):
@@ -381,3 +396,60 @@ def npu_get_API_version():
     """
     version = (API_version_major << 16) | (API_version_minor & 0xFFFF)
     return version
+
+
+def npu_encode_weights(
+    accelerator: NpuAccelerator,
+    weights_volume: numpy.ndarray,
+    dilation_xy: Tuple[int, int],
+    ifm_bitdepth: int,
+    ofm_block_depth: int,
+    is_depthwise: bool,
+    block_traversal: NpuBlockTraversal,
+):
+    """
+    Public facing API to use the Ethos-U weight encoding.
+
+    :param accelerator: NpuAccelerator enum to pick the correct accelerator
+    :param weights_volume: numpy.ndarray in OHWI layout with a shape of four
+    :param dilation_xy: a two element tuple of dilation attributes in x,y dimension
+    :param ifm_bitdepth: the bitdepth of input feature map
+    :param ofm_block_depth: the depth of blocks for processing
+    :param is_depthwise: a boolean indicating these weights are used for a depthwise traversal
+    :param block_traversal: indicates how these weights are traversed on sub-kernel basis
+    :return: a bytearray of compressed weights
+    """
+    from .architecture_features import Accelerator
+    from . import weight_compressor
+
+    acc = Accelerator.from_npu_accelerator(accelerator)
+    return weight_compressor.encode_weights(
+        acc, weights_volume, dilation_xy, ifm_bitdepth, ofm_block_depth, is_depthwise, block_traversal
+    )
+
+
+def npu_encode_bias(bias: numpy.int64, scale: int, shift: int):
+    """
+    Public facing API to pack bias and scale values as required by the hardware
+    :param bias: 64-bit signed number that includes 40-bit signed bias
+    :param scale: 32-bit scale value
+    :param shift: 6-bit shift value
+    :return: packed 80-bit [0(2-bits),shift(6-bits),scale(32-bits),bias(40-bits)]
+    """
+    from . import weight_compressor
+
+    return weight_compressor.encode_bias(bias, scale, shift)
+
+
+def npu_generate_register_command_stream(npu_op_list: List[NpuOperation], accelerator: NpuAccelerator) -> List[int]:
+    """
+    Public facing API for generating an Ethos-U register command stream.
+    Calculates dependencies between commands and inserts wait operations if needed.
+
+    :param npu_op_list: List[NpuOperation] list of high level NPU operations
+    :param accelerator: NpuAccelerator enum to pick the correct accelerator
+    :return register commands, as a list of 32-bit integers
+    """
+    from . import register_command_stream_generator
+
+    return register_command_stream_generator.generate_register_command_stream(npu_op_list, accelerator)

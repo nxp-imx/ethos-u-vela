@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Description:
-# Contains unit tests for encode_biases API for an external consumer
+# Contains unit tests for npu_encode_bias API for an external consumer
 import random
 
 import numpy as np
 
-from ethosu.vela.weight_compressor import encode_bias
+from ethosu.vela.api import npu_encode_bias
 
 
 def test_encode_bias():
@@ -34,6 +34,6 @@ def test_encode_bias():
         bias = np.int64(random.randint(bias_lower_limit, bias_upper_limit))
         scale = int(random.randint(scale_lower_limit, scale_upper_limit))
         shift = int(random.randint(shift_lower_limit, shift_upper_limit))
-        biases_enc = encode_bias(bias, scale, shift)
+        biases_enc = npu_encode_bias(bias, scale, shift)
         assert isinstance(biases_enc, bytearray)
         assert len(biases_enc) == 10

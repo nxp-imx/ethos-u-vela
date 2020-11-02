@@ -17,6 +17,7 @@
 # Compresses and pads the weigths. It also calculates the scales and packs with the biases.
 import math
 from collections import namedtuple
+from typing import Tuple
 
 import numpy as np
 
@@ -50,14 +51,14 @@ WeightCompressionConfig = namedtuple(
 def encode_weights(
     accelerator: Accelerator,
     weights_volume: np.ndarray,
-    dilation_xy: tuple,
+    dilation_xy: Tuple[int, int],
     ifm_bitdepth: int,
     ofm_block_depth: int,
     is_depthwise: bool,
     block_traversal: NpuBlockTraversal,
 ):
     """
-    Public facing API to use the Ethos-U weight encoding.
+    Internal implementation of the public facing API to use weight encoding.
 
     :param accelerator: architecture_features.Accelerator enum to pick the correct Ethos-U accelerator
     :param weights_volume: numpy.ndarray in OHWI layout with a shape of four
@@ -65,10 +66,10 @@ def encode_weights(
     :param ifm_bitdepth: the bitdepth of input feature map
     :param ofm_block_depth: the depth of blocks for Ethos-U processing
     :param is_depthwise: a boolean indicating these weights are used for a depthwise traversal
-    :param block_traversal: indicates how these weights are traversed on sub-kernal basis
+    :param block_traversal: indicates how these weights are traversed on sub-kernel basis
+
     :return: a bytearray of compressed weights
     """
-
     # Check arg types
     assert isinstance(accelerator, Accelerator)
     assert isinstance(weights_volume, np.ndarray)
@@ -108,7 +109,7 @@ def encode_weights(
 
 def encode_bias(bias: np.int64, scale: int, shift: int):
     """
-    Public facing API to pack bias and scale values as required by the Ethos-U
+    Internal implementation of public facing API to pack bias and scale values as required by the Ethos-U
 
     :param bias: 64bit signed number that includes 40bit signed bias
     :param scale: 32bit scale value
