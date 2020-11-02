@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 
 from ethosu.vela import weight_compressor
+from ethosu.vela.api import NpuBlockTraversal
 from ethosu.vela.architecture_features import Accelerator
 
 
@@ -52,7 +53,7 @@ def test_encode_weights(
     weights_hwio = np.random.randint(val_max, size=weights_shape, dtype=np.uint8)
     weights_ohwi = np.transpose(weights_hwio, (3, 0, 1, 2))
     is_depthwise = True if depth_control == 2 else False
-    is_partkernel = True if depth_control == 3 else False
+    block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST if depth_control == 3 else NpuBlockTraversal.DEPTH_FIRST
     dilation_xy = (dilation_x, dilation_y)
 
     encoded_stream = weight_compressor.encode_weights(
@@ -62,7 +63,7 @@ def test_encode_weights(
         ifm_bitdepth=ifm_bitdepth,
         ofm_block_depth=ofm_block_depth,
         is_depthwise=is_depthwise,
-        is_partkernel=is_partkernel,
+        block_traversal=block_traversal,
     )
     assert type(encoded_stream) == bytearray
 

@@ -24,6 +24,7 @@ from .high_level_command_stream import NpuStripe
 from .nn_graph import PassPlacement
 from .nn_graph import SchedulingStrategy
 from .numeric_util import round_up_divide
+from .operation import create_activation_function
 from .operation import NpuBlockType
 from .operation import Op
 from .tensor import TensorPurpose
@@ -109,7 +110,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             concat_offset = concat_start
             ps.primary_op.memory_function = op.type
         elif op.type.is_relu_op() or op.type in (Op.Tanh, Op.Sigmoid):
-            ps.primary_op.activation = op.type
+            ps.primary_op.activation = create_activation_function(op.type)
 
     if strat == SchedulingStrategy.WeightStream:
         ofm_step = block_config[-1]

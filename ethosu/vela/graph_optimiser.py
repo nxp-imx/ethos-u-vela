@@ -31,6 +31,7 @@ from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
+from .operation import create_activation_function
 from .operation import create_avgpool_nop
 from .operation import NpuBlockType
 from .operation import Op
@@ -413,7 +414,7 @@ def fixup_pack_input(op, arch, nng):
 
 def unfuse_activation_function(op, arch, nng):
     if op.type == Op.ConcatTFLite and op.run_on_npu and op.activation is not None:
-        act_op = Operation(op.activation, op.name + op.activation.name)
+        act_op = Operation(op.activation.op_type, op.name + op.activation.op_type.name)
         op.activation = None
         out_tens = op.outputs[0]
         intermediate_tens = out_tens.clone("_act_intermediate")
@@ -641,7 +642,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             # Override this op with its own primary op (avgpool)
             relu_fused_op = create_avgpool_nop(op.name + "_avgpool")
             # And fuse the original activation function to it
-            relu_fused_op.activation = op.type
+            relu_fused_op.activation = create_activation_function(op.type)
             # Tidy up and assign the ifm and ofm to the new op
             ifm.consumer_list.remove(op)
 

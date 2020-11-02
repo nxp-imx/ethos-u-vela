@@ -19,6 +19,7 @@
 import numpy as np
 
 from ethosu.vela.data_type import DataType
+from ethosu.vela.operation import ActivationFunction
 from ethosu.vela.operation import Op
 from ethosu.vela.supported_operators import SupportedOperators
 from ethosu.vela.tensor import create_const_tensor
@@ -102,7 +103,7 @@ def test_constraint_tens_quant_scale():
 def test_constraint_faf():
     # Fused activation functions, if set, must be a valid op type
     op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.activation = Op.Conv2D
+    op.activation = ActivationFunction(Op.Conv2D)
     assert not support.is_operator_supported(op)
 
 

@@ -23,6 +23,7 @@ from .errors import InputFileError
 from .errors import TensorError
 from .nn_graph import Graph
 from .nn_graph import Subgraph
+from .operation import create_activation_function
 from .operation import Op
 from .operation import Operation
 from .tensor import QuantizationParameters
@@ -186,7 +187,9 @@ class TFLiteSubgraph:
             if "depth_multiplier" in op.attrs:
                 op.attrs["channel_multiplier"] = op.attrs["depth_multiplier"]
 
-            op.activation = op.attrs.pop("fused_activation_function", None)
+            faf = op.attrs.pop("fused_activation_function", None)
+            if faf is not None:
+                op.activation = create_activation_function(faf)
             if custom_code is not None:
                 op.attrs["custom_code"] = custom_code
 

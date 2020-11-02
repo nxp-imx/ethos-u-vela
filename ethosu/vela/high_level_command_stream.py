@@ -21,12 +21,6 @@ import numpy as np
 
 from .numeric_util import round_up_divide
 from .operation import NpuBlockType
-from .operation import Op
-from .range_set import AccessDirection
-from .range_set import MemoryAccessSet
-from .range_set import MemoryRangeSet
-from .tensor import MemArea
-from .tensor import TensorPurpose
 
 
 class Box:
@@ -159,9 +153,6 @@ class Command:
     def is_npu_pass_command(self):
         return False
 
-    def get_memory_accesses(self):
-        return None
-
     def get_operation_count(self):
         # returns numpy array of (DPU blocks, dma_ops). Should line up with the CommandType enum
         return np.array((0, 0))
@@ -212,48 +203,6 @@ class NpuStripe(Command):
         self.pad_bottom = pad_bottom
         for i in range(len(self.ofm_box.end_coord)):
             assert self.ofm_box.end_coord[i] <= self.ofm_tensor.shape[i]
-
-    def get_memory_accesses(self):
-        res = MemoryAccessSet()
-        if self.ifm_tensor is not None and self.ifm_tensor.shape != []:
-            res.add(
-                self.ifm_tensor.get_address_ranges_for_coordinates(self.ifm_box.start_coord, self.ifm_box.end_coord),
-                AccessDirection.Read,
-            )
-        if self.ifm2_tensor is not None and self.ifm2_tensor.shape != []:
-            res.add(
-                self.ifm2_tensor.get_address_ranges_for_coordinates(self.ifm2_box.start_coord, self.ifm2_box.end_coord),
-                AccessDirection.Read,
-            )
-        if self.ofm_tensor is not None:
-            res.add(
-                self.ofm_tensor.get_address_ranges_for_coordinates(self.ofm_box.start_coord, self.ofm_box.end_coord),
-                AccessDirection.Write,
-            )
-        if self.weight_tensor is not None:
-            res.add(
-                self.weight_tensor.get_address_ranges_for_coordinates(
-                    self.weight_box.start_coord, self.weight_box.end_coord
-                ),
-                AccessDirection.Read,
-            )
-        if self.scale_tensor is not None and self.scale_tensor.ops[0].type == Op.DMA:
-            res.add(
-                self.scale_tensor.get_address_ranges_for_coordinates([0], self.scale_tensor.shape),
-                AccessDirection.Read,
-            )
-        # Add read access to SHRAM by any LUT-s
-        for tens in self.ps.intermediates:
-            if tens.purpose == TensorPurpose.LUT and tens.mem_area == MemArea.Shram:
-                res.add(
-                    MemoryRangeSet(tens.mem_area, tens.address, tens.address + tens.storage_size()),
-                    AccessDirection.Read,
-                )
-        # Add write access to SHRAM, needed when LUTs can overwrite accumulator banks
-        res.add(
-            self.ps.shared_buffer.get_shram_memory_access_range(), AccessDirection.Write,
-        )
-        return res
 
     def is_npu_pass_command(self):
         return True
@@ -390,19 +339,6 @@ class DMA(Command):
         return "<DMA: in=%s, out=%s, box=%s>" % (self.in_tensor.name, self.out_tensor.name, self.box)
 
     __repr__ = __str__
-
-    def get_memory_accesses(self):
-        res = MemoryAccessSet()
-
-        res.add(
-            self.in_tensor.get_address_ranges_for_coordinates(self.box.start_coord, self.box.end_coord),
-            AccessDirection.Read,
-        )
-        res.add(
-            self.out_tensor.get_address_ranges_for_coordinates(self.box.start_coord, self.box.end_coord),
-            AccessDirection.Write,
-        )
-        return res
 
     def get_operation_count(self):
         # returns numpy array of (DPU blocks, dma_ops)

@@ -24,8 +24,10 @@ import numpy as np
 
 from . import fp_math
 from . import scaling
+from .api import NpuRoundingMode
 from .data_type import DataType
 from .debug_database import DebugDatabase
+from .operation import ActivationFunction
 from .operation import Op
 from .operation import Operation
 from .tensor import create_const_tensor
@@ -227,6 +229,12 @@ class SoftMax:
         no_scale_quant = ifm.quantization.clone()
         no_scale_quant.scale_f32 = None
         no_scale_quant.zero_point = 0
+        activation = ActivationFunction(Op.Clip)
+        activation.min = ifm.quantization.quant_min
+        activation.max = ifm.quantization.quant_max
+        activation2 = activation.clone()
+        activation2.min = 2 * ifm.quantization.quant_min
+        activation2.max = 2 * ifm.quantization.quant_max
         one_scale_quant = ifm.quantization.clone()
         one_scale_quant.scale_f32 = 1.0
         one_scale_quant.zero_point = 0
@@ -263,20 +271,23 @@ class SoftMax:
         ifm_exp = Tensor(ifm.shape, DataType.int32, sub_op.name + "_0")
         ifm_exp.quantization = one_scale_quant.clone()
         ifm_exp.quantization.zero_point = 127
-        ifm_exp.quantization.quant_min = -128
-        ifm_exp.quantization.quant_max = 127
+        sub_op.activation = ActivationFunction(Op.LUT)
+        # Note: activation.min/max are non-quantized values
+        sub_op.activation.min = -128 - ifm_exp.quantization.zero_point
+        sub_op.activation.max = 127 - ifm_exp.quantization.zero_point
         sub_op.set_output_tensor(ifm_exp)
         DebugDatabase.add_optimised(self.op, sub_op)
 
         # PASS 2 - SHR
         shr2_op = Operation(Op.SHR, self.op.name + "_shr2")
-        shr2_op.attrs["rounding_mode"] = b"NATURAL"
+        shr2_op.attrs["rounding_mode"] = NpuRoundingMode.NATURAL
         shr2_op.add_input_tensor(ifm_exp)
         shr2_op.add_input_tensor(
             create_const_tensor(
                 shr2_op.name + "_const", [1, 1, 1, 1], DataType.int32, [12], np.int32, quantization=no_scale_quant
             ),
         )
+        shr2_op.activation = activation.clone()
         rescaled_exp = Tensor(ifm.shape, ifm_exp.dtype, shr2_op.name + "_0")
         rescaled_exp.quantization = no_scale_quant
         shr2_op.set_output_tensor(rescaled_exp)
@@ -292,6 +303,7 @@ class SoftMax:
         reduce_sum_op.attrs["strides"] = [1, reduce_sum_op.attrs["stride_h"], reduce_sum_op.attrs["stride_w"], 1]
         reduce_sum_op.attrs["ksize"] = [1, reduce_sum_op.attrs["filter_height"], reduce_sum_op.attrs["filter_width"], 1]
         reduce_sum_op.add_input_tensor(rescaled_exp)
+        reduce_sum_op.activation = activation.clone()
 
         reduce_sum_shape = [1, rescaled_exp.shape[1], rescaled_exp.shape[2], 1]
         sum_of_exp = Tensor(reduce_sum_shape, DataType.int32, reduce_sum_op.name + "_0")
@@ -302,6 +314,7 @@ class SoftMax:
         # PASS 4 - CLZ
         clz_op = Operation(Op.CLZ, self.op.name + "_clz4")
         clz_op.add_input_tensor(sum_of_exp)
+        clz_op.activation = activation.clone()
         headroom_plus_one = Tensor(reduce_sum_shape, DataType.int32, clz_op.name + "_0")
         headroom_plus_one.quantization = no_scale_quant
         clz_op.set_output_tensor(headroom_plus_one)
@@ -320,6 +333,7 @@ class SoftMax:
             ),
         )
         sub5_op.add_input_tensor(headroom_plus_one)
+        sub5_op.activation = activation.clone()
         right_shift = Tensor(reduce_sum_shape, DataType.int32, sub5_op.name + "_0")
         right_shift.quantization = no_scale_quant
         sub5_op.set_output_tensor(right_shift)
@@ -330,6 +344,7 @@ class SoftMax:
         sub6_op = Operation(Op.Sub, self.op.name + "_sub6")
         sub6_op.add_input_tensor(headroom_plus_one)
         sub6_op.add_input_tensor(one)
+        sub6_op.activation = activation.clone()
         headroom = Tensor(reduce_sum_shape, DataType.int32, sub6_op.name + "_0")
         headroom.quantization = no_scale_quant
         sub6_op.set_output_tensor(headroom)
@@ -339,8 +354,10 @@ class SoftMax:
         shl7_op = Operation(Op.SHL, self.op.name + "_shl7")
         shl7_op.add_input_tensor(sum_of_exp)
         shl7_op.add_input_tensor(headroom)
+        shl7_op.activation = activation.clone()
         shifted_sum = Tensor(reduce_sum_shape, DataType.int32, shl7_op.name + "_0")
         shifted_sum.quantization = no_scale_quant
+
         shl7_op.set_output_tensor(shifted_sum)
         DebugDatabase.add_optimised(self.op, shl7_op)
 
@@ -352,6 +369,7 @@ class SoftMax:
                 "shifted_one_const", [1, 1, 1, 1], DataType.int32, [1 << 30], np.int32, quantization=no_scale_quant
             ),
         )
+        sub8_op.activation = activation.clone()
         shifted_sum_minus_one = Tensor(reduce_sum_shape, DataType.int32, sub8_op.name + "_0")
         shifted_sum_minus_one.quantization = no_scale_quant
         sub8_op.set_output_tensor(shifted_sum_minus_one)
@@ -361,6 +379,7 @@ class SoftMax:
         shl9_op = Operation(Op.SHL, self.op.name + "_shl9")
         shl9_op.add_input_tensor(shifted_sum_minus_one)
         shl9_op.add_input_tensor(one)
+        shl9_op.activation = activation.clone()
         shifted_sum_minus_one = Tensor(reduce_sum_shape, DataType.int32, shl9_op.name + "_0")
         shifted_sum_minus_one.quantization = no_scale_quant
         shl9_op.set_output_tensor(shifted_sum_minus_one)
@@ -374,7 +393,8 @@ class SoftMax:
             ),
         )
         add10_op.add_input_tensor(shifted_sum_minus_one)
-        add10_op.attrs["rescale"] = [1, 1]
+        add10_op.activation = activation.clone()
+        add10_op.attrs["rescale"] = (1, 1)
         half_denominator = Tensor(reduce_sum_shape, DataType.int32, add10_op.name + "_0")
         half_denominator.quantization = one_scale_quant
         add10_op.set_output_tensor(half_denominator)
@@ -396,6 +416,7 @@ class SoftMax:
         rescaled = Tensor(reduce_sum_shape, DataType.int32, mul11_op.name + "_0")
         rescaled.quantization = one_scale_quant.clone()
         rescaled.quantization.scale_f32 = 2.0
+        mul11_op.activation = activation2.clone()
         mul11_op.set_output_tensor(rescaled)
         DebugDatabase.add_optimised(self.op, mul11_op)
 
@@ -407,6 +428,7 @@ class SoftMax:
                 "48_over_17_const", [1, 1, 1, 1], DataType.int32, [1515870810], np.int32, quantization=no_scale_quant
             ),
         )
+        add12_op.activation = activation.clone()
         rescale_w_offset = Tensor(reduce_sum_shape, DataType.int32, add12_op.name + "_0")
         rescale_w_offset.quantization = one_scale_quant
         add12_op.set_output_tensor(rescale_w_offset)
@@ -424,6 +446,7 @@ class SoftMax:
             mul_op = Operation(Op.Mul, self.op.name + "_mul%d" % (13 + i * 5))
             mul_op.add_input_tensor(nr_x)
             mul_op.add_input_tensor(half_denominator)
+            mul_op.activation = activation2.clone()
             half_denominator_times_x = Tensor(reduce_sum_shape, DataType.int32, mul_op.name + "_0")
             half_denominator_times_x.quantization = one_scale_quant.clone()
             half_denominator_times_x.quantization.scale_f32 = 2.0
@@ -433,6 +456,7 @@ class SoftMax:
             sub_op = Operation(Op.Sub, self.op.name + "_sub%d" % (14 + i * 5))
             sub_op.add_input_tensor(F2_one)
             sub_op.add_input_tensor(half_denominator_times_x)
+            sub_op.activation = activation.clone()
             one_minus_half_denominator_times_x = Tensor(reduce_sum_shape, DataType.int32, sub_op.name + "_0")
             one_minus_half_denominator_times_x.quantization = one_scale_quant
             sub_op.set_output_tensor(one_minus_half_denominator_times_x)
@@ -441,6 +465,7 @@ class SoftMax:
             mul_op = Operation(Op.Mul, self.op.name + "_mul%d" % (15 + i * 5))
             mul_op.add_input_tensor(nr_x)
             mul_op.add_input_tensor(one_minus_half_denominator_times_x)
+            mul_op.activation = activation2.clone()
             to_rescale = Tensor(reduce_sum_shape, DataType.int32, mul_op.name + "_0")
             to_rescale.quantization = one_scale_quant.clone()
             to_rescale.quantization.scale_f32 = 2.0
@@ -450,6 +475,7 @@ class SoftMax:
             shl_op = Operation(Op.Mul, self.op.name + "_mul%d" % (16 + i * 5))
             shl_op.add_input_tensor(to_rescale)
             shl_op.add_input_tensor(four)
+            shl_op.activation = activation.clone()
             to_add = Tensor(reduce_sum_shape, DataType.int32, shl_op.name + "_0")
             to_add.quantization = no_scale_quant
             shl_op.set_output_tensor(to_add)
@@ -458,6 +484,7 @@ class SoftMax:
             add_op = Operation(Op.Add, self.op.name + "_add%d" % (17 + i * 5))
             add_op.add_input_tensor(nr_x)
             add_op.add_input_tensor(to_add)
+            add_op.activation = activation.clone()
             nr_x = Tensor(reduce_sum_shape, DataType.int32, add_op.name + "_0")
             nr_x.quantization = one_scale_quant
             add_op.set_output_tensor(nr_x)
@@ -469,6 +496,7 @@ class SoftMax:
         mul28_op.add_input_tensor(
             create_const_tensor("two_const", [1, 1, 1, 1], DataType.int32, [2], np.int32, quantization=no_scale_quant)
         )
+        mul28_op.activation = activation.clone()
         scale_factor = Tensor(reduce_sum_shape, DataType.int32, mul28_op.name + "_0")
         scale_factor.quantization = one_scale_quant
         mul28_op.set_output_tensor(scale_factor)
@@ -478,6 +506,7 @@ class SoftMax:
         mul_op = Operation(Op.Mul, self.op.name + "_mul29")
         mul_op.add_input_tensor(ifm_exp)
         mul_op.add_input_tensor(scale_factor)
+        mul_op.activation = activation2.clone()
         scaled_exp = Tensor(ifm_exp.shape, DataType.int32, mul_op.name + "_0")
         scaled_exp.quantization = one_scale_quant.clone()
         scaled_exp.quantization.scale_f32 = 2.0
@@ -486,7 +515,7 @@ class SoftMax:
 
         # PASS 30 - SHR
         shr30_op = Operation(Op.SHR, self.op.name + "_shr30")
-        shr30_op.attrs["rounding_mode"] = b"NATURAL"
+        shr30_op.attrs["rounding_mode"] = NpuRoundingMode.NATURAL
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)

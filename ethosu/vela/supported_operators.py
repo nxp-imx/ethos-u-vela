@@ -379,9 +379,13 @@ class SupportedOperators:
     @docstring_format_args([supported_fused_activations])
     def constraint_faf(cls, op):
         "The fused activation function (if present) must be one of type: {}"
-        faf = op.activation
-        valid = (faf is None) or (faf in cls.supported_fused_activations)
-        return valid, f"Op has its fused activation function as: {faf}"
+        if op.activation is None:
+            res = True, "Op has no fused activation function"
+        else:
+            faf = op.activation.op_type
+            valid = faf in cls.supported_fused_activations
+            res = valid, f"Op has its fused activation function as: {faf}"
+        return res
 
     @staticmethod
     def constraint_stride_type(op):

@@ -225,7 +225,7 @@ def get_ifm_block_depth(npu_block_type, ifm_depth, ifm_elemwidth, block_traversa
 def estimate_output_cycles(
     arch, npu_block_type, primary_op, num_elems, ifm_tensor, ofm_tensor, ifm2_tensor, use_acc_40bits=False
 ):
-    faf = primary_op.activation
+    faf = None if primary_op.activation is None else primary_op.activation.op_type
     if npu_block_type == NpuBlockType.ElementWise and ifm_tensor.dtype == DataType.int32:
         if ifm2_tensor is None:
             # Unary op

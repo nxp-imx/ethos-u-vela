@@ -292,7 +292,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
             nng, sg, arch, options.verbose_high_level_command_stream
         )
         lut.optimize_high_level_cmd_stream(sg, arch)
-        register_command_stream_generator.generate_register_command_stream(
+        register_command_stream_generator.generate_register_command_stream_for_sg(
             nng, sg, arch, options.verbose_register_command_stream
         )
         scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(

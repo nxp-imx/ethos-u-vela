@@ -15,8 +15,10 @@
 # limitations under the License.
 # Description:
 # Internal representation of a Neural Network Operation.
+import copy
 from collections import namedtuple
 from enum import Enum
+from typing import Optional
 
 from .numeric_util import full_shape
 
@@ -35,23 +37,29 @@ class NpuBlockType(Enum):
 
 
 class Kernel:
-    def __init__(self, w, h, sx=1, sy=1, dx=1, dy=1):
-        assert sx > 0 and sy > 0
-        assert dx > 0 and dy > 0
+    """
+    Kernel information for NPU operations
+    """
+
+    def __init__(self, w: int, h: int, stride_x: int = 1, stride_y: int = 1, dilation_x: int = 1, dilation_y: int = 1):
+        assert stride_x > 0 and stride_y > 0
+        assert dilation_x > 0 and dilation_y > 0
         self.width = w
         self.height = h
-        self.stride = PointXY(sx, sy)
-        self.dilation = PointXY(dx, dy)
-        self.upscale = 1
+        self.stride = PointXY(stride_x, stride_y)
+        self.dilation = PointXY(dilation_x, dilation_y)
 
-    def elements_wh(self):
+    def elements_wh(self) -> int:
         return self.width * self.height
 
-    def area_width(self):
+    def area_width(self) -> int:
         return (self.width - 1) * self.dilation.x + 1
 
-    def area_height(self):
+    def area_height(self) -> int:
         return (self.height - 1) * self.dilation.y + 1
+
+    def __str__(self):
+        return f"w={self.width}, h={self.height}, stride={tuple(self.stride)}, dilation={tuple(self.dilation)}"
 
 
 # Classifies operators of type Custom
@@ -109,6 +117,7 @@ class Op(Enum):
     Call = OperatorInfo()
     Cast = OperatorInfo()
     Ceil = OperatorInfo()
+    Clip = OperatorInfo()  # NPU specific fused activation function for clipping between activation.min/max
     Concat = OperatorInfo(indices=CONCAT_INDICES)
     ConcatEmbeddings = OperatorInfo()
     ConcatSliceWrite = OperatorInfo(indices=IFM_INDICES)
@@ -282,7 +291,7 @@ class Op(Enum):
         return self.info.block_type == NpuBlockType.ElementWise and not self.info.is_unary
 
     def is_relu_op(self):
-        return self in (Op.Relu, Op.Relu6, Op.ReluN1To1)
+        return self in (Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Clip)
 
     def is_activation_op(self):
         return self.is_relu_op() or self in (Op.Tanh, Op.Sigmoid, Op.Softmax, Op.LUT)
@@ -308,6 +317,42 @@ class Op(Enum):
 
     def __lt__(self, other):
         return self.value.id < other.value.id
+
+
+class ActivationFunction:
+    """Fused activation function"""
+
+    def __init__(self, op_type: Op):
+        self.op_type = op_type  # The activation operation to be performed
+        # min/max are optional; if present they are non-quantized values
+        self.min: Optional[float] = None
+        self.max: Optional[float] = None
+        # Table lookup index, only applicable for Op.LUT activation, 0-7
+        self.lut_index: int = 0
+
+    def clone(self):
+        res = copy.copy(self)
+        return res
+
+
+def create_activation_function(op_type: Op) -> ActivationFunction:
+    """Creates activation function with min/max depending on op_type"""
+    act = ActivationFunction(op_type)
+    if op_type == Op.Relu:
+        act.min = 0.0
+    elif op_type == Op.Relu6:
+        act.min = 0.0
+        act.max = 6.0
+    elif op_type == Op.ReluN1To1:
+        act.min = -1.0
+        act.max = 1.0
+    elif op_type == Op.Tanh:
+        act.min = -1.0
+        act.max = 1.0
+    elif op_type == Op.Sigmoid:
+        act.min = 0.0
+        act.max = 1.0
+    return act
 
 
 def create_avgpool_nop(name):
@@ -358,7 +403,7 @@ class Operation:
         "_kernel",
     )
 
-    def __init__(self, op_type, name):
+    def __init__(self, op_type: Op, name: str):
         self.type = op_type
         self.name = name
         self.attrs = {}
@@ -367,7 +412,7 @@ class Operation:
         self.flops = 0
         self.run_on_npu = True
         # Fused activation function. If not none: operator code.
-        self.activation = None
+        self.activation: Optional[ActivationFunction] = None
         # Fused memory function, if not None: operator code
         self.memory_function = None
         # If not none: contains QuantizationParameters to be used as output quantization
@@ -386,7 +431,7 @@ class Operation:
         res.outputs = list(self.outputs)
         res.flops = self.flops
         res.run_on_npu = self.run_on_npu
-        res.activation = self.activation
+        res.activation = None if self.activation is None else self.activation.clone()
         res.memory_function = self.memory_function
         res.forced_output_quantization = self.forced_output_quantization
         res.scheduled_pass = self.scheduled_pass
@@ -405,6 +450,8 @@ class Operation:
             weight_shape = full_shape(4, weights.shape, 1)
             h = weight_shape[-4]
             w = weight_shape[-3]
+        elif self.type.npu_block_type in (NpuBlockType.Pooling, NpuBlockType.ReduceSum) and "ksize" in self.attrs:
+            h, w = self.attrs["ksize"][1:3]
         else:
             h = self.attrs.get("filter_height", 1)
             w = self.attrs.get("filter_width", 1)
@@ -597,7 +644,7 @@ class Operation:
         return input_tens, outputs, axis, offset_start, offset_end
 
     def set_activation_lut(self, lut_tensor):
-        self.activation = Op.LUT
+        self.activation = ActivationFunction(Op.LUT)
         self.activation_lut = lut_tensor
         self.add_input_tensor(lut_tensor)
 

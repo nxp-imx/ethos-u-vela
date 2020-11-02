@@ -15,14 +15,20 @@
 # limitations under the License.
 # Description:
 # Shared buffer allocation works out how to allocate the Ethos-U55 shared buffer for a given pass.
+from typing import List
+from typing import Tuple
+
 import numpy as np
 
+from .api import NpuActivationOp
+from .api import NpuBlockOperation
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
+from .high_level_command_to_npu_op import to_kernel
 from .operation import Kernel
 from .operation import NpuBlockType
 from .range_set import MemoryRangeSet
@@ -30,24 +36,30 @@ from .tensor import MemArea
 
 
 class SharedBufferAllocation:
-    def __init__(self, arch, ps):
+    def __init__(
+        self,
+        arch,
+        kernel,
+        uses_lut,
+        npu_block_type,
+        all_fms_have_quant,
+        ifm_resampling_mode,
+        ifm_bits,
+        ifm_depth,
+        ifm_count,
+        ofm_shape,
+    ):
         self.arch = arch
 
         self.bank_locations = np.zeros(SharedBufferArea.Size)
         self.banks_required = np.zeros(SharedBufferArea.Size)
 
-        ifm_tensor, ifm2_tensor, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
+        self.kernel = Kernel(1, 1) if kernel is None else kernel
+        self.is_elementwise = npu_block_type == NpuBlockType.ElementWise
+        self.uses_lut = uses_lut
+        self.ifm_count = ifm_count
 
-        self.kernel = Kernel(1, 1)
-        self.is_elementwise = ps.npu_block_type == NpuBlockType.ElementWise
-        self.uses_lut = False
-        self.ifm_count = 1
-
-        if ps.primary_op:
-            self.kernel = ps.primary_op.kernel
-            self.uses_lut = ps.primary_op.activation_lut is not None
-
-        self.is_equal_depth_op = self.is_elementwise or ps.npu_block_type in (
+        self.is_equal_depth_op = self.is_elementwise or npu_block_type in (
             NpuBlockType.ConvolutionDepthWise,
             NpuBlockType.Pooling,
         )
@@ -58,42 +70,26 @@ class SharedBufferAllocation:
         else:
             self.use_ifm_element = SHRAMElements.IFM8
 
-        self.ifm_resampling_mode = resampling_mode.NONE
-        self.ifm_bits = 0
-        self.ifm_depth = 0
-        if ifm_tensor:
-            self.ifm_resampling_mode = ifm_tensor.resampling_mode
-            self.ifm_bits = ifm_tensor.dtype.size_in_bits()
+        self.ifm_resampling_mode = ifm_resampling_mode
+        self.ifm_bits = ifm_bits
+        self.ifm_depth = ifm_depth
+        self.ifm_count = ifm_count
 
-            if ifm_tensor.shape != []:
-                self.ifm_depth = ifm_tensor.shape[-1]
-
-            if self.is_elementwise:
-                self.ifm_count = 2
-                if ifm_tensor.shape == []:  # Scalar in ifm1
-                    assert ifm2_tensor
-                    self.ifm_depth = ifm2_tensor.shape[-1]
-                    self.ifm_count = 1
-                elif not ifm2_tensor or ifm2_tensor.shape == []:  # Scalar in ifm2
-                    self.ifm_count = 1
-
-            if self.ifm_bits == 16:
-                if is_acc_40bits_used(ps.npu_block_type, ifm_tensor, ofm_tensor, ifm2_tensor):
-                    self.use_accumulator_element = SHRAMElements.Acc40
-                self.use_ifm_element = self.use_ifm_element + 1
-                assert (self.use_ifm_element == SHRAMElements.IFM16) or (
-                    self.use_ifm_element == SHRAMElements.IFM16_Elementwise
-                )
-            elif self.ifm_bits == 32:
-                assert (
-                    self.is_elementwise or ps.npu_block_type == NpuBlockType.ReduceSum
-                ), "Unsupported 32-bit IFM operation"
-                self.use_ifm_element = SHRAMElements.IFM32
-            else:
-                assert self.ifm_bits == 8, "Unexpected IFM bitdepth"
+        if self.ifm_bits == 16:
+            if npu_block_type != NpuBlockType.Pooling and all_fms_have_quant:
+                self.use_accumulator_element = SHRAMElements.Acc40
+            self.use_ifm_element = self.use_ifm_element + 1
+            assert (self.use_ifm_element == SHRAMElements.IFM16) or (
+                self.use_ifm_element == SHRAMElements.IFM16_Elementwise
+            )
+        elif self.ifm_bits == 32:
+            assert self.is_elementwise or npu_block_type == NpuBlockType.ReduceSum, "Unsupported 32-bit IFM operation"
+            self.use_ifm_element = SHRAMElements.IFM32
+        else:
+            assert self.ifm_bits == 8, "Unexpected IFM bitdepth"
 
         self.ifm_block_depth = arch.calc_ifm_block_depth(self.ifm_depth, self.ifm_bits)
-        self.ofm_tensor = ofm_tensor
+        self.ofm_shape = ofm_shape
 
         self.banks_required[SharedBufferArea.Weights] = arch.shram_reserved_weight_banks
         self.banks_required[SharedBufferArea.OFM] = arch.shram_reserved_output_banks
@@ -168,15 +164,63 @@ class SharedBufferAllocation:
         )
 
 
-def is_acc_40bits_used(npu_block_type, ifm_tensor, ofm_tensor, ifm2_tensor=None):
+def _all_fms_have_quant(ifm_tensor, ofm_tensor, ifm2_tensor=None) -> bool:
     tensors = [t for t in (ifm_tensor, ifm2_tensor, ofm_tensor) if t is not None]
     scales = [t.quantization.scale_f32 for t in tensors if t.quantization is not None]
-    has_scale = len(tensors) == len(scales) and None not in scales
-    return npu_block_type != NpuBlockType.Pooling and has_scale
+    return len(tensors) == len(scales) and None not in scales
 
 
-def shared_buffer_allocation_for_pass_and_block_config(arch, ps, block_config):
-    alloc = SharedBufferAllocation(arch, ps)
+def is_acc_40bits_used(npu_block_type, ifm_tensor, ofm_tensor, ifm2_tensor=None):
+    return npu_block_type != NpuBlockType.Pooling and _all_fms_have_quant(ifm_tensor, ofm_tensor, ifm2_tensor)
+
+
+def shared_buffer_allocation_for_pass(arch, ps) -> SharedBufferAllocation:
+    ifm_tensor, ifm2_tensor, _, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
+    all_fms_have_quant = _all_fms_have_quant(ifm_tensor, ifm2_tensor, ofm_tensor)
+
+    kernel = Kernel(1, 1)
+    is_elementwise = ps.npu_block_type == NpuBlockType.ElementWise
+    uses_lut = False
+    ifm_count = 1
+
+    if ps.primary_op:
+        kernel = ps.primary_op.kernel
+        uses_lut = ps.primary_op.activation_lut is not None
+
+    ifm_resampling_mode = resampling_mode.NONE
+    ifm_bits = 0
+    ifm_depth = 0
+    if ifm_tensor:
+        ifm_resampling_mode = ifm_tensor.resampling_mode
+        ifm_bits = ifm_tensor.dtype.size_in_bits()
+
+        if ifm_tensor.shape != []:
+            ifm_depth = ifm_tensor.shape[-1]
+
+        if is_elementwise:
+            ifm_count = 2
+            if ifm_tensor.shape == []:  # Scalar in ifm1
+                assert ifm2_tensor
+                ifm_depth = ifm2_tensor.shape[-1]
+                ifm_count = 1
+            elif not ifm2_tensor or ifm2_tensor.shape == []:  # Scalar in ifm2
+                ifm_count = 1
+    return SharedBufferAllocation(
+        arch,
+        kernel,
+        uses_lut,
+        npu_block_type=ps.npu_block_type,
+        all_fms_have_quant=all_fms_have_quant,
+        ifm_resampling_mode=ifm_resampling_mode,
+        ifm_bits=ifm_bits,
+        ifm_depth=ifm_depth,
+        ifm_count=ifm_count,
+        ofm_shape=ofm_tensor.shape,
+    )
+
+
+def shared_buffer_allocation_for_pass_and_block_config(arch, ps, block_config) -> SharedBufferAllocation:
+    alloc = shared_buffer_allocation_for_pass(arch, ps)
     assert (alloc.ifm_block_depth == block_config[2]) or alloc.is_equal_depth_op
     if alloc.try_block(Block(block_config[1], block_config[0], block_config[3])):
         return alloc
@@ -184,9 +228,34 @@ def shared_buffer_allocation_for_pass_and_block_config(arch, ps, block_config):
     return None
 
 
-def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps):
-    alloc = SharedBufferAllocation(arch, ps)
+def shared_buffer_allocation_for_npu_op(
+    arch, npu_op: NpuBlockOperation, npu_block_type: NpuBlockType, ifm_resampling_mode
+) -> SharedBufferAllocation:
+    uses_lut = npu_op.activation is not None and npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP
+    fms = [npu_op.ifm, npu_op.ofm]
+    if npu_op.ifm2 is not None:
+        fms.append(npu_op.ifm2)
+    all_fms_have_quant = not any(fm.quantization is None or fm.quantization.scale_f32 is None for fm in fms)
+    ifm_bits = npu_op.ifm.data_type.size_in_bits()
+    ifm_depth = npu_op.ifm.shape.depth
+    ifm_count = 2 if npu_op.ifm2 is not None and npu_op.ifm2_scalar is None else 1
+    ofm_shape = [1, npu_op.ofm.shape.height, npu_op.ofm.shape.width, npu_op.ofm.shape.depth]
+    return SharedBufferAllocation(
+        arch,
+        to_kernel(npu_op.kernel),
+        uses_lut,
+        npu_block_type=npu_block_type,
+        all_fms_have_quant=all_fms_have_quant,
+        ifm_resampling_mode=ifm_resampling_mode,
+        ifm_bits=ifm_bits,
+        ifm_depth=ifm_depth,
+        ifm_count=ifm_count,
+        ofm_shape=ofm_shape,
+    )
 
+
+def find_suitable_block_configs(arch, alloc: SharedBufferAllocation) -> List[Tuple]:
+    """Returns list of block configs that would fit with the given shared buffer allocation"""
     if arch.override_block_config:
         config = alloc.try_block(arch.override_block_config)
         if config is None:
@@ -195,14 +264,14 @@ def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps):
 
     # Constrain the search space if the OFM is smaller than the max block size
     # - Add other block search constraints here if required
-    if len(alloc.ofm_tensor.shape) <= 2:
-        max_block_height = max_block_width = alloc.ofm_tensor.shape[0]
+    if len(alloc.ofm_shape) <= 2:
+        max_block_height = max_block_width = alloc.ofm_shape[0]
     else:
-        max_block_width = alloc.ofm_tensor.shape[-2]
-        max_block_height = alloc.ofm_tensor.shape[-3]
+        max_block_width = alloc.ofm_shape[-2]
+        max_block_height = alloc.ofm_shape[-3]
 
     # Common block depth
-    max_block_depth = alloc.ofm_tensor.shape[-1]
+    max_block_depth = alloc.ofm_shape[-1]
 
     # Constrain to valid ranges before search
     max_block_width = min(arch.ofm_block_max.width, max_block_width)
@@ -224,3 +293,8 @@ def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps):
 
     assert len(valid_block_configs) > 0
     return valid_block_configs
+
+
+def find_block_configs_suitable_for_pass_and_shared_buffer(arch, ps) -> List[Tuple]:
+    alloc = shared_buffer_allocation_for_pass(arch, ps)
+    return find_suitable_block_configs(arch, alloc)

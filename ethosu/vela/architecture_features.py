@@ -496,7 +496,7 @@ class ArchitectureFeatures:
         return (start_coord, end_coord, 1)  # start, end, total jobs
 
     def get_prev_job_output_volume(
-        self, ifm: Block, ofm: Rect, ifm_block_depth, ofm_block: Block, kernel: Kernel, block_offset
+        self, ifm: Rect, ofm: Rect, ifm_block_depth, ofm_block: Block, kernel: Kernel, block_offset
     ):
         assert block_offset >= 0
 
@@ -518,13 +518,13 @@ class ArchitectureFeatures:
 
     def calc_block_dep(
         self,
-        prev_ifm: Block,
-        prev_ofm: Block,
+        prev_ifm: Rect,
+        prev_ofm: Rect,
         prev_ifm_block_depth,
         prev_ofm_block: Block,
         prev_kernel: Kernel,
-        ifm: Block,
-        ofm: Block,
+        ifm: Rect,
+        ofm: Rect,
         ifm_block_depth,
         ofm_block: Block,
         kernel: Kernel,

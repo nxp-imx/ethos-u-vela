@@ -115,14 +115,14 @@ def optimize_high_level_cmd_stream(sg, arch):
         if existing_tens is not None:
             # LUT is already in SHRAM, no need to perform DMA
             lut_tens.address = existing_tens.address
-            cmd.ps.primary_op.attrs["lut_index"] = get_lut_index(arch, existing_tens)
+            cmd.ps.primary_op.activation.lut_index = get_lut_index(arch, existing_tens)
             continue
         # Place the LUT in the last 2 blocks of SHRAM
         # Alignment is always on the size of the LUT, 256 for 256-byte LUT, 1K for 1K LUT, etc
         address = lut_state.find_best_address(lut_start, lut_end, lut_tens.storage_size())
         lut_tens.equivalence_id = uuid.uuid4()
         lut_tens.address = address
-        cmd.ps.primary_op.attrs["lut_index"] = (address - lut_start) // slot_size
+        cmd.ps.primary_op.activation.lut_index = (address - lut_start) // slot_size
         lut_state = lut_state.put(lut_tens)
         cmd_stream.append(cmd)
     sg.high_level_command_stream = cmd_stream
