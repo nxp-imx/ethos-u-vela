@@ -806,6 +806,9 @@ class Tensor:
 
         return True
 
+    def set_random_equivalence_id(self):
+        self.equivalence_id = uuid.uuid4()
+
     def __str__(self):
         return "<nng.Tensor '%s' shape=%s dtype=%s>" % (self.name, self.shape, self.dtype)
 

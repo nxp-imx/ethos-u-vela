@@ -161,6 +161,9 @@ class TFLiteSubgraph:
                 inputs.append(None)
             if inputs[-1] and inputs[-1].values is not None:
                 inputs[-1] = clone_and_reshape_tensor(inputs[-1], (0,))
+                # Since bias tensor is used for both bias and scale,
+                # set different equivalence_id for all bias tensors
+                inputs[-1].set_random_equivalence_id()
 
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data)
