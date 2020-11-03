@@ -72,18 +72,6 @@ system's SRAM this optimisation is required.
 vela network.tflite --cascading False
 ```
 
-### IFM/OFM Overlap
-
-Controls the overlapping of IFM and OFM buffers. This means that IFM and OFM
-buffers may overlap if possible. This allows for lower memory usage.  
-**Type: Boolean**  
-**Default: True**  
-
-```bash
-vela network.tflite --ifm-ofm-overlap False
-```
-
-
 ### Force Block Config
 
 Force a specific block configuration in the format HxWxC, where H, W, and C are

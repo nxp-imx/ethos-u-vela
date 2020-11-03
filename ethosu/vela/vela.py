@@ -158,13 +158,6 @@ def main(args=None):
         choices=[True, False],
         help="Controls the packing of multiple passes into a cascade (default: %(default)s)",
     )
-    parser.add_argument(
-        "--ifm-ofm-overlap",
-        type=ast.literal_eval,
-        default=True,
-        choices=[True, False],
-        help="Controls the overlapping of IFM and OFM buffers (default: %(default)s)",
-    )
     parser.add_argument("--force-block-config", type=str, default="", help="Force a specific block configuration HxWxC")
     parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
     parser.add_argument(
@@ -313,7 +306,6 @@ def main(args=None):
 
     scheduler_options = scheduler.SchedulerOptions(
         use_cascading=args.cascading,
-        use_ifm_ofm_overlap=args.ifm_ofm_overlap,
         verbose_schedule=args.verbose_schedule,
         verbose_pareto_frontier_schedules=args.verbose_pareto_frontier_schedules,
         use_ifm_streaming=args.ifm_streaming,

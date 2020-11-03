@@ -59,7 +59,6 @@ class SchedulerOptions:
     def __init__(
         self,
         use_cascading=True,
-        use_ifm_ofm_overlap=True,
         verbose_schedule=False,
         verbose_pareto_frontier_schedules=False,
         use_ifm_streaming=True,
@@ -67,7 +66,6 @@ class SchedulerOptions:
         use_nhcwb16_between_cascaded_passes=True,
     ):
         self.use_cascading = use_cascading
-        self.use_ifm_ofm_overlap = use_ifm_ofm_overlap
         self.verbose_schedule = verbose_schedule
         self.verbose_pareto_frontier_schedules = verbose_pareto_frontier_schedules
         self.use_ifm_streaming = use_ifm_streaming
@@ -236,7 +234,7 @@ class DynamicProgrammingScheduler:
         if self.arch.feature_map_storage_mem_area != MemArea.Sram:
             self.use_ifm_ofm_overlap = False  # force off IFM/OFM overlap if IFMs and OFMs are not in the SRAM
         else:
-            self.use_ifm_ofm_overlap = options.use_ifm_ofm_overlap
+            self.use_ifm_ofm_overlap = True
 
         self.verbose_schedule = options.verbose_schedule
         self.verbose_pareto_frontier_schedules = options.verbose_pareto_frontier_schedules

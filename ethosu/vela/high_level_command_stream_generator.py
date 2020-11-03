@@ -394,7 +394,3 @@ def calc_allowed_ofm_ifm_overlap_for_pass_list(strat, passes, block_configs):
 
     min_overlap = max(min_overlap, 0)
     return min_overlap
-
-
-def calc_allowed_ofm_ifm_overlap_for_cascaded_pass(cps):
-    return calc_allowed_ofm_ifm_overlap_for_pass_list(cps.strategy, cps.passes, [ps.block_config for ps in cps.passes])
