@@ -41,9 +41,8 @@ def decode_str(s):
     return s.decode("utf-8")
 
 
-def clone_and_reshape_tensor(src_tens, reorder):
-
-    tens = src_tens.clone("_reshape")
+def clone_and_reshape_tensor(src_tens, reorder, set_unique):
+    tens = src_tens.clone("_reshape", set_unique)
     tens.shape = [src_tens.shape[idx] for idx in reorder]
     tens.bandwidth_shape = tens.shape
     tens.storage_shape = tens.shape
@@ -153,17 +152,16 @@ class TFLiteSubgraph:
         if op.type.is_depthwise_conv2d_op() or op.type.is_conv2d_op() or op.type == Op.FullyConnected:
             if inputs[1].values is not None:
                 if op.type == Op.FullyConnected:
-                    inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 0))
+                    inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 0), False)
                 else:
-                    inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 2, 3, 0))
+                    inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 2, 3, 0), False)
             if op.type.needs_bias() and len(inputs) <= op_type.info.indices.biases[0]:
                 # No Bias tensor
                 inputs.append(None)
             if inputs[-1] and inputs[-1].values is not None:
-                inputs[-1] = clone_and_reshape_tensor(inputs[-1], (0,))
                 # Since bias tensor is used for both bias and scale,
-                # set different equivalence_id for all bias tensors
-                inputs[-1].set_random_equivalence_id()
+                # a clone with a unique equivalence_id is needed
+                inputs[-1] = clone_and_reshape_tensor(inputs[-1], (0,), True)
 
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data)

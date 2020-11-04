@@ -15,6 +15,7 @@
 # limitations under the License.
 # Description:
 # Internal representation of a Neural Network Tensor.
+import copy
 import enum
 import uuid
 from collections import defaultdict
@@ -392,34 +393,25 @@ class Tensor:
             return self.dtype.size_in_bits() / 8
         return self.element_size_bytes
 
-    def clone(self, suffix="_clone"):
-        res = Tensor(self.shape, self.dtype, self.name + suffix)
-        res.storage_shape = list(self.storage_shape)
-        res.bandwidth_shape = list(self.bandwidth_shape)
+    # Returns a copy, renamed to self.name + suffix
+    # The references to Operators will be empty when returned
+    # Depending on set_unique, the copy is shallow, or deep
+    # For set_unique==True, a new equivalence_id will be set
+    def clone(self, suffix="_clone", set_unique=False):
+        if set_unique:
+            res = copy.deepcopy(self)
+            res.equivalence_id = uuid.uuid4()
+        else:
+            res = copy.copy(self)
+            res.storage_shape = list(self.storage_shape)
+            res.bandwidth_shape = list(self.bandwidth_shape)
+            if self.quantization is not None:
+                res.quantization = self.quantization.clone()
 
+        res.name = res.name + suffix
         res.ops = []
         res.consumer_list = []
 
-        res.values = self.values
-        res.quant_values = self.quant_values
-        res.mem_area = self.mem_area
-        res.mem_type = self.mem_type
-        res.format = self.format
-        res.purpose = self.purpose
-        res.sub_purpose = self.sub_purpose
-        res.alignment = self.alignment
-        res.bandwidth_compression_scale = self.bandwidth_compression_scale
-        res.storage_rounding_quantum = self.storage_rounding_quantum
-
-        if self.quantization is not None:
-            res.quantization = self.quantization.clone()
-        else:
-            res.quantization = None
-
-        res.resampling_mode = self.resampling_mode
-
-        res.copy_compressed_weight_info(self)
-        res.avoid_NHCWB16 = self.avoid_NHCWB16
         return res
 
     def clone_into_fast_storage(self, arch):
@@ -805,9 +797,6 @@ class Tensor:
         assert self.quantization.is_valid()
 
         return True
-
-    def set_random_equivalence_id(self):
-        self.equivalence_id = uuid.uuid4()
 
     def __str__(self):
         return "<nng.Tensor '%s' shape=%s dtype=%s>" % (self.name, self.shape, self.dtype)
