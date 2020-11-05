@@ -219,7 +219,6 @@ class SupportedOperators:
         # StridedSlice specific checks:
         self.specific_constraints[Op.StridedSlice].append(SupportedOperators.constraint_stridedslice_input_count)
         self.specific_constraints[Op.StridedSlice].append(SupportedOperators.constraint_stridedslice_inputs_const)
-        self.specific_constraints[Op.StridedSlice].append(SupportedOperators.constraint_stridedslice_tens_size_matches)
         self.specific_constraints[Op.StridedSlice].append(SupportedOperators.constraint_stridedslice_stride_values)
         self.specific_constraints[Op.StridedSlice].append(SupportedOperators.constraint_ellipsis_mask)
         self.specific_constraints[Op.StridedSlice].append(SupportedOperators.constraint_axis_masks)
@@ -726,22 +725,6 @@ class SupportedOperators:
             extra.append(f"Stride tensor '{strides.name}'")
         extra = ", ".join(extra)
         return valid, f"Op has non-constant tensors: {extra}"
-
-    @staticmethod
-    def constraint_stridedslice_tens_size_matches(op):
-        "All Input sizes must match OFM size"
-        ifm, begin, end, strides = op.inputs
-        ifm_size = len(ifm.shape)
-        ofm_size = len(op.ofm.shape)
-        begin_size = len(begin.values)
-        end_size = len(end.values)
-        strides_size = len(strides.values)
-        valid = ifm_size == ofm_size == begin_size == end_size == strides_size
-        extra = (
-            f"Op has ofm_size={ofm_size}, ifm_size={ifm_size},"
-            f" begin_size={begin_size}, end_size={end_size} and strides_size={strides_size}"
-        )
-        return valid, extra
 
     @staticmethod
     def constraint_stridedslice_stride_values(op):

@@ -486,12 +486,6 @@ def test_constraint_stridedslice_inputs_const():
     assert not support.is_operator_supported(op)
 
 
-def test_constraint_stridedslice_tens_size_matches():
-    op = create_strided_slice()
-    op.inputs[1].values = [1, 1, 1, 1, 1, 1, 1, 1]
-    assert not support.is_operator_supported(op)
-
-
 def test_constraint_stridedslice_stride_values():
     # Unsupported strides
     op = create_strided_slice()
