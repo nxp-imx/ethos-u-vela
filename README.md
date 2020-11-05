@@ -37,8 +37,7 @@ The following should be installed prior to the installation of Vela:
 
 * Python >= 3.6
 * Pip3
-* GNU toolchain (GCC, Binutils and libraries) or alternative C compiler/linker
-toolchain
+* GNU toolchain (GCC, Binutils and libraries)
 
 And optionally:
 
@@ -104,6 +103,16 @@ pipenv install -e .
 If you plan to contribute to the Vela project (highly encouraged!) then it is
 recommended to install Vela along with the pre-commit tools (see
 [Vela Testing](TESTING.md) for more details).
+
+### `mlw_codec`
+
+As part of the installation process, Vela will compile a C based module.
+
+The build flags used for this module are as follows:
+
+```none
+-Wall -Werror -Wno-unused-function -Wno-unused-variable
+```
 
 ## Running
 

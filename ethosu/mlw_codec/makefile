@@ -20,7 +20,7 @@
 
 UNAME=$(shell uname -o)
 
-CFLAGS=-Wall -Wno-unused-function -Wno-unused-variable
+CFLAGS=-Wall -Werror -Wno-unused-function -Wno-unused-variable
 
 ifeq ($(DEBUG),1)
     CFLAGS+=-g -O0 -DDEBUG
