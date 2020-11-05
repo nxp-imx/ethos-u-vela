@@ -18,9 +18,11 @@
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 
 from ethosu.vela.operation import Op
+from ethosu.vela.tflite.TensorType import TensorType
 from ethosu.vela.tflite_reader import TFLiteSubgraph
 
 
@@ -79,3 +81,34 @@ class TestTFLiteSubgraph:
             assert len(created_op.inputs) == expected
             assert created_op.outputs[0].name == "tensor_{}".format(output)
             assert inputs[-1] != -1 or not created_op.inputs[-1]
+
+    string_buffer_testdata = [
+        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.uint8), [3, 5]),
+        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.int16), [10, 10]),
+        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.float32), [100]),
+        (np.array([], dtype=np.int8), [30]),
+    ]
+
+    @pytest.mark.parametrize("buffer, tens_shape", string_buffer_testdata)
+    def test_parse_tensor_with_string_buffer(self, buffer, tens_shape):
+        tens_data = MagicMock()
+        tens_data.ShapeAsNumpy = MagicMock(return_value=np.array(tens_shape), dtype=np.int32)
+        tens_data.Name = MagicMock(return_value=b"test_data")
+        tens_data.Type = MagicMock(return_value=TensorType.STRING)
+        tens_data.Quantization = MagicMock(return_value=None)
+        tens_data.Buffer = MagicMock(return_value=0)
+
+        tfl_sg = MagicMock()
+        tfl_sg.Name = MagicMock(return_value=b"test_sg")
+        tfl_sg.TensorsLength = MagicMock(return_value=0)
+        tfl_sg.OperatorsLength = MagicMock(return_value=0)
+        tfl_sg.OutputsAsNumpy = MagicMock(return_value=[])
+        tfl_sg.InputsAsNumpy = MagicMock(return_value=[])
+
+        graph = MagicMock()
+        graph.buffers = [buffer]
+
+        subgraph = TFLiteSubgraph(graph, tfl_sg)
+
+        tens = subgraph.parse_tensor(tens_data)
+        assert tens.values is None

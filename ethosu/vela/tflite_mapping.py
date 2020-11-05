@@ -171,6 +171,7 @@ datatype_map_numpy = {
     TensorType.BOOL: np.bool,
     TensorType.COMPLEX64: np.complex64,
     TensorType.COMPLEX128: np.complex128,
+    TensorType.STRING: np.dtype("S1"),
 }
 
 
