@@ -25,6 +25,7 @@ from .numeric_util import is_integer
 from .operation import get_slice_offsets
 from .operation import Op
 from .tensor import check_quantized_tens_scaling_equal
+from .tflite_mapping import optype_to_builtintype
 
 
 # Custom decorator function to allow formatting docstrings containing "{}"
@@ -34,10 +35,6 @@ def docstring_format_args(args):
         return func
 
     return docstring
-
-
-def warn_cpu(op, msg):
-    print("Warning: {} {}, placing on CPU".format(op.type, msg))
 
 
 class SupportedOperators:
@@ -232,15 +229,16 @@ class SupportedOperators:
         self.specific_constraints[Op.LeakyRelu].append(SupportedOperators.constraint_alpha_valid)
 
     def is_operator_supported(self, op):
+        ext_type = optype_to_builtintype(op.type)
         if op.type not in SupportedOperators.supported_operators:
             if op.type not in (Op.Placeholder, Op.SubgraphInput, Op.Const):
-                print(f"Info: {op.type} '{op.name}' is not supported on the NPU. Placing on CPU instead")
+                print(f"Info: {ext_type} '{op.name}' is a CPU only op")
             return False
 
         for constraint in self.generic_constraints + self.specific_constraints[op.type]:
             valid, extra = constraint(op)
             if not valid:
-                print(f"Warning: {op.type} '{op.name}' is not supported on the NPU. Placing on CPU instead")
+                print(f"Warning: {ext_type} '{op.name}' is not supported on the NPU. Placing on CPU instead")
                 print(f" - {constraint.__doc__}")
                 if extra:
                     print(f"   {extra}")
