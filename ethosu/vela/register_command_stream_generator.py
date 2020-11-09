@@ -32,6 +32,7 @@ from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
 from .data_type import BaseType
 from .data_type import DataType
+from .debug_database import DebugDatabase
 from .ethos_u55_regs.ethos_u55_regs import acc_format
 from .ethos_u55_regs.ethos_u55_regs import activation
 from .ethos_u55_regs.ethos_u55_regs import cmd0
@@ -96,10 +97,13 @@ class IFM2Broadcast(IntEnum):
 
 
 class CommandStreamEmitter:
+    WORD_SIZE = 4
+
     def __init__(self):
         self.cmd_stream = []
         self.reg_machine = [RegisterMachine(), RegisterMachine()]
         self.last_absolute_wait = defaultdict(int)
+        self.offset = 0
 
     def get_reg_machine(self, cmd):
         if "DMA" in cmd.name:
@@ -110,7 +114,7 @@ class CommandStreamEmitter:
     def size_in_bytes(self):
         sz = 0
         for cmd in self.cmd_stream:
-            sz += len(cmd) * 4
+            sz += len(cmd) * CommandStreamEmitter.WORD_SIZE
         return sz
 
     def to_list(self):
@@ -154,6 +158,7 @@ class CommandStreamEmitter:
 
         # This is not a redundant command, actually write it
         self.cmd_stream.append((command,))
+        self.offset += CommandStreamEmitter.WORD_SIZE
 
     def cmd1_with_offset(self, cmd, offset, param=0x0):
         offset = int(offset) & 0xFFFFFFFFF
@@ -164,17 +169,20 @@ class CommandStreamEmitter:
 
         # This is not a redundant command, actually write it
         self.cmd_stream.append((command, offset))
+        self.offset += CommandStreamEmitter.WORD_SIZE * 2
 
     def cmd_wait(self, cmd, channel, outstanding_count):
         param = (16 * channel) + outstanding_count
         command = ((param & 0xFFFF) << 16) | cmd.value
         self.cmd_stream.append((command,))
+        self.offset += CommandStreamEmitter.WORD_SIZE
 
     def cmd_do_operation(self, cmd, param=0):
         param = int(param)
         command = ((param & 0xFFFF) << 16) | cmd.value
 
         self.cmd_stream.append((command,))
+        self.offset += CommandStreamEmitter.WORD_SIZE
         self.get_reg_machine(cmd).switch_bank()
 
 
@@ -377,6 +385,9 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
         emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
 
     dep_watermark = Watermark(0, 0)
+
+    stream_id = DebugDatabase.add_stream(sg)
+    DebugDatabase.set_stream_offset(sg, 0)  # Default to zero, can only set during file writing
 
     for cmd_index, cmd in enumerate(cmd_stream):
         dep_watermark, cmd_waits = get_cmd_wait_dependency(arch, cmd_stream, memory_accesses, cmd_index, dep_watermark)
@@ -1077,6 +1088,7 @@ def generate_register_command_stream(nng, sg, arch, verbose=False):
             prev_cmd = cmd
 
             emit_cmd_waits(cmd_waits)
+            DebugDatabase.add_command(stream_id, emit.offset, primary_op)
 
             if npu_block_type == NpuBlockType.ConvolutionMxN:
                 emit.cmd_do_operation(cmd0.NPU_OP_CONV)

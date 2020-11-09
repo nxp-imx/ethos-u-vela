@@ -31,10 +31,13 @@ from . import register_command_stream_generator
 from . import scheduler
 from . import tensor_allocation
 from . import weight_compressor
+from .debug_database import DebugDatabase
 from .errors import VelaError
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
+from .operation import Op
 from .rewrite_graph import verify_graph_health
+from .rewrite_graph import visit_graph_post_order
 from .tensor import MemType
 from .tensor import Tensor
 
@@ -127,8 +130,18 @@ def next_sram_factor(alloc_results):
     return ((lower + upper) / 2, True)
 
 
+def _record_operator(op, arch):
+    if op.type != Op.Const:
+        DebugDatabase.add_source(op)
+
+
 def compiler_driver(nng, arch, options, scheduler_options):
     assert verify_graph_health(nng)
+
+    # Pre-optimisation operator tracking
+    for sg in nng.subgraphs:
+        visit_graph_post_order(sg.output_tensors, arch, [], [_record_operator])
+
     nng = graph_optimiser.optimise_graph_a(nng, arch, options.verbose_graph)
     assert verify_graph_health(nng)
 

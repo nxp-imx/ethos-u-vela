@@ -18,6 +18,7 @@
 import collections
 import enum
 
+from .debug_database import DebugDatabase
 from .nn_graph import Pass
 from .nn_graph import PassPlacement
 from .operation import create_avgpool_nop
@@ -430,7 +431,6 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             # Configure a 1x1 AvgPool and attach the op onto it
             op = op_list[0]
             inp = op.inputs[0]
-
             avgpool_op = create_avgpool_nop(op.name + "_avgpool")
             avgpool_op.add_input_tensor(inp)
             avgpool_out = inp.clone("_avgpooled")
@@ -440,6 +440,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             op.inputs[0] = avgpool_out
             op_list.insert(0, avgpool_op)
 
+            DebugDatabase.add_optimised(op, avgpool_op)
             return avgpool_op
 
         return None

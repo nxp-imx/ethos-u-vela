@@ -25,6 +25,7 @@ from . import lut
 from . import rewrite_graph
 from . import scaling
 from .data_type import DataType
+from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import clamp_sigmoid
@@ -77,6 +78,7 @@ def rewrite_concat(tens, arch, nng):
             new_op.attrs["concat_end"] = offset
             new_op.run_on_npu = True
             tens.ops.append(new_op)
+            DebugDatabase.add_optimised(concat_op, new_op)
         assert tens.shape[axis] == offset
 
         # If axis corresponds to C-dimension, NHCWB16 can only be used in the output if all the concat_start's are a
@@ -128,6 +130,7 @@ def rewrite_split(tens, arch, nng):
         new_op.attrs["split_end"] = offset_end
         new_op.run_on_npu = True
         new_op.set_output_tensor(tens)
+        DebugDatabase.add_optimised(split_op, new_op)
 
     return tens
 
@@ -399,6 +402,7 @@ def fixup_pack_input(op, arch, nng):
             reshape_op.attrs["new_shape"] = desired_shape
             reshape_op.inputs = [inp, new_shape_tens]
             reshape_op.set_output_tensor(reshape_out)
+            DebugDatabase.add_optimised(op, reshape_op)
 
             op.inputs[idx] = reshape_out
 
@@ -492,6 +496,7 @@ def fixup_unpack_output(tens, arch, nng):
             reshape_op.attrs["new_shape"] = reshape_input_shape
             reshape_op.inputs = [reshape_in, new_shape_tens]
             reshape_op.set_output_tensor(out_tens)
+            DebugDatabase.add_optimised(op, reshape_op)
 
             op.outputs[idx] = reshape_in
 
@@ -568,6 +573,7 @@ def convert_depthwise_to_conv(op, arch, nng):
                     op.attrs["depth_multiplier"], ifm_tensor.shape[3], ofm_tensor.shape[3]
                 )
             )
+        DebugDatabase.add_optimised(op, op)
     return op
 
 
@@ -616,6 +622,9 @@ def convert_conv_to_fc(op, arch, nng):
             reshape_op.set_output_tensor(orig_ofm_tensor)
             # Replace this ops OFM to point to the 2D tensor
             op.outputs[0] = fc_ofm_tensor
+            # Record optimisation in debug database
+            DebugDatabase.add_optimised(op, reshape_op)
+            DebugDatabase.add_optimised(op, op)
     return op
 
 
@@ -670,6 +679,10 @@ def fixup_act_reorder(op, arch, nng):
 
             # Mark the op so that it will be removed as passthrough later on
             op.type = Op.Identity
+
+            # Record optimisation in debug database
+            DebugDatabase.add_optimised(op, act_op)
+            DebugDatabase.add_optimised(op, op)
     return op
 
 
@@ -788,6 +801,10 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
         op.name = op.name.replace("Maximum", new_op.name)
         op.outputs[0].name = op.outputs[0].name.replace("Maximum", new_op.name)
         op.inputs = [shared_in]
+
+        # Record optimisation in debug database
+        DebugDatabase.add_optimised(op, op)
+
     return op
 
 
@@ -812,6 +829,7 @@ def convert_lrelu_to_mul_max(op, arch):
     mul_alpha.add_input_tensor(alpha_tens)
     fm_alpha = ofm.clone(op.name + "_alpha")
     mul_alpha.set_output_tensor(fm_alpha)
+    DebugDatabase.add_optimised(op, mul_alpha)
 
     if check_quantized_tens_scaling_equal(ifm, ofm):
         # No identity multiplication is needed
@@ -832,6 +850,7 @@ def convert_lrelu_to_mul_max(op, arch):
         mul_identity.add_input_tensor(identity_tens)
         fm_id = ofm.clone(op.name + "_id")
         mul_identity.set_output_tensor(fm_id)
+        DebugDatabase.add_optimised(op, mul_alpha)
 
     # Convert LeakyRelu to Max, add the results of the multiplication(s) as inputs
     op.type = Op.Maximum
@@ -840,6 +859,8 @@ def convert_lrelu_to_mul_max(op, arch):
     ifm.consumer_list.remove(op)
     op.add_input_tensor(fm_alpha)
     op.add_input_tensor(fm_id)
+
+    DebugDatabase.add_optimised(op, op)
     return op
 
 
@@ -1012,6 +1033,7 @@ def fuse_activation_function_with_prev(op, arch, nng):
         prev_op.set_activation_lut(op.activation_lut)
     # Bypass op
     prev_op.set_output_tensor(ofm)
+    DebugDatabase.add_optimised(op, prev_op)
     return op
 
 
@@ -1050,6 +1072,11 @@ def fixup_bias_tensors(op, arch, nng):
 def supported_operator_check(op, arch, nng):
     op.run_on_npu = arch.supported_operators.is_operator_supported(op)
     return op
+
+
+def _record_optimised(op, arch):
+    if op.type != Op.Const:
+        DebugDatabase.add_optimised(op, op)
 
 
 def optimise_graph_a(nng, arch, verbose_graph=False):
@@ -1092,6 +1119,10 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
             nng, sg, arch, [remove_passthrough_tensor], [fuse_activation_function_with_prev, add_padding_fields]
         )
+
+    # Post-optimisation operator debug tracing
+    for sg in nng.subgraphs:
+        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [_record_optimised])
 
     if verbose_graph:
         nng.print_graph()

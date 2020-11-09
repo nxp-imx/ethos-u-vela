@@ -56,7 +56,7 @@ setup(
     keywords=["ethos-u", "vela compiler", "tflite", "npu"],
     packages=find_namespace_packages(include=["ethosu.*"]),
     python_requires="~=3.6",  # We support only 3.6+
-    install_requires=["flatbuffers==1.11.0", "numpy>=1.16.6"],
+    install_requires=["flatbuffers==1.11.0", "numpy>=1.16.6", "lxml>=4.6.1"],
     entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
     ext_modules=[mlw_module],
     setup_requires=["setuptools_scm"],

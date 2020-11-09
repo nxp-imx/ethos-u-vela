@@ -204,6 +204,19 @@ a RecursionError exception.
 vela network.tflite --recursion-limit 50000
 ```
 
+### Enable Debug DB
+
+The neural network debug database allows tracking of optimisations from the
+input network graph to the output command stream.  Set this option to enable the
+calculation and writing of an XML file that contains the network debug database
+tables to the output directory.  
+**Type: Boolean**  
+**Default: Disabled**  
+
+```bash
+vela network.tflite --enable-debug-db
+```
+
 ### Max Block Dependency
 
 Set the maximum value that can be used for the block dependency delay between
