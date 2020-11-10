@@ -322,7 +322,7 @@ def convert_batched_fc_shape(op, arch, nng):
         ifm = op.inputs[0]
         ofm = op.outputs[0]
         # Check if the FC is 2D and first dimension indicates batching
-        if len(ifm.shape) == len(ofm.shape) == 2 and ifm.shape[0] != 1:
+        if len(ifm.shape) == len(ofm.shape) == 2 and ifm.shape[0] > 1:
             n = ifm.shape[0]
             batching_split = {4: (2, 2), 8: (2, 4), 16: (4, 4)}
             h, w = batching_split.get(n, (1, n))
@@ -649,7 +649,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
 
 # Reorder activation op if it's after the memory only operations
 def fixup_act_reorder(op, arch, nng):
-    if op.type.is_relu_op() or op in set((Op.Sigmoid, Op.Tanh)):
+    if op.type.is_relu_op() or op.type in set((Op.Sigmoid, Op.Tanh)):
         prep_op = get_prepend_op(op)
         if prep_op is not None:
             act_op = op.clone("_reordered")
