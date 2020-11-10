@@ -691,10 +691,15 @@ builtin_operator_inv_map = {v[0]: (k, v[1]) for k, v in builtin_operator_map.ite
 
 builtin_operator_inv_map[Op.CustomNpuOp] = (BuiltinOperator.CUSTOM, CustomOptionsSerializer())
 
+BUILTIN_OPERATOR_UNKNOWN = "UNKNOWN"
+
+
+def builtin_type_name(builtin):
+    return next(k for k, v in vars(BuiltinOperator).items() if v == builtin)
+
 
 def optype_to_builtintype(op_type):
     if op_type in builtin_operator_inv_map:
-        builtin_type = builtin_operator_inv_map[op_type][0]
-        return next(k for k, v in vars(BuiltinOperator).items() if v == builtin_type)
+        return builtin_type_name(builtin_operator_inv_map[op_type][0])
     else:
-        return "UNKNOWN"
+        return BUILTIN_OPERATOR_UNKNOWN

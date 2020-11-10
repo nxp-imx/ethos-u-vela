@@ -38,6 +38,19 @@ required Network argument.
 vela --version
 ```
 
+### Supported Operator Report
+
+Generate the SUPPORTED_OPS.md file in the current working directory and exits.  
+Contains a summary table of all TFLite operators that can be placed on the NPU,
+and what the constraints are for that operator to be scheduled on the NPU.  
+If the constraints are not met, then it will be scheduled on the CPU instead.  
+**Type: N/A**  
+**Default: N/A**  
+
+```bash
+vela --supported-ops-report
+```
+
 ### Output Directory
 
 Specifies the output directory of the optimised network model as well as the
@@ -159,8 +172,8 @@ Limit the block config search space. This will result in faster compilation
 times but may impact the performance of the output network. Use 0 for unlimited
 search.  
 **Type: Integer**  
-**Choices: >= 0**  
 **Default: 16**  
+**Choices: >= 0**  
 
 ```bash
 vela network.tflite --block-config-limit 0
