@@ -456,6 +456,9 @@ def fixup_stridedslice_output(tens, arch, nng):
 
             assert len(tens.shape) == (len(op.inputs[0].shape) + n)
             op.attrs["new_axis_mask"] = 0
+        else:
+            # Equal Rank StridedSlice, no need to insert reshape
+            return tens
 
         # Construct 1 shape tensor to be used by all inserted reshape ops
         new_shape_tens = create_const_tensor(op.name + "_reshape_shape", [1], DataType.int32, tens.shape)
