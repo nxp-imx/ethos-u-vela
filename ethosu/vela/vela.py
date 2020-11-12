@@ -187,7 +187,7 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    parser = argparse.ArgumentParser(prog="vela", description="Neural network model compiler for Ethos-U")
+    parser = argparse.ArgumentParser(prog="vela", description="Neural network model compiler for Arm Ethos-U NPUs")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
         "--api-version", action="version", version=api_version, help="Displays the version of the external API."
@@ -200,7 +200,12 @@ def main(args=None):
 
     # set network nargs to be optional to allow the support-ops-report CLI option to be used standalone
     parser.add_argument(
-        "network", metavar="NETWORK", type=str, default=None, nargs="?", help="Filename of network to process"
+        "network",
+        metavar="NETWORK",
+        type=str,
+        default=None,
+        nargs="?",
+        help="Filename of the input TensorFlow Lite for Microcontrollers network",
     )
     parser.add_argument(
         "--output-dir", type=str, default="output", help="Output directory to write files to (default: %(default)s)"

@@ -34,7 +34,7 @@ mlw_module = Extension(
 setup(
     name="ethos-u-vela",
     use_scm_version=True,
-    description="Optimise TensorFlow Lite models for Ethos-U NPU.",
+    description="Neural network model compiler for Arm Ethos-U NPUs",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/",
