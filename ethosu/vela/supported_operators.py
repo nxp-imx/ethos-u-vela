@@ -212,6 +212,7 @@ class SupportedOperators:
         # Softmax specific checks:
         self.specific_constraints[Op.Softmax].append(SupportedOperators.constraint_matching_shapes)
         self.specific_constraints[Op.Softmax].append(SupportedOperators.constraint_matching_in_out_types)
+        self.specific_constraints[Op.Softmax].append(SupportedOperators.constraint_beta_value_range)
 
         # SplitV specific checks:
         self.specific_constraints[Op.SplitV].append(SupportedOperators.constraint_splitv_inferred)
@@ -558,6 +559,13 @@ class SupportedOperators:
         ofm_dtype = op.ofm.dtype
         valid = ifm_dtype == ofm_dtype
         return valid, f"Op has ifm_dtype={ifm_dtype} and ofm_dtype={ofm_dtype}"
+
+    @staticmethod
+    def constraint_beta_value_range(op):
+        "Beta value needs to be positive"
+        beta = op.attrs.get("beta", 1.0)
+        valid = beta >= 0
+        return valid, f"Op has beta={beta}"
 
     @staticmethod
     def constraint_filter_type(op):

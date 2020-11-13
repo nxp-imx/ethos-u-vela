@@ -382,6 +382,15 @@ def test_constraint_matching_shapes():
     assert support.is_operator_supported(op)
 
 
+def test_constraint_beta_value_range():
+    # beta must be positive
+    op = testutil.create_op_with_quant_tensors(Op.Softmax, [1, 1, 1, 8], [1, 1, 1, 8])
+    op.attrs["beta"] = -1.0
+    assert not support.is_operator_supported(op)
+    op.attrs["beta"] = 0.0
+    assert support.is_operator_supported(op)
+
+
 def test_constraint_splitv_inferred():
     # SplitV requires a maximum of one inferred shape (-1)
     qp = testutil.default_quant_params()
