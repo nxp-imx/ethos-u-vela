@@ -276,11 +276,20 @@ def estimate_output_cycles(
     cycle_per_elem = max(
         arch.output_cycles_per_elem[output_perf_index], arch.activation_cycles_per_elem[activation_perf_index]
     )
+
     return num_elems * cycle_per_elem
 
 
 def estimate_conv_pooling_cycles(
-    arch, npu_block_type, primary_op, block_config: Block, block_traversal, kernel_dims, ifm_tensor, ofm_tensor
+    arch,
+    npu_block_type,
+    primary_op,
+    block_config: Block,
+    block_traversal,
+    kernel_dims,
+    ifm_tensor,
+    ofm_tensor,
+    scale_tensor=None,
 ):
     ofm_ublock = Block(arch.config.ofm_ublock.width, arch.config.ofm_ublock.height, arch.config.ofm_ublock.depth)
     ifm_tens_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
@@ -299,11 +308,11 @@ def estimate_conv_pooling_cycles(
         ofm_ublock.height = 1
         block_config.height = 1
 
-    num_ublk = (
-        numeric_util.round_up_divide(block_config.width, ofm_ublock.width)
-        * (block_config.height // ofm_ublock.height)
-        * (block_config.depth // ofm_ublock.depth)
+    num_ublk_xy = numeric_util.round_up_divide(block_config.width, ofm_ublock.width) * (
+        block_config.height // ofm_ublock.height
     )
+    num_ublk_z = block_config.depth // ofm_ublock.depth
+
     num_ofm_blk = 0
     total_cycles = 0
     num_elems_blk = block_config.width * block_config.height * block_config.depth
@@ -325,29 +334,36 @@ def estimate_conv_pooling_cycles(
         npu_block_type, ifm_tens_shape[3], ifm_tensor.dtype.size_in_bits(), block_traversal, block_config.depth
     )
     cycles_dpu_blk = 0
+    cycles_wb = 32 * ofm_ublock.depth // 8
 
     for num_kernel_elems in sub_kernel_size:
         if npu_block_type == NpuBlockType.Pooling:
-            cycles = max(4, num_kernel_elems) * num_ublk
+            cycles = max(4, num_kernel_elems) * num_ublk_xy * num_ublk_z
             if ifm_tensor.dtype.size_in_bits() == 16 and arch.accelerator_config != Accelerator.Ethos_U55_32:
                 cycles *= 2
         elif npu_block_type == NpuBlockType.ConvolutionDepthWise:
-            cycles = 4 * numeric_util.round_up_divide(num_kernel_elems, 4) * num_ublk
+            cycles = 4 * num_ublk_xy
             if ifm_tensor.dtype.size_in_bits() == 16:
                 cycles *= 2
+            cycles = max(cycles_wb, cycles) * numeric_util.round_up_divide(num_kernel_elems, 4) * num_ublk_z
         elif (
             (npu_block_type == NpuBlockType.ConvolutionMxN and block_traversal != TensorBlockTraversal.PartKernelFirst)
             or npu_block_type == NpuBlockType.VectorProduct
             or npu_block_type == NpuBlockType.ReduceSum
         ):
-            cycles = 4 * num_kernel_elems * num_ublk * numeric_util.round_up_divide(ifm_tens_shape[3], ifm_blk_depth)
+            cycles = (
+                max(cycles_wb, 4 * num_ublk_xy)
+                * num_kernel_elems
+                * num_ublk_z
+                * numeric_util.round_up_divide(ifm_tens_shape[3], ifm_blk_depth)
+            )
         else:
             assert block_traversal == TensorBlockTraversal.PartKernelFirst
             divider = 2 if ifm_tensor.dtype.size_in_bits() == 16 else 4
-            cycles = 4 * (
+            cycles = max(cycles_wb, 4 * num_ublk_xy) * (
                 numeric_util.round_up_divide(num_kernel_elems, divider)
                 * numeric_util.round_up_divide(ifm_blk_depth, 8)
-                * num_ublk
+                * num_ublk_z
                 * numeric_util.round_up_divide(ifm_tens_shape[3], ifm_blk_depth)
             )
         cycles_dpu_blk += cycles
@@ -363,6 +379,16 @@ def estimate_conv_pooling_cycles(
     cycles_output_blk = estimate_output_cycles(
         arch, npu_block_type, primary_op, num_elems_blk, ifm_tensor, ofm_tensor, None, use_acc_40bits
     )
+
+    if scale_tensor:
+        if scale_tensor.mem_area is MemArea.Sram:
+            latency = 32
+        elif scale_tensor.mem_area is MemArea.Dram:
+            latency = 500
+        else:
+            latency = 64
+        cycles_bias_blk = 10 * min(block_config.depth, ofm_tens_shape[3]) * latency / 256
+        cycles_output_blk = max(cycles_output_blk, cycles_bias_blk)
 
     if cycles_dpu_blk > cycles_output_blk:
         total_cycles = cycles_dpu_blk * num_ofm_blk + cycles_output_blk
@@ -576,7 +602,15 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=[], f
             macs[MacCount.NeuralNetworkMacs] += nn_ops
             macs[MacCount.HardwareMacs] += num_mac_ops
             cycles[PassCycles.Npu] = estimate_conv_pooling_cycles(
-                arch, npu_block_type, primary_op, ofm_block, block_traversal, kernel_dims, ifm_tensor, ofm_tensor,
+                arch,
+                npu_block_type,
+                primary_op,
+                ofm_block,
+                block_traversal,
+                kernel_dims,
+                ifm_tensor,
+                ofm_tensor,
+                ps.scale_tensor,
             )
         elif npu_block_type == NpuBlockType.VectorProduct:
             nn_macs = (
