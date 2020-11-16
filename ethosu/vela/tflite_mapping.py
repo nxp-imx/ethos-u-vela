@@ -367,8 +367,12 @@ class OptionsSerializer:
                 if is_vector:
                     fun += "AsNumpy"
 
-                a = deserialize(getattr(tfattrs, fun)())
-                attrs[underscore_mem] = a
+                attr = getattr(tfattrs, fun)()
+                try:
+                    attrs[underscore_mem] = deserialize(attr)
+                except TypeError:
+                    print("Warning: {0} could not read attribute '{1}'.".format(self.name, underscore_mem))
+
         return attrs
 
     def serialize(self, builder, attrs):
