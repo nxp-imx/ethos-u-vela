@@ -100,6 +100,28 @@ def test_constraint_tens_quant_scale():
     assert not support.is_operator_supported(op)
 
 
+def test_constraint_tens_quant_per_axis_not_supp():
+    # Quantization scale cannot be array-valued for elemwise ops
+    qp = QuantizationParameters()
+    qp.zero_point = np.zeros((1, 3))
+    qp.scale_f32 = np.ones((1, 3))
+    op = testutil.create_elemwise_op(Op.Mul, "op", [1, 8, 8, 8], [], [1, 8, 8, 8], ifm_quant=qp)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_tens_quant_per_axis_is_supp():
+    op = testutil.create_op_with_quant_tensors(
+        Op.Conv2DBias, [1, 1, 1, 3], [1, 1, 1, 3], weights_shape=[1, 1, 1, 3], bias_shape=[1, 1, 1, 3]
+    )
+    op.attrs = {"stride_w": 1, "stride_h": 1}
+    assert support.is_operator_supported(op)
+    qp = QuantizationParameters()
+    qp.zero_point = np.zeros((1, 3))
+    qp.scale_f32 = np.ones((1, 3))
+    op.bias.quantization = qp
+    assert support.is_operator_supported(op)
+
+
 def test_constraint_faf():
     # Fused activation functions, if set, must be a valid op type
     op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8])

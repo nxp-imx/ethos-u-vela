@@ -246,6 +246,13 @@ class QuantizationParameters:
 
         return None not in (self.scale_f32, self.zero_point)
 
+    def is_per_axis(self):
+        """Returns True if either the scale, zero point, minimum or maximum values are arrays"""
+        for attr in ("scale_f32", "zero_point", "min", "max"):
+            if isinstance(getattr(self, attr), np.ndarray):
+                return True
+        return False
+
 
 def create_const_tensor(name, shape, dtype, values, value_dtype=None, purpose=TensorPurpose.Unknown, quantization=None):
     # Tensor

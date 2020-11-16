@@ -43,8 +43,8 @@ def _optype_formatter(op_list):
     output = map(optype_to_builtintype, op_list)
     # Remove UNKNOWNs
     output = (x for x in output if x is not BUILTIN_OPERATOR_UNKNOWN)
-    # Order alphabetically
-    return sorted(output)
+    # Order alphabetically and join into a string representation
+    return ", ".join(str(op) for op in sorted(output))
 
 
 class SupportedOperators:
@@ -94,6 +94,7 @@ class SupportedOperators:
     concat_ops = set((Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack,))
     memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape,)) | concat_ops | split_ops
     shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV,))
+    per_axis_quant_ops = convolution_like_ops  # per-axis/channel quantization only currently supported for conv ops
     supported_fused_activations = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.LUT,))
     supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | npu_post_ops | memory_only_ops
     # Supported data types
@@ -113,6 +114,7 @@ class SupportedOperators:
     docstring_shapeless_input_ops = _optype_formatter(shapeless_input_ops)
     docstring_supported_int32_tensor_ops = _optype_formatter(supported_int32_tensor_ops)
     docstring_supported_fused_activations = _optype_formatter(supported_fused_activations)
+    docstring_per_axis_quant_ops = _optype_formatter(per_axis_quant_ops)
 
     def __init__(self):
         # Setup the generic constraints. Note: the order matters
@@ -127,6 +129,7 @@ class SupportedOperators:
         self.generic_constraints.append(SupportedOperators.constraint_tens_dimension)
         self.generic_constraints.append(SupportedOperators.constraint_tens_quant_none_check)
         self.generic_constraints.append(SupportedOperators.constraint_tens_quant_scale)
+        self.generic_constraints.append(SupportedOperators.constraint_tens_quant_per_axis)
         self.generic_constraints.append(SupportedOperators.constraint_faf)
 
         # Setup specific constraints. Note: the order matters
@@ -389,6 +392,20 @@ class SupportedOperators:
                 valid = False
                 extra.append(f"Tensor '{tens.name}' has quantization scale: {tens.quantization.scale_f32}")
         return valid, ", ".join(extra)
+
+    @classmethod
+    @docstring_format_args([docstring_per_axis_quant_ops])
+    def constraint_tens_quant_per_axis(cls, op):
+        "Per-axis quantization is only supported for the following op types: {}"
+        valid = True
+        extra = []
+        if op.type not in cls.per_axis_quant_ops:
+            tensors = [tens for tens in op.get_ifm_ifm2_weights_ofm() if tens]
+            for tens in tensors:
+                if tens.quantization.is_per_axis():
+                    valid = False
+                    extra.append(tens.name)
+        return valid, "The following tensor(s) have per-axis quantization parameters: " + ", ".join(extra)
 
     @classmethod
     @docstring_format_args([docstring_supported_fused_activations])
