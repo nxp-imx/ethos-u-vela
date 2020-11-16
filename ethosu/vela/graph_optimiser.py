@@ -317,7 +317,7 @@ def fixup_fully_connected_input(op, arch, nng):
     return op
 
 
-def convert_batched_fc_to_conv(op, arch, nng):
+def convert_batched_fc_shape(op, arch, nng):
     if op.type == Op.FullyConnected:
         ifm = op.inputs[0]
         ofm = op.outputs[0]
@@ -326,19 +326,6 @@ def convert_batched_fc_to_conv(op, arch, nng):
             n = ifm.shape[0]
             batching_split = {4: (2, 2), 8: (2, 4), 16: (4, 4)}
             h, w = batching_split.get(n, (1, n))
-
-            # Convert to convolution
-            op.name += "_conv"
-            op.type = Op.Conv2DBias
-            op.attrs = {
-                "dilation": (1, 1, 1, 1),
-                "dilation_h_factor": 1,
-                "dilation_w_factor": 1,
-                "padding": b"SAME",
-                "stride_h": 1,
-                "stride_w": 1,
-                "strides": (1, 1, 1, 1),
-            }
 
             prev_op = ifm.ops[0]
             desired_shape = [1, h, w, ifm.shape[-1]]
@@ -380,7 +367,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
                 else:
                     op.outputs[0].set_all_shapes(desired_shape)
             else:
-                # Add rehape op to the output
+                # Add reshape op to the output
                 op.set_output_tensor(create_reshape_tensor(ofm, desired_shape, False))
     return op
 
@@ -1095,7 +1082,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_conv_to_fc,
         convert_softmax,
         fixup_fully_connected_input,
-        convert_batched_fc_to_conv,
+        convert_batched_fc_shape,
         fixup_pack_input,
         unfuse_activation_function,
         fixup_conv2d_backprop,
