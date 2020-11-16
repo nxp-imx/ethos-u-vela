@@ -446,6 +446,8 @@ class Tensor:
         except TypeError:
             pass
 
+        if shape_len > 4:
+            return
         self.storage_rounding_quantum = arch.storage_rounding_quantums[self.format]
         self.storage_rounding_quantum = self.storage_rounding_quantum[-shape_len:]
         self.brick_size = arch.brick_sizes[self.format]

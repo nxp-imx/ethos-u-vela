@@ -59,6 +59,8 @@ def rewrite_mark_tensor_purpose(op, arch):
             mark_purpose(tens, arch, TensorPurpose.FeatureMap)
     weight_tensors = op.get_weight_tensors()
     for tens in op.inputs:
+        if tens is None:
+            continue
         if tens.purpose != TensorPurpose.Unknown:
             purpose = tens.purpose
         elif tens in weight_tensors:
