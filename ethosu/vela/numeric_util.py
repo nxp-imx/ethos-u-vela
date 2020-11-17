@@ -88,6 +88,7 @@ def clamp_sigmoid(x):
 
 
 def full_shape(dim, shape, fill):
+    """Returns a shape of at least dim dimensions"""
     return ([fill] * (dim - len(shape))) + shape
 
 

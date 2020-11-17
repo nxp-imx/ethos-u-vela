@@ -23,6 +23,7 @@ import numpy as np
 
 from .errors import OptionError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
+from .numeric_util import full_shape
 from .numeric_util import round_up
 from .numeric_util import round_up_divide
 from .operation import Kernel
@@ -54,6 +55,13 @@ class Block:
     def from_string(cls, s):
         w, h, c = (int(v) for v in s.split("x"))
         return cls(w, h, c)
+
+    @classmethod
+    def from_shape(cls, shape) -> "Block":
+        """Converts the shape to a Block"""
+        shp = full_shape(3, shape, 1)
+        # Note: index from end, as len(shp) may be > 3
+        return Block(shp[-2], shp[-3], shp[-1])
 
 
 class Rect:

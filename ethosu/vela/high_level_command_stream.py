@@ -19,6 +19,7 @@ from enum import IntEnum
 
 import numpy as np
 
+from .architecture_features import Block
 from .numeric_util import round_up_divide
 from .operation import NpuBlockType
 
@@ -133,6 +134,9 @@ class Box:
 
     def get_size(self):
         return int(np.prod(self.get_size_shape()))
+
+    def get_block(self) -> Block:
+        return Block.from_shape(self.get_size_shape())
 
     def __str__(self):
         return "<Box %s - %s>" % (self.start_coord, self.end_coord)

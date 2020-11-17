@@ -44,6 +44,7 @@ from .api import NpuRoundingMode
 from .api import NpuShape3D
 from .api import NpuTileBox
 from .architecture_features import ArchitectureFeatures
+from .architecture_features import Block
 from .data_type import DataType
 from .high_level_command_stream import Box
 from .high_level_command_stream import Command
@@ -148,22 +149,20 @@ def get_rounding_mode(op: Operation) -> NpuRoundingMode:
 def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
     if primary_op.type.npu_block_type == NpuBlockType.VectorProduct:
         return NpuPadding(top=0, left=0, bottom=0, right=0)
-    explicit_padding = list(primary_op.attrs["explicit_padding"])  # (top, left, bottom, right)
+    top, left, bottom, right = primary_op.attrs["explicit_padding"]
 
     # Check if this is for horizontal ifm streaming
     if not (cmd.is_first_h_stripe and cmd.is_last_h_stripe):
-        explicit_padding[0] = cmd.pad_top
-        explicit_padding[2] = cmd.pad_bottom
+        top = cmd.pad_top
+        bottom = cmd.pad_bottom
 
     # Indexing from end since a 1x1 Avgpool might have been added with non 4-dimensional input/output,
     # because of activation function needed to be fused.
     if cmd.ifm_box.start_coord[-2] > 0:
-        explicit_padding[1] = 0
-    if cmd.ifm_box.end_coord[-2] < cmd.ifm_tensor.shape[-2]:
-        explicit_padding[3] = 0
-    return NpuPadding(
-        top=explicit_padding[0], left=explicit_padding[1], bottom=explicit_padding[2], right=explicit_padding[3]
-    )
+        left = 0
+    if cmd.ifm_box.end_coord[-2] < Block.from_shape(cmd.ifm_tensor.shape).width:
+        right = 0
+    return NpuPadding(top=top, left=left, bottom=bottom, right=right)
 
 
 def get_region(tens: Tensor, arch: ArchitectureFeatures) -> int:
@@ -197,10 +196,10 @@ def get_upscale(op: Operation) -> NpuResamplingMode:
 
 def get_ifm_depth(npu_block_type: NpuBlockType, ifm_box: Box, ofm_box: Box) -> int:
     if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
-        shape = ifm_box.get_size_shape()
+        block = ifm_box.get_block()
     else:
-        shape = ofm_box.get_size_shape()
-    return shape[-1]
+        block = ofm_box.get_block()
+    return block.depth
 
 
 def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
@@ -335,22 +334,18 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     """Sets common fields of the given operation"""
     ps = cmd.ps
     op = ps.primary_op
-    in_shape = cmd.ifm_box.get_size_shape()
-    out_shape = cmd.ofm_box.get_size_shape()
-    ofm_height = out_shape[-3] if len(out_shape) >= 4 else 1
-    ofm_width = out_shape[-2] if len(out_shape) >= 2 else 1
-    ofm_depth = out_shape[-1] if len(out_shape) >= 1 else 1
-    ifm_height = in_shape[-3] if len(in_shape) >= 4 else 1
-    if op.type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
-        ifm_depth = in_shape[-1] if len(in_shape) >= 1 else 1
-    else:
-        ifm_depth = ofm_depth
+
+    ifm_height = cmd.ifm_box.get_block().height
+    ifm_width = Block.from_shape(cmd.ifm_tensor.shape).width
+    ifm_depth = get_ifm_depth(op.type.npu_block_type, cmd.ifm_box, cmd.ofm_box)
 
     npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch)
-    npu_op.ifm.shape = NpuShape3D(height=ifm_height, width=cmd.ifm_tensor.shape[-2], depth=ifm_depth)
+    npu_op.ifm.shape = NpuShape3D(height=ifm_height, width=ifm_width, depth=ifm_depth)
     npu_op.ifm.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm_tensor)
+
+    out_block = cmd.ofm_box.get_block()
     npu_op.ofm = create_feature_map(cmd.ofm_tensor, cmd.ofm_box, arch)
-    npu_op.ofm.shape = NpuShape3D(height=ofm_height, width=ofm_width, depth=ofm_depth)
+    npu_op.ofm.shape = NpuShape3D(height=out_block.height, width=out_block.width, depth=out_block.depth)
     npu_op.ofm.quantization = get_ofm_quantization(ps, cmd.ofm_tensor)
 
     if cmd.weight_tensor is not None:
@@ -429,9 +424,9 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
             npu_op.ifm2_scalar = cmd.ifm2_tensor.values.item(0)
             npu_op.ifm2.shape = NpuShape3D(height=0, width=0, depth=0)
         else:
-            box_shp = cmd.ifm2_box.get_size_shape()
-            height = box_shp[-3] if len(box_shp) >= 3 else 1
-            npu_op.ifm2.shape = NpuShape3D(height=height, width=cmd.ifm2_tensor.shape[-2], depth=box_shp[-1])
+            ifm2_blk = cmd.ifm2_box.get_block()
+            ifm2_width = Block.from_shape(cmd.ifm2_tensor.shape).width
+            npu_op.ifm2.shape = NpuShape3D(height=ifm2_blk.height, width=ifm2_width, depth=ifm2_blk.depth)
     set_common_op_fields(npu_op, cmd, arch)
     # Check if output scale needs to be overridden
     output_scale = None
