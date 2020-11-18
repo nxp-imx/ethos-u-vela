@@ -25,9 +25,9 @@ from typing import Tuple
 
 import numpy
 
-API_version_major = 1
-API_version_minor = 0
-api_version = f"{API_version_major}.{API_version_minor}"
+API_VERSION_MAJOR = 1
+API_VERSION_MINOR = 0
+API_VERSION = f"{API_VERSION_MAJOR}.{API_VERSION_MINOR}"
 
 
 class NpuAccelerator(Enum):
@@ -388,13 +388,13 @@ class NpuElementWiseOperation(NpuBlockOperation):
         self.rescale: Optional[Tuple] = None
 
 
-def npu_get_API_version():
+def npu_get_api_version():
     """
     Public facing API to get the API version
     :return: int, the 16 most significant bits, corresponding to major version
             the 16 least significant bits, corresponding to minor version
     """
-    version = (API_version_major << 16) | (API_version_minor & 0xFFFF)
+    version = (API_VERSION_MAJOR << 16) | (API_VERSION_MINOR & 0xFFFF)
     return version
 
 

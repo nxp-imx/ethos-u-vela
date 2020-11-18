@@ -171,6 +171,11 @@ vela --help
 Information about all of Vela's CLI options as well as the system configuration
 file format can be found in [Vela Options](OPTIONS.md).
 
+## External APIs
+
+Vela provides a low-level external API to enable Ethos-U code generation from
+other tools. Please see [Vela External APIs](API.md).
+
 ## Example Networks
 
 Some example networks that contain quantised operators which can be compiled by

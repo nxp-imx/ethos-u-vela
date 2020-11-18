@@ -15,12 +15,12 @@
 # limitations under the License.
 # Description:
 # Contains unit tests for get API version for an external consumer
-from ethosu.vela.api import api_version
-from ethosu.vela.api import npu_get_API_version
+from ethosu.vela.api import API_VERSION
+from ethosu.vela.api import npu_get_api_version
 
 
-def test_npu_get_API_version():
-    int_version = npu_get_API_version()
+def test_npu_get_api_version():
+    int_version = npu_get_api_version()
     version_major = int_version >> 16
     version_minor = 0xFFFF & int_version
-    assert api_version == f"{version_major}.{version_minor}"
+    assert API_VERSION == f"{version_major}.{version_minor}"
