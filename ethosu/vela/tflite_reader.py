@@ -188,6 +188,12 @@ class TFLiteSubgraph:
             if "depth_multiplier" in op.attrs:
                 op.attrs["channel_multiplier"] = op.attrs["depth_multiplier"]
 
+            if op_type == Op.DepthwiseConv2DBias and op.attrs["depth_multiplier"] == 0:
+                # The depth multiplier is implicit and is calculated as weight channels / ifm channels
+                # Note however that the weights have been reshaped above.
+                # The original value is cached above in channel_multiplier
+                op.attrs["depth_multiplier"] = op.weights.shape[2] // op.ifm.shape[-1]
+
             faf = op.attrs.pop("fused_activation_function", None)
             if faf is not None:
                 op.activation = create_activation_function(faf)
