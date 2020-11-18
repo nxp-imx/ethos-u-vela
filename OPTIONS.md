@@ -38,6 +38,17 @@ required Network argument.
 vela --version
 ```
 
+### API version
+
+Displays the version of the external API. Can be used without the
+required Network argument.  
+**Type: N/A**  
+**Default: N/A**  
+
+```bash
+vela --api-version
+```
+
 ### Supported Operator Report
 
 Generate the SUPPORTED_OPS.md file in the current working directory and exits.  

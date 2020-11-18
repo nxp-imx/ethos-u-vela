@@ -23,6 +23,10 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 
+API_version_major = 1
+API_version_minor = 0
+api_version = f"{API_version_major}.{API_version_minor}"
+
 
 class NpuElementWiseOp(Enum):
     """
@@ -367,3 +371,13 @@ class NpuElementWiseOperation(NpuBlockOperation):
         self.reversed_operands: bool = False
         # Set to a tuple (scale, shift) for explicit rescale, else to None
         self.rescale: Optional[Tuple] = None
+
+
+def npu_get_API_version():
+    """
+    Public facing API to get the API version
+    :return: int, the 16 most significant bits, corresponding to major version
+            the 16 least significant bits, corresponding to minor version
+    """
+    version = (API_version_major << 16) | (API_version_minor & 0xFFFF)
+    return version

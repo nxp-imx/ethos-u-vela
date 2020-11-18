@@ -37,7 +37,3 @@ def test_encode_bias():
         biases_enc = encode_bias(bias, scale, shift)
         assert isinstance(biases_enc, bytearray)
         assert len(biases_enc) == 10
-
-
-if __name__ == "__main__":
-    test_encode_bias()

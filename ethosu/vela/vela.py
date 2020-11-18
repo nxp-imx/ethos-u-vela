@@ -31,6 +31,7 @@ from . import scheduler
 from . import stats_writer
 from . import tflite_writer
 from ._version import __version__
+from .api import api_version
 from .debug_database import DebugDatabase
 from .errors import InputFileError
 from .nn_graph import PassPlacement
@@ -189,6 +190,9 @@ def main(args=None):
 
     parser = argparse.ArgumentParser(prog="vela", description="Neural network model compiler for Ethos-U55")
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument(
+        "--api-version", action="version", version=api_version, help="Displays the version of the external API."
+    )
     parser.add_argument(
         "--supported-ops-report",
         action="store_true",

@@ -66,9 +66,3 @@ def test_encode_weights(
         block_traversal=block_traversal,
     )
     assert type(encoded_stream) == bytearray
-
-
-if __name__ == "__main__":
-    # two test candidates for debugging purposes
-    test_encode_weights(Accelerator.Ethos_U55_256, ((3, 3, 25, 16), 8), 1, 1, 8, 0)
-    test_encode_weights(Accelerator.Ethos_U55_256, ((16, 16, 16, 16), 8), 1, 1, 8, 0)
