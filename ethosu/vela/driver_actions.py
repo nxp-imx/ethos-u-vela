@@ -15,10 +15,15 @@
 # limitations under the License.
 # Description:
 # Creates driver actions that are embedded in the custom operator payload.
+import struct
 from typing import List
 
 import numpy as np
 
+from .api import NpuAccelerator
+from .architecture_features import Accelerator
+from .architecture_features import ArchitectureFeatures
+from .architecture_features import create_default_arch
 from .ethos_u55_regs.ethos_u55_regs import ARCH_VER
 from .ethos_u55_regs.ethos_u55_regs import config_r
 from .ethos_u55_regs.ethos_u55_regs import id_r
@@ -106,3 +111,24 @@ def emit_reg_read(data: List[int], reg_index: int, reg_count: int = 1):
 def emit_dump_shram(data: List[int]):
     assert data is not None
     data.append(make_da_tag(DACommands.DumpSHRAM, 0, 0))
+
+
+def create_driver_payload(register_command_stream: List[int], arch: ArchitectureFeatures) -> bytes:
+    """Creates driver header and includes the given command
+    """
+    # Prepare driver actions for this command tensor
+    da_list = []
+    emit_fourcc(da_list, "COP1")
+    emit_config(da_list, 0, 1, arch)
+    emit_cmd_stream_header(da_list, len(register_command_stream))
+
+    # Append command stream words
+    da_list.extend(register_command_stream)
+    # Convert to bytes, in little endian format
+    return struct.pack("<{0}I".format(len(da_list)), *da_list)
+
+
+def npu_create_driver_payload(register_command_stream: List[int], accelerator: NpuAccelerator) -> bytes:
+    """Internal implementation of the public facing API to create driver payload"""
+    arch = create_default_arch(Accelerator.from_npu_accelerator(accelerator))
+    return create_driver_payload(register_command_stream, arch)

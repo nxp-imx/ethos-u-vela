@@ -15,8 +15,6 @@
 # limitations under the License.
 # Description:
 # Serialises and packs an NPU subgraph into tensors.
-import struct
-
 import numpy as np
 
 from . import driver_actions
@@ -70,17 +68,7 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
     flash_size = sg.memory_used.get(flash_area, 0)
     scratch_size = sg.memory_used.get(scratch_area, 0)
 
-    # Prepare driver actions for this command tensor
-    da_list = []
-    driver_actions.emit_fourcc(da_list, "COP1")
-    driver_actions.emit_config(da_list, 0, 1, arch)
-    driver_actions.emit_cmd_stream_header(da_list, len(sg.register_command_stream))
-
-    # Append command stream words
-    da_list.extend(sg.register_command_stream)
-
-    # Convert to bytes
-    payload_bytes = struct.pack("<{0}I".format(len(da_list)), *da_list)
+    payload_bytes = driver_actions.create_driver_payload(sg.register_command_stream, arch)
 
     command_stream_size_bytes = len(payload_bytes)
 

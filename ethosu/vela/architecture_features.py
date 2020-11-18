@@ -605,7 +605,6 @@ class ArchitectureFeatures:
         return mem_port_mapping[mem_port]
 
     def _set_default_sys_config(self):
-        print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
         # ArchitectureFeatures.DEFAULT_CONFIG values
         if self.is_ethos_u65_system:
             # Default Ethos-U65 system configuration
@@ -625,7 +624,6 @@ class ArchitectureFeatures:
             self.memory_clock_scales[MemArea.OffChipFlash] = 0.125  # 1 / 8
 
     def _set_default_mem_mode(self):
-        print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
         # ArchitectureFeatures.DEFAULT_CONFIG values
         if self.is_ethos_u65_system:
             # Default Ethos-U65 memory mode
@@ -815,3 +813,18 @@ class ArchitectureFeatures:
             result = self.vela_config.get(section, key)
 
         return result
+
+
+def create_default_arch(accelerator: Accelerator) -> ArchitectureFeatures:
+    """Creates architecture features object using default settings"""
+    return ArchitectureFeatures(
+        vela_config_files=None,
+        accelerator_config=accelerator.value,
+        system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+        memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+        override_block_config=None,
+        block_config_limit=None,
+        max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
+        weight_estimation_scaling=1.0,
+        verbose_config=False,
+    )

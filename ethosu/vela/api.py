@@ -453,3 +453,19 @@ def npu_generate_register_command_stream(npu_op_list: List[NpuOperation], accele
     from . import register_command_stream_generator
 
     return register_command_stream_generator.generate_register_command_stream(npu_op_list, accelerator)
+
+
+def npu_create_driver_payload(register_command_stream: List[int], accelerator: NpuAccelerator) -> bytes:
+    """
+    Public facing API for generating driver payload, containing a driver header
+    and the given Ethos-U register command stream.
+    Returns the payload, in little endian format, which must be placed in memory on a 16-byte aligned
+    address.
+
+    :param register_command_stream: List[int] register commands, as a list of 32-bit integers
+    :param accelerator: NpuAccelerator enum to pick the correct accelerator
+    :return driver payload, as a byte array
+    """
+    from . import driver_actions
+
+    return driver_actions.npu_create_driver_payload(register_command_stream, accelerator)

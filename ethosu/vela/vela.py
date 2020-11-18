@@ -41,6 +41,7 @@ from .tensor import MemArea
 from .tensor import Tensor
 from .tflite_mapping import builtin_operator_map
 from .tflite_mapping import builtin_type_name
+from ethosu.vela.architecture_features import ArchitectureFeatures
 
 
 def process(input_name, enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options):
@@ -371,6 +372,12 @@ def main(args=None):
             "Invalid argument to --cpu-tensor-alignment = {} (must be greater than or equal to 16 and a power of 2)"
             "".format(args.cpu_tensor_alignment)
         )
+
+    if args.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
+        print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
+
+    if args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
+        print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
 
     arch = architecture_features.ArchitectureFeatures(
         vela_config_files=args.config,

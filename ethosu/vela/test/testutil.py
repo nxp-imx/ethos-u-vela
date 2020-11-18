@@ -27,17 +27,7 @@ from ethosu.vela.tensor import Tensor
 
 
 def create_arch():
-    return architecture_features.ArchitectureFeatures(
-        vela_config_files=None,
-        accelerator_config=architecture_features.Accelerator.Ethos_U55_128.value,
-        system_config=architecture_features.ArchitectureFeatures.DEFAULT_CONFIG,
-        memory_mode=architecture_features.ArchitectureFeatures.DEFAULT_CONFIG,
-        override_block_config=None,
-        block_config_limit=None,
-        max_blockdep=0,
-        weight_estimation_scaling=1.0,
-        verbose_config=False,
-    )
+    return architecture_features.create_default_arch(architecture_features.Accelerator.Ethos_U55_128)
 
 
 def default_quant_params():

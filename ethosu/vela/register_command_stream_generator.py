@@ -55,6 +55,7 @@ from .api import NpuTileBox
 from .architecture_features import Accelerator
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
+from .architecture_features import create_default_arch
 from .architecture_features import Rect
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
@@ -1282,16 +1283,6 @@ def generate_register_command_stream(npu_op_list: List[NpuOperation], npu_accele
     """
     accelerator = Accelerator.from_npu_accelerator(npu_accelerator)
     emit = CommandStreamEmitter()
-    arch = ArchitectureFeatures(
-        vela_config_files=None,
-        accelerator_config=accelerator.value,
-        system_config=ArchitectureFeatures.DEFAULT_CONFIG,
-        memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
-        override_block_config=None,
-        block_config_limit=None,
-        max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
-        weight_estimation_scaling=1.0,
-        verbose_config=False,
-    )
+    arch = create_default_arch(accelerator)
     generate_command_stream(emit, npu_op_list, arch)
     return emit.to_list()
