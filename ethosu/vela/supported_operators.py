@@ -92,7 +92,7 @@ class SupportedOperators:
     )
     split_ops = set((Op.Split, Op.SplitV, Op.StridedSlice, Op.Slice, Op.UnpackReshaped, Op.Unpack,))
     concat_ops = set((Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack,))
-    memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape, Op.ExpandDims,)) | concat_ops | split_ops
+    memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape,)) | concat_ops | split_ops
     shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV,))
     supported_fused_activations = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.LUT,))
     supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | npu_post_ops | memory_only_ops
