@@ -163,9 +163,9 @@ def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
 
     # Indexing from end since a 1x1 Avgpool might have been added with non 4-dimensional input/output,
     # because of activation function needed to be fused.
-    if cmd.ifm_box.start_coord[-2] > 0:
+    if len(cmd.ifm_box.start_coord) >= 2 and cmd.ifm_box.start_coord[-2] > 0:
         left = 0
-    if cmd.ifm_box.end_coord[-2] < Block.from_shape(cmd.ifm_tensor.shape).width:
+    if len(cmd.ifm_box.end_coord) >= 2 and cmd.ifm_box.end_coord[-2] < Block.from_shape(cmd.ifm_tensor.shape).width:
         right = 0
     return NpuPadding(top=top, left=left, bottom=bottom, right=right)
 
