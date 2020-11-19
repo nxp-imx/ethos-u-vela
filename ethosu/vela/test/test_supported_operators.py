@@ -658,11 +658,15 @@ def test_constraint_elemwise_batch_size():
 def test_constraint_matching_either_shapes():
     # BINARY CASE
     # At least one ifm shape must match ofm's shape
-    op = testutil.create_elemwise_op(Op.Add, "op", [2, 2], [4, 4], [2, 2])
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4], [4, 4], [4, 4])
     assert support.is_operator_supported(op)
-    op = testutil.create_elemwise_op(Op.Add, "op", [4, 4], [2, 2], [2, 2])
+    op = testutil.create_elemwise_op(Op.Add, "op", [4, 4], [1, 4], [4, 4])
     assert support.is_operator_supported(op)
     op = testutil.create_elemwise_op(Op.Add, "op", [4, 4], [4, 4], [2, 2])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4, 1, 16], [1, 1, 4, 1], [1, 4, 4, 16])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 1, 4, 1], [1, 4, 1, 16], [1, 4, 4, 16])
     assert not support.is_operator_supported(op)
 
     # UNARY CASE
@@ -670,6 +674,34 @@ def test_constraint_matching_either_shapes():
     op = testutil.create_elemwise_op(Op.CLZ, "op", [2, 2], None, [2, 2], datatype=DataType.int32)
     assert support.is_operator_supported(op)
     op = testutil.create_elemwise_op(Op.CLZ, "op", [4, 4], None, [2, 2], datatype=DataType.int32)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_broadcast_shapes():
+    # BINARY CASE
+    # Only allow broadcast to 1 dim, for 1 rank index
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 1, 4], [1, 2, 4], [1, 2, 4])
+    assert support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 2, 4], [1, 1, 4], [1, 2, 4])
+    assert support.is_operator_supported(op)
+    # Only allow broadcast to 1 dim, for 3 rank indexes
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 1, 1, 1], [1, 4, 8, 16], [1, 4, 8, 16])
+    assert support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4, 8, 16], [1, 1, 1, 1], [1, 4, 8, 16])
+    assert support.is_operator_supported(op)
+    # One broadcast dim not 1
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 2, 4], [1, 4, 4], [1, 4, 4])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4, 4], [1, 2, 4], [1, 4, 4])
+    assert not support.is_operator_supported(op)
+    # OFM shape dim largest ifm/ifm2 shape dim
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4], [4, 4], [1, 4])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4], [4, 4], [1, 4])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 4, 1, 16], [1, 1, 4, 1], [1, 4, 1, 16])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_elemwise_op(Op.Add, "op", [1, 1, 4, 1], [1, 4, 1, 16], [1, 4, 1, 16])
     assert not support.is_operator_supported(op)
 
 
