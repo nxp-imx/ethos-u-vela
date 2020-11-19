@@ -1021,10 +1021,25 @@ class DynamicProgrammingScheduler:
                 # in use_fast_storage_for_feature_maps
                 self.sg.scheduling_info["feature_map_rewrites"] = fast_storage_tensor_rewrites
 
-    def move_scales_to_fast_storage(self, sg, arch):
+
+def move_scales_to_fast_storage(nng, arch):
+    for sg in nng.subgraphs:
         # IFM streamed ops reads bias tensors several times, move these to fast storage
         for cp in sg.cascaded_passes:
             if cp.strategy == SchedulingStrategy.IfmStream:
+                # Calculate SRAM usage
+                new_size = 0
+                all_tens = []
+                for ps in cp.passes:
+                    pass_tens = np.array([ps.ifm_tensor, ps.ifm2_tensor, ps.ofm_tensor, ps.weight_tensor])
+                    pass_tens = np.append(pass_tens, ps.intermediates)
+                    for tens in pass_tens:
+                        if tens and tens.mem_area == MemArea.Sram and tens not in all_tens:
+                            all_tens.append(tens)
+                            new_size += tens.storage_size()
+
+                cp.sram_used = new_size
+
                 for ps in cp.passes:
                     if ps.scale_tensor:
                         tens = ps.scale_tensor
@@ -1037,10 +1052,9 @@ class DynamicProgrammingScheduler:
                         new_tens = tens.clone_into_fast_storage(arch)
                         new_tens.consumer_list = tens.consumer_list.copy()
                         new_tens.purpose = TensorPurpose.FSBias
-                        new_tens.element_size_bytes = 10
                         new_tens_size = new_tens.storage_size()
 
-                        if (cp.sram_used + new_tens_size) <= self.sram_limit:
+                        if (cp.sram_used + new_tens_size) <= arch.sram_size:
                             # Create DMA cmd
                             dma_cmd = Operation(Op.DMA, tens.ops[0].name + "_dma")
                             dma_cmd.inputs = [tens]
@@ -1081,9 +1095,6 @@ def schedule_passes(nng, arch, options: SchedulerOptions):
         strat_set = dps.search()
 
         dps.apply_result(strat_set, arch)
-
-        if not options.keep_scale_placement:
-            dps.move_scales_to_fast_storage(sg, arch)
 
         if options.verbose_schedule:
             sg.print_cascaded_passes()

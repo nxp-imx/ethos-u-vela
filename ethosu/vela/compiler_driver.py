@@ -174,6 +174,9 @@ def compiler_driver(nng, arch, options, scheduler_options):
     # block config, and calc and pack the scales and biases
     weight_compressor.update_pass_weight_and_scale_tensors(nng, arch)
 
+    if not scheduler_options.keep_scale_placement:
+        scheduler.move_scales_to_fast_storage(nng, arch)
+
     # LiveRanges for constant tensors for all Npu subgraphs
     permanent_storage = arch.permanent_storage_mem_area
     lr_graph_flash = live_range.LiveRangeGraph()
