@@ -177,6 +177,11 @@ Some example networks that contain quantised operators which can be compiled by
 Vela to run on the Ethos-U NPU can be found at:
 <https://tfhub.dev/s?deployment-format=lite&q=quantized>
 
+## Supported Operators
+
+Please see [Supported Operators](SUPPORTED_OPS.md) for the list of supported
+operators in this release.
+
 ## Testing
 
 Please see [Vela Testing](TESTING.md).
