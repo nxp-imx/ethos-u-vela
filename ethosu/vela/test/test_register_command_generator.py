@@ -17,13 +17,24 @@
 # Description:
 # Contains unit tests for register command stream generator
 from ethosu.vela.api import NpuAddressRange
+from ethosu.vela.api import NpuBlockTraversal
+from ethosu.vela.api import NpuConv2DOperation
+from ethosu.vela.api import NpuConvDepthWiseOperation
 from ethosu.vela.api import NpuDataType
+from ethosu.vela.api import NpuElementWiseOp
+from ethosu.vela.api import NpuElementWiseOperation
 from ethosu.vela.api import NpuFeatureMap
+from ethosu.vela.api import NpuKernel
 from ethosu.vela.api import NpuLayout
+from ethosu.vela.api import NpuPadding
 from ethosu.vela.api import NpuShape3D
 from ethosu.vela.api import NpuTileBox
+from ethosu.vela.architecture_features import Accelerator
+from ethosu.vela.architecture_features import create_default_arch
+from ethosu.vela.register_command_stream_generator import calc_blockdep
 from ethosu.vela.register_command_stream_generator import get_address_ranges
 from ethosu.vela.register_command_stream_generator import get_strides
+from ethosu.vela.test.extapi.test_extapi_generate_commands import create_feature_map
 
 
 def test_get_fm_strides():
@@ -37,6 +48,11 @@ def test_get_fm_strides():
     assert get_strides(fm) == NpuShape3D(height=480, width=48, depth=2)
     fm.data_type = NpuDataType.UINT8
     assert get_strides(fm) == NpuShape3D(height=240, width=24, depth=1)
+
+
+# -------------------------------------------------------------------
+# ADDRESS TESTS
+# -------------------------------------------------------------------
 
 
 def test_get_address_ranges_one_tile():
@@ -100,5 +116,89 @@ def test_get_address_ranges_4_tiles():
         NpuAddressRange(region=6, address=16, length=18952),
         NpuAddressRange(region=6, address=32000, length=6280),
         NpuAddressRange(region=6, address=8000, length=12552),
-        NpuAddressRange(region=6, address=28800, length=12680),
+        NpuAddressRange(region=6, address=16000, length=25480),
     ]
+
+
+# -------------------------------------------------------------------
+# BLOCKDEP TESTS
+# -------------------------------------------------------------------
+
+
+def test_calc_blockdep0():
+    """
+    Tests blockdep calculation, op1 that produces op2's IFM2.
+    op2 takes 1 block to complete, which results in blockdep 0
+    """
+    op1 = NpuElementWiseOperation(NpuElementWiseOp.CLZ)
+    op1.ifm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0x60, layout=NpuLayout.NHCWB16,)
+    intermediate_fm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0xA0, layout=NpuLayout.NHCWB16,)
+    op1.ofm = intermediate_fm
+    op1.block_config = NpuShape3D(height=1, width=1, depth=4)
+    op2 = NpuElementWiseOperation(NpuElementWiseOp.SUB)
+    op2.ifm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0x39AC0, layout=NpuLayout.NHCWB16,)
+    op2.ifm2 = intermediate_fm
+    op2.ofm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0xE0, layout=NpuLayout.NHCWB16,)
+    op2.block_config = NpuShape3D(height=1, width=1, depth=4)
+    arch = create_default_arch(Accelerator.Ethos_U55_128)
+    block_dep = calc_blockdep(arch, op1, op2)
+    assert block_dep == 0
+
+
+def test_calc_blockdep2():
+    """
+    Tests blockdep calculation, op1 produces part of the input of op2,
+    op1 and op2 have different sizes.
+    op2 takes 3 blocks to complete, op1's last block collides with op2's last block
+    which results in blockdep 2
+    """
+    op1 = NpuConv2DOperation()
+    op1.ifm = create_feature_map(NpuShape3D(height=4, width=48, depth=8), 1, 0x4C80, layout=NpuLayout.NHCWB16,)
+    op1.ofm = create_feature_map(NpuShape3D(height=4, width=48, depth=16), 1, 0x6480, layout=NpuLayout.NHCWB16,)
+    op1.kernel = NpuKernel(1, 1)
+    op1.weights = [NpuAddressRange(region=1, address=0x4AE0, length=208)]
+    op1.biases = [NpuAddressRange(region=1, address=0x49A0, length=160)]
+    op1.padding = NpuPadding(top=0, left=0, right=0, bottom=0)
+    op1.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
+    op1.block_config = NpuShape3D(height=4, width=6, depth=16)
+    op2 = NpuConvDepthWiseOperation()
+    op2.ifm = create_feature_map(NpuShape3D(height=3, width=48, depth=16), 1, 0, layout=NpuLayout.NHCWB16,)
+    # op2 has two tiles, the lower tile is produced by op1
+    op2.ifm.tiles = NpuTileBox(height_0=2, height_1=2, width_0=48, addresses=[0x7680, 0, 0x6480, 0])
+    op2.ofm = create_feature_map(NpuShape3D(height=1, width=24, depth=16), 1, 0x6480, layout=NpuLayout.NHCWB16,)
+    op2.kernel = NpuKernel(3, 3, stride_x=2, stride_y=2)
+    op2.weights = [NpuAddressRange(region=1, address=0x4BB0, length=208)]
+    op2.biases = [NpuAddressRange(region=1, address=0x4A40, length=160)]
+    op2.padding = NpuPadding(top=0, left=0, right=0, bottom=0)
+    op2.block_config = NpuShape3D(height=1, width=8, depth=16)
+    arch = create_default_arch(Accelerator.Ethos_U55_128)
+    block_dep = calc_blockdep(arch, op1, op2)
+    assert block_dep == 2
+
+
+def test_calc_blockdep3():
+    """
+    Tests blockdep calculation, op2 consumes part of op1, op1 and op2 have different sizes.
+    There is no overlap between the last blocks of op1 and the first jobs of op2,
+    which results in blockdep 3
+    """
+    op1 = NpuConv2DOperation()
+    op1.ifm = create_feature_map(NpuShape3D(height=13, width=96, depth=1), 1, 0, layout=NpuLayout.NHWC,)
+    op1.ofm = create_feature_map(NpuShape3D(height=6, width=48, depth=8), 1, 0x7C80, layout=NpuLayout.NHCWB16,)
+    op1.kernel = NpuKernel(3, 3, stride_x=2, stride_y=2)
+    op1.weights = [NpuAddressRange(region=1, address=0x4AE0, length=144)]
+    op1.biases = [NpuAddressRange(region=1, address=0x49A0, length=80)]
+    op1.padding = NpuPadding(top=0, left=0, right=1, bottom=0)
+    op1.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
+    op1.block_config = NpuShape3D(height=6, width=3, depth=8)
+    op2 = NpuConvDepthWiseOperation()
+    op2.ifm = create_feature_map(NpuShape3D(height=5, width=48, depth=8), 1, 0x7C80, layout=NpuLayout.NHCWB16,)
+    op2.ofm = create_feature_map(NpuShape3D(height=4, width=48, depth=8), 1, 0x4C80, layout=NpuLayout.NHCWB16,)
+    op2.kernel = NpuKernel(3, 3)
+    op2.weights = [NpuAddressRange(region=1, address=0x4BB0, length=112)]
+    op2.biases = [NpuAddressRange(region=1, address=0x4A40, length=80)]
+    op2.padding = NpuPadding(top=0, left=0, right=0, bottom=0)
+    op2.block_config = NpuShape3D(height=4, width=6, depth=8)
+    arch = create_default_arch(Accelerator.Ethos_U55_128)
+    block_dep = calc_blockdep(arch, op1, op2)
+    assert block_dep == 3
