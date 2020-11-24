@@ -373,7 +373,7 @@ def calc_allowed_ofm_ifm_overlap_for_pass_list(strat, passes, block_configs):
     if not passes[0].ifm_tensor or not passes[-1].ofm_tensor:
         return 0
 
-    ifm_read = passes[0].ifm_tensor.storage_size
+    ifm_read = passes[0].ifm_tensor.storage_size()
     min_overlap = 999999999999999999999
     ofm_size = passes[-1].ofm_tensor.storage_size()
     if strat == SchedulingStrategy.WeightStream:
