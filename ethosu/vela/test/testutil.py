@@ -20,6 +20,7 @@ import numpy as np
 from ethosu.vela import architecture_features
 from ethosu.vela.data_type import DataType
 from ethosu.vela.nn_graph import Subgraph
+from ethosu.vela.operation import Op
 from ethosu.vela.operation import Operation
 from ethosu.vela.tensor import create_const_tensor
 from ethosu.vela.tensor import QuantizationParameters
@@ -90,7 +91,8 @@ def create_op_with_quant_tensors(
         else:
             np_type = np.int32
         qp = default_quant_params()
-        qp.zero_point = np.zeros(weights_shape)
+        if op.type is not Op.FullyConnected:
+            qp.zero_point = np.zeros(weights_shape)
         weights = create_const_tensor(
             "weights", weights_shape, datatype, np.zeros(weights_shape), np_type, quantization=qp
         )
@@ -98,7 +100,8 @@ def create_op_with_quant_tensors(
     # Optional bias tensor
     if bias_shape is not None:
         qp = default_quant_params()
-        qp.zero_point = np.zeros(bias_shape)
+        if op.type is not Op.FullyConnected:
+            qp.zero_point = np.zeros(bias_shape)
         bias = create_const_tensor("bias", bias_shape, DataType.int32, np.zeros(bias_shape), np.int32, quantization=qp)
         op.add_input_tensor(bias)
     return op

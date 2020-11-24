@@ -247,6 +247,9 @@ class SupportedOperators:
         # LeakyRelu specific checks:
         self.specific_constraints[Op.LeakyRelu].append(SupportedOperators.constraint_alpha_valid)
 
+        # FullyConnected specific checks:
+        self.specific_constraints[Op.FullyConnected].append(SupportedOperators.constraint_fc_output_2d)
+
     def is_operator_supported(self, op):
         ext_type = optype_to_builtintype(op.type)
         if op.type not in SupportedOperators.supported_operators:
@@ -408,6 +411,17 @@ class SupportedOperators:
                     valid = False
                     extra.append(tens.name)
         return valid, "The following tensor(s) have per-axis quantization parameters: " + ", ".join(extra)
+
+    @staticmethod
+    def constraint_fc_output_2d(op):
+        "The output tensor(s) must have 2D shape"
+        valid = True
+        extra = []
+        for tens in op.outputs:
+            if len(tens.shape) != 2:
+                valid = False
+                extra.append(f"Tensor '{tens.name}' is {len(tens.shape)}D")
+        return valid, ", ".join(extra)
 
     @classmethod
     @docstring_format_args([_optype_formatter(supported_fused_activations)])

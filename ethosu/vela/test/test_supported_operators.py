@@ -122,6 +122,22 @@ def test_constraint_tens_quant_per_axis_is_supp():
     assert support.is_operator_supported(op)
 
 
+def test_constraint_fc_output_2d_not_supp():
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1], [3, 2, 2, 1], weights_shape=[12, 1, 1, 1])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1, 1, 1], [1, 3, 4], weights_shape=[12, 1, 1, 1])
+    assert not support.is_operator_supported(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [1, 1, 1, 1], [1], weights_shape=[1, 1, 1, 1])
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_fc_output_2d_is_supp():
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [4, 8, 8, 4], [32, 32], weights_shape=[4, 8, 8, 4])
+    assert support.is_operator_supported(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [1, 1024], [16, 64], weights_shape=[1, 1024])
+    assert support.is_operator_supported(op)
+
+
 def test_constraint_faf():
     # Fused activation functions, if set, must be a valid op type
     op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8])
