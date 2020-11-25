@@ -40,7 +40,7 @@ vela --version
 
 ### API version
 
-Displays the version of the external API. Can be used without the
+Displays the version of the external API.  Can be used without the
 required Network argument.  
 **Type: N/A**  
 **Default: N/A**  
@@ -51,10 +51,11 @@ vela --api-version
 
 ### Supported Operator Report
 
-Generate the SUPPORTED_OPS.md file in the current working directory and exits.  
+Generate the SUPPORTED_OPS.md file in the current working directory.
 Contains a summary table of all TFLite operators that can be placed on the NPU,
-and what the constraints are for that operator to be scheduled on the NPU.  
-If the constraints are not met, then it will be scheduled on the CPU instead.  
+and what the constraints are for that operator to be scheduled on the NPU.
+If the constraints are not met, then it will be scheduled on the CPU instead.
+Can be used without the required Network argument.  
 **Type: N/A**  
 **Default: N/A**  
 
@@ -73,6 +74,17 @@ Specifies the output directory of the optimised network model as well as the
 vela network.tflite --output-dir ./custom_directory
 ```
 
+### Enable Debug Database
+
+The neural network debug database allows tracking of optimisations from the
+input network graph to the output command stream.  Set this option to enable the
+calculation and writing of an XML file that contains the network debug database
+tables to the output directory.  
+
+```bash
+vela network.tflite --enable-debug-db
+```
+
 ### Config
 
 Specifies the path to the Vela configuration file.  The format of the file is a
@@ -86,6 +98,15 @@ mode.  More details can be found in the Configuration File section below.
 vela network.tflite --config my_vela_cfg1.ini --config my_vela_cfg2.ini --system-config My_Sys_Cfg --memory-mode My_Mem_Mode
 ```
 
+### Keep scale placement
+
+Prevents scheduler from placing scale tensors for IFM streamed passes in SRAM
+and keeps these in flash.  
+
+```bash
+vela network.tflite --keep-scale-placement
+```
+
 ### Cascading
 
 Controls the packing of multiple passes into cascades.  This allows for lower
@@ -96,15 +117,6 @@ system's SRAM this optimisation is required.
 
 ```bash
 vela network.tflite --cascading False
-```
-
-### Keep scale placement
-
-Prevents scheduler from placing scale tensors for IFM streamed passes in SRAM
-and keeps these in flash.  
-
-```bash
-vela network.tflite --keep-scale-placement
 ```
 
 ### Force Block Config
@@ -123,9 +135,7 @@ vela network.tflite --force-block-config 2x2x8
 ### Timing
 
 Measure time taken for different compiler steps, e.g. model reading and
-scheduling.  Prints the results to standard out.  
-**Type: Set True**  
-**Default: False**  
+scheduling.  Prints the results to standard out.
 
 ```bash
 vela network.tflite --timing
@@ -138,7 +148,7 @@ accelerator name followed by a hyphen, followed by the number of MACs in the
 configuration.  
 **Type: String**  
 **Default: ethos-u55-256**  
-**Choices: [ethos-u55-32, ethos-u55-64, ethos-u55-128, ethos-u55-256]**  
+**Choices: [ethos-u55-32, ethos-u55-64, ethos-u55-128, ethos-u55-256, ethos-u65-256, ethos-u65-512]**  
 
 ```bash
 vela network.tflite --accelerator-config ethos-u55-64
@@ -229,19 +239,6 @@ raise a RecursionError exception.
 vela network.tflite --recursion-limit 50000
 ```
 
-### Enable Debug DB
-
-The neural network debug database allows tracking of optimisations from the
-input network graph to the output command stream.  Set this option to enable the
-calculation and writing of an XML file that contains the network debug database
-tables to the output directory.  
-**Type: Boolean**  
-**Default: Disabled**  
-
-```bash
-vela network.tflite --enable-debug-db
-```
-
 ### Max Block Dependency
 
 Set the maximum value that can be used for the block dependency delay between
@@ -261,10 +258,9 @@ passes.  NHWCB16 means FeatureMaps are laid out in 1x1x16B bricks in row-major
 order.  This enables more efficient FeatureMap reading from external memory.  
 **Type: Boolean**  
 **Default: True**  
-**Choices: [True, False]**  
 
 ```bash
-vela network.tflite --nhcwb16-between-cascaded-passes
+vela network.tflite --nhcwb16-between-cascaded-passes False
 ```
 
 ### Scaling of weight estimates
@@ -300,20 +296,20 @@ vela network.tflite --allocation-alignment 128
 All of the options below are disabled by default and enabling them will add
 prints to standard out without any functional changes.  
 
-### Show Subgraph IO Summary
-
-Prints a summary of all the subgraphs and their inputs and outputs.  
-
-```bash
-vela network.tflite --show-subgraph-io-summary
-```
-
 ### Show Cpu Operations
 
 Show the operations that fall back to the CPU.  
 
 ```bash
 vela network.tflite --show-cpu-operations
+```
+
+### Show Subgraph IO Summary
+
+Prints a summary of all the subgraphs and their inputs and outputs.  
+
+```bash
+vela network.tflite --show-subgraph-io-summary
 ```
 
 ### Verbose Config
