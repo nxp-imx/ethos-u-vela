@@ -15,6 +15,7 @@
 # limitations under the License.
 # Description:
 # Packaging for the Vela compiler
+import re
 from os import path
 
 from setuptools import Extension
@@ -23,8 +24,14 @@ from setuptools import setup
 
 # Read the contents of README.md file
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, "PYPI.md"), encoding="utf-8") as f:
+with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+    # Replace local Markdown links with URLs
+    tag = "2.0.0"
+    url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
+    for markdown in set(re.findall(r"\(.+\.md\)", long_description)):
+        link = f"({url}{markdown[1:-1]})"
+        long_description = long_description.replace(markdown, link)
 
 mlw_module = Extension(
     "ethosu.mlw_codec",
