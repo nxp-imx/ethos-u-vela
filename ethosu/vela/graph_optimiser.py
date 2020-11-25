@@ -338,6 +338,7 @@ def convert_batched_fc_to_conv(op, arch, nng):
                 "stride_h": 1,
                 "stride_w": 1,
                 "strides": (1, 1, 1, 1),
+                "is_converted_fc": True,
             }
 
             prev_op = ifm.ops[0]
