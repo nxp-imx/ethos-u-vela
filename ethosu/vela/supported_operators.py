@@ -38,13 +38,17 @@ def docstring_format_args(args):
     return docstring
 
 
+def _list_formatter(arg):
+    # Order and join into a string representation
+    return ", ".join(sorted(map(str, arg)))
+
+
 def _optype_formatter(op_list):
     # Convert internal op types to external names
     output = map(optype_to_builtintype, op_list)
     # Remove UNKNOWNs
     output = (x for x in output if x is not BUILTIN_OPERATOR_UNKNOWN)
-    # Order alphabetically and join into a string representation
-    return ", ".join(str(op) for op in sorted(output))
+    return _list_formatter(output)
 
 
 class SupportedOperators:
@@ -110,11 +114,6 @@ class SupportedOperators:
     filter_range = (1, 8)
     filter_height_range = (1, 256)
     filter_product_range = (1, 256 * 256)
-    # Ordered, external names of op types for the constraint reasons
-    docstring_shapeless_input_ops = _optype_formatter(shapeless_input_ops)
-    docstring_supported_int32_tensor_ops = _optype_formatter(supported_int32_tensor_ops)
-    docstring_supported_fused_activations = _optype_formatter(supported_fused_activations)
-    docstring_per_axis_quant_ops = _optype_formatter(per_axis_quant_ops)
 
     def __init__(self):
         # Setup the generic constraints. Note: the order matters
@@ -299,7 +298,7 @@ class SupportedOperators:
         return valid, f"Output Tensor '{ofm.name}' is scalar"
 
     @classmethod
-    @docstring_format_args([docstring_shapeless_input_ops])
+    @docstring_format_args([_optype_formatter(shapeless_input_ops)])
     def constraint_tens_input_scalar(cls, op):
         "Scalar Input tensors are only valid for op type: {}"
         valid = True
@@ -325,7 +324,7 @@ class SupportedOperators:
         return valid, ", ".join(extra)
 
     @classmethod
-    @docstring_format_args([supported_op_dtypes])
+    @docstring_format_args([_list_formatter(supported_op_dtypes)])
     def constraint_tens_dtype(cls, op):
         "Tensors must be of type: {}"
         valid = True
@@ -340,7 +339,7 @@ class SupportedOperators:
         return valid, ", ".join(extra)
 
     @classmethod
-    @docstring_format_args([docstring_supported_int32_tensor_ops])
+    @docstring_format_args([_optype_formatter(supported_int32_tensor_ops)])
     def constraint_tens_int32_ops(cls, op):
         "Tensors which are int32 are only valid when op type is: {}"
         valid = True
@@ -397,7 +396,7 @@ class SupportedOperators:
         return valid, ", ".join(extra)
 
     @classmethod
-    @docstring_format_args([docstring_per_axis_quant_ops])
+    @docstring_format_args([_optype_formatter(per_axis_quant_ops)])
     def constraint_tens_quant_per_axis(cls, op):
         "Per-axis quantization is only supported for the following op types: {}"
         valid = True
@@ -411,7 +410,7 @@ class SupportedOperators:
         return valid, "The following tensor(s) have per-axis quantization parameters: " + ", ".join(extra)
 
     @classmethod
-    @docstring_format_args([docstring_supported_fused_activations])
+    @docstring_format_args([_optype_formatter(supported_fused_activations)])
     def constraint_faf(cls, op):
         "The fused activation function (if present) must be one of type: {}"
         if op.activation is None:
@@ -497,7 +496,7 @@ class SupportedOperators:
         return valid, f"Tensor '{weights.name}' has the sum of weights: {limit}"
 
     @classmethod
-    @docstring_format_args([supported_bias_dtypes])
+    @docstring_format_args([_list_formatter(supported_bias_dtypes)])
     def constraint_bias_type(cls, op):
         "Optional Bias tensor must be of type: {}"
         bias = op.bias

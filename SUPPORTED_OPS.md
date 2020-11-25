@@ -55,7 +55,7 @@ This is a list of constraints that all NPU operators must satisfy in order to be
 - Output tensors cannot be scalar
 - Scalar Input tensors are only valid for op type: ADD, MAXIMUM, MINIMUM, MUL, SPLIT, SPLIT_V, SUB
 - Input(s) and Output tensors must not be greater than 4D
-- Tensors must be of type: {int8, int32, int16, uint8}
+- Tensors must be of type: int16, int32, int8, uint8
 - Tensors which are int32 are only valid when op type is: ADD, MUL, SUB
 - Tensor dimensions must be in the range [1, 65535]
 - Input(s), Output and Weight tensors must have quantization parameters
@@ -117,7 +117,7 @@ This is a list of constraints that the CONV_2D operator must satisfy in order to
 - Weight tensor must be 8-bit
 - Weight tensor must be constant
 - The sum of the weights cannot exceed 8323072
-- Optional Bias tensor must be of type: {int32, int64}
+- Optional Bias tensor must be of type: int32, int64
 - Optional Bias tensor values must fit within 40-bits
 - IFM Tensor batch size must be 1
 
@@ -134,7 +134,7 @@ This is a list of constraints that the DEPTHWISE_CONV_2D operator must satisfy i
 - Weight tensor must be 8-bit
 - Weight tensor must be constant
 - The sum of the weights cannot exceed 8323072
-- Optional Bias tensor must be of type: {int32, int64}
+- Optional Bias tensor must be of type: int32, int64
 - Optional Bias tensor values must fit within 40-bits
 - IFM Tensor batch size must be 1
 - For depth multipliers > 1, IFM channels must be 1 and OFM channels must be equal to the depth multiplier
@@ -145,7 +145,7 @@ This is a list of constraints that the FULLY_CONNECTED operator must satisfy in 
 
 - Weight tensor must be 8-bit
 - Weight tensor must be constant
-- Optional Bias tensor must be of type: {int32, int64}
+- Optional Bias tensor must be of type: int32, int64
 - Optional Bias tensor values must fit within 40-bits
 
 ## LEAKY_RELU Constraints
@@ -277,7 +277,7 @@ This is a list of constraints that the TRANSPOSE_CONV operator must satisfy in o
 - Weight tensor must be 8-bit
 - Weight tensor must be constant
 - The sum of the weights cannot exceed 8323072
-- Optional Bias tensor must be of type: {int32, int64}
+- Optional Bias tensor must be of type: int32, int64
 - Optional Bias tensor values must fit within 40-bits
 - IFM Tensor batch size must be 1
 - Stride values for both width and height must be 2
