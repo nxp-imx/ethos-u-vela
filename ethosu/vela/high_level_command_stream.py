@@ -104,7 +104,7 @@ class Box:
                 # Adjust for upscaling
                 new_start_coord[-3] = max(new_start_coord[-3] // upscaling_factor, 0)
                 new_end_coord[-3] = new_end_coord[-3] * stride + skirt[2] + (skirt[2] % upscaling_factor)
-                new_end_coord[-3] = min(new_end_coord[-3] // upscaling_factor, ifm_shape[-3])
+                new_end_coord[-3] = max(min(new_end_coord[-3] // upscaling_factor, ifm_shape[-3]), 1)
 
         return Box(new_start_coord, new_end_coord), pad_top, pad_bottom
 

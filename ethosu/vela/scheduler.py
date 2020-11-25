@@ -557,12 +557,6 @@ class DynamicProgrammingScheduler:
 
         return strat_data
 
-    def avoid_ifm_streaming(self, ps):
-        for op in ps.ops:
-            if op.type in (Op.Conv2DBackpropInputSwitchedBias, Op.ResizeBilinear):
-                return True
-        return False
-
     @lru_cache(maxsize=None)
     def search_output(self, ps):
 
@@ -571,7 +565,7 @@ class DynamicProgrammingScheduler:
 
         candidate_list.extend(self.search_weight_streaming_output(ps))
 
-        if self.options.use_ifm_streaming and not self.avoid_ifm_streaming(ps):
+        if self.options.use_ifm_streaming:
             candidate_list.extend(self.search_ifm_streaming_output(ps))
 
         best = self.filter_pareto_frontier(candidate_list, remove_equally_good_candidates=True)
@@ -656,6 +650,8 @@ class DynamicProgrammingScheduler:
                 return True
             if len(op.outputs) > 1 or len(op.outputs[0].consumer_list) > 1:
                 # The op has consumers in other subgraphs
+                return True
+            if op.type == Op.ResizeBilinear:
                 return True
         return False
 
