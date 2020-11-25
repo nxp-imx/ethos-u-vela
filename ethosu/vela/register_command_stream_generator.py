@@ -521,35 +521,15 @@ def generate_block_config(
     npu_op: NpuBlockOperation,
     arch: ArchitectureFeatures,
     shared_buffer: SharedBufferAllocation,
-) -> NpuShape3D:
-    """Selects a suitable block config if none has been set, and generates OFM_BLK_HEIGHT/WIDTH/DEPTH registers"""
+):
+    """Generates OFM_BLK_HEIGHT/WIDTH/DEPTH registers"""
     block_config = npu_op.block_config
-    if block_config is None or block_config.height < 0:
-        # Note: this code only used if the public API to generate command streams is used;
-        # in the "normal" flow, the block config selected by the scheduler is used
-        if npu_op.weights:
-            assert block_config is not None, "block_config.depth must be provided for ops with weights"
-        # Block config has not been provided: find one
-        blocks = find_suitable_block_configs(arch, shared_buffer)
-        # Return the block with biggest volume
-        # TODO: use a better algorithm to find the best block
-        best_block = None
-        best_value = 0
-        for block in blocks:
-            if block_config is not None and block[3] != block_config.depth:
-                continue
-            value = block[0] * block[1] * block[3]
-            if value > best_value:
-                best_value = value
-                best_block = block
-        assert best_block is not None, f"No suitable block config was found, {npu_op.op_type}"
-        block_config = NpuShape3D(height=best_block[0], width=best_block[1], depth=best_block[3])
+    assert block_config is not None, "block_config has not been set"
     alloc = shared_buffer.try_block(Block(block_config.width, block_config.height, block_config.depth))
     assert alloc is not None, f"Block config {block_config} does not fit, op: {npu_op.op_type}"
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, block_config.height - 1)
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_WIDTH_M1, block_config.width - 1)
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_DEPTH_M1, block_config.depth - 1)
-    return block_config
 
 
 def generate_shram_registers_elementwise(
@@ -585,6 +565,24 @@ def generate_shram_registers_non_elementwise(emit: CommandStreamEmitter, shared_
     emit.cmd0_with_param(cmd0.NPU_SET_ACC_FORMAT, acc_format_map[shared_buffer.use_accumulator_element])
 
 
+def create_shared_buffer(npu_op: NpuBlockOperation, arch: ArchitectureFeatures) -> SharedBufferAllocation:
+    """Creates shared buffer allocation for the given operation"""
+    op_type = npu_op.op_type
+    block_type = NpuBlockType.Default
+    if op_type == NpuOperationType.Conv2D:
+        block_type = NpuBlockType.ConvolutionMxN
+    elif op_type == NpuOperationType.ConvDepthWise:
+        block_type = NpuBlockType.ConvolutionDepthWise
+    elif op_type == NpuOperationType.Pooling:
+        block_type = NpuBlockType.ReduceSum if npu_op.sub_op_type == NpuPoolingOp.REDUCE_SUM else NpuBlockType.Pooling
+    elif op_type == NpuOperationType.ElementWise:
+        block_type = NpuBlockType.ElementWise
+    else:
+        assert 0, "Unsupported operation"
+    ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
+    return shared_buffer_allocation_for_npu_op(arch, npu_op, block_type, ifm_resampling_mode)
+
+
 def generate_common(
     emit: CommandStreamEmitter,
     npu_op: NpuBlockOperation,
@@ -608,6 +606,12 @@ def generate_common(
     generate_weights(emit, npu_op.weights, arch)
     generate_biases(emit, npu_op.biases, arch)
     generate_activation(emit, npu_op.activation, npu_op.ofm)
+    shared_buffer = create_shared_buffer(npu_op, arch)
+    generate_block_config(emit, npu_op, arch, shared_buffer)
+    if npu_op.op_type == NpuOperationType.ElementWise:
+        generate_shram_registers_elementwise(emit, npu_op, arch, shared_buffer)
+    else:
+        generate_shram_registers_non_elementwise(emit, shared_buffer)
 
 
 # -------------------------------------------------------------------
@@ -962,13 +966,7 @@ def get_ifm_ofm_block_depth(arch: ArchitectureFeatures, npu_op: NpuBlockOperatio
     return npu_op.ofm.shape.depth
 
 
-def calc_blockdep(
-    arch: ArchitectureFeatures,
-    prev_op: Optional[NpuBlockOperation],
-    prev_block_config: Optional[NpuShape3D],
-    npu_op: NpuBlockOperation,
-    block_config: NpuShape3D,
-) -> int:
+def calc_blockdep(arch: ArchitectureFeatures, prev_op: Optional[NpuBlockOperation], npu_op: NpuBlockOperation,) -> int:
     """Calculates the value of the BLOCKDEP register"""
     if prev_op is None:
         return 0
@@ -976,6 +974,8 @@ def calc_blockdep(
         return ArchitectureFeatures.MAX_BLOCKDEP
     if prev_op.ofm.shape != npu_op.ifm.shape:
         return 0
+    prev_block_config = prev_op.block_config
+    block_config = npu_op.block_config
     prev_ifm_block_depth = get_ifm_ofm_block_depth(arch, prev_op)
     prev_ofm_block = Block(prev_block_config.width, prev_block_config.height, prev_block_config.depth)
     prev_ofm_rect = shape3d_to_rect(prev_op.ofm.shape)
@@ -1094,28 +1094,14 @@ def generate_operation_code(emit: CommandStreamEmitter, npu_op: NpuOperation):
         assert 0, "Unsupported operation"
 
 
-def generate_conv2d_op(
-    emit: CommandStreamEmitter, npu_op: NpuConv2DOperation, arch: ArchitectureFeatures
-) -> NpuShape3D:
+def generate_conv2d_op(emit: CommandStreamEmitter, npu_op: NpuConv2DOperation, arch: ArchitectureFeatures):
     """Generates register commands for Conv2D operations"""
     generate_common(emit, npu_op, npu_op.block_traversal, arch)
-    ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
-    shared_buffer = shared_buffer_allocation_for_npu_op(arch, npu_op, NpuBlockType.ConvolutionMxN, ifm_resampling_mode)
-    block_config = generate_block_config(emit, npu_op, arch, shared_buffer)
-    generate_shram_registers_non_elementwise(emit, shared_buffer)
-    return block_config
 
 
 def generate_conv_depthwise_op(emit: CommandStreamEmitter, npu_op: NpuPoolingOperation, arch: ArchitectureFeatures):
     """Generates register commands for depthwise convolution operations"""
     generate_common(emit, npu_op, NpuBlockTraversal.DEPTH_FIRST, arch)
-    ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
-    shared_buffer = shared_buffer_allocation_for_npu_op(
-        arch, npu_op, NpuBlockType.ConvolutionDepthWise, ifm_resampling_mode
-    )
-    block_config = generate_block_config(emit, npu_op, arch, shared_buffer)
-    generate_shram_registers_non_elementwise(emit, shared_buffer)
-    return block_config
 
 
 def generate_pooling_op(emit: CommandStreamEmitter, npu_op: NpuPoolingOperation, arch: ArchitectureFeatures):
@@ -1127,12 +1113,6 @@ def generate_pooling_op(emit: CommandStreamEmitter, npu_op: NpuPoolingOperation,
     # Pooling op specific
     if use_global_scale:
         generate_ofm_scaling_for_pooling(emit, npu_op)
-    ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
-    npu_block_type = NpuBlockType.ReduceSum if npu_op.sub_op_type == NpuPoolingOp.REDUCE_SUM else NpuBlockType.Pooling
-    shared_buffer = shared_buffer_allocation_for_npu_op(arch, npu_op, npu_block_type, ifm_resampling_mode)
-    block_config = generate_block_config(emit, npu_op, arch, shared_buffer)
-    generate_shram_registers_non_elementwise(emit, shared_buffer)
-    return block_config
 
 
 def generate_elementwise_op(emit: CommandStreamEmitter, npu_op: NpuElementWiseOperation, arch: ArchitectureFeatures):
@@ -1160,11 +1140,6 @@ def generate_elementwise_op(emit: CommandStreamEmitter, npu_op: NpuElementWiseOp
             quantized_scalar = quantise(npu_op.ifm2_scalar, npu_op.ifm2.quantization)
             assert npu_op.ifm2.data_type.min_value() <= quantized_scalar <= npu_op.ifm2.data_type.max_value()
             emit.cmd0_with_param(cmd0.NPU_SET_IFM2_SCALAR, quantized_scalar)
-    ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
-    shared_buffer = shared_buffer_allocation_for_npu_op(arch, npu_op, NpuBlockType.ElementWise, ifm_resampling_mode)
-    block_config = generate_block_config(emit, npu_op, arch, shared_buffer)
-    generate_shram_registers_elementwise(emit, npu_op, arch, shared_buffer)
-    return block_config
 
 
 def generate_dma_op(emit: CommandStreamEmitter, dma_op: NpuDmaOperation):
@@ -1177,28 +1152,24 @@ def generate_dma_op(emit: CommandStreamEmitter, dma_op: NpuDmaOperation):
     emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_LEN, dma_op.src.length)
 
 
-def generate_registers_for_op(
-    emit: CommandStreamEmitter, npu_op: NpuOperation, arch: ArchitectureFeatures
-) -> Optional[NpuShape3D]:
+def generate_registers_for_op(emit: CommandStreamEmitter, npu_op: NpuOperation, arch: ArchitectureFeatures):
     """
     Generates register commands for the given operation, but not the final NPU_OP_... command.
     Returns the selected block config
     """
     op_type = npu_op.op_type
-    block_config = None
     if op_type == NpuOperationType.Conv2D:
-        block_config = generate_conv2d_op(emit, npu_op, arch)
+        generate_conv2d_op(emit, npu_op, arch)
     elif op_type == NpuOperationType.ConvDepthWise:
-        block_config = generate_conv_depthwise_op(emit, npu_op, arch)
+        generate_conv_depthwise_op(emit, npu_op, arch)
     elif op_type == NpuOperationType.Pooling:
-        block_config = generate_pooling_op(emit, npu_op, arch)
+        generate_pooling_op(emit, npu_op, arch)
     elif op_type == NpuOperationType.ElementWise:
-        block_config = generate_elementwise_op(emit, npu_op, arch)
+        generate_elementwise_op(emit, npu_op, arch)
     elif op_type == NpuOperationType.Dma:
         generate_dma_op(emit, npu_op)
     else:
         assert 0, "Unsupported operation"
-    return block_config
 
 
 def generate_command_stream(
@@ -1216,19 +1187,16 @@ def generate_command_stream(
         emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
     dep_watermark = Watermark(0, 0)
     prev_op = None
-    prev_block_config = None
     # Generate register commands for all operations
     for op_index, npu_op in enumerate(npu_op_list):
         dep_watermark, cmd_waits = get_wait_dependency(arch, npu_op_list, memory_accesses, op_index, dep_watermark)
-        block_config = generate_registers_for_op(emit, npu_op, arch)
+        generate_registers_for_op(emit, npu_op, arch)
         if not is_dma_op(npu_op):
             # Generate BLOCKDEP
-            assert block_config is not None
-            blockdep = calc_blockdep(arch, prev_op, prev_block_config, npu_op, block_config)
+            blockdep = calc_blockdep(arch, prev_op, npu_op)
             blockdep = min(blockdep, arch.max_blockdep)
             emit.cmd0_with_param(cmd0.NPU_SET_BLOCKDEP, blockdep)
             prev_op = npu_op
-            prev_block_config = block_config
 
         generate_cmd_waits(emit, cmd_waits)
         # Generate the actual NPU_OP command
@@ -1270,6 +1238,18 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
         emit.print_cmds()
         print("number of commands", len(emit.cmd_stream))
         print("command stream length in words", len(sg.register_command_stream))
+
+
+def find_block_configs(npu_op: NpuOperation, npu_accelerator: NpuAccelerator) -> List[NpuShape3D]:
+    """
+    Internal implementation of the public facing API for finding block configs.
+    """
+    if is_dma_op(npu_op):
+        return []
+    arch = create_default_arch(Accelerator.from_npu_accelerator(npu_accelerator))
+    shared_buffer = create_shared_buffer(npu_op, arch)
+    blocks = find_suitable_block_configs(arch, shared_buffer)
+    return [NpuShape3D(height=block[0], width=block[1], depth=block[3]) for block in blocks]
 
 
 def generate_register_command_stream(npu_op_list: List[NpuOperation], npu_accelerator: NpuAccelerator) -> List[int]:

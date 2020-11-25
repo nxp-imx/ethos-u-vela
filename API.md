@@ -40,6 +40,13 @@ these basic NPU operations. Note that the compiler is responsible for all
 address planning, i.e. it needs to supply addresses of all input and output
 tensors, weights, and biases.
 
+### Finding block configs
+
+For all NPU operations, a block config must be set, which is the unit of work in
+which the NPU generates the output. There are restrictions to the size of block
+configs. Function `npu_find_block_configs` can be used to find valid block
+configs for an operation.
+
 ### Encoding of weights and biases
 
 All weights that are used in the NPU operations must be encoded using

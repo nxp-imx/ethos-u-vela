@@ -16,6 +16,7 @@
 #
 # Description:
 # Contains unit tests for npu_generate_register_command_stream API for an external consumer
+from ethosu.vela.api import npu_find_block_configs
 from ethosu.vela.api import npu_generate_register_command_stream
 from ethosu.vela.api import NpuAccelerator
 from ethosu.vela.api import NpuActivation
@@ -106,9 +107,7 @@ def test_conv2d():
     op.biases = [NpuAddressRange(region=0, address=32000, length=464)]
     op.padding = NpuPadding(top=0, left=0, right=1, bottom=1)
     op.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
-    # In this example we assume that the weights were compressed with ofm depth 16;
-    # let vela choose suitable block width and height by setting these to -1
-    op.block_config = NpuShape3D(height=-1, width=-1, depth=16)
+    op.block_config = NpuShape3D(height=16, width=4, depth=16)
     cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_128)
     check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1)
     check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 512)
@@ -165,12 +164,6 @@ def test_conv2d():
     check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0)
     check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0)
     check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
-    # Check that block width/height were generated that fit
-    blk_height = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1)
-    blk_width = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1)
-    assert blk_height > 0
-    assert blk_width > 0
-    assert (blk_height + 1) * (blk_width + 1) <= 64
 
 
 def create_fully_connected_op() -> NpuConv2DOperation:
@@ -194,9 +187,7 @@ def create_fully_connected_op() -> NpuConv2DOperation:
     op.biases = [NpuAddressRange(region=0, address=0x19BC0, length=960)]
     op.padding = NpuPadding(top=0, left=0, right=0, bottom=0)
     op.block_traversal = NpuBlockTraversal.DEPTH_FIRST
-    # In this example we assume that the weights were compressed with ofm depth 96;
-    # let vela choose suitable block width and height by setting these to -1
-    op.block_config = NpuShape3D(height=-1, width=-1, depth=96)
+    op.block_config = NpuShape3D(height=2, width=4, depth=96)
     return op
 
 
@@ -222,7 +213,7 @@ def test_depthwise():
     op.padding = NpuPadding(top=1, left=1, right=1, bottom=1)
     op.weights = [weights_dest]
     op.biases = [NpuAddressRange(region=0, address=0, length=80)]
-    op.block_config = NpuShape3D(height=-1, width=-1, depth=8)
+    op.block_config = NpuShape3D(height=8, width=12, depth=8)
     cmds = npu_generate_register_command_stream([dma_op, op], NpuAccelerator.Ethos_U55_128)
     check_cmd0(cmds, cmd0.NPU_SET_DMA0_SRC_REGION, 0)
     check_cmd1(cmds, cmd1.NPU_SET_DMA0_SRC, 0x40)
@@ -233,10 +224,6 @@ def test_depthwise():
     # A DMA WAIT should have been inserted
     check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0)
     check_cmd0(cmds, cmd0.NPU_OP_DEPTHWISE, 0)
-    blk_height = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1)
-    blk_width = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1)
-    assert blk_height > 0
-    assert blk_width > 0
 
 
 def test_mul_with_broadcast_and_relu():
@@ -247,8 +234,10 @@ def test_mul_with_broadcast_and_relu():
     op.ofm = create_feature_map(NpuShape3D(height=31, width=22, depth=31), 1, 0x52C0)
     op.activation = NpuActivation(NpuActivationOp.NONE_OR_RELU)
     op.activation.min = 0  # RELU
-    # Do not set a block config, let vela choose one
-    cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_32)
+    accelerator = NpuAccelerator.Ethos_U55_32
+    # Select a block config using npu_find_block_configs
+    op.block_config = npu_find_block_configs(op, accelerator)[0]
+    cmds = npu_generate_register_command_stream([op], accelerator)
     check_cmd1(cmds, cmd1.NPU_SET_OFM_SCALE, 1073741824, 30)
     check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1)
     check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 32)
@@ -298,9 +287,6 @@ def test_mul_with_broadcast_and_relu():
     check_cmd0(cmds, cmd0.NPU_SET_IFM2_ZERO_POINT, 0)
     check_cmd0(cmds, cmd0.NPU_SET_IFM2_PRECISION, 0)
     check_cmd0(cmds, cmd0.NPU_SET_IFM2_BROADCAST, 5)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, 23)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1, 3)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_DEPTH_M1, 31)
     check_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END, 16)
     check_cmd0(cmds, cmd0.NPU_SET_AB_START, 16)
     check_cmd0(cmds, cmd0.NPU_SET_IFM2_IB_START, 9)
@@ -330,7 +316,8 @@ def create_avg_pool_op() -> NpuPoolingOperation:
     )
     op.kernel = NpuKernel(8, 2, 3, 3)
     op.padding = NpuPadding(top=0, left=2, right=3, bottom=0)
-    # Do not set a block config, let vela choose one
+    # Select a block config
+    op.block_config = NpuShape3D(height=4, width=4, depth=16)
     return op
 
 

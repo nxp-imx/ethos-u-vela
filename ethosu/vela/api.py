@@ -320,20 +320,19 @@ class NpuBlockOperation(NpuOperation):
         self.ofm: Optional[NpuFeatureMap] = None
         self.kernel: Optional[NpuKernel] = None
         # Weights, one element for each NPU core, empty if no weights are used.
-        # Must have been compressed using weight_compressor.encode_weights()
+        # Must have been compressed using npu_encode_weights()
         self.weights: List[NpuAddressRange] = []
         # Biases, one element for each NPU core, empty if no bias is used.
-        # Must have been encoded using weight_compressor.encode_bias()
+        # Must have been encoded using npu_encode_bias()
         self.biases: List[NpuAddressRange] = []
         self.padding: Optional[NpuPadding] = None
         # Optional activation function to be applied
         self.activation: Optional[NpuActivation] = None
-        # The block config is the unit of work in which the NPU generates the OFM.
+        # The block config to be used, which must be valid for the given operation.
+        # See also npu_find_block_configs.
         # If the operation has weights, the depth of the block config must be the same as
-        # the ofm depth used in the call to weight_compressor.encode_weights()
-        # If set to None, vela will determine a suitable block size (can only be used if there are no weights)
-        # If block_config.width and height are set to -1, vela will determine suitable width/height
-        self.block_config: Optional[NpuShape3D] = None  # OFM_BLK parameters
+        # the ofm depth used in the call to npu_encode_weights()
+        self.block_config: NpuShape3D
         self.rounding_mode: NpuRoundingMode = NpuRoundingMode.TFL
         # Set to True if the operations is fused with a Quantize operation (affects scaling)
         self.fused_quantize: bool = False
@@ -439,6 +438,17 @@ def npu_encode_bias(bias: numpy.int64, scale: int, shift: int):
     from . import weight_compressor
 
     return weight_compressor.encode_bias(bias, scale, shift)
+
+
+def npu_find_block_configs(npu_op: NpuOperation, accelerator: NpuAccelerator) -> List[NpuShape3D]:
+    """
+    Public facing API that returns a list of block configs that are valid for the given operation.
+    This function can be used to find a valid value for npu_op.block_config.
+    The block config is the unit of work in which the NPU generates the OFM.
+    """
+    from . import register_command_stream_generator
+
+    return register_command_stream_generator.find_block_configs(npu_op, accelerator)
 
 
 def npu_generate_register_command_stream(npu_op_list: List[NpuOperation], accelerator: NpuAccelerator) -> List[int]:
