@@ -32,8 +32,8 @@ from ethosu.vela.api import NpuTileBox
 from ethosu.vela.architecture_features import Accelerator
 from ethosu.vela.architecture_features import create_default_arch
 from ethosu.vela.register_command_stream_generator import calc_blockdep
-from ethosu.vela.register_command_stream_generator import get_address_ranges
 from ethosu.vela.register_command_stream_generator import get_strides
+from ethosu.vela.register_command_stream_util import get_address_ranges
 from ethosu.vela.test.extapi.test_extapi_generate_commands import create_feature_map
 
 

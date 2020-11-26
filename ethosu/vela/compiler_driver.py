@@ -20,6 +20,7 @@ import time
 from . import extract_npu_subgraphs
 from . import graph_optimiser
 from . import high_level_command_stream_generator
+from . import high_level_command_to_npu_op
 from . import insert_dma
 from . import live_range
 from . import lut
@@ -27,7 +28,6 @@ from . import mark_tensors
 from . import npu_performance
 from . import npu_serialisation
 from . import pass_packing
-from . import register_command_stream_generator
 from . import scheduler
 from . import tensor_allocation
 from . import weight_compressor
@@ -289,7 +289,7 @@ def compiler_driver(nng, arch, options, scheduler_options):
             nng, sg, arch, options.verbose_high_level_command_stream
         )
         lut.optimize_high_level_cmd_stream(sg, arch)
-        register_command_stream_generator.generate_register_command_stream_for_sg(
+        high_level_command_to_npu_op.generate_register_command_stream_for_sg(
             nng, sg, arch, options.verbose_register_command_stream
         )
         scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(

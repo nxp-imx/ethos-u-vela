@@ -18,16 +18,13 @@
 # all the register settings. Calculates dependencies between commands and inserts wait operations. And generates a bit
 # stream suitable for interpretation by the Ethos-U processor.
 from collections import defaultdict
-from collections import namedtuple
 from enum import Enum
 from enum import IntEnum
 from typing import List
 from typing import Optional
-from typing import Tuple
 
 import numpy as np
 
-from . import numeric_util
 from . import scaling
 from .api import NpuAccelerator
 from .api import NpuActivation
@@ -57,10 +54,8 @@ from .architecture_features import Accelerator
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .architecture_features import create_default_arch
-from .architecture_features import Rect
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
-from .debug_database import DebugDatabase
 from .ethos_u55_regs.ethos_u55_regs import acc_format
 from .ethos_u55_regs.ethos_u55_regs import activation
 from .ethos_u55_regs.ethos_u55_regs import cmd0
@@ -69,17 +64,20 @@ from .ethos_u55_regs.ethos_u55_regs import elementwise_mode
 from .ethos_u55_regs.ethos_u55_regs import pooling_mode
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .ethos_u55_regs.ethos_u55_regs import rounding
-from .high_level_command_stream import CommandType
-from .high_level_command_to_npu_op import convert_command_to_npu_op
-from .high_level_command_to_npu_op import to_kernel
-from .high_level_command_to_npu_op import unary_elementwise_ops
 from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
 from .numeric_util import round_up_to_int
 from .operation import NpuBlockType
-from .range_set import AccessDirection
-from .range_set import MemoryAccessSet
-from .range_set import MemoryRangeSet
+from .register_command_stream_util import calc_blockdep
+from .register_command_stream_util import get_dma_memory_accesses
+from .register_command_stream_util import get_op_memory_accesses
+from .register_command_stream_util import get_strides
+from .register_command_stream_util import get_wait_dependency
+from .register_command_stream_util import has_ifm2
+from .register_command_stream_util import is_dma_op
+from .register_command_stream_util import to_kernel
+from .register_command_stream_util import UNARY_ELEMWISE_OPS
+from .register_command_stream_util import Watermark
 from .shared_buffer_allocation import find_suitable_block_configs
 from .shared_buffer_allocation import shared_buffer_allocation_for_npu_op
 from .shared_buffer_allocation import SharedBufferAllocation
@@ -203,13 +201,6 @@ class CommandStreamEmitter:
 # -------------------------------------------------------------------
 
 
-class BasePointerIndex(IntEnum):
-    WeightTensor = 0  # base address index for the Weight tensor
-    ScratchTensor = 1  # base address index for the Scratch_tensor in the TensorArena
-    ScratchFastTensor = 2  # base address for the Scratch_fast_tensor
-    Mem2Mem = (1 << 8) | (3 << 0)  # base address slot for memory 2 memory transfer
-
-
 # TODO: Replace with definitions from ethos_u55_regs
 class IFM2Broadcast(IntEnum):
     BroadcastHdim = 1 << 0
@@ -273,16 +264,6 @@ def quantise(value: float, quant: Optional[NpuQuantization]) -> int:
     scale = 1 if quant is None or quant.scale_f32 is None else quant.scale_f32
     zp = 0 if quant is None else quant.zero_point
     return quantise_float32(value, scale, zp)
-
-
-def has_ifm2(npu_op: NpuBlockOperation) -> bool:
-    """Checks if op has non-scalar IFM2"""
-    return npu_op.ifm2 is not None and npu_op.ifm2_scalar is None
-
-
-def is_dma_op(npu_op: NpuOperation) -> bool:
-    """Checks if op is a DMA operation"""
-    return npu_op.op_type == NpuOperationType.Dma
 
 
 def generate_padding(emit: CommandStreamEmitter, padding: NpuPadding):
@@ -584,6 +565,15 @@ def create_shared_buffer(npu_op: NpuBlockOperation, arch: ArchitectureFeatures) 
     return shared_buffer_allocation_for_npu_op(arch, npu_op, block_type, ifm_resampling_mode)
 
 
+def generate_cmd_waits(emit: CommandStreamEmitter, cmd_waits: Watermark):
+    """Generates KERNEL_WAIT/DMA_WAIT"""
+    if cmd_waits.npu >= 0:
+        emit.cmd_wait(cmd0.NPU_OP_KERNEL_WAIT, 0, cmd_waits.npu)
+
+    if cmd_waits.dma >= 0:
+        emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, 0, cmd_waits.dma)
+
+
 def generate_common(
     emit: CommandStreamEmitter,
     npu_op: NpuBlockOperation,
@@ -735,353 +725,6 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
 
 
 # -------------------------------------------------------------------
-# ADDRESSING/STRIDES (helper functions)
-# -------------------------------------------------------------------
-
-
-def ranges_overlap(range1: NpuAddressRange, range2: NpuAddressRange) -> bool:
-    """Checks if the ranges overlap"""
-    return range1.region == range2.region and numeric_util.overlaps(
-        range1.address, range1.address + range1.length, range2.address, range2.address + range2.length
-    )
-
-
-def range_lists_overlap(list1: List[Optional[NpuAddressRange]], list2: List[Optional[NpuAddressRange]]) -> bool:
-    """Checks if there is any address overlap between list1 and list2"""
-    for range1 in list1:
-        if range1 is None:
-            continue
-        for range2 in list2:
-            if range2 is not None and ranges_overlap(range1, range2):
-                return True
-    return False
-
-
-def get_strides(fm: NpuFeatureMap) -> NpuShape3D:
-    """Calculates STRIDE_C/Y/X"""
-    if fm.strides is not None:
-        return fm.strides
-    elem_size = fm.data_type.size_in_bytes()
-    if fm.layout == NpuLayout.NHWC:
-        stride_c = elem_size
-        stride_x = fm.shape.depth * stride_c
-        stride_y = fm.shape.width * stride_x
-    else:
-        stride_x = 16 * elem_size
-        stride_c = stride_x * fm.shape.width
-        stride_y = elem_size * fm.shape.width * numeric_util.round_up(fm.shape.depth, 16)
-    return NpuShape3D(depth=stride_c, height=stride_y, width=stride_x)
-
-
-def get_address(fm: NpuFeatureMap, strides: NpuShape3D, y: int, x: int, c: int) -> int:
-    """Returns address of given coordinate"""
-    t = 0
-    BRICK = 16
-    stride_c = BRICK * fm.data_type.size_in_bytes() if fm.layout == NpuLayout.NHWC else strides.depth
-    stride_x = BRICK * fm.data_type.size_in_bytes() if fm.layout == NpuLayout.NHCWB16 else strides.width
-    if x >= fm.tiles.width_0:
-        x -= fm.tiles.width_0
-        t = 1
-        if y >= fm.tiles.height_1:
-            y -= fm.tiles.height_1
-            t += 2
-    elif y >= fm.tiles.height_0:
-        y -= fm.tiles.height_0
-        t += 2
-    elem_size = fm.data_type.size_in_bytes()
-    return (
-        fm.tiles.addresses[t] + y * strides.height + x * stride_x + (c // BRICK) * stride_c + int(c % BRICK) * elem_size
-    )
-
-
-def get_address_range(
-    fm: NpuFeatureMap, strides: NpuShape3D, y0: int, x0: int, c0: int, y1: int, x1: int, c1: int
-) -> NpuAddressRange:
-    """
-    Gets address range for (y0, x0, c0) - (y1, x1, c1) (inclusive, so the second coordinate is within the fm).
-    The begin and end coordinates must be within the same tile.
-    """
-    addr0 = get_address(fm, strides, y0, x0, c0)
-    addr1 = get_address(fm, strides, y1, x1, c1)
-    return NpuAddressRange(region=fm.region, address=addr0, length=addr1 - addr0 + fm.data_type.size_in_bytes())
-
-
-def get_h_ranges(
-    fm: NpuFeatureMap, strides: NpuShape3D, y0: int, x0: int, c0: int, y1: int, x1: int, c1: int
-) -> List[NpuAddressRange]:
-    """
-    Gets address ranges for (y0, x0, c0) - (y1, x1, c1) (inclusive, so the second coordinate is within the fm);
-    the begin and end coordinates must be within the same tile.
-    Divides the area in horizontal "stripes" of height 1, and returns the address ranges for these "stripes".
-    """
-    return [get_address_range(fm, strides, y, x0, c0, y, x1, c1) for y in range(y0, y1 + 1)]
-
-
-def get_address_ranges_for_area(
-    fm: NpuFeatureMap, y0: int, x0: int, c0: int, y1: int, x1: int, c1: int
-) -> List[NpuAddressRange]:
-    """
-    Returns a list of adddress ranges that covers the area (y0, x0, c0) - (y1, x1, c1) (inclusive).
-    Divides the area in horizontal "stripes" of height 1, and returns the address ranges for these "stripes".
-
-    For example, for the area marked with X (in a feature map with 4 tiles) as input, this function would return
-    6 address ranges: the address ranges for 1-height areas [AAA, BBB, CC, DD, EEE, FF]
-
-        .....|....           .....|....
-     t0 ..XXX|XX.. t1     t0 ..AAA|CC.. t1
-        ..XXX|XX..           ..BBB|DD..
-        -----+----    -->    -----+----
-     t2 ..XXX|XX.. t3     t2 ..EEE|FF.. t3
-        .....|....           .....|....
-    """
-    strides = get_strides(fm)
-    height_0, height_1, width_0 = fm.tiles.height_0, fm.tiles.height_1, fm.tiles.width_0
-    h, w, c = fm.shape
-    y2, x2, c2 = min(y1, h - 1), min(x1, w - 1), min(c1, c - 1)
-    ranges = []
-    if x0 < width_0 and y0 < height_0:
-        # Horizontal ranges for tile 0
-        ranges.extend(get_h_ranges(fm, strides, y0, x0, c0, min(y2, height_0 - 1), min(x2, width_0 - 1), c2))
-    if x2 >= width_0 and y0 < height_1:
-        # Horizontal ranges for tile 1
-        ranges.extend(get_h_ranges(fm, strides, y0, max(x0, width_0), c0, min(y2, height_1 - 1), x2, c2))
-    if x0 < width_0 and y2 >= height_0:
-        # Horizontal ranges for tile 2
-        ranges.extend(get_h_ranges(fm, strides, max(y0, height_0), x0, c0, y2, min(x2, width_0 - 1), c2))
-    if x2 >= width_0 and y2 >= height_1:
-        # Horizontal ranges for tile 3
-        ranges.extend(get_h_ranges(fm, strides, max(y0, height_1), max(x0, width_0), c0, y2, x2, c2))
-    return ranges
-
-
-def get_address_ranges(fm: NpuFeatureMap) -> List[Optional[NpuAddressRange]]:
-    """Returns 4 adddress ranges, one for every tile, None if the tile is not in use"""
-    strides = get_strides(fm)
-    height, width, depth = fm.shape.height, fm.shape.width, fm.shape.depth
-    height_0, height_1, width_0 = fm.tiles.height_0, fm.tiles.height_1, fm.tiles.width_0
-    t0 = get_address_range(fm, strides, 0, 0, 0, min(height, height_0) - 1, min(width, width_0) - 1, depth - 1,)
-    if width > width_0:
-        t1 = get_address_range(fm, strides, 0, width_0, 0, min(height, height_1) - 1, width - 1, depth - 1)
-    else:
-        t1 = None
-    if height > height_0:
-        t2 = get_address_range(fm, strides, height_0, 0, 0, height - 1, min(width, width_0) - 1, depth - 1)
-    else:
-        t2 = None
-    if t1 is not None and t2 is not None:
-        t3 = get_address_range(fm, strides, height_1, width_0, 0, height - 1, width - 1, depth - 1)
-    else:
-        t3 = None
-    return [t0, t1, t2, t3]
-
-
-# -------------------------------------------------------------------
-# DMA_WAIT/KERNEL_WAIT
-# -------------------------------------------------------------------
-
-
-Watermark = namedtuple("Watermark", ["npu", "dma"])
-
-
-def memory_range_set(range: NpuAddressRange) -> MemoryRangeSet:
-    return MemoryRangeSet(range.region, range.address, range.address + range.length)
-
-
-def get_dma_memory_accesses(dma_op: NpuDmaOperation) -> MemoryAccessSet:
-    """Returns the address that are read and written by the given DMA operation"""
-    res = MemoryAccessSet()
-    res.add(memory_range_set(dma_op.src), AccessDirection.Read)
-    res.add(memory_range_set(dma_op.dest), AccessDirection.Write)
-    return res
-
-
-def get_op_memory_accesses(npu_op: NpuBlockOperation, arch: ArchitectureFeatures) -> MemoryAccessSet:
-    """Returns the addresses that are read and written by the given operation"""
-    assert npu_op.ifm is not None and npu_op.ofm is not None
-    # Read addresses
-    read_ranges = get_address_ranges(npu_op.ifm)
-    if has_ifm2(npu_op):
-        assert npu_op.ifm2 is not None
-        read_ranges.extend(get_address_ranges(npu_op.ifm2))
-    read_ranges.extend(npu_op.weights)
-    read_ranges.extend(npu_op.biases)
-    if npu_op.activation is not None and npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP:
-        address = arch.available_shram_banks(True) * arch.shram_bank_size
-        read_ranges.append(NpuAddressRange(region=BasePointerIndex.Mem2Mem, address=address, length=2048))
-    # Written addresses
-    write_ranges = get_address_ranges(npu_op.ofm)
-    # Add write access to SHRAM, needed when LUTs can overwrite accumulator banks
-    uses_lut = npu_op.activation is not None and npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP
-    written_shram_size = arch.available_shram_banks(uses_lut) * arch.shram_bank_size
-    write_ranges.append(NpuAddressRange(region=BasePointerIndex.Mem2Mem, address=0, length=written_shram_size))
-
-    res = MemoryAccessSet()
-    for read_range in read_ranges:
-        if read_range is not None:
-            res.add(memory_range_set(read_range), AccessDirection.Read)
-    for write_range in write_ranges:
-        if write_range is not None:
-            res.add(memory_range_set(write_range), AccessDirection.Write)
-    return res
-
-
-def get_wait_dependency(
-    arch: ArchitectureFeatures, npu_op_list: List[NpuOperation], memory_accesses, op_index: int, watermark: Watermark
-):
-    """Used to calculate whether DMA wait or kernel wait operations are needed"""
-    npu_op = npu_op_list[op_index]
-    op_access = memory_accesses[npu_op]
-    index = op_index - 1
-
-    # NPU dependency tracking
-    npu_outstanding = -1
-    npu_ops = 0
-    npu_index = watermark.npu
-
-    # DMA dependency tracking
-    dma_outstanding = -1
-    dma_ops = 0
-    dma_index = watermark.dma
-
-    # Seek back in the command stream looking for NPU or DMA dependencies
-    # but only as far as the first dependency or the watermarks (dependencies
-    # before this point have been satisfied already).
-    # The watermark moves to after the latest element we must wait for, not
-    # the command that issues the wait.
-    # NPU->NPU dependency is handled via blockdep.
-    while (index >= npu_index) or (index >= dma_index):
-        prev_op = npu_op_list[index]
-        prev_access = memory_accesses[prev_op]
-
-        # Check NPU consuming DMA output
-        if is_dma_op(prev_op):
-            if index >= dma_index:
-                if not is_dma_op(npu_op):
-                    if (dma_outstanding == -1) and prev_access.conflicts(op_access):
-                        dma_outstanding = dma_ops
-                dma_ops += 1  # Count DMA ops in the pipeline
-                if dma_ops >= arch.max_outstanding_dma:
-                    dma_index = max(index + 1, dma_index)
-        # Check DMA consuming NPU output
-        else:
-            if index >= npu_index:
-                if is_dma_op(npu_op) and npu_outstanding == -1 and prev_access.conflicts(op_access):
-                    npu_outstanding = npu_ops
-                npu_ops += 1  # Count NPU ops in the pipeline
-                if npu_ops >= arch.max_outstanding_kernels:
-                    npu_index = max(index + 1, npu_index)
-
-        index -= 1
-
-    # Update DMA watermark if we didn't see any and the NPU pipeline is full
-    if (dma_ops == 0) and (npu_ops >= arch.max_outstanding_kernels):
-        dma_index = op_index
-
-    # Bring the search watermark forwards as we complete for those dependencies
-    watermark = Watermark(npu_index, dma_index)
-    outstanding = Watermark(npu_outstanding, dma_outstanding)
-
-    return watermark, outstanding
-
-
-def generate_cmd_waits(emit: CommandStreamEmitter, cmd_waits: Watermark):
-    if cmd_waits.npu >= 0:
-        emit.cmd_wait(cmd0.NPU_OP_KERNEL_WAIT, 0, cmd_waits.npu)
-
-    if cmd_waits.dma >= 0:
-        emit.cmd_wait(cmd0.NPU_OP_DMA_WAIT, 0, cmd_waits.dma)
-
-
-# -------------------------------------------------------------------
-# BLOCKDEP
-# -------------------------------------------------------------------
-
-
-def shape3d_size(shape: NpuShape3D) -> int:
-    return shape.width * shape.height * shape.depth
-
-
-def shape3d_to_rect(shape: NpuShape3D) -> Rect:
-    return Rect(0, 0, 0, shape.width - 1, shape.height - 1, shape.depth - 1)
-
-
-def get_ifm_ofm_block_depth(arch: ArchitectureFeatures, npu_op: NpuBlockOperation) -> int:
-    # Note: NOT equivalent to the normal ifm block depth calculation since
-    # it takes into account 'depthless' block operations by returning full
-    # depth
-    if npu_op.op_type == NpuOperationType.Conv2D:
-        res = arch.calc_ifm_block_depth(npu_op.ifm.shape.depth, npu_op.ifm.data_type.size_in_bits())
-        return res
-    return npu_op.ofm.shape.depth
-
-
-def calc_blockdep(arch: ArchitectureFeatures, prev_op: Optional[NpuBlockOperation], npu_op: NpuBlockOperation,) -> int:
-    """Calculates the value of the BLOCKDEP register"""
-    if prev_op is None:
-        return 0
-    assert npu_op.ifm is not None
-    assert prev_op.ofm is not None
-    # Check if IFM or IFM2 overlaps with prev op's OFM
-    prev_ofm_ranges = get_address_ranges(prev_op.ofm)
-    ifm_ranges = get_address_ranges(npu_op.ifm)
-    ifm_overlaps = range_lists_overlap(prev_ofm_ranges, ifm_ranges)
-    if has_ifm2(npu_op):
-        assert npu_op.ifm2 is not None
-        ifm2_ranges = get_address_ranges(npu_op.ifm2)
-        ifm2_overlaps = range_lists_overlap(prev_ofm_ranges, ifm2_ranges)
-    else:
-        ifm2_overlaps = False
-    if ifm_overlaps and ifm2_overlaps:
-        # Both IFM and IFM2 overlap (should be rare)
-        return 0
-    if not ifm_overlaps and not ifm2_overlaps:
-        # No overlap between prev OFM and IFM/IFM2
-        return ArchitectureFeatures.MAX_BLOCKDEP
-    if ifm2_overlaps and shape3d_size(npu_op.ifm2.shape) < shape3d_size(npu_op.ifm.shape):
-        # Prev OFM produces IFM2 which is broadcasted (this should be rare)
-        return 0
-    prev_block_config = prev_op.block_config
-    block_config = npu_op.block_config
-    overlapping_fm = npu_op.ifm if ifm_overlaps else npu_op.ifm2
-    assert overlapping_fm is not None
-
-    def intersects(ifm_start_coord: Tuple, ifm_end_coord: Tuple, ofm_start_coord: Tuple, ofm_end_coord: Tuple) -> bool:
-        """Checks if the given IFM area overlaps with the given OFM area"""
-        if overlapping_fm.shape == prev_op.ofm.shape and overlapping_fm.tiles == prev_op.ofm.tiles:
-            # Common case: prev_op.ofm == op.ifm; in this case it suffices to check
-            # if the xyz coordinates overlap, which is quick and easy
-            return ArchitectureFeatures.intersects(ifm_start_coord, ifm_end_coord, ofm_start_coord, ofm_end_coord)
-        # The OFM produces a part of the IFM (e.g. a stripe), or the IFM consumes part of the OFM.
-        # In this case address comparison is needed between the two areas
-        x0, y0, c0 = ifm_start_coord
-        x1, y1, c1 = ifm_end_coord
-        ifm_ranges = get_address_ranges_for_area(overlapping_fm, y0, x0, c0, y1, x1, c1)
-        x0, y0, c0 = ofm_start_coord
-        x1, y1, c1 = ofm_end_coord
-        prev_ofm_ranges = get_address_ranges_for_area(prev_op.ofm, y0, x0, c0, y1, x1, c1)
-        return range_lists_overlap(ifm_ranges, prev_ofm_ranges)
-
-    prev_ofm_block = Block(prev_block_config.width, prev_block_config.height, prev_block_config.depth)
-    prev_ofm_rect = shape3d_to_rect(prev_op.ofm.shape)
-    cur_ifm_block_depth = get_ifm_ofm_block_depth(arch, npu_op)
-    cur_ofm_block = Block(block_config.width, block_config.height, block_config.depth)
-    cur_ofm_rect = shape3d_to_rect(npu_op.ofm.shape)
-    cur_ifm_rect = shape3d_to_rect(npu_op.ifm.shape)
-    cur_padLT = (0, 0) if npu_op.padding is None else (npu_op.padding.left, npu_op.padding.top)
-    return arch.calc_block_dep(
-        prev_ofm_rect,
-        prev_ofm_block,
-        cur_ifm_rect,
-        cur_ofm_rect,
-        cur_ifm_block_depth,
-        cur_ofm_block,
-        to_kernel(npu_op.kernel),
-        cur_padLT,
-        intersects=intersects,
-    )
-
-
-# -------------------------------------------------------------------
 # PRINT
 # -------------------------------------------------------------------
 
@@ -1209,7 +852,7 @@ def generate_elementwise_op(emit: CommandStreamEmitter, npu_op: NpuElementWiseOp
         emit, npu_op, NpuBlockTraversal.DEPTH_FIRST, arch, use_global_scale=use_global_scale, op_to_scale=op_to_scale
     )
     # Elementwise op specific
-    if npu_op.sub_op_type not in unary_elementwise_ops:
+    if npu_op.sub_op_type not in UNARY_ELEMWISE_OPS:
         # Binary operation; generate IFM2 registers
         assert npu_op.ifm2 is not None
         has_scalar = npu_op.ifm2_scalar is not None
@@ -1253,9 +896,15 @@ def generate_registers_for_op(emit: CommandStreamEmitter, npu_op: NpuOperation, 
 
 
 def generate_command_stream(
-    emit: CommandStreamEmitter, npu_op_list: List[NpuOperation], arch: ArchitectureFeatures, add_to_debug_db=None
-):
-    """Generates register commands for the given list of NPU operations"""
+    npu_op_list: List[NpuOperation], arch: ArchitectureFeatures, verbose: bool, add_to_debug_db=None,
+) -> List[int]:
+    """
+    Generates register commands for the given list of NPU operations.
+    Returns Ethos-U instructions, as a list of 32-bit integers.
+    """
+    emit = CommandStreamEmitter()
+    if verbose:
+        print_operations(npu_op_list)
     # Calculate memory accesses for every operation
     memory_accesses = {}
     for npu_op in npu_op_list:
@@ -1285,39 +934,17 @@ def generate_command_stream(
             add_to_debug_db(npu_op, emit.offset)
     # Fill in final part of command stream:
     emit.cmd_do_operation(cmd0.NPU_OP_STOP, param=0xFFFF)
-
-
-def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
-    """Generates command stream for the subgraph, adds it to sg.register_command_stream"""
-    # Convert high level command stream to list of NpuOperation
-    npu_op_list = []
-    npu_op_to_cmd = dict()  # map from npu op to high level command
-    for cmd in sg.high_level_command_stream:
-        if cmd.cmdtype == CommandType.NpuStripe and cmd.ps.npu_block_type == NpuBlockType.Default:
-            print("Warning: Skipping register command stream generation for", cmd.ps)
-        else:
-            npu_op = convert_command_to_npu_op(cmd, arch)
-            npu_op_list.append(npu_op)
-            npu_op_to_cmd[npu_op] = cmd
-    if verbose:
-        print_operations(npu_op_list)
-    # Generate register commands
-    stream_id = DebugDatabase.add_stream(sg)
-    DebugDatabase.set_stream_offset(sg, 0)  # Default to zero, can only set during file writing
-    emit = CommandStreamEmitter()
-
-    def add_to_debug_db(npu_op: NpuOperation, offset: int):
-        """Adds info to the debug database"""
-        if not is_dma_op(npu_op):
-            cmd = npu_op_to_cmd[npu_op]
-            DebugDatabase.add_command(stream_id, offset, cmd.ps.primary_op)
-
-    generate_command_stream(emit, npu_op_list, arch, add_to_debug_db)
-    sg.register_command_stream = emit.to_list()
+    res = emit.to_list()
     if verbose:
         emit.print_cmds()
         print("number of commands", len(emit.cmd_stream))
-        print("command stream length in words", len(sg.register_command_stream))
+        print("command stream length in words", len(res))
+    return res
+
+
+# -------------------------------------------------------------------
+# EXTERNAL API
+# -------------------------------------------------------------------
 
 
 def find_block_configs(npu_op: NpuOperation, npu_accelerator: NpuAccelerator) -> List[NpuShape3D]:
@@ -1342,7 +969,5 @@ def generate_register_command_stream(npu_op_list: List[NpuOperation], npu_accele
     :return Ethos-U instructions, as a list of 32-bit integers
     """
     accelerator = Accelerator.from_npu_accelerator(npu_accelerator)
-    emit = CommandStreamEmitter()
     arch = create_default_arch(accelerator)
-    generate_command_stream(emit, npu_op_list, arch)
-    return emit.to_list()
+    return generate_command_stream(npu_op_list, arch, verbose=False)

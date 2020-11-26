@@ -32,7 +32,6 @@ from .api import NpuDmaOperation
 from .api import NpuElementWiseOp
 from .api import NpuElementWiseOperation
 from .api import NpuFeatureMap
-from .api import NpuKernel
 from .api import NpuLayout
 from .api import NpuOperation
 from .api import NpuPadding
@@ -46,15 +45,20 @@ from .api import NpuTileBox
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .data_type import DataType
+from .debug_database import DebugDatabase
 from .high_level_command_stream import Box
 from .high_level_command_stream import Command
 from .high_level_command_stream import CommandType
 from .high_level_command_stream import DMA
 from .high_level_command_stream import NpuStripe
-from .operation import Kernel
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
+from .register_command_stream_generator import generate_command_stream
+from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
+from .register_command_stream_util import is_dma_op
+from .register_command_stream_util import to_npu_kernel
+from .register_command_stream_util import UNARY_ELEMWISE_OPS
 from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorBlockTraversal
@@ -62,14 +66,10 @@ from .tensor import TensorFormat
 from .tensor import TensorPurpose
 
 
-unary_elementwise_ops = set((NpuElementWiseOp.ABS, NpuElementWiseOp.LRELU, NpuElementWiseOp.CLZ,))
-
-
 class BasePointerIndex(IntEnum):
     WeightTensor = 0  # base address index for the Weight tensor
     ScratchTensor = 1  # base address index for the Scratch_tensor in the TensorArena
     ScratchFastTensor = 2  # base address for the Scratch_fast_tensor
-    Mem2Mem = (1 << 8) | (3 << 0)  # base address slot for memory 2 memory transfer
 
 
 dtype_map = {
@@ -100,20 +100,6 @@ elementwise_op_map = {
     Op.SHR: NpuElementWiseOp.SHR,
     Op.SHL: NpuElementWiseOp.SHL,
 }
-
-
-def to_npu_kernel(kernel: Kernel) -> NpuKernel:
-    """Converts the given internally used kernel object to NpuKernel (of public API)"""
-    return NpuKernel(
-        kernel.width, kernel.height, kernel.stride.x, kernel.stride.y, kernel.dilation.x, kernel.dilation.y
-    )
-
-
-def to_kernel(kernel: Optional[NpuKernel]) -> Kernel:
-    """Converts the given public API object to Kernel (used internally)"""
-    if kernel is None:
-        return Kernel(1, 1)
-    return Kernel(kernel.width, kernel.height, kernel.stride_x, kernel.stride_y, kernel.dilation_x, kernel.dilation_y)
 
 
 def ifm_ifm2_correct_order(ifm_shape: List[int], ifm2_shape: List[int]) -> bool:
@@ -412,7 +398,7 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
     assert op.type in elementwise_op_map, f"Unknown elementwise type {op.type}"
     elemwise_op = elementwise_op_map[op.type]
     npu_op = NpuElementWiseOperation(elemwise_op)
-    if elemwise_op not in unary_elementwise_ops:
+    if elemwise_op not in UNARY_ELEMWISE_OPS:
         if not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
             # The scalar/broadcasted feature map has to be the ifm2 tensor so switch the ifms
             cmd.ifm_tensor, cmd.ifm2_tensor = cmd.ifm2_tensor, cmd.ifm_tensor
@@ -452,7 +438,7 @@ def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
     """Converts the command to NpuDmaOperation"""
     src_region = get_region(cmd.in_tensor, arch)
     if cmd.out_tensor.purpose == TensorPurpose.LUT:
-        dest_region = BasePointerIndex.Mem2Mem
+        dest_region = BASE_PTR_INDEX_MEM2MEM
     else:
         dest_region = get_region(cmd.out_tensor, arch)
 
@@ -492,3 +478,28 @@ def convert_command_to_npu_op(cmd: Command, arch: ArchitectureFeatures) -> NpuOp
     # add a link to the high level command for debugging purposes
     npu_op.cmd = cmd
     return npu_op
+
+
+def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
+    """Generates command stream for the subgraph, adds it to sg.register_command_stream"""
+    # Convert high level command stream to list of NpuOperation
+    npu_op_list = []
+    npu_op_to_cmd = dict()  # map from npu op to high level command
+    for cmd in sg.high_level_command_stream:
+        if cmd.cmdtype == CommandType.NpuStripe and cmd.ps.npu_block_type == NpuBlockType.Default:
+            print("Warning: Skipping register command stream generation for", cmd.ps)
+        else:
+            npu_op = convert_command_to_npu_op(cmd, arch)
+            npu_op_list.append(npu_op)
+            npu_op_to_cmd[npu_op] = cmd
+    # Generate register commands
+    stream_id = DebugDatabase.add_stream(sg)
+    DebugDatabase.set_stream_offset(sg, 0)  # Default to zero, can only set during file writing
+
+    def add_to_debug_db(npu_op: NpuOperation, offset: int):
+        """Adds info to the debug database"""
+        if not is_dma_op(npu_op):
+            cmd = npu_op_to_cmd[npu_op]
+            DebugDatabase.add_command(stream_id, offset, cmd.ps.primary_op)
+
+    sg.register_command_stream = generate_command_stream(npu_op_list, arch, verbose, add_to_debug_db)

@@ -41,7 +41,7 @@ from ethosu.vela.api import NpuTileBox
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd0
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd1
 from ethosu.vela.register_command_stream_generator import CmdMode
-from ethosu.vela.register_command_stream_generator import get_address_ranges
+from ethosu.vela.register_command_stream_util import get_address_ranges
 
 
 def check_cmd0(cmd_stream, cmd, param):

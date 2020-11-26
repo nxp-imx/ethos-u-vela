@@ -28,10 +28,10 @@ from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
-from .high_level_command_to_npu_op import to_kernel
 from .operation import Kernel
 from .operation import NpuBlockType
 from .range_set import MemoryRangeSet
+from .register_command_stream_util import to_kernel
 from .tensor import MemArea
 
 
