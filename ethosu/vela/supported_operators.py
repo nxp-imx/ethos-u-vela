@@ -708,7 +708,7 @@ class SupportedOperators:
     @staticmethod
     def constraint_splitv_inferred(op):
         "Only one size is allowed to be inferred"
-        sizes = op.ifm2.values
+        sizes = op.inputs[1].values
         valid = np.count_nonzero(sizes == -1) <= 1
         return valid, f"Op has multiple inferred sizes (-1): {sizes}"
 

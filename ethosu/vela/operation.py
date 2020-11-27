@@ -235,7 +235,7 @@ class Op(Enum):
     SparseToDense = OperatorInfo()
     Split = OperatorInfo(indices=SPLIT_IFM_INDICES)
     SplitSliceRead = OperatorInfo(indices=IFM_INDICES)
-    SplitV = OperatorInfo(indices=IFM_IFM2_INDICES)
+    SplitV = OperatorInfo(indices=IFM_INDICES)
     Sqrt = OperatorInfo()
     Square = OperatorInfo()
     SquaredDifference = OperatorInfo()
