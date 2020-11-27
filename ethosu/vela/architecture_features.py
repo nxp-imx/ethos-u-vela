@@ -802,16 +802,22 @@ class ArchitectureFeatures:
         return result
 
 
+# Cache for default arch instances, as these are expensive to create
+default_arch_cache = dict()
+
+
 def create_default_arch(accelerator: Accelerator) -> ArchitectureFeatures:
     """Creates architecture features object using default settings"""
-    return ArchitectureFeatures(
-        vela_config_files=None,
-        accelerator_config=accelerator.value,
-        system_config=ArchitectureFeatures.DEFAULT_CONFIG,
-        memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
-        override_block_config=None,
-        block_config_limit=None,
-        max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
-        weight_estimation_scaling=1.0,
-        verbose_config=False,
-    )
+    if accelerator not in default_arch_cache:
+        default_arch_cache[accelerator] = ArchitectureFeatures(
+            vela_config_files=None,
+            accelerator_config=accelerator.value,
+            system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+            memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+            override_block_config=None,
+            block_config_limit=None,
+            max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
+            weight_estimation_scaling=1.0,
+            verbose_config=False,
+        )
+    return default_arch_cache[accelerator]
