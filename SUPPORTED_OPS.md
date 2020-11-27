@@ -147,6 +147,7 @@ This is a list of constraints that the FULLY_CONNECTED operator must satisfy in 
 - Weight tensor must be constant
 - Optional Bias tensor must be of type: int32, int64
 - Optional Bias tensor values must fit within 40-bits
+- The output tensor(s) must have 2D shape
 
 ## LEAKY_RELU Constraints
 
