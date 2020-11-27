@@ -65,7 +65,7 @@ class SchedulerOptions:
         use_ifm_streaming=True,
         pareto_metric=ParetoMetric.BwCycMem,
         use_nhcwb16_between_cascaded_passes=True,
-        keep_scale_placement=False,
+        cache_bias_scale_tensor=True,
     ):
         self.use_cascading = use_cascading
         self.verbose_schedule = verbose_schedule
@@ -73,7 +73,7 @@ class SchedulerOptions:
         self.use_ifm_streaming = use_ifm_streaming
         self.pareto_metric = pareto_metric
         self.use_nhcwb16_between_cascaded_passes = use_nhcwb16_between_cascaded_passes
-        self.keep_scale_placement = keep_scale_placement
+        self.cache_bias_scale_tensor = cache_bias_scale_tensor
 
     def __str__(self):
         return type(self).__name__ + ": " + str(self.__dict__)

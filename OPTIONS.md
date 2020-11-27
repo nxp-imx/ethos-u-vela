@@ -98,13 +98,15 @@ mode.  More details can be found in the Configuration File section below.
 vela network.tflite --config my_vela_cfg1.ini --config my_vela_cfg2.ini --system-config My_Sys_Cfg --memory-mode My_Mem_Mode
 ```
 
-### Keep scale placement
+### Cache Bias Scale Tensor
 
-Prevents scheduler from placing scale tensors for IFM streamed passes in SRAM
-and keeps these in flash.  
+Controls whether the scheduler caches the bias & scale tensors in SRAM or if it
+leaves them in Flash.  This only affects IFM streamed passes.  
+**Type: Boolean**  
+**Default: True**  
 
 ```bash
-vela network.tflite --keep-scale-placement
+vela network.tflite --cache-bias-scale-tensor False
 ```
 
 ### Cascading
