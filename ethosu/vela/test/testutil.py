@@ -69,6 +69,8 @@ def create_elemwise_op(
     ofm = Tensor(ofm_shape, datatype, name + "_ofm")
     ofm.quantization = ofm_quant
     op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
+
     return op
 
 
@@ -104,6 +106,8 @@ def create_op_with_quant_tensors(
             qp.zero_point = np.zeros(bias_shape)
         bias = create_const_tensor("bias", bias_shape, DataType.int32, np.zeros(bias_shape), np.int32, quantization=qp)
         op.add_input_tensor(bias)
+
+    op.set_ifm_ofm_shapes()
     return op
 
 
@@ -113,6 +117,7 @@ def create_op(op_type, inputs, output, attrs=None):
     op.outputs = [output]
     if attrs is not None:
         op.attrs = attrs
+    op.set_ifm_ofm_shapes()
     return op
 
 

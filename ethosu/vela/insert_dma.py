@@ -72,7 +72,7 @@ def insert_dma_cmd(op, arch, nng):
                     tens.purpose == TensorPurpose.FeatureMap
                     and op.type.is_binary_elementwise_op()
                     and tens.shape != []
-                    and tens.shape != op.outputs[0].shape
+                    and op.ifm_shapes[0] != op.ofm_shapes[0]
                     and tens.storage_size() > max_ifm_shram_avail
                 ):
                     only_vector_product_consumers = True

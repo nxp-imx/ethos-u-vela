@@ -231,7 +231,7 @@ def get_ofm_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
     return NpuQuantization(scale_f32=ofm_quant.scale_f32, zero_point=zero_point)
 
 
-def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures) -> NpuFeatureMap:
+def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, fm_shape: List[int]) -> NpuFeatureMap:
     """Creates feature map with common fields populated"""
     fm = NpuFeatureMap()
     fm.region = get_region(tens, arch)
@@ -242,7 +242,7 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures) -> Np
         fm.layout = NpuLayout.NHCWB16
     else:
         assert 0, "Incorrect tensor format"
-    height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(box.start_coord, box.end_coord)
+    height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(box.start_coord, box.end_coord, fm_shape)
     for idx, addr in enumerate(addresses):
         if addr is None:
             addresses[idx] = 0
@@ -326,12 +326,12 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     ifm_width = Block.from_shape(cmd.ifm_tensor.shape).width
     ifm_depth = get_ifm_depth(op.type.npu_block_type, cmd.ifm_box, cmd.ofm_box)
 
-    npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch)
+    npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch, ps.ifm_shapes[0])
     npu_op.ifm.shape = NpuShape3D(height=ifm_height, width=ifm_width, depth=ifm_depth)
     npu_op.ifm.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm_tensor)
 
     out_block = cmd.ofm_box.get_block()
-    npu_op.ofm = create_feature_map(cmd.ofm_tensor, cmd.ofm_box, arch)
+    npu_op.ofm = create_feature_map(cmd.ofm_tensor, cmd.ofm_box, arch, ps.ofm_shapes[0])
     npu_op.ofm.shape = NpuShape3D(height=out_block.height, width=out_block.width, depth=out_block.depth)
     npu_op.ofm.quantization = get_ofm_quantization(ps, cmd.ofm_tensor)
 
@@ -397,13 +397,15 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
     assert op.type in elementwise_op_map, f"Unknown elementwise type {op.type}"
     elemwise_op = elementwise_op_map[op.type]
     npu_op = NpuElementWiseOperation(elemwise_op)
+
     if elemwise_op not in UNARY_ELEMWISE_OPS:
         if not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
             # The scalar/broadcasted feature map has to be the ifm2 tensor so switch the ifms
             cmd.ifm_tensor, cmd.ifm2_tensor = cmd.ifm2_tensor, cmd.ifm_tensor
             cmd.ifm_box, cmd.ifm2_box = cmd.ifm2_box, cmd.ifm_box
+            ps.ifm_shapes[0], ps.ifm_shapes[1] = ps.ifm_shapes[1], ps.ifm_shapes[0]
             npu_op.reversed_operands = True
-        npu_op.ifm2 = create_feature_map(cmd.ifm2_tensor, cmd.ifm2_box, arch)
+        npu_op.ifm2 = create_feature_map(cmd.ifm2_tensor, cmd.ifm2_box, arch, ps.ifm_shapes[1])
         npu_op.ifm2.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm2_tensor)
         if cmd.ifm2_tensor.shape == []:
             # scalar

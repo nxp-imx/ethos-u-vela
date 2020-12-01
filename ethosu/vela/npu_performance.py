@@ -48,7 +48,7 @@ def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_conf
 
     if ps2.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct):
         op = ps2.primary_op
-        ifm_block_depth = arch.calc_ifm_block_depth(op.ifm.shape[-1], op.ifm.dtype.size_in_bits())
+        ifm_block_depth = arch.calc_ifm_block_depth(op.ifm_shapes[0][-1], op.ifm.dtype.size_in_bits())
     else:
         ifm_block_depth = block_config_ps2[-1]
 
@@ -224,8 +224,8 @@ def estimate_conv_pooling_cycles(
     scale_tensor=None,
 ):
     ofm_ublock = Block(arch.config.ofm_ublock.width, arch.config.ofm_ublock.height, arch.config.ofm_ublock.depth)
-    ifm_tens_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
-    ofm_tens_shape = numeric_util.full_shape(4, ofm_tensor.shape, 1)
+    ifm_tens_shape = primary_op.ifm_shapes[0]
+    ofm_tens_shape = primary_op.ofm_shapes[0]
 
     if (
         arch.config.ofm_ublock.height == 2
@@ -420,8 +420,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
         npu_block_type = primary_op.type.npu_block_type
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
-        ifm_tensor_shape = numeric_util.full_shape(4, ifm_tensor.shape, 1)
-        ofm_tensor_shape = numeric_util.full_shape(4, ofm_tensor.shape, 1)
+        ifm_tensor_shape = list(ps.primary_op.ifm_shapes[0])
+        ofm_tensor_shape = list(ps.primary_op.ofm_shapes[0])
 
         if npu_block_type == NpuBlockType.ReduceSum:
             block_traversal = TensorBlockTraversal.DepthFirst

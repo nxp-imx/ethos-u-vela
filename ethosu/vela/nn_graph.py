@@ -58,6 +58,8 @@ class Pass:
         self.name = name
         self.cascade = None
         self.placement = placement
+        self.ifm_shapes = []
+        self.ofm_shapes = []
 
         # TODO: rename is_element_wise because it is not the same as an ElementWise operator. It is used by the tensor
         # allocation and requires that the OFM and IFM has the exact same address. Essentially complete overlap.

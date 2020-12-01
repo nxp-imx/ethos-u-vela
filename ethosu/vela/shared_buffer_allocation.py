@@ -193,15 +193,16 @@ def shared_buffer_allocation_for_pass(arch, ps) -> SharedBufferAllocation:
     if ifm_tensor:
         ifm_resampling_mode = ifm_tensor.resampling_mode
         ifm_bits = ifm_tensor.dtype.size_in_bits()
+        ifm_shape = ps.primary_op.ifm_shapes[0]
 
-        if ifm_tensor.shape != []:
-            ifm_depth = ifm_tensor.shape[-1]
+        if ifm_shape != []:
+            ifm_depth = ifm_shape[-1]
 
         if is_elementwise:
             ifm_count = 2
             if ifm_tensor.shape == []:  # Scalar in ifm1
                 assert ifm2_tensor
-                ifm_depth = ifm2_tensor.shape[-1]
+                ifm_depth = ps.primary_op.ifm_shapes[1][-1]
                 ifm_count = 1
             elif not ifm2_tensor or ifm2_tensor.shape == []:  # Scalar in ifm2
                 ifm_count = 1
@@ -215,7 +216,7 @@ def shared_buffer_allocation_for_pass(arch, ps) -> SharedBufferAllocation:
         ifm_bits=ifm_bits,
         ifm_depth=ifm_depth,
         ifm_count=ifm_count,
-        ofm_shape=ofm_tensor.shape,
+        ofm_shape=ps.primary_op.ofm_shapes[0],
     )
 
 

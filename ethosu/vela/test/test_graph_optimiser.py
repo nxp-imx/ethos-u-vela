@@ -32,9 +32,16 @@ def test_convert_batched_fc():
     weights = create_const_tensor("weight_in", shape, np.uint8, np.zeros(shape))
     ofm = Tensor(ifm.shape, np.uint8, "test_out")
     op = testutil.create_op(Op.FullyConnected, [ifm, weights], ofm)
+
     ifm.consumer_list.append(op)
 
+    op.ifm_shapes.append([4, 1, 1, 8])
+    op.ofm_shapes.append([4, 1, 1, 8])
+
     prev_op = op.clone()
+    prev_op.ifm_shapes = op.ifm_shapes
+    prev_op.ofm_shapes = op.ofm_shapes
+
     conv_op = convert_batched_fc_shape(op, None, None)
 
     assert conv_op.ifm != prev_op.ifm
@@ -51,7 +58,13 @@ def test_convert_batched_fc():
     op = testutil.create_op(Op.FullyConnected, [ifm, weights], ofm)
     ifm.consumer_list.append(op)
 
+    op.ifm_shapes.append([1, 1, 1, 8])
+    op.ofm_shapes.append([1, 1, 1, 8])
+
     prev_op = op.clone()
+    prev_op.ifm_shapes = op.ifm_shapes
+    prev_op.ofm_shapes = op.ofm_shapes
+
     conv_op = convert_batched_fc_shape(op, None, None)
 
     assert conv_op.ifm == prev_op.ifm

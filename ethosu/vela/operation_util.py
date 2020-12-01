@@ -61,6 +61,7 @@ def create_depthwise_maxpool(
     ofm = Tensor([1, height, 1, 1], ifm.dtype, op.name + "_tens0")
     ofm.quantization = quantization
     op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
     return op
 
 
@@ -81,6 +82,7 @@ def create_reduce_sum(
     sum_of_exp = Tensor(ofm_shape, DataType.int32, op.name + "_tens0")
     sum_of_exp.quantization = quantization
     op.set_output_tensor(sum_of_exp)
+    op.set_ifm_ofm_shapes()
     return op
 
 
@@ -190,4 +192,5 @@ def create_binary_elementwise(
     ofm = Tensor(ofm_shape, dtype, f"{op.name}_tens0")
     ofm.quantization = quantization
     op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
     return op

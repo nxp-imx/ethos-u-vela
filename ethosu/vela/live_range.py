@@ -181,12 +181,12 @@ def merge_elementwise_op_ranges(ps, lr_graph, target_mem_area, target_mem_type_s
                 inps.append(elem_op.ifm2)
 
             if len(inps) > 0:
-                for inp in inps:
+                for i, inp in enumerate(inps):
                     # check input format, dtype, broadcasting or if there are more input consumers
                     if (
                         inp.format == elem_op.ofm.format
                         and inp.dtype == elem_op.ofm.dtype
-                        and inp.shape == elem_op.ofm.shape
+                        and elem_op.ifm_shapes[i] == elem_op.ofm_shapes[0]
                         and (len(inp.consumer_list) == 1 and len(inp.ops) == 1)
                     ):
                         lr_graph.fuse_ranges(inp, elem_op.ofm)

@@ -397,11 +397,28 @@ def pack_into_passes(nng, arch, verbose_packing=False):
 
             if len(ps.inputs) > 2:
                 ps.ifm_tensor = ps.inputs[-2]
+
+            # Get the corresponding ifm_shapes
+            for op in input_ops_list + [primary_op]:
+                if ps.ifm_tensor == op.ifm:
+                    ps.ifm_shapes.append(op.ifm_shapes[0])
+                elif ps.ifm_tensor == op.ifm2:
+                    ps.ifm_shapes.append(op.ifm_shapes[1])
+            for op in input_ops_list + [primary_op]:
+                if ps.ifm2_tensor == op.ifm:
+                    ps.ifm_shapes.append(op.ifm_shapes[0])
+                elif ps.ifm2_tensor == op.ifm2:
+                    ps.ifm_shapes.append(op.ifm_shapes[1])
         else:
             ps.ifm_tensor = ifm_tensor
             ps.ifm2_tensor = None
+            if ps.primary_op is not None:
+                ps.ifm_shapes.append(ps.primary_op.ifm_shapes[0])
 
         ps.ofm_tensor = ofm_tensor
+        if ps.primary_op is not None:
+            ps.ofm_shapes.append(ps.primary_op.ofm_shapes[0])
+
         assert ps.placement != PassPlacement.Npu or ps.ofm_tensor is not None
         ps.weight_tensor = ps.get_primary_op_ifm_weights()[1]
         ps.scale_tensor = ps.get_primary_op_ifm_weights_biases_ofm()[2]
@@ -436,6 +453,8 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_out = inp.clone("_avgpooled")
             avgpool_out.consumer_list.append(op)
             avgpool_op.set_output_tensor(avgpool_out)
+            avgpool_op.ifm_shapes = op.ifm_shapes
+            avgpool_op.ofm_shapes = op.ofm_shapes
 
             op.inputs[0] = avgpool_out
             op_list.insert(0, avgpool_op)

@@ -34,7 +34,6 @@ from .npu_performance import make_bandwidth_array
 from .npu_performance import make_cycles_array
 from .npu_performance import make_metrics_arrays
 from .npu_performance import PassCycles
-from .numeric_util import full_shape
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
@@ -188,7 +187,7 @@ class StrategySet:
     def __eq__(self, other):
         if (self.bws != other.bws).any():
             return False
-        if (self.macs != other.macs).any():
+        if self.macs != other.macs:
             return False
         if (self.cycles != other.cycles).any():
             return False
@@ -1000,10 +999,8 @@ class DynamicProgrammingScheduler:
 
                                 rewrites.extend(get_rewrites(op))
                                 # Detect no-op reshapes by comparing their full input and output tensor shapes.
-                                inshape = full_shape(4, op.inputs[0].shape, 1)
-                                compatible_shape = [
-                                    (inshape == full_shape(4, oper.outputs[0].shape, 1)) for oper in get_rewrites(op)
-                                ]
+                                inshape = op.ifm_shapes[0]
+                                compatible_shape = [(inshape == oper.ofm_shapes[0]) for oper in get_rewrites(op)]
                                 use_NHCWB16 = compatible_shape and all(compatible_shape)
                             else:
                                 use_NHCWB16 = False

@@ -213,7 +213,7 @@ class SoftMax:
         ofm = self.op.outputs[0]
 
         # Reshape ifm/ofm (if needed)
-        full_shape = ifm.get_full_shape()
+        full_shape = self.op.ifm_shapes[0]
         if full_shape[0] > 1:
             full_shape[1] *= full_shape[0]
             full_shape[0] = 1
@@ -230,9 +230,6 @@ class SoftMax:
 
     def get_graph_8bit(self, ifm, ofm):
         exp_lut = self.generate_exp_table(self.op.attrs.get("beta", 1.0), ifm.quantization.scale_f32)
-        ifm = create_reshape_tensor(ifm, ifm.get_full_shape())
-        DebugDatabase.add_optimised(self.op, ifm.ops[0])
-        ofm = create_reshape_tensor(ofm, ofm.get_full_shape(), False)
         no_scale_quant = ifm.quantization.clone()
         no_scale_quant.scale_f32 = None
         no_scale_quant.zero_point = 0
