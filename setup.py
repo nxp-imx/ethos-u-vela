@@ -26,12 +26,12 @@ from setuptools import setup
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
-    # Replace local Markdown links with URLs
-    tag = "2.0.0"
+    # Replace local file links with URLs
+    tag = "2.0.1"
     url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
-    for markdown in set(re.findall(r"\(.+\.md\)", long_description)):
-        link = f"({url}{markdown[1:-1]})"
-        long_description = long_description.replace(markdown, link)
+    for link in set(re.findall(r"\[.+\]\((.+?)\)", long_description)):
+        if path.exists(path.join(this_directory, link)):
+            long_description = long_description.replace(link, url + link)
 
 mlw_module = Extension(
     "ethosu.mlw_codec",

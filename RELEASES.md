@@ -5,6 +5,10 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 2.0.1 - 03/12/2020
+
+* Fixed a broken link in the long description used by PyPi
+
 ## Release 2.0.0 - 30/11/2020
 
 **Main feature changes:**
