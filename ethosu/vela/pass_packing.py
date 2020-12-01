@@ -21,9 +21,9 @@ import enum
 from .debug_database import DebugDatabase
 from .nn_graph import Pass
 from .nn_graph import PassPlacement
-from .operation import create_avgpool_nop
 from .operation import NpuBlockType
 from .operation import Op
+from .operation_util import create_avgpool_nop
 from .tensor import TensorPurpose
 
 

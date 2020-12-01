@@ -32,10 +32,10 @@ from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
 from .operation import create_activation_function
-from .operation import create_avgpool_nop
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
+from .operation_util import create_avgpool_nop
 from .softmax import SoftMax
 from .tensor import check_quantized_tens_scaling_equal
 from .tensor import create_const_tensor

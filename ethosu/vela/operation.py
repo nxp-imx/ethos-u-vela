@@ -355,20 +355,6 @@ def create_activation_function(op_type: Op) -> ActivationFunction:
     return act
 
 
-def create_avgpool_nop(name):
-    op = Operation(Op.AvgPool, name)
-    op.attrs["padding"] = b"VALID"
-    op.attrs["stride_w"] = 1
-    op.attrs["stride_h"] = 1
-    op.attrs["filter_width"] = 1
-    op.attrs["filter_height"] = 1
-    op.attrs["strides"] = [1, 1, 1, 1]
-    op.attrs["ksize"] = [1, 1, 1, 1]
-    op.attrs["skirt"] = [0, 0, 0, 0]
-    op.attrs["explicit_padding"] = [0, 0, 0, 0]
-    return op
-
-
 def get_slice_offsets(input_shape, offset_tens, offset_mask, is_begin=True):
     # For strided slice operator: get start or end offsets
     offsets = len(input_shape) * [0] if is_begin else input_shape[:]

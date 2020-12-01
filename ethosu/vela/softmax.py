@@ -30,9 +30,16 @@ from .debug_database import DebugDatabase
 from .operation import ActivationFunction
 from .operation import Op
 from .operation import Operation
+from .operation_util import create_add
+from .operation_util import create_clz
+from .operation_util import create_depthwise_maxpool
+from .operation_util import create_mul
+from .operation_util import create_reduce_sum
+from .operation_util import create_shl
+from .operation_util import create_shr
+from .operation_util import create_sub
 from .tensor import create_const_tensor
 from .tensor import create_reshape_tensor
-from .tensor import Tensor
 from .tensor import TensorPurpose
 
 
@@ -238,215 +245,124 @@ class SoftMax:
         one_scale_quant = ifm.quantization.clone()
         one_scale_quant.scale_f32 = 1.0
         one_scale_quant.zero_point = 0
+        two_scale_quant = one_scale_quant.clone()
+        two_scale_quant.scale_f32 = 2.0
         ifm.quantization.zero_point = 0
         pass_number = 0
 
+        def add_op_get_ofm(op):
+            DebugDatabase.add_optimised(self.op, op)
+            nonlocal pass_number
+            pass_number += 1
+            return op.ofm
+
         # PASS 0 - Depthwise Maxpool
-        maxpool_op = self.op.clone(f"_maxpool{pass_number}")
-        maxpool_op.type = Op.MaxPool
-        maxpool_h = ifm.shape[1] * ifm.shape[2]
-        maxpool_w = ifm.shape[3]
-        maxpool_ifm_shape = [1, maxpool_h, maxpool_w, 1]
-        maxpool_op.attrs["padding"] = b"VALID"
-        maxpool_op.attrs["stride_w"] = 1
-        maxpool_op.attrs["stride_h"] = 1
-        maxpool_op.attrs["filter_width"] = maxpool_w
-        maxpool_op.attrs["filter_height"] = 1
-        maxpool_op.attrs["strides"] = [1, maxpool_op.attrs["stride_h"], maxpool_op.attrs["stride_w"], 1]
-        maxpool_op.attrs["ksize"] = [1, maxpool_op.attrs["filter_height"], maxpool_op.attrs["filter_width"], 1]
-        maxpool_op.inputs = [create_reshape_tensor(ifm, maxpool_ifm_shape)]
-        ifm_max = Tensor([1, maxpool_h, 1, 1], ifm.dtype, f"{maxpool_op.name}_0")
-        ifm_max.quantization = no_scale_quant
-        maxpool_op.set_output_tensor(ifm_max)
-        DebugDatabase.add_optimised(self.op, maxpool_op)
-        pass_number += 1
+        ifm_max = add_op_get_ofm(create_depthwise_maxpool(f"{self.op.name}_maxpool{pass_number}", ifm, no_scale_quant))
 
         # PASS 1 - Sub+LUT(exp)
-        sub_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub_op.add_input_tensor(ifm)
-        sub_op.add_input_tensor(create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1]))
+        sub_op_quantization = one_scale_quant.clone()
+        sub_op_quantization.zero_point = 127
+        ifm_max = create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1])
+        sub_op = create_sub(f"{self.op.name}_sub{pass_number}", ifm, ifm_max, sub_op_quantization, dtype=DataType.int32)
         sub_op.set_activation_lut(
             create_const_tensor(
-                f"{sub_op.name}_lut", [1, 1, 1, 256], DataType.int32, exp_lut, np.int32, TensorPurpose.LUT
+                f"{sub_op.name}_exp_lut", [1, 1, 1, 256], DataType.int32, exp_lut, np.int32, TensorPurpose.LUT
             )
         )
-        ifm_exp = Tensor(ifm.shape, DataType.int32, f"{sub_op.name}_0")
-        ifm_exp.quantization = one_scale_quant.clone()
-        ifm_exp.quantization.zero_point = 127
-        sub_op.activation = ActivationFunction(Op.LUT)
+        ifm_exp = add_op_get_ofm(sub_op)
         # Note: activation.min/max are non-quantized values
         sub_op.activation.min = -128 - ifm_exp.quantization.zero_point
         sub_op.activation.max = 127 - ifm_exp.quantization.zero_point
-        sub_op.set_output_tensor(ifm_exp)
-        DebugDatabase.add_optimised(self.op, sub_op)
-        pass_number += 1
 
         # PASS 2 - SHR
-        shr2_op = Operation(Op.SHR, f"{self.op.name}_shr{pass_number}")
-        shr2_op.attrs["rounding_mode"] = NpuRoundingMode.NATURAL
-        shr2_op.add_input_tensor(ifm_exp)
-        shr2_op.add_input_tensor(
-            create_const_tensor(
-                f"{shr2_op.name}_const", [1, 1, 1, 1], DataType.int32, [12], np.int32, quantization=no_scale_quant
-            ),
+        name = f"{self.op.name}_shr{pass_number}"
+        shift = create_const_tensor(
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [12], np.int32, quantization=no_scale_quant
         )
-        shr2_op.activation = activation.clone()
-        rescaled_exp = Tensor(ifm.shape, ifm_exp.dtype, f"{shr2_op.name}_0")
-        rescaled_exp.quantization = no_scale_quant
-        shr2_op.set_output_tensor(rescaled_exp)
-        DebugDatabase.add_optimised(self.op, shr2_op)
-        pass_number += 1
+        rescaled_exp = add_op_get_ofm(
+            create_shr(
+                name, ifm_exp, shift, no_scale_quant, activation, attrs={"rounding_mode": NpuRoundingMode.NATURAL},
+            )
+        )
 
         # PASS 3 - Reduce sum
-        reduce_sum_op = Operation(Op.ReduceSum, f"{self.op.name}_reduce_sum3")
-        reduce_sum_op.attrs["padding"] = b"VALID"
-        reduce_sum_op.attrs["stride_w"] = 1
-        reduce_sum_op.attrs["stride_h"] = 1
-        reduce_sum_op.attrs["filter_width"] = 1
-        reduce_sum_op.attrs["filter_height"] = 1
-        reduce_sum_op.attrs["strides"] = [1, reduce_sum_op.attrs["stride_h"], reduce_sum_op.attrs["stride_w"], 1]
-        reduce_sum_op.attrs["ksize"] = [1, reduce_sum_op.attrs["filter_height"], reduce_sum_op.attrs["filter_width"], 1]
-        reduce_sum_op.add_input_tensor(rescaled_exp)
-        reduce_sum_op.activation = activation.clone()
-
-        reduce_sum_shape = [1, rescaled_exp.shape[1], rescaled_exp.shape[2], 1]
-        sum_of_exp = Tensor(reduce_sum_shape, DataType.int32, f"{reduce_sum_op.name}_0")
-        sum_of_exp.quantization = no_scale_quant
-        reduce_sum_op.set_output_tensor(sum_of_exp)
-        DebugDatabase.add_optimised(self.op, reduce_sum_op)
-        pass_number += 1
+        sum_of_exp = add_op_get_ofm(
+            create_reduce_sum(f"{self.op.name}_reduce_sum{pass_number}", rescaled_exp, no_scale_quant, activation)
+        )
 
         # PASS 4 - CLZ
-        clz_op = Operation(Op.CLZ, f"{self.op.name}_clz{pass_number}")
-        clz_op.add_input_tensor(sum_of_exp)
-        clz_op.activation = activation.clone()
-        headroom_plus_one = Tensor(sum_of_exp.shape, DataType.int32, f"{clz_op.name}_0")
-        headroom_plus_one.quantization = no_scale_quant
-        clz_op.set_output_tensor(headroom_plus_one)
-        DebugDatabase.add_optimised(self.op, clz_op)
-        pass_number += 1
+        headroom_plus_one = add_op_get_ofm(
+            create_clz(f"{self.op.name}_clz{pass_number}", sum_of_exp, no_scale_quant, activation)
+        )
 
         # PASS 5 - Sub
-        sub5_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub5_op.add_input_tensor(
-            create_const_tensor(
-                "headroom_offset_const",
-                [1, 1, 1, 1],
-                DataType.int32,
-                [12 + 31 - 8],
-                np.int32,
-                quantization=no_scale_quant,
-            ),
+        headroom_offset = create_const_tensor(
+            "headroom_offset_const", [1, 1, 1, 1], DataType.int32, [12 + 31 - 8], np.int32, quantization=no_scale_quant,
         )
-        sub5_op.add_input_tensor(headroom_plus_one)
-        sub5_op.activation = activation.clone()
-        right_shift = Tensor(sum_of_exp.shape, DataType.int32, f"{sub5_op.name}_0")
-        right_shift.quantization = no_scale_quant
-        sub5_op.set_output_tensor(right_shift)
-        DebugDatabase.add_optimised(self.op, sub5_op)
-        pass_number += 1
+        right_shift = add_op_get_ofm(
+            create_sub(
+                f"{self.op.name}_sub{pass_number}", headroom_offset, headroom_plus_one, no_scale_quant, activation,
+            )
+        )
 
         # PASS 6 - Sub
         one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant)
-        sub6_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub6_op.add_input_tensor(headroom_plus_one)
-        sub6_op.add_input_tensor(one)
-        sub6_op.activation = activation.clone()
-        headroom = Tensor(sum_of_exp.shape, DataType.int32, f"{sub6_op.name}_0")
-        headroom.quantization = no_scale_quant
-        sub6_op.set_output_tensor(headroom)
-        DebugDatabase.add_optimised(self.op, sub6_op)
-        pass_number += 1
+        headroom = add_op_get_ofm(
+            create_sub(f"{self.op.name}_sub{pass_number}", headroom_plus_one, one, no_scale_quant, activation)
+        )
 
         # PASS 7 - SHL
-        shl7_op = Operation(Op.SHL, f"{self.op.name}_shl{pass_number}")
-        shl7_op.add_input_tensor(sum_of_exp)
-        shl7_op.add_input_tensor(headroom)
-        shl7_op.activation = activation.clone()
-        shifted_sum = Tensor(sum_of_exp.shape, DataType.int32, f"{shl7_op.name}_0")
-        shifted_sum.quantization = no_scale_quant
-        shl7_op.set_output_tensor(shifted_sum)
-        DebugDatabase.add_optimised(self.op, shl7_op)
-        pass_number += 1
+        shifted_sum = add_op_get_ofm(
+            create_shl(f"{self.op.name}_shl{pass_number}", sum_of_exp, headroom, no_scale_quant, activation)
+        )
 
         # PASS 8 - Sub
-        sub8_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub8_op.add_input_tensor(shifted_sum)
-        sub8_op.add_input_tensor(
-            create_const_tensor(
-                "shifted_one_const", [1, 1, 1, 1], DataType.int32, [1 << 30], np.int32, quantization=no_scale_quant
-            ),
+        shifted_one = create_const_tensor(
+            "shifted_one_const", [1, 1, 1, 1], DataType.int32, [1 << 30], np.int32, quantization=no_scale_quant
         )
-        sub8_op.activation = activation.clone()
-        shifted_sum_minus_one = Tensor(sum_of_exp.shape, DataType.int32, f"{sub8_op.name}_0")
-        shifted_sum_minus_one.quantization = no_scale_quant
-        sub8_op.set_output_tensor(shifted_sum_minus_one)
-        DebugDatabase.add_optimised(self.op, sub8_op)
-        pass_number += 1
+        shifted_sum_minus_one = add_op_get_ofm(
+            create_sub(f"{self.op.name}_sub{pass_number}", shifted_sum, shifted_one, no_scale_quant, activation)
+        )
 
         # PASS 9 - SHL
-        shl9_op = Operation(Op.SHL, f"{self.op.name}_shl{pass_number}")
-        shl9_op.add_input_tensor(shifted_sum_minus_one)
-        shl9_op.add_input_tensor(one)
-        shl9_op.activation = activation.clone()
-        shifted_sum_minus_one = Tensor(sum_of_exp.shape, DataType.int32, f"{shl9_op.name}_0")
-        shifted_sum_minus_one.quantization = no_scale_quant
-        shl9_op.set_output_tensor(shifted_sum_minus_one)
-        DebugDatabase.add_optimised(self.op, shl9_op)
-        pass_number += 1
+        shifted_sum_minus_one = add_op_get_ofm(
+            create_shl(f"{self.op.name}_shl{pass_number}", shifted_sum_minus_one, one, no_scale_quant, activation,)
+        )
 
         # PASS 10 - Add
-        add10_op = Operation(Op.Add, f"{self.op.name}_add{pass_number}")
-        add10_op.add_input_tensor(
-            create_const_tensor(
-                "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], np.int32, quantization=no_scale_quant
-            ),
+        f0_one_const = create_const_tensor(
+            "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], np.int32, quantization=no_scale_quant
         )
-        add10_op.add_input_tensor(shifted_sum_minus_one)
-        add10_op.activation = activation.clone()
-        add10_op.attrs["rescale"] = (1, 1)
-        half_denominator = Tensor(sum_of_exp.shape, DataType.int32, f"{add10_op.name}_0")
-        half_denominator.quantization = one_scale_quant
-        add10_op.set_output_tensor(half_denominator)
-        DebugDatabase.add_optimised(self.op, add10_op)
-        pass_number += 1
+        half_denominator = add_op_get_ofm(
+            create_add(
+                f"{self.op.name}_add{pass_number}",
+                f0_one_const,
+                shifted_sum_minus_one,
+                one_scale_quant,
+                activation,
+                attrs={"rescale": (1, 1)},
+            )
+        )
 
         # PASS 11 - Multiply
-        mul11_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-        mul11_op.add_input_tensor(half_denominator)
-        mul11_op.add_input_tensor(
-            create_const_tensor(
-                "neg_32_over_17_const",
-                [1, 1, 1, 1],
-                DataType.int32,
-                [-1010580540],
-                np.int32,
-                quantization=one_scale_quant,
-            ),
+        neg_32_over_17 = create_const_tensor(
+            "neg_32_over_17_const", [1, 1, 1, 1], DataType.int32, [-1010580540], np.int32, quantization=one_scale_quant
         )
-        rescaled = Tensor(sum_of_exp.shape, DataType.int32, f"{mul11_op.name}_0")
-        rescaled.quantization = one_scale_quant.clone()
-        rescaled.quantization.scale_f32 = 2.0
-        mul11_op.activation = activation2.clone()
-        mul11_op.set_output_tensor(rescaled)
-        DebugDatabase.add_optimised(self.op, mul11_op)
-        pass_number += 1
+        rescaled = add_op_get_ofm(
+            create_mul(
+                f"{self.op.name}_mul{pass_number}", half_denominator, neg_32_over_17, two_scale_quant, activation2,
+            )
+        )
 
         # PASS 12 - Add
-        add12_op = Operation(Op.Add, f"{self.op.name}_add{pass_number}")
-        add12_op.add_input_tensor(rescaled)
-        add12_op.add_input_tensor(
-            create_const_tensor(
-                "48_over_17_const", [1, 1, 1, 1], DataType.int32, [1515870810], np.int32, quantization=no_scale_quant
-            ),
+        const_48_over_17 = create_const_tensor(
+            "48_over_17_const", [1, 1, 1, 1], DataType.int32, [1515870810], np.int32, quantization=no_scale_quant
         )
-        add12_op.activation = activation.clone()
-        rescale_w_offset = Tensor(sum_of_exp.shape, DataType.int32, f"{add12_op.name}_0")
-        rescale_w_offset.quantization = one_scale_quant
-        add12_op.set_output_tensor(rescale_w_offset)
-        DebugDatabase.add_optimised(self.op, add12_op)
-        pass_number += 1
+        rescale_w_offset = add_op_get_ofm(
+            create_add(f"{self.op.name}_add{pass_number}", rescaled, const_48_over_17, one_scale_quant, activation,)
+        )
 
+        # PASS 13 - 27
         nr_x = rescale_w_offset
         F2_one = create_const_tensor(
             "F2_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 29)], np.int32, quantization=no_scale_quant
@@ -456,80 +372,44 @@ class SoftMax:
         )
         for _ in range(3):
             # PASS 13, 18, 23 - MUL
-            mul_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-            mul_op.add_input_tensor(nr_x)
-            mul_op.add_input_tensor(half_denominator)
-            mul_op.activation = activation2.clone()
-            half_denominator_times_x = Tensor(sum_of_exp.shape, DataType.int32, f"{mul_op.name}_0")
-            half_denominator_times_x.quantization = one_scale_quant.clone()
-            half_denominator_times_x.quantization.scale_f32 = 2.0
-            mul_op.set_output_tensor(half_denominator_times_x)
-            pass_number += 1
+            half_denominator_times_x = add_op_get_ofm(
+                create_mul(f"{self.op.name}_mul{pass_number}", nr_x, half_denominator, two_scale_quant, activation2,)
+            )
             # PASS 14, 19, 24 - SUB
-            sub_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-            sub_op.add_input_tensor(F2_one)
-            sub_op.add_input_tensor(half_denominator_times_x)
-            sub_op.activation = activation.clone()
-            one_minus_half_denominator_times_x = Tensor(sum_of_exp.shape, DataType.int32, f"{sub_op.name}_0")
-            one_minus_half_denominator_times_x.quantization = one_scale_quant
-            sub_op.set_output_tensor(one_minus_half_denominator_times_x)
-            DebugDatabase.add_optimised(self.op, sub_op)
-            pass_number += 1
+            one_minus_half_denominator_times_x = add_op_get_ofm(
+                create_sub(
+                    f"{self.op.name}_sub{pass_number}", F2_one, half_denominator_times_x, one_scale_quant, activation,
+                )
+            )
             # PASS 15, 20, 25 - MUL
-            mul_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-            mul_op.add_input_tensor(nr_x)
-            mul_op.add_input_tensor(one_minus_half_denominator_times_x)
-            mul_op.activation = activation2.clone()
-            to_rescale = Tensor(sum_of_exp.shape, DataType.int32, f"{mul_op.name}_0")
-            to_rescale.quantization = one_scale_quant.clone()
-            to_rescale.quantization.scale_f32 = 2.0
-            mul_op.set_output_tensor(to_rescale)
-            pass_number += 1
+            to_rescale = add_op_get_ofm(
+                create_mul(
+                    f"{self.op.name}_mul{pass_number}",
+                    nr_x,
+                    one_minus_half_denominator_times_x,
+                    two_scale_quant,
+                    activation2,
+                )
+            )
             # PASS 16, 21, 26 - MUL
-            shl_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-            shl_op.add_input_tensor(to_rescale)
-            shl_op.add_input_tensor(four)
-            shl_op.activation = activation.clone()
-            to_add = Tensor(sum_of_exp.shape, DataType.int32, f"{shl_op.name}_0")
-            to_add.quantization = no_scale_quant
-            shl_op.set_output_tensor(to_add)
-            DebugDatabase.add_optimised(self.op, shl_op)
-            pass_number += 1
+            to_add = add_op_get_ofm(
+                create_mul(f"{self.op.name}_mul{pass_number}", to_rescale, four, no_scale_quant, activation)
+            )
             # PASS 17, 22, 27 - ADD
-            add_op = Operation(Op.Add, f"{self.op.name}_add{pass_number}")
-            add_op.add_input_tensor(nr_x)
-            add_op.add_input_tensor(to_add)
-            add_op.activation = activation.clone()
-            nr_x = Tensor(sum_of_exp.shape, DataType.int32, f"{add_op.name}_0")
-            nr_x.quantization = one_scale_quant
-            add_op.set_output_tensor(nr_x)
-            DebugDatabase.add_optimised(self.op, add_op)
-            pass_number += 1
+            nr_x = add_op_get_ofm(
+                create_add(f"{self.op.name}_add{pass_number}", nr_x, to_add, one_scale_quant, activation)
+            )
 
         # PASS 28 - Multiply
-        mul28_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-        mul28_op.add_input_tensor(nr_x)
-        mul28_op.add_input_tensor(
-            create_const_tensor("two_const", [1, 1, 1, 1], DataType.int32, [2], np.int32, quantization=no_scale_quant)
+        two = create_const_tensor("two_const", [1, 1, 1, 1], DataType.int32, [2], np.int32, quantization=no_scale_quant)
+        scale_factor = add_op_get_ofm(
+            create_mul(f"{self.op.name}_mul{pass_number}", nr_x, two, one_scale_quant, activation)
         )
-        mul28_op.activation = activation.clone()
-        scale_factor = Tensor(sum_of_exp.shape, DataType.int32, f"{mul28_op.name}_0")
-        scale_factor.quantization = one_scale_quant
-        mul28_op.set_output_tensor(scale_factor)
-        DebugDatabase.add_optimised(self.op, mul28_op)
-        pass_number += 1
 
         # PASS 29 - Multiply
-        mul_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-        mul_op.add_input_tensor(ifm_exp)
-        mul_op.add_input_tensor(scale_factor)
-        mul_op.activation = activation2.clone()
-        scaled_exp = Tensor(ifm_exp.shape, DataType.int32, f"{mul_op.name}_0")
-        scaled_exp.quantization = one_scale_quant.clone()
-        scaled_exp.quantization.scale_f32 = 2.0
-        mul_op.set_output_tensor(scaled_exp)
-        DebugDatabase.add_optimised(self.op, mul_op)
-        pass_number += 1
+        scaled_exp = add_op_get_ofm(
+            create_mul(f"{self.op.name}_mul{pass_number}", ifm_exp, scale_factor, two_scale_quant, activation2)
+        )
 
         # PASS 30 - SHR
         shr30_op = Operation(Op.SHR, f"{self.op.name}_shr{pass_number}")
@@ -538,7 +418,6 @@ class SoftMax:
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)
         DebugDatabase.add_optimised(self.op, shr30_op)
-        pass_number += 1
 
         return shr30_op
 
@@ -547,176 +426,97 @@ class SoftMax:
         no_scale_quant.scale_f32 = None
         pass_number = 0
 
+        def add_op_get_ofm(op):
+            DebugDatabase.add_optimised(self.op, op)
+            nonlocal pass_number
+            pass_number += 1
+            return op.ofm
+
         # PASS 0 - Depthwise Maxpool
-        maxpool_op = self.op.clone(f"_maxpool{pass_number}")
-        maxpool_op.type = Op.MaxPool
-        DebugDatabase.add_optimised(self.op, maxpool_op)
-        maxpool_h = ifm.shape[1] * ifm.shape[2]
-        maxpool_w = ifm.shape[3]
-        maxpool_ifm_shape = [1, maxpool_h, maxpool_w, 1]
-        maxpool_op.attrs["padding"] = b"VALID"
-        maxpool_op.attrs["stride_w"] = 1
-        maxpool_op.attrs["stride_h"] = 1
-        maxpool_op.attrs["filter_width"] = maxpool_w
-        maxpool_op.attrs["filter_height"] = 1
-        maxpool_op.attrs["strides"] = [1, maxpool_op.attrs["stride_h"], maxpool_op.attrs["stride_w"], 1]
-        maxpool_op.attrs["ksize"] = [1, maxpool_op.attrs["filter_height"], maxpool_op.attrs["filter_width"], 1]
-        maxpool_op.inputs = [create_reshape_tensor(ifm, maxpool_ifm_shape)]
-        ifm_max = Tensor([1, maxpool_h, 1, 1], ifm.dtype, f"{maxpool_op.name}_0")
-        ifm_max.quantization = no_scale_quant
-        maxpool_op.set_output_tensor(ifm_max)
-        DebugDatabase.add_optimised(self.op, maxpool_op)
-        pass_number += 1
+        ifm_max = add_op_get_ofm(create_depthwise_maxpool(f"{self.op.name}_maxpool{pass_number}", ifm, no_scale_quant))
 
         # PASS 1 - Sub
-        sub1_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub1_op.add_input_tensor(ifm)
-        sub1_op.add_input_tensor(create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1]))
-        sub1_ofm = Tensor(ifm.shape, DataType.int32, f"{sub1_op.name}_0")
-        sub1_ofm.quantization = ifm.quantization.clone()
-        sub1_op.set_output_tensor(sub1_ofm)
-        DebugDatabase.add_optimised(self.op, sub1_op)
-        pass_number += 1
+        ifm_max = create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1])
+        sub1_ofm = add_op_get_ofm(
+            create_sub(f"{self.op.name}_sub{pass_number}", ifm, ifm_max, ifm.quantization.clone(), dtype=DataType.int32)
+        )
 
         # PASS 2 - Mul
+        name = f"{self.op.name}_mul{pass_number}"
         beta = self.op.attrs.get("beta", 1.0)
         mul2_out_range = 10.0 / 65535.0
         mul2_scale, _ = scaling.elementwise_mul_scale(sub1_ofm.quantization.scale_f32, beta, mul2_out_range)
-        mul2_quant = ifm.quantization.clone()
-        mul2_quant.scale_f32 = beta
-        mul2_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-        mul2_op.add_input_tensor(sub1_ofm)
-        mul2_op.add_input_tensor(
-            create_const_tensor(
-                f"{mul2_op.name}_const", [1, 1, 1, 1], DataType.int32, [mul2_scale], np.int32, quantization=mul2_quant
-            ),
+        scale_quant = ifm.quantization.clone()
+        scale_quant.scale_f32 = beta
+        mul2_quant = ofm.quantization.clone()
+        mul2_quant.scale_f32 = mul2_out_range
+        scale = create_const_tensor(
+            f"{name}_scale_const", [1, 1, 1, 1], DataType.int32, [mul2_scale], np.int32, quantization=scale_quant
         )
-        mul2_ofm = Tensor(ifm.shape, DataType.int32, f"{self.op.name}_mul{pass_number}")
-        mul2_ofm.quantization = ofm.quantization.clone()
-        mul2_ofm.quantization.scale_f32 = mul2_out_range
-        mul2_op.set_output_tensor(mul2_ofm)
-        DebugDatabase.add_optimised(self.op, mul2_op)
-        pass_number += 1
+        mul2_ofm = add_op_get_ofm(create_mul(name, sub1_ofm, scale, mul2_quant))
 
         # PASS 3 - Add+LUT(exp)
-        add_op = Operation(Op.Add, f"{self.op.name}_add{pass_number}")
-        add_op.add_input_tensor(mul2_ofm)
-        add_op.add_input_tensor(
-            create_const_tensor(
-                f"{add_op.name}_const", [1, 1, 1, 1], DataType.int32, [32767], np.int32, quantization=no_scale_quant
-            ),
+        name = f"{self.op.name}_add{pass_number}"
+        const_add = create_const_tensor(
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [32767], np.int32, quantization=no_scale_quant
         )
+        add_op = create_add(name, mul2_ofm, const_add, mul2_ofm.quantization.clone(), dtype=DataType.int16)
         add_op.set_activation_lut(
             create_const_tensor(
-                f"{add_op.name}_lut", [1, 1, 1, 512], DataType.int32, self.EXP_LUT, np.int32, TensorPurpose.LUT
+                f"{name}_exp_lut", [1, 1, 1, 512], DataType.int32, self.EXP_LUT, np.int32, TensorPurpose.LUT
             )
         )
-        exp_ofm = Tensor(mul2_ofm.shape, DataType.int16, f"{add_op.name}_0")
-        exp_ofm.quantization = mul2_ofm.quantization.clone()
-        add_op.set_output_tensor(exp_ofm)
-        DebugDatabase.add_optimised(self.op, add_op)
-        pass_number += 1
+        ifm_exp = add_op_get_ofm(add_op)
 
         # PASS 4 - Reduce sum
-        reduce_sum_op = Operation(Op.ReduceSum, self.op.name + "_reduce_sum4")
-        reduce_sum_op.attrs["padding"] = b"VALID"
-        reduce_sum_op.attrs["stride_w"] = 1
-        reduce_sum_op.attrs["stride_h"] = 1
-        reduce_sum_op.attrs["filter_width"] = 1
-        reduce_sum_op.attrs["filter_height"] = 1
-        reduce_sum_op.attrs["strides"] = [1, reduce_sum_op.attrs["stride_h"], reduce_sum_op.attrs["stride_w"], 1]
-        reduce_sum_op.attrs["ksize"] = [1, reduce_sum_op.attrs["filter_height"], reduce_sum_op.attrs["filter_width"], 1]
-        reduce_sum_op.add_input_tensor(exp_ofm)
-
-        reduce_sum_shape = [1, exp_ofm.shape[1], exp_ofm.shape[2], 1]
-        sum_of_exp = Tensor(reduce_sum_shape, DataType.int32, f"{reduce_sum_op.name}_0")
-        sum_of_exp.quantization = no_scale_quant
-        reduce_sum_op.set_output_tensor(sum_of_exp)
-        DebugDatabase.add_optimised(self.op, reduce_sum_op)
-        pass_number += 1
+        sum_of_exp = add_op_get_ofm(
+            create_reduce_sum(f"{self.op.name}_reduce_sum{pass_number}", ifm_exp, no_scale_quant)
+        )
 
         # PASS 5 - CLZ
-        clz_op = Operation(Op.CLZ, f"{self.op.name}_clz{pass_number}")
-        clz_op.add_input_tensor(sum_of_exp)
-        headroom_plus_one = Tensor(sum_of_exp.shape, DataType.int32, f"{clz_op.name}_0")
-        headroom_plus_one.quantization = no_scale_quant
-        clz_op.set_output_tensor(headroom_plus_one)
-        DebugDatabase.add_optimised(self.op, clz_op)
-        pass_number += 1
+        headroom_plus_one = add_op_get_ofm(create_clz(f"{self.op.name}_clz{pass_number}", sum_of_exp, no_scale_quant))
 
         # PASS 6 - Sub
-        sub6_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub6_op.add_input_tensor(
-            create_const_tensor(
-                f"{sub6_op.name}_const", [1, 1, 1, 1], DataType.int32, [31], np.int32, quantization=no_scale_quant
-            ),
+        name = f"{self.op.name}_sub{pass_number}"
+        const_31 = create_const_tensor(
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [31], np.int32, quantization=no_scale_quant
         )
-        sub6_op.add_input_tensor(headroom_plus_one)
-        reciprocal_right_shift = Tensor(sum_of_exp.shape, DataType.int32, f"{sub6_op.name}_0")
-        reciprocal_right_shift.quantization = no_scale_quant
-        sub6_op.set_output_tensor(reciprocal_right_shift)
-        DebugDatabase.add_optimised(self.op, sub6_op)
-        pass_number += 1
+        reciprocal_right_shift = add_op_get_ofm(create_sub(name, const_31, headroom_plus_one, no_scale_quant))
 
         # PASS 7 - SHL
-        shl7_op = Operation(Op.SHL, f"{self.op.name}_shl{pass_number}")
-        shl7_op.add_input_tensor(
-            create_const_tensor(
-                f"{shl7_op.name}_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant
-            ),
+        one = create_const_tensor(
+            f"one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant
         )
-        shl7_op.add_input_tensor(reciprocal_right_shift)
-        constant_one = Tensor(sum_of_exp.shape, DataType.int32, f"{shl7_op.name}_0")
-        constant_one.quantization = no_scale_quant
-        shl7_op.set_output_tensor(constant_one)
-        DebugDatabase.add_optimised(self.op, shl7_op)
-        pass_number += 1
+        constant_one = add_op_get_ofm(
+            create_shl(f"{self.op.name}_shl{pass_number}", one, reciprocal_right_shift, no_scale_quant)
+        )
 
         # PASS 8 - Sub
-        sub8_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub8_op.add_input_tensor(sum_of_exp)
-        sub8_op.add_input_tensor(constant_one)
-        sum_of_exps_minus_one = Tensor(sum_of_exp.shape, DataType.int32, f"{sub8_op.name}_0")
-        sum_of_exps_minus_one.quantization = no_scale_quant
-        sub8_op.set_output_tensor(sum_of_exps_minus_one)
-        DebugDatabase.add_optimised(self.op, sub8_op)
-        pass_number += 1
+        sum_of_exps_minus_one = add_op_get_ofm(
+            create_sub(f"{self.op.name}_sub{pass_number}", sum_of_exp, constant_one, no_scale_quant)
+        )
 
         # PASS 9 - SHL
-        shl9_op = Operation(Op.SHL, f"{self.op.name}_shl{pass_number}")
-        shl9_op.add_input_tensor(sum_of_exps_minus_one)
-        shl9_op.add_input_tensor(headroom_plus_one)
-        shifted_sum_minus_one = Tensor(sum_of_exp.shape, DataType.int32, f"{shl9_op.name}_0")
-        shifted_sum_minus_one.quantization = no_scale_quant
-        shl9_op.set_output_tensor(shifted_sum_minus_one)
-        DebugDatabase.add_optimised(self.op, shl9_op)
-        pass_number += 1
+        shifted_sum_minus_one = add_op_get_ofm(
+            create_shl(f"{self.op.name}_shl{pass_number}", sum_of_exps_minus_one, headroom_plus_one, no_scale_quant)
+        )
 
         # PASS 10 - SHR
-        shr10_op = Operation(Op.SHR, f"{self.op.name}_shr{pass_number}")
-        shr10_op.add_input_tensor(shifted_sum_minus_one)
-        shr10_op.add_input_tensor(
-            create_const_tensor(
-                f"{shr10_op.name}_const", [1, 1, 1, 1], DataType.int32, [15], np.int32, quantization=no_scale_quant
-            ),
+        name = f"{self.op.name}_shr{pass_number}"
+        shift = create_const_tensor(
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [15], np.int32, quantization=no_scale_quant
         )
-        shifted_sum_minus_one_16 = Tensor(sum_of_exp.shape, DataType.int32, f"{shr10_op.name}_0")
-        shifted_sum_minus_one_16.quantization = shifted_sum_minus_one.quantization.clone()
-        shr10_op.set_output_tensor(shifted_sum_minus_one_16)
-        DebugDatabase.add_optimised(self.op, shr10_op)
-        pass_number += 1
+        shifted_sum_minus_one_16 = add_op_get_ofm(create_shr(name, shifted_sum_minus_one, shift, no_scale_quant))
 
         # PASS 11 - Sub+LUT(one over one plus x)
-        sub11_op = Operation(Op.Sub, f"{self.op.name}_sub{pass_number}")
-        sub11_op.add_input_tensor(shifted_sum_minus_one_16)
-        sub11_op.add_input_tensor(
-            create_const_tensor(
-                f"{sub11_op.name}_const", [1, 1, 1, 1], DataType.int32, [32768], np.int32, quantization=no_scale_quant
-            ),
+        name = f"{self.op.name}_sub{pass_number}"
+        sub11_const = create_const_tensor(
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [32768], np.int32, quantization=no_scale_quant
         )
+        sub11_op = create_sub(name, shifted_sum_minus_one_16, sub11_const, no_scale_quant, dtype=DataType.int16)
         sub11_op.set_activation_lut(
             create_const_tensor(
-                f"{sub11_op.name}_lut",
+                f"{name}_one_over_one_plus_x_lut",
                 [1, 1, 1, 512],
                 DataType.int32,
                 self.ONE_OVER_ONE_PLUS_X_LUT,
@@ -724,21 +524,14 @@ class SoftMax:
                 TensorPurpose.LUT,
             )
         )
-        reciprocal_scale = Tensor(sum_of_exp.shape, DataType.int16, f"{sub11_op.name}_0")
-        reciprocal_scale.quantization = no_scale_quant
-        sub11_op.set_output_tensor(reciprocal_scale)
-        DebugDatabase.add_optimised(self.op, sub11_op)
-        pass_number += 1
+        reciprocal_scale = add_op_get_ofm(sub11_op)
 
         # PASS 12 - Multiply
-        mul_op = Operation(Op.Mul, f"{self.op.name}_mul{pass_number}")
-        mul_op.add_input_tensor(exp_ofm)
-        mul_op.add_input_tensor(reciprocal_scale)
-        mul_ofm = Tensor(exp_ofm.shape, DataType.int32, f"{mul_op.name}_0")
-        mul_ofm.quantization = no_scale_quant
-        mul_op.set_output_tensor(mul_ofm)
-        DebugDatabase.add_optimised(self.op, mul_op)
-        pass_number += 1
+        mul_ofm = add_op_get_ofm(
+            create_mul(
+                f"{self.op.name}_mul{pass_number}", ifm_exp, reciprocal_scale, no_scale_quant, dtype=DataType.int32
+            )
+        )
 
         # PASS 13 - SHR
         shr13_op = Operation(Op.SHR, f"{self.op.name}_shr{pass_number}")
@@ -746,6 +539,5 @@ class SoftMax:
         shr13_op.add_input_tensor(reciprocal_right_shift)
         shr13_op.set_output_tensor(ofm)
         DebugDatabase.add_optimised(self.op, shr13_op)
-        pass_number += 1
 
         return shr13_op
