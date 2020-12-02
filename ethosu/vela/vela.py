@@ -221,6 +221,7 @@ def main(args=None):
     parser.add_argument(
         "--config", type=str, action="append", help="Vela configuration file(s) in Python ConfigParser .ini file format"
     )
+    parser.add_argument("--verbose-all", action="store_true", help="Enable all verbose options")
     parser.add_argument("--verbose-config", action="store_true", help="Verbose system configuration and memory mode")
     parser.add_argument("--verbose-graph", action="store_true", help="Verbose graph rewriter")
     parser.add_argument("--verbose-quantization", action="store_true", help="Verbose quantization")
@@ -383,6 +384,11 @@ def main(args=None):
 
     if args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
         print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
+
+    if args.verbose_all:
+        for v in vars(args):
+            if v.startswith("verbose") and v != "verbose_all":
+                setattr(args, v, True)
 
     arch = architecture_features.ArchitectureFeatures(
         vela_config_files=args.config,

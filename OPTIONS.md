@@ -314,6 +314,14 @@ Prints a summary of all the subgraphs and their inputs and outputs.
 vela network.tflite --show-subgraph-io-summary
 ```
 
+### Verbose All
+
+Enable all `--verbose-*` options.  
+
+```bash
+vela network.tflite --verbose-all
+```
+
 ### Verbose Config
 
 Verbose system configuration and memory mode.  If no `--system-config` or
