@@ -267,9 +267,9 @@ def compiler_driver(nng, arch, options, scheduler_options):
                 alloc_results.append(alloc_success)
             if not alloc_results[-1]:
                 raise VelaError(
-                    "Sram limit {} bytes, has been exceeded by the scratch fast tensor. "
+                    f"Sram limit {arch.sram_size} bytes, has been exceeded by the scratch fast tensor. "
                     "Increasing the value of --weight-estimation-scaling may help to resolve the issue. "
-                    "See OPTIONS.md for more information.".format(arch.sram_size)
+                    "See OPTIONS.md for more information"
                 )
         else:
             tensor_allocation.allocate_tensors(

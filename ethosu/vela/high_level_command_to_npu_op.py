@@ -46,6 +46,7 @@ from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .data_type import DataType
 from .debug_database import DebugDatabase
+from .errors import UnsupportedFeatureError
 from .high_level_command_stream import Box
 from .high_level_command_stream import Command
 from .high_level_command_stream import DMA
@@ -307,7 +308,7 @@ def create_npu_activation(op: Operation) -> NpuActivation:
     elif faf == Op.LUT:
         act_op = NpuActivationOp.TABLE_LOOKUP
     elif not faf.is_relu_op():
-        raise Exception("Unsupported fused_activation_function = " + faf.name)
+        raise UnsupportedFeatureError(f"Unsupported fused_activation_function: {faf.name}")
 
     act = NpuActivation(act_op)
     act.min = op.activation.min

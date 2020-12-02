@@ -42,6 +42,7 @@ from .tensor import create_const_tensor
 from .tensor import create_reshape_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
+from .tflite_mapping import optype_to_builtintype
 
 passthrough_nodes = (Op.Identity,)
 
@@ -157,7 +158,7 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
         top_pad = 0
         bottom_pad = 0
     else:
-        raise UnsupportedFeatureError("Unknown padding {}".format(str(padding_type)))
+        raise UnsupportedFeatureError(f"Unknown padding {padding_type.decode('utf-8')}")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
     return padding, skirt
@@ -168,19 +169,17 @@ def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dim
     if padding_type == b"SAME":
         ypad = needed_total_padding(int(input_dims[1]) * upscaling_factor, int(stride[1]), int(kernel_height))
         xpad = needed_total_padding(int(input_dims[2]) * upscaling_factor, int(stride[2]), int(kernel_width))
-
         right_pad = max(((xpad + 1) // upscaling_factor) - 1, 0)
         bottom_pad = max(((ypad + 1) // upscaling_factor) - 1, 0)
         left_pad = max(kernel_width - 1 - right_pad, 0)
         top_pad = max(kernel_height - 1 - bottom_pad, 0)
-
     elif padding_type == b"VALID":
         right_pad = max(kernel_width - 2, 0)
         bottom_pad = max(kernel_height - 2, 0)
         left_pad = kernel_width - 1
         top_pad = kernel_height - 1
     else:
-        assert 0, "Unknown padding"
+        raise UnsupportedFeatureError(f"Unknown padding {padding_type.decode('utf-8')}")
 
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = padding
@@ -504,7 +503,7 @@ def add_padding_fields(op, arch, nng):
                 kernel_size = op.attrs["ksize"][1:3]
                 input_shape = op.inputs[0].shape
             else:
-                raise UnsupportedFeatureError("Unknown operation that uses padding: {}".format(op.type))
+                raise UnsupportedFeatureError(f"Unknown operation that uses padding: {optype_to_builtintype(op.type)}")
 
             if op.type == Op.Conv2DBackpropInputSwitchedBias:
                 upscaling_factor = op.outputs[0].shape[1] // input_shape[1]
@@ -560,9 +559,8 @@ def convert_depthwise_to_conv(op, arch, nng):
             weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
         else:
             raise UnsupportedFeatureError(
-                "Unsupported DepthwiseConv2d with depth_multiplier = {}, ifm channels = {}, ofm channels = {}".format(
-                    op.attrs["depth_multiplier"], ifm_tensor.shape[3], ofm_tensor.shape[3]
-                )
+                f"Unsupported 'DEPTHWISE_CONV_2D' with depth_multiplier = {op.attrs['depth_multiplier']},",
+                f" ifm channels = {ifm_tensor.shape[3]}, ofm channels = {ofm_tensor.shape[3]}",
             )
         DebugDatabase.add_optimised(op, op)
     return op

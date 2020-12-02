@@ -452,18 +452,14 @@ def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=Fals
                 for weight_scale in weight_scales
             ]
         else:
-            raise UnsupportedFeatureError(
-                "Compression of {} is not implemented; tensor: {}".format(ifm_dtype, tens.name)
-            )
+            raise UnsupportedFeatureError(f"Compression of {ifm_dtype} is not implemented; Tensor: '{tens.name}'")
     else:
         if ifm_dtype == DataType.uint8:
             scales = [np.double(ifm_scale * weight_scale * 0x3000) for weight_scale in weight_scales]
         elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
             scales = [(np.double(ifm_scale * 0x3000) * np.double(weight_scale)) for weight_scale in weight_scales]
         else:
-            raise UnsupportedFeatureError(
-                "Compression of {} is not implemented; tensor: {}".format(ifm_dtype, tens.name)
-            )
+            raise UnsupportedFeatureError(f"Compression of {ifm_dtype} is not implemented; Tensor: '{tens.name}'")
 
     # quantise all of the weight scales into (scale_factor, shift)
     if ifm_dtype == DataType.int16:

@@ -264,8 +264,9 @@ class TFLiteGraph:
     def parse_operator_code(self, code):
         c = code.BuiltinCode()
         if c not in builtin_operator_map:
-            msg = "The input file contains operator code {} which is currently not supported".format(c)
-            raise InputFileError(self.name, msg)
+            raise InputFileError(
+                self.name, f"The input file contains operator code '{c}' which is currently not supported"
+            )
         op_type, ser = builtin_operator_map[c]
         custom_code = None
         if c == BuiltinOperator.CUSTOM:

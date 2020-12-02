@@ -26,7 +26,7 @@ from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
-from .errors import VelaError
+from .errors import AllocationError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .operation import Kernel
 from .operation import NpuBlockType
@@ -259,7 +259,7 @@ def find_suitable_block_configs(arch, alloc: SharedBufferAllocation) -> List[Tup
     if arch.override_block_config:
         config = alloc.try_block(arch.override_block_config)
         if config is None:
-            raise VelaError("Block config override '{0}' cannot be allocated".format(arch.override_block_config))
+            raise AllocationError(f"Block config override '{arch.override_block_config}' cannot be allocated")
         return [config]
 
     # Constrain the search space if the OFM is smaller than the max block size

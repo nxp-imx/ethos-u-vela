@@ -21,6 +21,7 @@ import numpy as np
 from flatbuffers import encode
 from flatbuffers.builder import UOffsetTFlags
 
+from .errors import VelaError
 from .nn_graph import PassPlacement
 from .operation import Op
 from .tensor import MemType
@@ -44,7 +45,7 @@ tflite_file_identifier = "TFL" + str(tflite_version)
 
 def FinishWithFileIdentifier(self, rootTable, fid):
     if fid is None or len(fid) != 4:
-        raise Exception("fid must be 4 chars")
+        raise VelaError("FileIdentifier must be 4 chars")
 
     flags = N.Uint8Flags
     prepSize = 4

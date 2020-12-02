@@ -23,7 +23,7 @@ class VelaError(Exception):
     """Base class for vela exceptions"""
 
     def __init__(self, data):
-        self.data = "Error: " + data
+        self.data = f"Error! {data}"
 
     def __str__(self):
         return repr(self.data)
@@ -33,14 +33,14 @@ class InputFileError(VelaError):
     """Raised when reading an input file results in errors"""
 
     def __init__(self, file_name, msg):
-        self.data = "Reading input file {}: {}".format(file_name, msg)
+        super().__init__(f"Reading input file '{file_name}': {msg}")
 
 
 class UnsupportedFeatureError(VelaError):
     """Raised when the input network uses non-supported features that cannot be handled"""
 
     def __init__(self, data):
-        self.data = "Input network uses a feature that is currently not supported: {}".format(data)
+        super().__init__(f"Input network uses a feature that is currently not supported: {data}")
 
 
 class CliOptionError(VelaError):
@@ -52,7 +52,7 @@ class CliOptionError(VelaError):
     """
 
     def __init__(self, option, option_value, msg):
-        self.data = "Incorrect argument to CLI option: {} = {}: {}".format(option, option_value, msg)
+        super().__init__(f"Incorrect argument to CLI option {option}={option_value}: {msg}")
 
 
 class ConfigOptionError(VelaError):
@@ -64,18 +64,17 @@ class ConfigOptionError(VelaError):
     """
 
     def __init__(self, option, option_value, option_valid_values=None):
-        self.data = "Invalid configuration of {} = {}".format(option, option_value)
+        data = f"Invalid configuration of {option}={option_value}"
         if option_valid_values is not None:
-            self.data += " (must be {}).".format(option_valid_values)
-        else:
-            self.data += "."
+            data += f" (must be {option_valid_values})"
+        super().__init__(data)
 
 
 class AllocationError(VelaError):
     """Raised when allocation fails"""
 
     def __init__(self, msg):
-        self.data = msg
+        super().__init__(f"Allocation failed: {msg}")
 
 
 def OperatorError(op, msg):
@@ -86,36 +85,30 @@ def OperatorError(op, msg):
     :param msg: str object that contains a description of the specific error encountered
     """
 
+    def _print_tensors(tensors):
+        lines = []
+        for idx, tens in enumerate(tensors):
+            if isinstance(tens, Tensor):
+                tens_name = tens.name
+            else:
+                tens_name = "Not a Tensor"
+            lines.append(f"        {idx} = {tens_name}")
+        return lines
+
     assert isinstance(op, Operation)
 
     if op.op_index is None:
-        data = "Invalid {} (name = {}) operator in the internal representation.".format(op.type, op.name)
+        lines = [f"Invalid {op.type} (name = {op.name}) operator in the internal representation. {msg}"]
     else:
-        data = "Invalid {} (op_index = {}) operator in the input network.".format(op.type, op.op_index)
+        lines = [f"Invalid {op.type} (op_index = {op.op_index}) operator in the input network. {msg}"]
 
-    data += " {}\n".format(msg)
+    lines += ["    Input tensors:"]
+    lines += _print_tensors(op.inputs)
 
-    data += "   Input tensors:\n"
-    for idx, tens in enumerate(op.inputs):
-        if isinstance(tens, Tensor):
-            tens_name = tens.name
-        else:
-            tens_name = "Not a Tensor"
+    lines += ["    Output tensors:"]
+    lines += _print_tensors(op.outputs)
 
-        data += "      {} = {}\n".format(idx, tens_name)
-
-    data += "   Output tensors:\n"
-    for idx, tens in enumerate(op.outputs):
-        if isinstance(tens, Tensor):
-            tens_name = tens.name
-        else:
-            tens_name = "Not a Tensor"
-
-        data += "      {} = {}\n".format(idx, tens_name)
-
-    data = data[:-1]  # remove last newline
-
-    raise VelaError(data)
+    raise VelaError("\n".join(lines))
 
 
 def TensorError(tens, msg):
@@ -126,32 +119,26 @@ def TensorError(tens, msg):
     :param msg: str object that contains a description of the specific error encountered
     """
 
+    def _print_operators(ops):
+        lines = []
+        for idx, op in enumerate(ops):
+            if isinstance(op, Operation):
+                op_type = op.type
+                op_id = f"({op.op_index})"
+            else:
+                op_type = "Not an Operation"
+                op_id = ""
+            lines.append(f"        {idx} = {op_type} {op_id}")
+        return lines
+
     assert isinstance(tens, Tensor)
 
-    data = "Invalid {} tensor. {}\n".format(tens.name, msg)
+    lines = [f"Invalid {tens.name} tensor. {msg}"]
 
-    data += "   Driving operators:\n"
-    for idx, op in enumerate(tens.ops):
-        if isinstance(op, Operation):
-            op_type = op.type
-            op_id = op.op_index
-        else:
-            op_type = "Not an Operation"
-            op_id = ""
+    lines += ["    Driving operators:"]
+    lines += _print_operators(tens.ops)
 
-        data += "      {} = {} ({})\n".format(idx, op_type, op_id)
+    lines += ["    Consuming operators:"]
+    lines += _print_operators(tens.consumer_list)
 
-    data += "   Consuming operators:\n"
-    for idx, op in enumerate(tens.consumer_list):
-        if isinstance(op, Operation):
-            op_type = op.type
-            op_id = op.op_index
-        else:
-            op_type = "Not an Operation"
-            op_id = ""
-
-        data += "      {} = {} ({})\n".format(idx, op_type, op_id)
-
-    data = data[:-1]  # remove last newline
-
-    raise VelaError(data)
+    raise VelaError("\n".join(lines))

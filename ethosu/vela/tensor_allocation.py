@@ -91,7 +91,7 @@ def verify_alignment(live_ranges: LiveRangeGraph, alignment: int):
             if not all(op and op.run_on_npu for op in tens.ops + tens.consumer_list):
                 # This is a CPU tensor, verify alignment
                 if tens.address % alignment != 0:
-                    raise AllocationError("Tensor {} not aligned to {} bytes".format(tens.name, alignment))
+                    raise AllocationError(f"Tensor '{tens.name}' not aligned to {alignment} bytes")
 
 
 def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
@@ -104,14 +104,8 @@ def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
                 overlap, tens_n, tens_m = n.overlaps_address(m)
                 if overlap and not (tens_n.equivalent(tens_m) and tens_n.address == tens_m.address):
                     raise AllocationError(
-                        "Overlapping buffers: {}: {} -> {} and {}: {} -> {}".format(
-                            n.name,
-                            tens_n.address,
-                            tens_n.address + n.size,
-                            m.name,
-                            tens_m.address,
-                            tens_m.address + m.size,
-                        )
+                        f"Overlapping buffers: {n.name}: {tens_n.address} -> {tens_n.address + n.size}"
+                        f" and {m.name}: {tens_m.address} -> {tens_m.address + m.size}"
                     )
 
 

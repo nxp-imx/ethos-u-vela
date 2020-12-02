@@ -531,13 +531,11 @@ class ArchitectureFeatures:
             self._set_default_sys_config()
 
         elif vela_config_files is None:
-            raise CliOptionError("--config", vela_config_files, "CLI Option not specified")
+            raise CliOptionError("--config", vela_config_files, "Vela config file not specified")
 
         else:
             raise CliOptionError(
-                "--system-config",
-                self.system_config,
-                "Section {} not found in Vela config file".format(sys_cfg_section),
+                "--system-config", self.system_config, f"Section {sys_cfg_section} not found in Vela config file",
             )
 
         # read the memory mode
@@ -559,11 +557,11 @@ class ArchitectureFeatures:
             self._set_default_mem_mode()
 
         elif vela_config_files is None:
-            raise CliOptionError("--config", vela_config_files, "CLI Option not specified")
+            raise CliOptionError("--config", vela_config_files, "Vela config file not specified")
 
         else:
             raise CliOptionError(
-                "--memory-mode", self.memory_mode, "Section {} not found in Vela config file".format(mem_mode_section),
+                "--memory-mode", self.memory_mode, f"Section {mem_mode_section} not found in Vela config file",
             )
 
         # override sram to onchipflash
@@ -645,9 +643,7 @@ class ArchitectureFeatures:
         particular option then the key from the parent section is used, regardless of the parsing order
         """
         if not self.vela_config.has_section(section):
-            raise ConfigOptionError(
-                "section", "{}. The section was not found in the Vela config file(s)".format(section)
-            )
+            raise ConfigOptionError("section", f"{section}. The section was not found in the Vela config file(s)")
 
         result = str(current_value)
         if self.vela_config.has_option(section, "inherit"):
@@ -655,8 +651,7 @@ class ArchitectureFeatures:
             # check for recursion loop
             if inheritance_section == section:
                 raise ConfigOptionError(
-                    "inherit",
-                    "{}. This references its own section and recursion is not allowed".format(inheritance_section),
+                    "inherit", f"{inheritance_section}. This references its own section and recursion is not allowed",
                 )
             result = self._read_config(inheritance_section, key, result)
 

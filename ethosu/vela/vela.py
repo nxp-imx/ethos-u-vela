@@ -55,7 +55,7 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
     nng = model_reader.read_model(input_name, model_reader_options)
 
     if not nng:
-        raise InputFileError(input_name, "input file could not be read")
+        raise InputFileError(input_name, "Input file could not be read")
 
     if compiler_options.verbose_operators:
         nng.print_operators()
@@ -364,7 +364,7 @@ def main(args=None):
     if args.config is not None:
         for filename in args.config:
             if not os.access(filename, os.R_OK):
-                raise InputFileError(filename, "File not found or is not readable.")
+                raise InputFileError(filename, "File not found or is not readable")
 
     sys.setrecursionlimit(args.recursion_limit)
 

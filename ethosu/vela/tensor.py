@@ -29,6 +29,7 @@ from uuid import UUID
 
 import numpy as np
 
+from . import errors  # Import this way due to cyclic imports
 from . import numeric_util
 from .data_type import BaseType
 from .data_type import DataType
@@ -610,7 +611,7 @@ class Tensor:
 
         if end_coord[2] > crossing_x:
             addresses[1] = self.address_for_coordinate([start_coord[0], start_coord[1], crossing_x, start_coord[3]])
-            raise Exception("Striping in vertical direction is not supported")
+            raise errors.UnsupportedFeatureError("Striping in vertical direction is not supported")
         if end_coord[1] > crossing_y:
             addresses[2] = self.address_for_coordinate([start_coord[0], crossing_y, start_coord[2], start_coord[3]])
         if end_coord[1] > crossing_y and end_coord[2] > crossing_x:
@@ -717,7 +718,7 @@ class Tensor:
         if index < len(self.weight_compressed_offsets) - 1:
             # There are no half-way points in the weights
             if (depth % brick_depth) != 0:
-                raise Exception("Offset into weights must be aligned to a brick")
+                raise errors.UnsupportedFeatureError("Offset into weights must be aligned to a brick")
 
         return index
 
