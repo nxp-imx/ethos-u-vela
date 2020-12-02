@@ -535,8 +535,7 @@ def update_pass_weight_and_scale_tensors(nng, arch):
 
             if ps.scale_tensor is not None:
                 rescale_for_faf = False
-                activation_ops = set((Op.Sigmoid, Op.Tanh))
-                if (ps.ops[-1].type in activation_ops) and (ps.npu_block_type != NpuBlockType.ElementWise):
+                if (ps.ops[-1].type in (Op.Sigmoid, Op.Tanh)) and (ps.npu_block_type != NpuBlockType.ElementWise):
                     rescale_for_faf = True
                 calc_scales_and_pack_biases(ps.scale_tensor, arch, ofm_depth_step, rescale_for_faf)
                 if ps.scale_tensor.ops[0].type == Op.DMA:

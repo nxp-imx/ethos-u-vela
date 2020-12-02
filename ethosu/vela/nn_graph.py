@@ -178,7 +178,7 @@ class Subgraph:
                 visit_tensor(inp)
                 inp.consumer_list.append(op)
 
-            if op.type in set((Op.Placeholder, Op.SubgraphInput)):
+            if op.type in (Op.Placeholder, Op.SubgraphInput):
                 assert len(op.outputs) == 1
                 self.input_tensors.append(op.outputs[0])
 
@@ -321,7 +321,7 @@ class Subgraph:
         all_ops = self.get_all_ops()
         unique_ops = []
         for op in all_ops:
-            if op.type in set((Op.Const, Op.Identity, Op.Placeholder)):
+            if op.type in (Op.Const, Op.Identity, Op.Placeholder):
                 continue
 
             attrs = op.attrs.copy()

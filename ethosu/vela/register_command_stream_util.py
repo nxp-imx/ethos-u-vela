@@ -46,7 +46,7 @@ from ethosu.vela.range_set import MemoryRangeSet
 BASE_PTR_INDEX_MEM2MEM = int((1 << 8) | (3 << 0))
 
 
-UNARY_ELEMWISE_OPS = set((NpuElementWiseOp.ABS, NpuElementWiseOp.LRELU, NpuElementWiseOp.CLZ,))
+UNARY_ELEMWISE_OPS = (NpuElementWiseOp.ABS, NpuElementWiseOp.LRELU, NpuElementWiseOp.CLZ)
 
 
 def to_npu_kernel(kernel: Kernel) -> NpuKernel:

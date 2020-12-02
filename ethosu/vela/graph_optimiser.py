@@ -43,9 +43,9 @@ from .tensor import create_reshape_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
-passthrough_nodes = set((Op.Identity,))
+passthrough_nodes = (Op.Identity,)
 
-memory_only_ops = set((Op.Reshape,))
+memory_only_ops = (Op.Reshape,)
 
 
 def remove_passthrough_tensor(tens, arch, nng):
@@ -663,7 +663,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
 
 # Reorder activation op if it's after the memory only operations
 def fixup_act_reorder(op, arch, nng):
-    if op.type.is_relu_op() or op.type in set((Op.Sigmoid, Op.Tanh)):
+    if op.type.is_relu_op() or op.type in (Op.Sigmoid, Op.Tanh):
         prep_op = get_prepend_op(op)
         if prep_op is not None:
             act_op = op.clone("_reordered")

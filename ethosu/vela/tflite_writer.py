@@ -76,7 +76,7 @@ class TFLiteSerialiser:
         self.scratch_fast_buf_id = 1  # Always assign scratch_fast to buffer 1
         self.buffers_to_write = []  # have an empty array there
 
-        self.ops_to_ignore = set((Op.Const, Op.Placeholder, Op.SubgraphInput))
+        self.ops_to_ignore = (Op.Const, Op.Placeholder, Op.SubgraphInput)
 
         self.tensors_to_reshape = {}
 
@@ -405,7 +405,7 @@ class TFLiteSerialiser:
         # Ensure that the order of the offsets match the order of the tensors
         for tens, idx in self.tensor_map.items():
             # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
-            if tens.mem_type in set((MemType.Scratch, MemType.Scratch_fast)):
+            if tens.mem_type in (MemType.Scratch, MemType.Scratch_fast):
                 offsets[idx] = np.int32(tens.address) if tens.address is not None else np.int32(0)
 
         self.nng.metadata.append(("OfflineMemoryAllocation", np.array([version, subgraph_idx, nbr_tensors] + offsets)))

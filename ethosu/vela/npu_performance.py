@@ -45,7 +45,7 @@ def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_conf
     ofm_block = Block(block_config_ps2[-3], block_config_ps2[-4], block_config_ps2[-1])
     kernel = ps2.primary_op.kernel
 
-    if ps2.npu_block_type in set((NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct)):
+    if ps2.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct):
         op = ps2.primary_op
         ifm_block_depth = arch.calc_ifm_block_depth(op.ifm.shape[-1], op.ifm.dtype.size_in_bits())
     else:
@@ -499,7 +499,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
     ifm_read_multiple = 1
     weight_read_multiple = 0
 
-    if ps.placement in set((PassPlacement.MemoryOnly, PassPlacement.StartupInit)):
+    if ps.placement in (PassPlacement.MemoryOnly, PassPlacement.StartupInit):
         return bws, macs, cycles, blocks, ifm_read_multiple, weight_read_multiple  # nothing real happening in this pass
 
     min_block_size = arch.min_block_sizes[ps.npu_block_type]
@@ -537,13 +537,11 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
             ifm_block_depth, ofm_block, primary_op.kernel, ifm_resampling_mode=ifm_tensor.resampling_mode
         )
 
-        if npu_block_type in set(
-            (
-                NpuBlockType.ConvolutionMxN,
-                NpuBlockType.ConvolutionDepthWise,
-                NpuBlockType.Pooling,
-                NpuBlockType.ReduceSum,
-            )
+        if npu_block_type in (
+            NpuBlockType.ConvolutionMxN,
+            NpuBlockType.ConvolutionDepthWise,
+            NpuBlockType.Pooling,
+            NpuBlockType.ReduceSum,
         ):
             # extent the ifm to full dimension
             ifm_tensor_brick_size = tuple(numeric_util.full_shape(4, list(ifm_tensor.brick_size), 1))
@@ -640,8 +638,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
             n_kernel_xy = kernel_dims[0] * kernel_dims[1]
             n_input_channels_at_a_time = block_config[2]
 
-            if npu_block_type == NpuBlockType.Pooling or block_traversal in set(
-                (TensorBlockTraversal.PartKernelFirst, TensorBlockTraversal.DepthWise)
+            if (npu_block_type == NpuBlockType.Pooling) or (
+                block_traversal in (TensorBlockTraversal.PartKernelFirst, TensorBlockTraversal.DepthWise)
             ):
                 n_input_channels_at_a_time = numeric_util.round_up_divide(n_input_channels_at_a_time, 4)
                 n_kernel_xy = max(

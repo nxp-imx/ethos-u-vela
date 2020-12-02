@@ -121,7 +121,7 @@ class TFLiteSubgraph:
         if dtype == DataType.uint8:
             tens.quantization.quant_min = 0
             tens.quantization.quant_max = (1 << dtype.bits) - 1
-        elif dtype in set((DataType.int8, DataType.int16, DataType.int32, DataType.int64)):
+        elif dtype in (DataType.int8, DataType.int16, DataType.int32, DataType.int64):
             tens.quantization.quant_min = -(1 << (dtype.bits - 1))
             tens.quantization.quant_max = (1 << (dtype.bits - 1)) - 1
 

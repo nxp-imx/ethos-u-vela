@@ -72,7 +72,7 @@ mac_main_ops = set(
 
 binary_elem_wise_main_ops = Op.op_set(Op.is_binary_elementwise_op)
 
-unary_elem_wise_main_ops = Op.op_set(Op.is_unary_elementwise_op)  # Unary element-wise operations
+unary_elem_wise_main_ops = Op.op_set(Op.is_unary_elementwise_op)
 
 elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
 

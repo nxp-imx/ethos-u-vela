@@ -55,8 +55,8 @@ class Box:
                 new_start_coord[idx] += split_offset[idx]
                 new_end_coord[idx] += split_offset[idx]
 
-        if split_offset is None and npu_block_type in set(
-            (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum)
+        if (split_offset is None) and (
+            npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum)
         ):
             # these types of operations do a "dot product" or sum over the entire IFM
             new_start_coord[-1] = 0
