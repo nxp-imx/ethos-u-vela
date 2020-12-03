@@ -36,6 +36,7 @@ class PassPlacement(enum.Enum):
 class TensorAllocator(enum.Enum):
     LinearAlloc = 1
     Greedy = 2
+    Search = 3
 
     def __str__(self):
         return self.name

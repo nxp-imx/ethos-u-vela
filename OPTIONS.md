@@ -183,8 +183,8 @@ vela network.tflite --config my_vela_cfg.ini --memory-mode My_Mem_Mode
 Specify which allocator algorithm to use for non-constant NPU and CPU tensor
 allocation.  
 **Type: String**  
-**Default: Greedy**  
-**Choices: [Greedy, LinearAlloc]**  
+**Default: Search**  
+**Choices: [Greedy, LinearAlloc, Search]**  
 
 ```bash
 vela network.tflite --tensor-allocator=LinearAlloc

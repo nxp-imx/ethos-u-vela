@@ -24,11 +24,13 @@ from . import live_range
 from . import numeric_util
 from .errors import AllocationError
 from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_ranges
+from .live_range import LiveRangeGraph
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
 from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorPurpose
+from ethosu import tensor_allocator
 
 
 def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.AllocationQuantum):
@@ -61,13 +63,56 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.Allocation
     return total_sz
 
 
-def verify_alignment(live_ranges, alignment):
+def search_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularity: int) -> int:
+    # Allocates using the search-based allocator (implemented in C++)
+    input = []
+    lrs = []
+    lr_set = set()
+    for lr in live_ranges.ranges.values():
+        lr_set.add((lr.start_time, lr.end_time, lr))
+    lr_list = sorted(lr_set)
+    # Create a single array of ints containing start/end/size of the live ranges
+    for start, end, lr in lr_list:
+        input += [start, end, numeric_util.round_up(lr.size, alloc_granularity)]
+        lrs.append(lr)
+    addresses = tensor_allocator.allocate(input, 0)
+    # The result is a list containing the allocated addresses
+    total_sz = 0
+    for lr, address in zip(lrs, addresses):
+        total_sz = max(total_sz, address + lr.size)
+        lr.set_address(address)
+    verify_allocation(live_ranges, alloc_granularity)
+    return total_sz
+
+
+def verify_alignment(live_ranges: LiveRangeGraph, alignment: int):
     for lr in live_ranges.ranges.values():
         for tens in lr.tensors:
             if not all(op and op.run_on_npu for op in tens.ops + tens.consumer_list):
                 # This is a CPU tensor, verify alignment
                 if tens.address % alignment != 0:
                     raise AllocationError("Tensor {} not aligned to {} bytes".format(tens.name, alignment))
+
+
+def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
+    lrs = list(live_ranges.ranges.values())
+    for n in lrs:
+        verify_alignment(live_ranges, alignment)
+
+        for m in lrs:
+            if n != m and n.overlaps_ranges(m):
+                overlap, tens_n, tens_m = n.overlaps_address(m)
+                if overlap and not (tens_n.equivalent(tens_m) and tens_n.address == tens_m.address):
+                    raise AllocationError(
+                        "Overlapping buffers: {}: {} -> {} and {}: {} -> {}".format(
+                            n.name,
+                            tens_n.address,
+                            tens_n.address + n.size,
+                            m.name,
+                            tens_m.address,
+                            tens_m.address + m.size,
+                        )
+                    )
 
 
 def mark_sram_used_for_cascaded_passes(sg, lrs):
@@ -137,8 +182,11 @@ def allocate_tensors(
         tens_alloc = tensor_allocator
         if tens_alloc == TensorAllocator.Greedy:
             total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment, verbose_allocation)
+            verify_allocation(lrs, cpu_tensor_alignment)
         elif tens_alloc == TensorAllocator.LinearAlloc:
             total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
+        elif tens_alloc == TensorAllocator.Search:
+            total_sz = search_allocate_live_ranges(lrs, cpu_tensor_alignment)
         else:
             assert 0
         alloc_ok = max_size is None or total_sz <= max_size

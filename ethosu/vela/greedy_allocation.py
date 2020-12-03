@@ -16,7 +16,6 @@
 # Description:
 # Allocate tensor addresses using a greedy algorithm.
 from . import numeric_util
-from .errors import AllocationError
 
 
 class GreedyAllocator:
@@ -70,32 +69,7 @@ class GreedyAllocator:
 
             self.alloc(new_lr)
 
-        self.verify_allocation(alignment)
         return self.memory_required
-
-    def verify_allocation(self, alignment):
-        lrs = list(self.live_ranges.ranges.values())
-        for n in lrs:
-            for tens in n.tensors:
-                if not all(op and op.run_on_npu for op in tens.ops + tens.consumer_list):
-                    # This is a CPU tensor, verify alignment
-                    if tens.address % alignment != 0:
-                        raise AllocationError("Tensor {} not aligned to {} bytes".format(tens.name, alignment))
-
-            for m in lrs:
-                if n != m and n.overlaps_ranges(m):
-                    overlap, tens_n, tens_m = n.overlaps_address(m)
-                    if overlap and not (tens_n.equivalent(tens_m) and tens_n.address == tens_m.address):
-                        raise AllocationError(
-                            "Overlapping buffers: {}: {} -> {} and {}: {} -> {}".format(
-                                n.name,
-                                tens_n.address,
-                                tens_n.address + n.size,
-                                m.name,
-                                tens_m.address,
-                                tens_m.address + m.size,
-                            )
-                        )
 
 
 def allocate_live_ranges(nng, arch, live_ranges, mem_area, alignment, verbose_allocation=False):

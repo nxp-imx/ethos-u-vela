@@ -282,7 +282,7 @@ def main(args=None):
     )
     parser.add_argument(
         "--tensor-allocator",
-        default=TensorAllocator.Greedy,
+        default=TensorAllocator.Search,
         type=lambda s: TensorAllocator[s],
         choices=list(TensorAllocator),
         help="Tensor Allocator algorithm (default: %(default)s)",
