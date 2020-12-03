@@ -15,23 +15,29 @@
 # limitations under the License.
 # Description:
 # Packaging for the Vela compiler
+import os
 import re
-from os import path
 
 from setuptools import Extension
 from setuptools import find_namespace_packages
 from setuptools import setup
 
 # Read the contents of README.md file
-this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
+this_directory = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
-    # Replace local file links with URLs
     tag = "2.0.1"
     url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
-    for link in set(re.findall(r"\[.+\]\((.+?)\)", long_description)):
-        if path.exists(path.join(this_directory, link)):
-            long_description = long_description.replace(link, url + link)
+    # Find all markdown links that match the format:  [text](link)
+    for match, link in re.findall(r"(\[.+?\]\((.+?)\))", long_description):
+        # If the link is a file that exists, replace it with the web link to the file instead
+        if os.path.exists(os.path.join(this_directory, link)):
+            url_link = match.replace(link, url + link)
+            long_description = long_description.replace(match, url_link)
+    if os.getenv("ETHOSU_VELA_DEBUG"):
+        # Verify the contents of the modifications made in a markdown renderer
+        with open(os.path.join(this_directory, "PYPI.md"), "wt", encoding="utf-8") as fout:
+            fout.write(long_description)
 
 mlw_module = Extension(
     "ethosu.mlw_codec",
