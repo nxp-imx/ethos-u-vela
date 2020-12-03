@@ -18,6 +18,12 @@ repos:
     -   id: flake8
         args: [--max-line-length=120, --extend-ignore=E203]
 
+-   repo: https://github.com/pre-commit/mirrors-pylint
+    rev: v2.6.0
+    hooks:
+    -   id: pylint
+        args: [--score=no, --max-line-length=120, --disable=all, --enable=W0102]
+
 -   repo: local
     hooks:
     -   id: pytest
