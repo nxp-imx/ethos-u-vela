@@ -214,9 +214,7 @@ class TFLiteSubgraph:
 
 
 class TFLiteGraph:
-    def __init__(
-        self, filename, batch_size=1, feed_dict={}, output_node_names=[], initialisation_nodes=[],
-    ):
+    def __init__(self, filename, batch_size, feed_dict, output_node_names, initialisation_nodes):
 
         self.op_times = {}
         if batch_size is None:
@@ -275,9 +273,7 @@ class TFLiteGraph:
         return op_type, ser, custom_code
 
 
-def read_tflite(
-    filename, batch_size=1, feed_dict={}, output_node_names=[], initialisation_nodes=[],
-):
+def read_tflite(filename, batch_size, feed_dict, output_node_names, initialisation_nodes):
     tflite_graph = TFLiteGraph(filename, batch_size, feed_dict, output_node_names, initialisation_nodes)
     nng = tflite_graph.nng
     nng.refresh_after_modification()

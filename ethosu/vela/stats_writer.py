@@ -236,7 +236,7 @@ def print_performance_metrics_for_strat(
     num_passes,
     num_cascaded_passes,
     n_operations=0,
-    cpu_operations=[],
+    cpu_operations=None,
     bits_per_element=None,
     show_cpu_operations=False,
     f=sys.stdout,
@@ -283,6 +283,9 @@ def print_performance_metrics_for_strat(
 
     print(file=f)
     print("{:d} passes fused into {:d}".format(num_passes, num_cascaded_passes), file=f)
+
+    if cpu_operations is None:
+        cpu_operations = []
 
     n_cpu_operations = len(cpu_operations)
     if n_operations > 0:

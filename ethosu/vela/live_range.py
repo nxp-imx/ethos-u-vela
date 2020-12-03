@@ -194,16 +194,16 @@ def merge_elementwise_op_ranges(ps, lr_graph, target_mem_area, target_mem_type_s
 
 
 def extract_live_ranges_from_passes(
-    sg,
-    target_mem_area,
-    target_mem_type_set=set((MemType.Scratch, MemType.Scratch_fast)),
-    ignore_subgraph_input_output_tensors=False,
+    sg, target_mem_area, target_mem_type_set=None, ignore_subgraph_input_output_tensors=False,
 ):
     lr_graph = LiveRangeGraph()
 
     if ignore_subgraph_input_output_tensors:
         lr_graph.ignore_tensors.update(sg.input_tensors)
         lr_graph.ignore_tensors.update(sg.output_tensors)
+
+    if target_mem_type_set is None:
+        target_mem_type_set = set((MemType.Scratch, MemType.Scratch_fast))
 
     # Try to merge live ranges of operations in the NPU subgraphs
     if sg.placement == PassPlacement.Npu:

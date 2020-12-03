@@ -29,8 +29,14 @@ class ModelReaderOptions:
     __repr__ = __str__
 
 
-def read_model(fname, options, feed_dict={}, output_node_names=[], initialisation_nodes=[]):
+def read_model(fname, options, feed_dict=None, output_node_names=None, initialisation_nodes=None):
     if fname.endswith(".tflite"):
+        if feed_dict is None:
+            feed_dict = {}
+        if output_node_names is None:
+            output_node_names = []
+        if initialisation_nodes is None:
+            initialisation_nodes = []
         return tflite_reader.read_tflite(
             fname,
             options.batch_size,

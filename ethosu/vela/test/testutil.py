@@ -107,11 +107,12 @@ def create_op_with_quant_tensors(
     return op
 
 
-def create_op(op_type, inputs, output, attrs=dict()):
+def create_op(op_type, inputs, output, attrs=None):
     op = Operation(op_type, output.name + "_op")
     op.inputs = inputs
     op.outputs = [output]
-    op.attrs = attrs
+    if attrs is not None:
+        op.attrs = attrs
     return op
 
 

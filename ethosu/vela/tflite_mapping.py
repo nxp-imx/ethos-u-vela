@@ -333,28 +333,29 @@ def write_int_vector(builder, v):
 
 
 class OptionsSerializer:
-    def __init__(self, name, members=[]):
+    def __init__(self, name, members=None):
         self.name = name
         self.module = globals()[self.name]
         self.cls = getattr(self.module, self.name)
         self.builtin_opt_type = builtin_options_inv_map[self.cls]
         self.members = []
-        for mem in members:
-            deserialize = identity
-            serialize = identity_serialize
-            is_vector = False
-            if isinstance(mem, tuple):
-                if len(mem) == 3:
-                    mem, deserialize, serialize = mem
-                elif len(mem) == 2:
-                    mem, is_vector = mem
-                    deserialize = tuple
-                    serialize = write_int_vector
-                else:
-                    assert 0
-            underscore_mem = mem
-            camelcase_mem = underscore_to_camel_case(mem)
-            self.members.append((underscore_mem, camelcase_mem, deserialize, serialize, is_vector))
+        if members is not None:
+            for mem in members:
+                deserialize = identity
+                serialize = identity_serialize
+                is_vector = False
+                if isinstance(mem, tuple):
+                    if len(mem) == 3:
+                        mem, deserialize, serialize = mem
+                    elif len(mem) == 2:
+                        mem, is_vector = mem
+                        deserialize = tuple
+                        serialize = write_int_vector
+                    else:
+                        assert 0
+                underscore_mem = mem
+                camelcase_mem = underscore_to_camel_case(mem)
+                self.members.append((underscore_mem, camelcase_mem, deserialize, serialize, is_vector))
 
     def deserialize(self, op_data):
         builtin_options = op_data.BuiltinOptions()
