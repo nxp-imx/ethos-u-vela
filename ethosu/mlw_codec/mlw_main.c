@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 
         if (!decode) {
             // Encode
-            int i, n = int16_format ? inbuf_size/sizeof(int16_t) : inbuf_size;
+            int i, n = int16_format ? inbuf_size/(int)sizeof(int16_t) : inbuf_size;
             int16_t *weights = malloc( n * sizeof(int16_t) );
             for(i=0; i<n; i++) {
                 weights[i] = int16_format ? ((int16_t*)inbuf)[i] : ((int8_t*)inbuf)[i];
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
             int i, n;
             int16_t *weights;
             n = mlw_decode( inbuf, inbuf_size, &weights, verbose);
-            outbuf_size = int16_format ? n*sizeof(int16_t) : n;
+            outbuf_size = int16_format ? n*(int)sizeof(int16_t) : n;
             outbuf = malloc( outbuf_size );
             assert(outbuf);
             for(i=0; i<n; i++) {
