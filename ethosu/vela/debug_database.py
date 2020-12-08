@@ -15,6 +15,9 @@
 # limitations under the License.
 import csv
 import io
+from typing import Any
+from typing import Dict
+from typing import List
 
 import lxml.etree as xml
 
@@ -22,28 +25,32 @@ from . import numeric_util
 from .operation import Operation
 
 
+UntypedDict = Dict[Any, Any]
+UntypedList = List[Any]
+
+
 class DebugDatabase:
     NULLREF = -1
     show_warnings = False
 
     SOURCE_TABLE = "source"
-    _sourceUID = {}
+    _sourceUID: UntypedDict = {}
     _sourceHeaders = ["id", "operator", "kernel_w", "kernel_h", "ofm_w", "ofm_h", "ofm_d"]
-    _sourceTable = []
+    _sourceTable: UntypedList = []
 
     OPTIMISED_TABLE = "optimised"
-    _optimisedUID = {}
+    _optimisedUID: UntypedDict = {}
     _optimisedHeaders = ["id", "source_id", "operator", "kernel_w", "kernel_h", "ofm_w", "ofm_h", "ofm_d"]
-    _optimisedTable = []
+    _optimisedTable: UntypedList = []
 
     QUEUE_TABLE = "queue"
     _queueHeaders = ["offset", "cmdstream_id", "optimised_id"]
-    _queueTable = []
+    _queueTable: UntypedList = []
 
     STREAM_TABLE = "cmdstream"
-    _streamUID = {}
+    _streamUID: UntypedDict = {}
     _streamHeaders = ["id", "file_offset"]
-    _streamTable = []
+    _streamTable: UntypedList = []
 
     @classmethod
     def add_source(cls, op: Operation):

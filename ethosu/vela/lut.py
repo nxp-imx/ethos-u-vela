@@ -20,7 +20,8 @@ import uuid
 import numpy as np
 
 from . import numeric_util
-from .high_level_command_stream import CommandType
+from .high_level_command_stream import DMA
+from .high_level_command_stream import NpuStripe
 from .tensor import create_const_tensor
 from .tensor import create_equivalence_id
 from .tensor import TensorPurpose
@@ -101,11 +102,11 @@ def optimize_high_level_cmd_stream(sg, arch):
     lut_start = arch.shram_lut_address
     lut_end = lut_start + arch.shram_lut_size
     for cmd in sg.high_level_command_stream:
-        if cmd.cmdtype == CommandType.NpuStripe and cmd.ps.lut_tensor is None and arch.shram_reserved_unused_banks == 0:
+        if isinstance(cmd, NpuStripe) and cmd.ps.lut_tensor is None and arch.shram_reserved_unused_banks == 0:
             # The command overwrites the last 2 banks containing the LUT; next LUT operation will require DMA
             # TODO: check the command's SHRAM usage in more detail to determine if the LUT is overwritten or not
             lut_state = LUTState()
-        if cmd.cmdtype != CommandType.DMA or cmd.out_tensor.purpose != TensorPurpose.LUT:
+        if not isinstance(cmd, DMA) or cmd.out_tensor.purpose != TensorPurpose.LUT:
             # Non-LUT operation; leave untouched
             cmd_stream.append(cmd)
             continue

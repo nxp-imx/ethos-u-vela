@@ -117,7 +117,7 @@ def create_driver_payload(register_command_stream: List[int], arch: Architecture
     """Creates driver header and includes the given command
     """
     # Prepare driver actions for this command tensor
-    da_list = []
+    da_list: List[int] = []
     emit_fourcc(da_list, "COP1")
     emit_config(da_list, 0, 1, arch)
     emit_cmd_stream_header(da_list, len(register_command_stream))

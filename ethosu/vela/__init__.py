@@ -14,6 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from ._version import __version__
-from .vela import main
 
-__all__ = [main, __version__]
+__all__ = ["main", __version__]

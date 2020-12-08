@@ -68,11 +68,6 @@ def has_ifm2(npu_op: NpuBlockOperation) -> bool:
     return npu_op.ifm2 is not None and npu_op.ifm2_scalar is None
 
 
-def is_dma_op(npu_op: NpuOperation) -> bool:
-    """Checks if op is a DMA operation"""
-    return npu_op.op_type == NpuOperationType.Dma
-
-
 def shape3d_size(shape: NpuShape3D) -> int:
     return shape.width * shape.height * shape.depth
 
@@ -302,9 +297,9 @@ def get_wait_dependency(
         prev_access = memory_accesses[prev_op]
 
         # Check NPU consuming DMA output
-        if is_dma_op(prev_op):
+        if isinstance(prev_op, NpuDmaOperation):
             if index >= dma_index:
-                if not is_dma_op(npu_op):
+                if not isinstance(npu_op, NpuDmaOperation):
                     if (dma_outstanding == -1) and prev_access.conflicts(op_access):
                         dma_outstanding = dma_ops
                 dma_ops += 1  # Count DMA ops in the pipeline
@@ -313,7 +308,7 @@ def get_wait_dependency(
         # Check DMA consuming NPU output
         else:
             if index >= npu_index:
-                if is_dma_op(npu_op) and npu_outstanding == -1 and prev_access.conflicts(op_access):
+                if isinstance(npu_op, NpuDmaOperation) and npu_outstanding == -1 and prev_access.conflicts(op_access):
                     npu_outstanding = npu_ops
                 npu_ops += 1  # Count NPU ops in the pipeline
                 if npu_ops >= arch.max_outstanding_kernels:

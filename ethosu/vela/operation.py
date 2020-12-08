@@ -18,9 +18,16 @@
 import copy
 from collections import namedtuple
 from enum import Enum
+from typing import Any
+from typing import Dict
+from typing import List
 from typing import Optional
+from typing import TYPE_CHECKING
 
 from .numeric_util import full_shape
+
+if TYPE_CHECKING:
+    from .tensor import Tensor
 
 PointXY = namedtuple("PointXY", "x y")
 PointXYZ = namedtuple("PointXYZ", "x y z")
@@ -392,9 +399,9 @@ class Operation:
     def __init__(self, op_type: Op, name: str):
         self.type = op_type
         self.name = name
-        self.attrs = {}
-        self.inputs = []
-        self.outputs = []
+        self.attrs: Dict[str, Any] = {}
+        self.inputs: List[Tensor] = []
+        self.outputs: List[Tensor] = []
         self.flops = 0
         self.run_on_npu = True
         # Fused activation function. If not none: operator code.

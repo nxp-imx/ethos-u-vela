@@ -15,8 +15,6 @@
 # limitations under the License.
 # Description:
 # Contains classes that hold commands for the high-level command stream (one command per DMA or NPU stripe).
-from enum import IntEnum
-
 import numpy as np
 
 from .architecture_features import Block
@@ -144,12 +142,6 @@ class Box:
     __repr__ = __str__
 
 
-class CommandType(IntEnum):
-    NpuStripe = 0
-    DMA = 1
-    Size = 2
-
-
 class Command:
     def get_ofm_y_range_for_pass(self, ps_requested):
         return None
@@ -158,7 +150,7 @@ class Command:
         return False
 
     def get_operation_count(self):
-        # returns numpy array of (DPU blocks, dma_ops). Should line up with the CommandType enum
+        # returns numpy array of (DPU blocks, dma_ops).
         return np.array((0, 0))
 
 
@@ -185,7 +177,6 @@ class NpuStripe(Command):
         pad_top=0,
         pad_bottom=0,
     ):
-        self.cmdtype = CommandType.NpuStripe
         self.ps = ps
         self.block_config = block_config
         self.is_first = is_first
@@ -333,7 +324,6 @@ class NpuStripe(Command):
 
 class DMA(Command):
     def __init__(self, ps, in_tensor, out_tensor, box):
-        self.cmdtype = CommandType.DMA
         self.ps = ps
         self.in_tensor = in_tensor
         self.out_tensor = out_tensor

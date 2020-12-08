@@ -16,6 +16,7 @@
 # Description:
 # Defines the basic numeric type classes for tensors.
 import enum
+from typing import Any
 
 from .numeric_util import round_up_divide
 
@@ -42,6 +43,34 @@ class DataType:
     """Defines a data type. Consists of a base type, and the number of bits used for this type"""
 
     __slots__ = "type", "bits"
+
+    int8: Any
+    int16: Any
+    int32: Any
+    int64: Any
+    uint8: Any
+    uint16: Any
+    uint32: Any
+    uint64: Any
+    quint4: Any
+    quint8: Any
+    quint12: Any
+    quint16: Any
+    quint32: Any
+    qint4: Any
+    qint8: Any
+    qint12: Any
+    qint16: Any
+    qint32: Any
+    float16: Any
+    float32: Any
+    float64: Any
+    string: Any
+    bool: Any
+    resource: Any
+    variant: Any
+    complex64: Any
+    complex128: Any
 
     def __init__(self, type_, bits):
         self.type = type_
