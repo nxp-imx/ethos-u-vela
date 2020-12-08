@@ -32,7 +32,6 @@ from .nn_graph import SchedulerRewrite
 from .nn_graph import SchedulingStrategy
 from .npu_performance import make_bandwidth_array
 from .npu_performance import make_cycles_array
-from .npu_performance import make_macs_array
 from .npu_performance import make_metrics_arrays
 from .npu_performance import PassCycles
 from .numeric_util import full_shape
@@ -108,7 +107,7 @@ class Strategy:
             return False
         if (self.bws != other.bws).any():
             return False
-        if (self.macs != other.macs).any():
+        if self.macs != other.macs:
             return False
         if (self.cycles != other.cycles).any():
             return False
@@ -211,7 +210,7 @@ class StrategySet:
 
 
 empty_strategy = Strategy(
-    SchedulingStrategy.Unknown, None, [], [], [], make_bandwidth_array(), make_macs_array(), make_cycles_array(), 0
+    SchedulingStrategy.Unknown, None, [], [], [], make_bandwidth_array(), 0, make_cycles_array(), 0
 )
 INFINITY = 1e30
 

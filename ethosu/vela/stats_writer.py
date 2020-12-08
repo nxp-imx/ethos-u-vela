@@ -22,7 +22,6 @@ import numpy as np
 
 from .nn_graph import PassPlacement
 from .npu_performance import BandwidthDirection
-from .npu_performance import MacCount
 from .npu_performance import PassCycles
 from .numeric_util import round_up_to_int
 from .operation import Op
@@ -70,7 +69,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
                 mem_area.identifier_name() + "_total_bytes",
             ]
 
-        labels += ["nn_macs", "hardware_macs", "nn_tops", "hardware_tops"]
+        labels += ["nn_macs", "nn_tops"]
 
         labels += ["cycles_" + kind.identifier_name() for kind in PassCycles.all()]
 
@@ -128,10 +127,8 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
             ]
 
         data_items += [
-            nng.macs[MacCount.NeuralNetworkMacs],
-            nng.macs[MacCount.HardwareMacs],
-            nng.macs[MacCount.NeuralNetworkMacs] * 2 * midpoint_fps / 1e12,
-            nng.macs[MacCount.HardwareMacs] * 2 * midpoint_fps / 1e12,
+            nng.macs,
+            nng.macs * 2 * midpoint_fps / 1e12,
         ]
 
         data_items += [nng.cycles[kind] for kind in PassCycles.all()]
@@ -164,7 +161,6 @@ def write_pass_metrics_csv(nng, pass_filename):
                     bandwidth_names.append(label)
                     bandwidth_indices.append((mem_area, purpose_candidates, direction_candidates))
 
-        all_macs = MacCount.all()
         all_cycles = (
             PassCycles.Total,
             PassCycles.Npu,
@@ -183,10 +179,9 @@ def write_pass_metrics_csv(nng, pass_filename):
                 "block_config_width",
                 "block_config_input_channels",
                 "block_config_output_channels",
-                "n_blocks_in_pass",
             ]
             + ["cycles_" + v.identifier_name() for v in all_cycles]
-            + [v.identifier_name() for v in all_macs]
+            + ["nn_macs"]
             + bandwidth_names
             + ["sram_used"]
         )
@@ -205,9 +200,8 @@ def write_pass_metrics_csv(nng, pass_filename):
                     stats += [ps.placement.name]
                     stats += [cps.strategy.name]
                     stats += list(ps.block_config)
-                    stats += [ps.n_blocks]
                     stats += [round_up_to_int(ps.cycles[v]) for v in all_cycles]
-                    stats += [round_up_to_int(ps.macs[v]) for v in all_macs]
+                    stats += [round_up_to_int(ps.macs)]
                     for indices in bandwidth_indices:
                         res = 0
                         i = indices[0]
@@ -256,17 +250,16 @@ def print_performance_metrics_for_strat(
 
     if name:
         print("", file=f)
-        print("Network summary for", name, file=f)
-    print("Accelerator configuration        {:>20}".format(arch.accelerator_config.name), file=f)
-    print("System configuration             {:>20}".format(arch.system_config), file=f)
-    print("Memory mode                      {:>20}".format(arch.memory_mode), file=f)
-    print("Accelerator clock                        {:12d} MHz".format(int(arch.core_clock / 1e6)), file=f)
+        print(f"Network summary for {name}", file=f)
+    print(f"Accelerator configuration        {arch.accelerator_config.name:>20}", file=f)
+    print(f"System configuration             {arch.system_config:>20}", file=f)
+    print(f"Memory mode                      {arch.memory_mode:>20}", file=f)
+    print(f"Accelerator clock                        {int(arch.core_clock / 1e6):12d} MHz", file=f)
     for mem_area, label in mem_area_labels:
+        label += " bandwidth"
+        bandwidth = arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000
         print(
-            "Design peak {:25}    {:12.2f} GB/s".format(
-                label + " bandwidth", arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000
-            ),
-            file=f,
+            f"Design peak {label:25}    {bandwidth:12.2f} GB/s", file=f,
         )
     print(file=f)
     for mem_area, label in mem_area_labels:
@@ -277,12 +270,12 @@ def print_performance_metrics_for_strat(
 
         extra = ""
         if (mem_area == MemArea.OnChipFlash or mem_area == MemArea.OffChipFlash) and bits_per_element is not None:
-            extra = " ({:.2f} bits per element)".format(bits_per_element[mem_area])
+            extra = f" ({bits_per_element[mem_area]:.2f} bits per element)"
 
-        print("Total {:25}          {:12.2f} KiB{}".format(aug_label, memory_used[mem_area] / 1024.0, extra), file=f)
+        print(f"Total {aug_label:25}          {memory_used[mem_area] / 1024.0:12.2f} KiB{extra}", file=f)
 
     print(file=f)
-    print("{:d} passes fused into {:d}".format(num_passes, num_cascaded_passes), file=f)
+    print(f"{num_passes:d} passes fused into {num_cascaded_passes:d}", file=f)
 
     if cpu_operations is None:
         cpu_operations = []
@@ -290,9 +283,8 @@ def print_performance_metrics_for_strat(
     n_cpu_operations = len(cpu_operations)
     if n_operations > 0:
         print(
-            "{:d}/{:d} ({:4.1%}) operations falling back to the CPU".format(
-                n_cpu_operations, n_operations, n_cpu_operations / n_operations * 100
-            ),
+            f"{n_cpu_operations:d}/{n_operations:d}"
+            f" ({n_cpu_operations / n_operations * 100:4.1%}) operations falling back to the CPU",
             file=f,
         )
 
@@ -303,9 +295,8 @@ def print_performance_metrics_for_strat(
                 return " ".join(str(list(tens.shape)) for tens in lst)
 
             print(
-                "CPU operation: {} inputs {}, outputs {}".format(
-                    op.type, format_tens_list(op.inputs), format_tens_list(op.outputs)
-                ),
+                f"CPU operation: {op.type}"
+                f" inputs {format_tens_list(op.inputs)}, outputs {format_tens_list(op.outputs)}",
                 file=f,
             )
 
@@ -318,60 +309,43 @@ def print_performance_metrics_for_strat(
         fm_bws = bws[TensorPurpose.FeatureMap]
         aug_label = label + " bandwidth"
         print(
-            "Average {:25}        {:12.2f} GB/s".format(aug_label, total_bw * midpoint_fps / 1000.0 / 1000.0 / 1000.0),
-            file=f,
+            f"Average {aug_label:25}        {total_bw * midpoint_fps / 1000.0 / 1000.0 / 1000.0:12.2f} GB/s", file=f,
         )
         print(
-            "Input   {:25}        {:12.2f} MB/batch".format(
-                aug_label, np.sum(fm_bws[BandwidthDirection.Read]) / 1000.0 / 1000.0
-            ),
+            f"Input   {aug_label:25}        {np.sum(fm_bws[BandwidthDirection.Read]) / 1000.0 / 1000.0:12.2f} MB/batch",
             file=f,
         )
-        print("Weight  {:25}        {:12.2f} MB/batch".format(aug_label, np.sum(weight_bws) / 1000.0 / 1000.0), file=f)
+        print(f"Weight  {aug_label:25}        {np.sum(weight_bws) / 1000.0 / 1000.0:12.2f} MB/batch", file=f)
         print(
-            "Output  {:25}        {:12.2f} MB/batch".format(
-                aug_label, np.sum(fm_bws[BandwidthDirection.Write]) / 1000.0 / 1000.0
-            ),
+            f"Output  {aug_label:25}        "
+            f"{np.sum(fm_bws[BandwidthDirection.Write]) / 1000.0 / 1000.0:12.2f} MB/batch",
             file=f,
         )
-        print("Total   {:25}        {:12.2f} MB/batch".format(aug_label, total_bw / 1000.0 / 1000.0), file=f)
+        print(f"Total   {aug_label:25}        {total_bw / 1000.0 / 1000.0:12.2f} MB/batch", file=f)
         print(
-            "Total   {:25} per input {:9.2f} MB/inference (batch size {:d})".format(
-                aug_label, total_bw / 1000.0 / 1000.0 / batch_size, batch_size
-            ),
+            f"Total   {aug_label:25} per input "
+            f"{total_bw / 1000.0 / 1000.0 / batch_size:9.2f} MB/inference (batch size {batch_size:d})",
             file=f,
         )
         print(file=f)
 
     print(
-        "Neural network macs                      {:12d} MACs/batch".format(int(macs[MacCount.NeuralNetworkMacs])),
-        file=f,
-    )
-    print("Hardware macs                            {:12d} MACs/batch".format(int(macs[MacCount.HardwareMacs])), file=f)
-    print(
-        "Network Tops/s                           {:12.2f} Tops/s".format(
-            macs[MacCount.NeuralNetworkMacs] * 2 * midpoint_fps / 1e12
-        ),
-        file=f,
+        f"Neural network macs                      {int(macs):12d} MACs/batch", file=f,
     )
     print(
-        "Hardware Tops/s                          {:12.2f} Tops/s".format(
-            macs[MacCount.HardwareMacs] * 2 * midpoint_fps / 1e12
-        ),
-        file=f,
+        f"Network Tops/s                           {macs * 2 * midpoint_fps / 1e12:12.2f} Tops/s", file=f,
     )
     print(file=f)
 
     for kind in PassCycles.all():
         aug_label = kind.display_name() + " cycles"
         cyc = cycles[kind]
-        print("{:30}           {:12d} cycles/batch".format(aug_label, int(cyc)), file=f)
+        print(f"{aug_label:30}           {int(cyc):12d} cycles/batch", file=f)
     print(file=f)
 
     print(
-        "Batch Inference time              {:7.2f} ms, {:7.2f} inferences/s (batch size {:d})".format(
-            midpoint_inference_time * 1000, midpoint_fps, batch_size
-        ),
+        f"Batch Inference time              {midpoint_inference_time * 1000:7.2f} ms,"
+        f" {midpoint_fps:7.2f} inferences/s (batch size {batch_size:d})",
         file=f,
     )
     print(file=f)
