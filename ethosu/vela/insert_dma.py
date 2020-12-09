@@ -77,9 +77,7 @@ def insert_dma_cmd(op, arch, nng):
                 ):
                     only_vector_product_consumers = True
                     for oper in tens.consumers():
-                        if oper is None or not (
-                            oper.type.npu_block_type == NpuBlockType.VectorProduct or "is_converted_fc" in oper.attrs
-                        ):
+                        if oper is None or oper.type.npu_block_type != NpuBlockType.VectorProduct:
                             only_vector_product_consumers = False
                             break
 
