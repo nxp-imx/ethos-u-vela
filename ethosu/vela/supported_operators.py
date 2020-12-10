@@ -82,6 +82,7 @@ class SupportedOperators:
     binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.Sub,))
     binary_elem_wise_main_ops = binary_elem_wise_min_max_ops | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
     elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
+    pad_ops = set((Op.Pad,))
     supported_int32_tensor_ops = (
         set((Op.ReduceSum, Op.CLZ,)) | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
     )
@@ -101,10 +102,11 @@ class SupportedOperators:
     shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV,))
     per_axis_quant_ops = convolution_like_ops  # per-axis/channel quantization only currently supported for conv ops
     supported_fused_activations = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.LUT,))
-    supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | npu_post_ops | memory_only_ops
+    supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | pad_ops | npu_post_ops | memory_only_ops
     # Supported data types
     supported_op_dtypes = set((DataType.uint8, DataType.int8, DataType.int16, DataType.int32))
     supported_bias_dtypes = set((DataType.int32, DataType.int64))
+    supported_pad_dtypes = set((DataType.int32, DataType.int64))
     # Defined ranges for allowed values:
     tens_dim_range = (1, 65535)
     stride_range = (1, 3)
@@ -115,6 +117,8 @@ class SupportedOperators:
     filter_range = (1, 8)
     filter_height_range = (1, 256)
     filter_product_range = (1, 256 * 256)
+    # Supported consumers
+    supported_pad_consumers = convolution_ops | depthwise_convolution_ops
 
     def __init__(self):
         # Setup the generic constraints. Note: the order matters
@@ -250,6 +254,16 @@ class SupportedOperators:
 
         # FullyConnected specific checks:
         self.specific_constraints[Op.FullyConnected].append(SupportedOperators.constraint_fc_output_2d)
+
+        # Pad specific checks:
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_matching_in_out_types)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_matching_quantization_parameters)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_input_count)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_shape)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_padding_dimensions)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_type)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_constant)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_ofm)
 
     def is_operator_supported(self, op):
         ext_type = optype_to_builtintype(op.type)
@@ -769,6 +783,57 @@ class SupportedOperators:
         return valid, f"Op has {inputs} inputs"
 
     @staticmethod
+    def constraint_pad_input_count(op):
+        "Number of input tensors must be exactly 2"
+        inputs = len(op.inputs)
+        valid = inputs == 2
+        return valid, f"Op has {inputs} inputs"
+
+    @staticmethod
+    def constraint_pad_shape(op):
+        "The padding tensor must have the shape [4,2]"
+        valid = op.inputs[1].shape == [4, 2]
+        return valid, f"The pad tensor has the shape: {op.inputs[1].shape}"
+
+    @classmethod
+    @docstring_format_args([_list_formatter(supported_pad_dtypes)])
+    def constraint_pad_type(cls, op):
+        "Pad tensor must be of type: {}"
+        pad_tensor = op.inputs[1]
+        valid = pad_tensor.dtype in cls.supported_pad_dtypes
+        return valid, f"Tensor '{pad_tensor.name}' has data type: {pad_tensor.dtype}"
+
+    @staticmethod
+    def constraint_padding_dimensions(op):
+        "The pad tensor can only pad width and height"
+        pad_tensor = op.inputs[1].values
+        valid = sum(pad_tensor[0, :]) + sum(pad_tensor[-1, :]) == 0
+        return valid, f"First dimension padding: {pad_tensor[0,:]}, last dimension padding: {pad_tensor[-1,:]}"
+
+    @staticmethod
+    def constraint_pad_constant(op):
+        pad_tensor = op.inputs[1].values
+        valid = pad_tensor is not None
+        return valid, f"Op has non-constant padding tensor: {op.inputs[1].values}"
+
+    @classmethod
+    @docstring_format_args([_optype_formatter(supported_pad_consumers)])
+    def constraint_pad_ofm(cls, op):
+        "Must be followed by one of the following operator types: {}"
+        consumers = op.ofm.consumers()
+        consumers_to_pad = 0
+        for consumer in consumers:
+            if consumer.type in cls.supported_pad_consumers:
+                if consumer.attrs["padding"] == Padding.VALID:
+                    consumers_to_pad += 1
+        valid = len(consumers) > 0 and len(consumers) == consumers_to_pad
+        return (
+            valid,
+            f"Operator is followed by {consumers_to_pad} consumers with "
+            f"padding set to VALID, out of {len(consumers)} consumers",
+        )
+
+    @staticmethod
     def constraint_stridedslice_inputs_const(op):
         "Begin, End and Stride Input tensors must be constant"
         valid = True
@@ -870,7 +935,7 @@ class SupportedOperators:
         if not check_quantized_tens_scaling_equal(op.ofm, op.ifm):
             valid = False
             extra.append(op.ifm.name)
-        if not check_quantized_tens_scaling_equal(op.ofm, op.ifm2):
+        if op.ifm2 is not None and not check_quantized_tens_scaling_equal(op.ofm, op.ifm2):
             valid = False
             extra.append(op.ifm2.name)
         extra = ", ".join(extra)
