@@ -201,7 +201,7 @@ class Op(Enum):
     OneHot = OperatorInfo()
     Pack = OperatorInfo(indices=IFM_INDICES)
     PackReshaped = OperatorInfo(indices=IFM_INDICES)
-    Pad = OperatorInfo()
+    Pad = OperatorInfo(indices=IFM_INDICES)
     PadV2 = OperatorInfo()
     Placeholder = OperatorInfo()  # Only used in CPU subgraphs
     Pow = OperatorInfo()
@@ -335,6 +335,7 @@ class Op(Enum):
 class Padding(Enum):
     SAME = 0
     VALID = 1
+    EXPLICIT = 2  # Padding is specified in a PAD operation (only used for NPU operations)
 
 
 class ActivationFunction:

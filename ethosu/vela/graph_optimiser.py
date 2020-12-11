@@ -156,7 +156,7 @@ def needed_total_padding(input_size, stride, filter_size):
     return total_padding
 
 
-def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
+def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims, explicit_padding):
     ypad = needed_total_padding(int(input_dims[1]), int(stride[1]), int(kernel_size[0]))
     xpad = needed_total_padding(int(input_dims[2]), int(stride[2]), int(kernel_size[1]))
     if padding_type == Padding.SAME:
@@ -169,6 +169,12 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
         right_pad = 0
         top_pad = 0
         bottom_pad = 0
+    elif padding_type == Padding.EXPLICIT:
+        # Padding is specified in a PAD operator which has been bypassed.
+        # The top and left padding are taken from the PAD; bottom and right are calculated.
+        top_pad, left_pad, _, _ = explicit_padding
+        bottom_pad = ypad - top_pad
+        right_pad = xpad - left_pad
     else:
         raise UnsupportedFeatureError(f"Unknown padding")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
@@ -537,7 +543,11 @@ def add_padding_fields(op, arch, nng):
                 dilation_h, dilation_w = op.get_dilation_h_w()
                 dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
                 padding, skirt = calc_padding_and_skirt(
-                    op.attrs["padding"], dilated_kernel_size, op.attrs["strides"], input_shape
+                    op.attrs["padding"],
+                    dilated_kernel_size,
+                    op.attrs["strides"],
+                    input_shape,
+                    op.attrs.get("explicit_padding"),
                 )
 
             op.attrs["explicit_padding"] = padding
@@ -1122,6 +1132,30 @@ def fuse_activation_function_with_prev(op, arch, nng):
     return op
 
 
+def optimise_pad(op, arch, nng):
+    """
+    Converts tens1 -> PAD -> tens2 -> CONV to tens1 -> CONV
+    if both operations can be run on the NPU.
+    """
+    if (
+        (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op())
+        and op.run_on_npu
+        and op.attrs["padding"] == Padding.VALID
+    ):
+        pad_op = op.ifm.ops[0]
+        if pad_op.type != Op.Pad or not pad_op.run_on_npu:
+            return op
+        # Bypass the PAD operator
+        op.set_input_tensor(pad_op.ifm, 0)
+        # Adjust the padding attributes of the convolution operator
+        op.attrs["padding"] = Padding.EXPLICIT
+        padding = pad_op.inputs[1].values  # 4x2 tensor, first dimension is N, H, W, C
+        top, left, bottom, right = (padding[1][0], padding[2][0], padding[1][1], padding[2][1])
+        op.attrs["explicit_padding"] = (top, left, bottom, right)
+        op.set_ifm_ofm_shapes()
+    return op
+
+
 def add_attrs_to_resizebilinear(op, arch, nng):
     if op.type == Op.ResizeBilinear and op.run_on_npu:
         input_tensor = op.inputs[0]
@@ -1213,7 +1247,11 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
     for idx, sg in enumerate(nng.subgraphs):
         # remove passthrough tensors and attempt further optimizations
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
-            nng, sg, arch, [remove_passthrough_tensor], [fuse_activation_function_with_prev, add_padding_fields],
+            nng,
+            sg,
+            arch,
+            [remove_passthrough_tensor],
+            [fuse_activation_function_with_prev, optimise_pad, add_padding_fields],
         )
 
     # Post-optimisation operator debug tracing
