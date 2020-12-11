@@ -31,7 +31,7 @@ SearchAllocator::SearchAllocator(const std::vector<LiveRange> &live_ranges, uint
     uint32_t max_end_time = 0;
     for (size_t i = 0; i < lrs.size(); ++i) {
         auto &lr = lrs[i];
-        lr.id = i;
+        lr.id = static_cast<int>(i);
         max_end_time = std::max(max_end_time, lr.end_time);
     }
     lrs_at_time.resize(max_end_time + 1);

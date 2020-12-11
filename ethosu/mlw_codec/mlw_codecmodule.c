@@ -53,7 +53,7 @@ method_encode (PyObject *self, PyObject *args)
     return NULL;
 
   /* Unpack the length of the input integer list.  */
-  int input_length = PyObject_Length (input_list_object);
+  int input_length = (int)PyObject_Length (input_list_object);
   if (input_length < 0)
     input_length = 0;
 
@@ -73,7 +73,7 @@ method_encode (PyObject *self, PyObject *args)
       item = PyList_GetItem(input_list_object, i);
       if (!PyLong_Check(item))
         input_buffer[i] = 0;
-      input_buffer[i] = PyLong_AsLong(item);
+      input_buffer[i] = (int16_t)PyLong_AsLong(item);
     }
 
   /* We don't know the output length required, we guess worst case,
@@ -126,7 +126,7 @@ method_decode(PyObject *self, PyObject *args)
 
   /* Unpack the input buffer and length from the bytearray object.  */
   uint8_t *input_buffer = (uint8_t *) PyByteArray_AsString(input_bytearray_object);
-  int input_length = PyByteArray_Size(input_bytearray_object);
+  int input_length = (int)PyByteArray_Size(input_bytearray_object);
 
   /* We don't know the output length required, we guess, but the guess
    * will be too small, the mlw_decode call will do a resize (upwards)

@@ -41,7 +41,7 @@ def saturating_rounding_mul(a, b):
     if a == b and a == np.iinfo(np.int32).min:
         return np.int32(np.iinfo(np.int32).max)
     divider = 1 << 31
-    ab = a * b
+    ab = np.int64(a) * np.int64(b)
     if ab >= 0:
         nudge = 1 << 30
         return (ab + nudge) // divider

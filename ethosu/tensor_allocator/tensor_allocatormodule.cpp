@@ -53,7 +53,7 @@ static PyObject *method_allocate (PyObject *self, PyObject *args)
     }
 
     /* Unpack the length of the input integer list. */
-    int input_length = PyObject_Length (input_list_object);
+    int input_length = static_cast<int>(PyObject_Length (input_list_object));
     if (input_length < 0) {
         input_length = 0;
     }

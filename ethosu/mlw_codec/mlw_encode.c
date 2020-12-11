@@ -33,8 +33,12 @@
 
 #define ZERO_RUN_THRES  4
 
+#ifndef min
 #define min(a,b) ((a)<(b)?(a):(b))
+#endif
+#ifndef max
 #define max(a,b) ((a)>(b)?(a):(b))
+#endif
 
 typedef struct palette {
     int16_t lut[32];
@@ -258,7 +262,7 @@ static void create_palette( int freq[512],
     // Setup the 32 entry palette
     int palette_max_val = 0, val, cnt, pal_cnt=0;
     for(i=0; i<max_palette_size; i++) {
-        cnt = freq64[i]>>16;
+        cnt = (int)(freq64[i]>>16);
         val = freq64[i]&0xffff;
         if ( cnt==0 )
             break;

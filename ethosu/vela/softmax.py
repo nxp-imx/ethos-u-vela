@@ -520,7 +520,7 @@ class SoftMax:
                 [1, 1, 1, 512],
                 DataType.int32,
                 self.ONE_OVER_ONE_PLUS_X_LUT,
-                np.int32,
+                np.uint32,
                 TensorPurpose.LUT,
             )
         )

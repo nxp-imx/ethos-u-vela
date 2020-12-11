@@ -29,7 +29,8 @@ Vela supports TensorFlow 2.3.0
 
 ## Environment
 
-Vela runs on the Linux operating system.
+Vela runs on the Linux operating system and on Microsoft Windows,
+see note in Installation section below.
 
 ## Prerequisites
 
@@ -50,6 +51,10 @@ Vela is available to install as a package from
 source code from
 [ML Platform](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela).
 Both methods will automatically install all the required dependencies.
+
+**Note:** For installing on Microsoft Windows you need to have a C99 and C++11
+capable toolchain installed. The recommended and tested toolchain is Microsoft
+Visual C++ 14.x Build Tools, see <https://wiki.python.org/moin/WindowsCompilers>
 
 ### PyPi
 
