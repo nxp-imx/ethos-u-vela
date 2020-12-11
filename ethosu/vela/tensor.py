@@ -19,6 +19,7 @@ import copy
 import enum
 import uuid
 from collections import defaultdict
+from enum import auto
 from functools import lru_cache
 from typing import Dict
 from typing import List
@@ -60,6 +61,22 @@ class MemType(enum.IntFlag):
 
     def __str__(self):
         return self.name
+
+
+class BandwidthDirection(enum.IntEnum):
+    Read = 0
+    Write = auto()
+    Size = auto()
+
+    def display_name(self):
+        return self.name
+
+    def identifier_name(self):
+        return self.name.lower()
+
+    @staticmethod
+    def all():
+        return (BandwidthDirection.Read, BandwidthDirection.Write)
 
 
 class MemArea(enum.IntFlag):

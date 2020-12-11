@@ -32,6 +32,7 @@ from .operation import Kernel
 from .operation import NpuBlockType
 from .operation import PointXYZ
 from .supported_operators import SupportedOperators
+from .tensor import BandwidthDirection
 from .tensor import MemArea
 from .tensor import MemType
 from .tensor import TensorFormat
@@ -465,6 +466,12 @@ class ArchitectureFeatures:
             self.axi1_port = MemArea.Dram
             self.memory_clock_scales[MemArea.Sram] = 1.0
             self.memory_clock_scales[MemArea.Dram] = 0.75  # 3 / 4
+            self.memory_burst_length[MemArea.Sram] = 32
+            self.memory_burst_length[MemArea.Dram] = 128
+            self.memory_latency[MemArea.Sram][BandwidthDirection.Read] = 32
+            self.memory_latency[MemArea.Sram][BandwidthDirection.Write] = 32
+            self.memory_latency[MemArea.Dram][BandwidthDirection.Read] = 500
+            self.memory_latency[MemArea.Dram][BandwidthDirection.Write] = 250
         else:
             # Default Ethos-U55 system configuration
             # Ethos-U55 High-End Embedded: SRAM (4 GB/s) and Flash (0.5 GB/s)
@@ -473,6 +480,12 @@ class ArchitectureFeatures:
             self.axi1_port = MemArea.OffChipFlash
             self.memory_clock_scales[MemArea.Sram] = 1.0
             self.memory_clock_scales[MemArea.OffChipFlash] = 0.125  # 1 / 8
+            self.memory_burst_length[MemArea.Sram] = 32
+            self.memory_burst_length[MemArea.OffChipFlash] = 128
+            self.memory_latency[MemArea.Sram][BandwidthDirection.Read] = 32
+            self.memory_latency[MemArea.Sram][BandwidthDirection.Write] = 32
+            self.memory_latency[MemArea.OffChipFlash][BandwidthDirection.Read] = 64
+            self.memory_latency[MemArea.OffChipFlash][BandwidthDirection.Write] = 64
 
     def _set_default_mem_mode(self):
         # ArchitectureFeatures.DEFAULT_CONFIG values
@@ -500,6 +513,8 @@ class ArchitectureFeatures:
         self.axi0_port = MemArea(1)
         self.axi1_port = MemArea(1)
         self.memory_clock_scales = np.ones(MemArea.Size)
+        self.memory_burst_length = np.ones(MemArea.Size)
+        self.memory_latency = np.zeros((MemArea.Size, BandwidthDirection.Size))
         self.const_mem_area = MemPort(1)
         self.arena_mem_area = MemPort(1)
         self.cache_mem_area = MemPort(1)
@@ -526,7 +541,25 @@ class ArchitectureFeatures:
                         sys_cfg_section, mem_area.name + "_clock_scale", self.memory_clock_scales[mem_area]
                     )
                 )
-
+                self.memory_burst_length[mem_area] = int(
+                    self._read_config(
+                        sys_cfg_section, mem_area.name + "_burst_length", self.memory_burst_length[mem_area]
+                    )
+                )
+                self.memory_latency[mem_area][BandwidthDirection.Read] = int(
+                    self._read_config(
+                        sys_cfg_section,
+                        mem_area.name + "_read_latency",
+                        self.memory_latency[mem_area][BandwidthDirection.Read],
+                    )
+                )
+                self.memory_latency[mem_area][BandwidthDirection.Write] = int(
+                    self._read_config(
+                        sys_cfg_section,
+                        mem_area.name + "_write_latency",
+                        self.memory_latency[mem_area][BandwidthDirection.Write],
+                    )
+                )
         elif self.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
             self._set_default_sys_config()
 
@@ -578,6 +611,8 @@ class ArchitectureFeatures:
                     self.const_mem_area = MemPort.Axi0
                     self.axi0_port = MemArea.OnChipFlash
                 self.memory_clock_scales[MemArea.OnChipFlash] = self.memory_clock_scales[MemArea.Sram]
+                self.memory_burst_length[MemArea.OnChipFlash] = self.memory_burst_length[MemArea.Sram]
+                self.memory_latency[MemArea.OnChipFlash] = self.memory_latency[MemArea.Sram]
 
         # check configuration
         if self._mem_port_mapping(self.cache_mem_area) != MemArea.Sram:
@@ -623,6 +658,9 @@ class ArchitectureFeatures:
             print(f"   axi1_port = {self.axi1_port.name}")
             for mem in (MemArea.Sram, MemArea.Dram, MemArea.OnChipFlash, MemArea.OffChipFlash):
                 print(f"   {mem.name}_clock_scales = {self.memory_clock_scales[mem]}")
+                print(f"   {mem.name}_burst_length = {self.memory_burst_length[mem]}")
+                print(f"   {mem.name}_read_latency = {self.memory_latency[mem][BandwidthDirection.Read]}")
+                print(f"   {mem.name}_write_latency = {self.memory_latency[mem][BandwidthDirection.Write]}")
 
             print(f"Memory Mode ({self.memory_mode}):")
             print(f"   const_mem_area = {self.const_mem_area.name}")

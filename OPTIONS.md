@@ -473,13 +473,22 @@ The following is an in-line explanation of the Vela configuration file format:
 
 ; My_Sys_Cfg
 [System_Config.My_Sys_Cfg]
-core_clock=???               ---> Clock frequency of the Ethos-U.  ??? = {float in Hz} 
-axi0_port=???                ---> Memory type connected to AXI0.  ??? = {Sram, Dram, OnChipFlash or OffChipFlash}
-axi1_port=???                ---> Memory type connected to AXI1.  ??? = {Sram, Dram, OnChipFlash or OffChipFlash}
-Sram_clock_scale=???         ---> Scaling of core_clock to specify the Sram bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
-Dram_clock_scale=???         ---> Scaling of core_clock to specify the Dram bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
-OnChipFlash_clock_scale=???  ---> Scaling of core_clock to specify the OnChipFlash bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
-OffChipFlash_clock_scale=??? ---> Scaling of core_clock to specify the OffChipFlash bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+core_clock=???                 ---> Clock frequency of the Ethos-U.  ??? = {float in Hz}
+axi0_port=???                  ---> Memory type connected to AXI0.  ??? = {Sram, Dram, OnChipFlash or OffChipFlash}
+axi1_port=???                  ---> Memory type connected to AXI1.  ??? = {Sram, Dram, OnChipFlash or OffChipFlash}
+Sram_clock_scale=???           ---> Scaling of core_clock to specify the Sram bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+Sram_burst_length=???          ---> Minimum efficient burst length in Sram. Only required if selected by an AXI port. ??? = {int in Bytes}
+Sram_read_latency=???          ---> Read latency in Sram. Only required if selected by an AXI port. ??? = {int in Cycles}
+Sram_write_latency=???         ---> Write latency in Sram. Only required if selected by an AXI port. ??? = {int in Cycles}
+Dram_clock_scale=???           ---> Scaling of core_clock to specify the Dram bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+Dram_burst_length=???          ---> Minimum efficient burst length in Dram. Only required if selected by an AXI port. ??? = {int in Bytes}
+Dram_read_latency=???          ---> Read latency in Dram. Only required if selected by an AXI port. ??? = {int in Cycles}
+Dram_write_latency=???         ---> Write latency in Dram. Only required if selected by an AXI port. ??? = {int in Cycles}
+OnChipFlash_clock_scale=???    ---> Scaling of core_clock to specify the OnChipFlash bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+OffChipFlash_clock_scale=???   ---> Scaling of core_clock to specify the OffChipFlash bandwidth.  Only required if selected by an AXI port.  ??? = {float 0.0 to 1.0}
+OffChipFlash_burst_length=???  ---> Minimum efficient burst length in OffChipFlash. Only required if selected by an AXI port. ??? = {int in Bytes}
+OffChipFlash_read_latency=???  ---> Read latency in OffChipFlash. Only required if selected by an AXI port. ??? = {int in Cycles}
+OffChipFlash_write_latency=??? ---> Write latency in OffChipFlash. Only required if selected by an AXI port. ??? = {int in Cycles}
 
 ; -----------------------------------------------------------------------------
 ; Memory Mode

@@ -33,6 +33,7 @@ from .nn_graph import SchedulerRewrite
 from .operation import NpuBlockType
 from .operation import Op
 from .shared_buffer_allocation import is_acc_40bits_used
+from .tensor import BandwidthDirection
 from .tensor import MemArea
 from .tensor import shape_num_elements
 from .tensor import Tensor
@@ -90,22 +91,6 @@ class PassCycles(IntEnum):
         )
 
 
-class BandwidthDirection(IntEnum):
-    Read = 0
-    Write = auto()
-    Size = auto()
-
-    def display_name(self):
-        return self.name
-
-    def identifier_name(self):
-        return self.name.lower()
-
-    @staticmethod
-    def all():
-        return (BandwidthDirection.Read, BandwidthDirection.Write)
-
-
 def make_bandwidth_array():
     return np.zeros((MemArea.Size, TensorPurpose.Size, BandwidthDirection.Size))
 
@@ -133,8 +118,6 @@ def get_ifm_block_depth(npu_block_type, ifm_depth, ifm_elemwidth, block_traversa
 
 
 def get_minimal_cmd_cycles(arch, ifm_tensor, ofm_tensor, ifm_blk: Block, ofm_blk: Block, output_cycles, dpu_cycles=0):
-    latencies_rd = {MemArea.Sram: 32, MemArea.Dram: 500, MemArea.OnChipFlash: 64, MemArea.OffChipFlash: 64}
-    latencies_wr = {MemArea.Sram: 32, MemArea.Dram: 250, MemArea.OnChipFlash: 64, MemArea.OffChipFlash: 64}
     ifm_tens_blk = Tensor((1, ifm_blk.height, ifm_blk.width, ifm_blk.depth), ifm_tensor.dtype, "ifm_blk")
     ofm_tens_blk = Tensor((1, ofm_blk.height, ofm_blk.width, ofm_blk.depth), ofm_tensor.dtype, "ofm_blk")
     cycles_ifm_blk = (
@@ -146,11 +129,11 @@ def get_minimal_cmd_cycles(arch, ifm_tensor, ofm_tensor, ifm_blk: Block, ofm_blk
         / arch.memory_bandwidths_per_cycle[ofm_tensor.mem_area]
     )
     return (
-        latencies_rd[ifm_tensor.mem_area]
+        arch.memory_latency[ifm_tensor.mem_area][BandwidthDirection.Read]
         + cycles_ifm_blk
         + dpu_cycles
         + output_cycles
-        + latencies_wr[ofm_tensor.mem_area]
+        + arch.memory_latency[ofm_tensor.mem_area][BandwidthDirection.Write]
         + cycles_ofm_blk
     ) / 4
 
@@ -351,13 +334,12 @@ def estimate_conv_pooling_cycles(
     )
 
     if scale_tensor:
-        if scale_tensor.mem_area is MemArea.Sram:
-            latency = 32
-        elif scale_tensor.mem_area is MemArea.Dram:
-            latency = 500
-        else:
-            latency = 64
-        cycles_bias_blk = 10 * min(ofm_block.depth, ofm_tens_shape[3]) * latency / 256
+        cycles_bias_blk = (
+            10
+            * min(ofm_block.depth, ofm_tens_shape[3])
+            * arch.memory_latency[scale_tensor.mem_area][BandwidthDirection.Read]
+            / 256
+        )
         cycles_output_blk = max(cycles_output_blk, cycles_bias_blk)
 
     cycles_cmd = get_minimal_cmd_cycles(
@@ -380,7 +362,6 @@ def estimate_memory_transfer_efficiency(arch, mem_area, direction, tensor, block
 
     # Estimate memory transfer efficiency by calculating the burst length
     # this is related to data format, block shape, and tensor shape, etc.
-    max_burst_len = 32 if mem_area == MemArea.Sram else 128
     burst_len = 0
     elem_size = tensor.dtype.size_in_bytes()
     is_ifm = direction == BandwidthDirection.Read
@@ -408,10 +389,10 @@ def estimate_memory_transfer_efficiency(arch, mem_area, direction, tensor, block
             else:
                 burst_len = min(64, 16 * elem_size * arch.ncores, block_size.depth * elem_size)
 
-    burst_len = min(max_burst_len, burst_len)
+    burst_len = min(arch.memory_burst_length[mem_area], burst_len)
     bw = tens.bandwidth() if replace_bw is None else replace_bw
 
-    return bw * (max_burst_len / burst_len)
+    return bw * (arch.memory_burst_length[mem_area] / burst_len)
 
 
 def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None, force_outputs_to_fast_storage=False):
