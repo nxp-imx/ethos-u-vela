@@ -326,6 +326,11 @@ class Op(Enum):
         return self.value.id < other.value.id
 
 
+class Padding(Enum):
+    SAME = 0
+    VALID = 1
+
+
 class ActivationFunction:
     """Fused activation function"""
 

@@ -22,6 +22,7 @@ from .high_level_command_to_npu_op import ifm_ifm2_correct_order
 from .operation import ActivationFunction
 from .operation import Op
 from .operation import Operation
+from .operation import Padding
 from .tensor import create_reshape_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
@@ -29,7 +30,7 @@ from .tensor import Tensor
 
 def create_avgpool_nop(name: str) -> Operation:
     op = Operation(Op.AvgPool, name)
-    op.attrs["padding"] = b"VALID"
+    op.attrs["padding"] = Padding.VALID
     op.attrs["stride_w"] = 1
     op.attrs["stride_h"] = 1
     op.attrs["filter_width"] = 1
@@ -48,7 +49,7 @@ def create_depthwise_maxpool(
     height = ifm.shape[1] * ifm.shape[2]
     width = ifm.shape[3]
     ifm_shape = [1, height, width, 1]
-    op.attrs["padding"] = b"VALID"
+    op.attrs["padding"] = Padding.VALID
     op.attrs["stride_w"] = 1
     op.attrs["stride_h"] = 1
     op.attrs["filter_width"] = width
@@ -67,7 +68,7 @@ def create_reduce_sum(
     name: str, ifm: Tensor, quantization: QuantizationParameters, activation: Optional[ActivationFunction] = None
 ) -> Operation:
     op = Operation(Op.ReduceSum, name)
-    op.attrs["padding"] = b"VALID"
+    op.attrs["padding"] = Padding.VALID
     op.attrs["stride_w"] = 1
     op.attrs["stride_h"] = 1
     op.attrs["filter_width"] = 1

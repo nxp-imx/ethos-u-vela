@@ -24,6 +24,7 @@ import numpy as np
 from .data_type import DataType
 from .operation import CustomType
 from .operation import Op
+from .operation import Padding as opPad
 from .tflite import AbsOptions
 from .tflite import AddNOptions
 from .tflite import AddOptions
@@ -425,8 +426,8 @@ class CustomOptionsSerializer:
 
 
 padding_map = {
-    Padding.SAME: b"SAME",
-    Padding.VALID: b"VALID",
+    Padding.SAME: opPad.SAME,
+    Padding.VALID: opPad.VALID,
 }
 
 padding_inv_map = inverse_map(padding_map)

@@ -21,6 +21,7 @@ import numpy as np
 from ethosu.vela.data_type import DataType
 from ethosu.vela.operation import ActivationFunction
 from ethosu.vela.operation import Op
+from ethosu.vela.operation import Padding
 from ethosu.vela.supported_operators import SupportedOperators
 from ethosu.vela.tensor import create_const_tensor
 from ethosu.vela.tensor import QuantizationParameters
@@ -276,7 +277,7 @@ def test_constraint_depth_multiplier():
 def test_constraint_tconv_stride():
     # Strides must be 2
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 2, 2, 1], weights_shape=[1, 1, 1, 1])
-    op.attrs = {"stride_w": 1, "stride_h": 1, "padding": b"SAME"}
+    op.attrs = {"stride_w": 1, "stride_h": 1, "padding": Padding.SAME}
     ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
     ifm.quantization = testutil.default_quant_params()
     op.add_input_tensor(ifm)
@@ -286,14 +287,14 @@ def test_constraint_tconv_stride():
 def test_constraint_tconv_same():
     # Valid
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 2, 2, 1], weights_shape=[1, 1, 1, 1])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": Padding.SAME}
     ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
     ifm.quantization = testutil.default_quant_params()
     op.add_input_tensor(ifm)
     assert support.is_operator_supported(op)
     # Invalid
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 4, 4, 1], weights_shape=[1, 1, 1, 1])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": Padding.SAME}
     ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
     ifm.quantization = testutil.default_quant_params()
     op.add_input_tensor(ifm)
@@ -303,14 +304,14 @@ def test_constraint_tconv_same():
 def test_constraint_tconv_valid():
     # Valid
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 4, 4, 1], weights_shape=[4, 4, 1, 1])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": b"VALID"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": Padding.VALID}
     ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
     ifm.quantization = testutil.default_quant_params()
     op.add_input_tensor(ifm)
     assert support.is_operator_supported(op)
     # Invalid
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 4, 4, 1], weights_shape=[2, 2, 1, 1])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": b"VALID"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": Padding.VALID}
     ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
     ifm.quantization = testutil.default_quant_params()
     op.add_input_tensor(ifm)
@@ -320,7 +321,7 @@ def test_constraint_tconv_valid():
 def test_constraint_matching_in_out_types():
     # Valid
     op = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2, "filter_height": 2, "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2, "filter_height": 2, "padding": Padding.SAME}
     assert support.is_operator_supported(op)
     # Invalid. datatypes for ifm and ofm must match (default uint8)
     op.ifm.dtype = DataType.int8
@@ -330,7 +331,7 @@ def test_constraint_matching_in_out_types():
 def test_constraint_filter_type():
     # Filter width/height must be integers
     op = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2.5, "filter_height": "2", "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2.5, "filter_height": "2", "padding": Padding.SAME}
     assert not support.is_operator_supported(op)
 
 
@@ -338,17 +339,17 @@ def test_constraint_filter_range():
     # Avg pool restrictions are dependent on padding:
     # SAME padding restricts both W and H to max 8
     op = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 20, "filter_height": 20, "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 20, "filter_height": 20, "padding": Padding.SAME}
     assert not support.is_operator_supported(op)
     # VALID padding limits are much larger
-    op.attrs["padding"] = b"VALID"
+    op.attrs["padding"] = Padding.VALID
     assert support.is_operator_supported(op)
 
 
 def test_constraint_filter_height_range_valid_pad():
     # Avg pool restrictions are dependent on padding:
     op = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2, "filter_height": 256, "padding": b"VALID"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2, "filter_height": 256, "padding": Padding.VALID}
     assert support.is_operator_supported(op)
     # VALID padding restricts to 256 in filter height
     op.attrs["filter_height"] = 257
@@ -358,7 +359,7 @@ def test_constraint_filter_height_range_valid_pad():
 def test_constraint_filter_product_height_range_valid_pad():
     # Avg pool restrictions are dependent on padding:
     op = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 256, "filter_height": 256, "padding": b"VALID"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 256, "filter_height": 256, "padding": Padding.VALID}
     assert support.is_operator_supported(op)
     # VALID padding restricts filter W x H to 256x256
     op.attrs["filter_width"] = 257
@@ -368,26 +369,26 @@ def test_constraint_filter_product_height_range_valid_pad():
 def test_constraint_filter_height_range():
     # Max pool restrictions arent dependent on padding
     op = testutil.create_op_with_quant_tensors(Op.MaxPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2, "filter_height": 256, "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 2, "filter_height": 256, "padding": Padding.SAME}
     assert support.is_operator_supported(op)
     # Restricts to 256 in filter height
     op.attrs["filter_height"] = 257
     assert not support.is_operator_supported(op)
     # Doesnt matter if SAME or VALID
-    op.attrs["padding"] = b"VALID"
+    op.attrs["padding"] = Padding.VALID
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_filter_product_height_range():
     # Max pool restrictions arent dependent on padding
     op = testutil.create_op_with_quant_tensors(Op.MaxPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 256, "filter_height": 256, "padding": b"SAME"}
+    op.attrs = {"stride_w": 2, "stride_h": 2, "filter_width": 256, "filter_height": 256, "padding": Padding.SAME}
     assert support.is_operator_supported(op)
     # Restricts filter W x H to 256x256
     op.attrs["filter_width"] = 257
     assert not support.is_operator_supported(op)
     # Doesnt matter if SAME or VALID
-    op.attrs["padding"] = b"VALID"
+    op.attrs["padding"] = Padding.VALID
     assert not support.is_operator_supported(op)
 
 

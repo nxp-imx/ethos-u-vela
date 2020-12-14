@@ -35,6 +35,7 @@ from .operation import create_activation_function
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
+from .operation import Padding
 from .operation_util import create_avgpool_nop
 from .softmax import SoftMax
 from .tensor import check_quantized_tens_scaling_equal
@@ -147,18 +148,18 @@ def needed_total_padding(input_size, stride, filter_size):
 def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
     ypad = needed_total_padding(int(input_dims[1]), int(stride[1]), int(kernel_size[0]))
     xpad = needed_total_padding(int(input_dims[2]), int(stride[2]), int(kernel_size[1]))
-    if padding_type == b"SAME":
+    if padding_type == Padding.SAME:
         left_pad = (xpad + 0) // 2
         right_pad = (xpad + 1) // 2
         top_pad = (ypad + 0) // 2
         bottom_pad = (ypad + 1) // 2
-    elif padding_type == b"VALID":
+    elif padding_type == Padding.VALID:
         left_pad = 0
         right_pad = 0
         top_pad = 0
         bottom_pad = 0
     else:
-        raise UnsupportedFeatureError(f"Unknown padding {padding_type.decode('utf-8')}")
+        raise UnsupportedFeatureError(f"Unknown padding")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
     return padding, skirt
@@ -166,21 +167,20 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_dims):
 
 def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_dims, upscaling_factor):
     kernel_height, kernel_width = kernel_size[0], kernel_size[1]
-    if padding_type == b"SAME":
+    if padding_type == Padding.SAME:
         ypad = needed_total_padding(int(input_dims[1]) * upscaling_factor, int(stride[1]), int(kernel_height))
         xpad = needed_total_padding(int(input_dims[2]) * upscaling_factor, int(stride[2]), int(kernel_width))
         right_pad = max(((xpad + 1) // upscaling_factor) - 1, 0)
         bottom_pad = max(((ypad + 1) // upscaling_factor) - 1, 0)
         left_pad = max(kernel_width - 1 - right_pad, 0)
         top_pad = max(kernel_height - 1 - bottom_pad, 0)
-    elif padding_type == b"VALID":
+    elif padding_type == Padding.VALID:
         right_pad = max(kernel_width - 2, 0)
         bottom_pad = max(kernel_height - 2, 0)
         left_pad = kernel_width - 1
         top_pad = kernel_height - 1
     else:
-        raise UnsupportedFeatureError(f"Unknown padding {padding_type.decode('utf-8')}")
-
+        raise UnsupportedFeatureError(f"Unknown padding")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = padding
     return padding, skirt
@@ -230,10 +230,10 @@ def convert_resizebilinear_to_2x2_pool(op):
     op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 2, 2, 1)})
     if op.attrs["align_corners"]:
         shape_modifier = 1
-        op.attrs["padding"] = b"VALID"
+        op.attrs["padding"] = Padding.VALID
     else:
         shape_modifier = 0
-        op.attrs["padding"] = b"SAME"
+        op.attrs["padding"] = Padding.SAME
     op.inputs[0].resampling_mode = resampling_mode.NEAREST
 
     upscaled_shape = np.array(op.inputs[0].shape[1:3])
@@ -1034,11 +1034,11 @@ def add_attrs_to_resizebilinear(op, arch, nng):
         if not op.attrs["align_corners"] and out_shape == upscaled_shape:
             # this means the output is supposed to be a x2 upscale,
             # so we need to do SAME padding
-            op.attrs["padding"] = b"SAME"
+            op.attrs["padding"] = Padding.SAME
         elif op.attrs["align_corners"] and out_shape == [upscaled_shape[0] - 1, upscaled_shape[1] - 1]:
             # here we can just run the avg pool without padding and
             # produce a (M * 2 - 1, N * 2 - 1) sized output
-            op.attrs["padding"] = b"VALID"
+            op.attrs["padding"] = Padding.VALID
         else:
             return op
         input_tensor.resampling_mode = resampling_mode.NEAREST
