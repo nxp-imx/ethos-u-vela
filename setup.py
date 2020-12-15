@@ -64,6 +64,7 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
+        "Operating System :: Microsoft :: Windows",
         "Programming Language :: C",
         "Programming Language :: C++ :: C++11",
         "Programming Language :: Python :: 3",
