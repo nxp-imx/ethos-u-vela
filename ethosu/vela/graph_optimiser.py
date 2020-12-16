@@ -209,6 +209,7 @@ def fixup_conv2d_backprop(op, arch, nng):
         op.inputs[0], op.inputs[2] = op.inputs[2], op.inputs[0]
         op.set_ifm_ofm_shapes()
         op.type = Op.Conv2DBackpropInputSwitchedBias
+        op.ifm.resampling_mode = resampling_mode.TRANSPOSE
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
