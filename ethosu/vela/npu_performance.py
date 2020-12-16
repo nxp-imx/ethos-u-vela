@@ -422,6 +422,9 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
         ifm_tensor_shape = ps.primary_op.ifm_shapes[0].clone()
         ofm_tensor_shape = ps.primary_op.ofm_shapes[0].clone()
+        ofm_block.width = min(ofm_block.width, ofm_tensor_shape.width)
+        ofm_block.height = min(ofm_block.height, ofm_tensor_shape.height)
+        ofm_block.depth = min(ofm_block.depth, ofm_tensor_shape.depth)
 
         if npu_block_type == NpuBlockType.ReduceSum:
             block_traversal = TensorBlockTraversal.DepthFirst
@@ -439,6 +442,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
         ifm_block = arch.get_ifm_block_size(
             ifm_block_depth, ofm_block, primary_op.kernel, ifm_resampling_mode=ifm_tensor.resampling_mode
         )
+        ifm_block.width = min(ifm_block.width, ifm_tensor_shape.width)
+        ifm_block.height = min(ifm_block.height, ifm_tensor_shape.height)
 
         if npu_block_type in (
             NpuBlockType.ConvolutionMxN,

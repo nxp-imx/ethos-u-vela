@@ -17,6 +17,7 @@
 # Early optimisation of the network graph, using the rewrite_graph module to do the traversal of the graph. These are
 # split into two parts optimise_graph_a and optimise_graph_b.
 import math
+import uuid
 
 import numpy as np
 
@@ -598,6 +599,56 @@ def reorder_depthwise_weights(op, arch, nng):
     return op
 
 
+def optimise_strided_conv(op, arch, nng):
+    stride_x, stride_y = op.get_kernel_stride()
+    ifm_tensor, _, weight_tensor, _ = op.get_ifm_ifm2_weights_ofm()
+
+    if (
+        op.type == Op.Conv2DBias
+        and op.op_index == 0
+        and stride_x == 2
+        and len(ifm_tensor.shape) == 4
+        and ifm_tensor.shape[3] <= 4
+        and ifm_tensor.shape[2] % 2 == 0
+        and weight_tensor is not None
+        and weight_tensor.shape[1] >= 2
+    ):
+        # IFM
+        ifm_reshaped = create_reshape_tensor(
+            ifm_tensor, [ifm_tensor.shape[0], ifm_tensor.shape[1], ifm_tensor.shape[2] // 2, ifm_tensor.shape[3] * 2]
+        )
+        op.set_input_tensor(ifm_reshaped, 0)
+
+        # Weights
+        weight_shape = weight_tensor.shape
+        if weight_shape[1] % 2 != 0:
+            weight_shape[1] = weight_shape[1] + 1
+            padded_array = np.zeros(weight_shape)
+            for i in range(weight_shape[0]):
+                padded_array[i] = np.vstack(
+                    [
+                        weight_tensor.quant_values[i],
+                        np.full((1, weight_shape[2], weight_shape[3]), weight_tensor.quantization.zero_point),
+                    ]
+                )
+            weight_tensor.quant_values = padded_array
+        weight_shape[1] //= 2
+        weight_shape[2] *= 2
+        weight_tensor.quant_values = np.reshape(weight_tensor.quant_values, weight_shape)
+        weight_tensor.set_all_shapes(weight_shape)
+        # If multiple copies of the weights are used, we could avoid
+        # them having the same address by changing the value_id
+        weight_tensor.value_id = uuid.uuid4()
+
+        # Strides
+        stride_x = 1
+        op.attrs.update({"stride_w": stride_x, "stride_h": stride_y, "strides": (1, stride_y, stride_x, 1)})
+
+        op.set_ifm_ofm_shapes()
+
+    return op
+
+
 def convert_conv_to_fc(op, arch, nng):
     # Conv 1x1 can be equivalent to Fully Connected.
     # By representing certain convs as fully connected layers, Vela can better determine wether or not to use
@@ -1134,6 +1185,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_depthwise_to_conv,
         convert_conv_to_fc,
         convert_softmax,
+        optimise_strided_conv,
         fixup_fully_connected_input,
         convert_batched_fc_shape,
         fixup_pack_input,

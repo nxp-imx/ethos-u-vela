@@ -172,7 +172,11 @@ def _all_fms_have_quant(ifm_tensor, ofm_tensor, ifm2_tensor=None) -> bool:
 
 
 def is_acc_40bits_used(npu_block_type, ifm_tensor, ofm_tensor, ifm2_tensor=None):
-    return npu_block_type != NpuBlockType.Pooling and _all_fms_have_quant(ifm_tensor, ofm_tensor, ifm2_tensor)
+    return (
+        ifm_tensor.dtype.size_in_bits() == 16
+        and npu_block_type != NpuBlockType.Pooling
+        and _all_fms_have_quant(ifm_tensor, ofm_tensor, ifm2_tensor)
+    )
 
 
 def shared_buffer_allocation_for_pass(arch, ps) -> SharedBufferAllocation:
