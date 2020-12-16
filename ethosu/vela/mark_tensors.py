@@ -15,7 +15,6 @@
 # limitations under the License.
 # Description:
 # Mark purpose and select formats for Tensors.
-from .errors import OperatorError
 from .operation import CustomType
 from .operation import Op
 from .rewrite_graph import visit_graph_post_order
@@ -81,7 +80,7 @@ def rewrite_mark_tensor_purpose(op, arch):
                 scratch_tensor.purpose = TensorPurpose.Scratch
 
         if scratch_tensor is None:
-            OperatorError(op, "Scratch tensor not found.")
+            op.error("Scratch tensor not found.")
 
 
 def mark_tensor_purpose(nng, arch, verbose_tensor_purpose=False):

@@ -20,7 +20,6 @@ import os.path
 import numpy as np
 
 from .errors import InputFileError
-from .errors import TensorError
 from .nn_graph import Graph
 from .nn_graph import Subgraph
 from .operation import create_activation_function
@@ -77,7 +76,7 @@ class TFLiteSubgraph:
         # Fix up tensors without operations. Generate either Placeholder or Constant ops
         for tens in self.inputs:
             if tens.ops != []:
-                TensorError(tens, "This subgraph input tensor has unexpected driving operators.")
+                tens.error("This subgraph input tensor has unexpected driving operators.")
 
             op = Operation(Op.Placeholder, tens.name)
             op.set_output_tensor(tens)

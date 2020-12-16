@@ -24,6 +24,7 @@ from typing import List
 from typing import Optional
 from typing import TYPE_CHECKING
 
+from .errors import VelaError
 from .numeric_util import full_shape
 
 if TYPE_CHECKING:
@@ -668,3 +669,31 @@ class Operation:
         if self.forced_output_quantization is not None:
             return self.forced_output_quantization
         return self.ofm.quantization
+
+    def error(self, msg):
+        """
+        Raises a VelaError exception for errors encountered when parsing an Operation
+
+        :param self: Operation object that resulted in the error
+        :param msg: str object that contains a description of the specific error encountered
+        """
+
+        def _print_tensors(tensors):
+            lines = []
+            for idx, tens in enumerate(tensors):
+                tens_name = getattr(tens, "name", "Not a Tensor")
+                lines.append(f"        {idx} = {tens_name}")
+            return lines
+
+        if self.op_index is None:
+            lines = [f"Invalid {self.type} (name = {self.name}) operator in the internal representation. {msg}"]
+        else:
+            lines = [f"Invalid {self.type} (op_index = {self.op_index}) operator in the input network. {msg}"]
+
+        lines += ["    Input tensors:"]
+        lines += _print_tensors(self.inputs)
+
+        lines += ["    Output tensors:"]
+        lines += _print_tensors(self.outputs)
+
+        raise VelaError("\n".join(lines))

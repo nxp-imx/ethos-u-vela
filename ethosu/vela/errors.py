@@ -15,8 +15,6 @@
 # limitations under the License.
 # Description:
 # Defines custom exceptions.
-from .operation import Operation
-from .tensor import Tensor
 
 
 class VelaError(Exception):
@@ -75,70 +73,3 @@ class AllocationError(VelaError):
 
     def __init__(self, msg):
         super().__init__(f"Allocation failed: {msg}")
-
-
-def OperatorError(op, msg):
-    """
-    Raises a VelaError exception for errors encountered when parsing an Operation
-
-    :param op: Operation object that resulted in the error
-    :param msg: str object that contains a description of the specific error encountered
-    """
-
-    def _print_tensors(tensors):
-        lines = []
-        for idx, tens in enumerate(tensors):
-            if isinstance(tens, Tensor):
-                tens_name = tens.name
-            else:
-                tens_name = "Not a Tensor"
-            lines.append(f"        {idx} = {tens_name}")
-        return lines
-
-    assert isinstance(op, Operation)
-
-    if op.op_index is None:
-        lines = [f"Invalid {op.type} (name = {op.name}) operator in the internal representation. {msg}"]
-    else:
-        lines = [f"Invalid {op.type} (op_index = {op.op_index}) operator in the input network. {msg}"]
-
-    lines += ["    Input tensors:"]
-    lines += _print_tensors(op.inputs)
-
-    lines += ["    Output tensors:"]
-    lines += _print_tensors(op.outputs)
-
-    raise VelaError("\n".join(lines))
-
-
-def TensorError(tens, msg):
-    """
-    Raises a VelaError exception for errors encountered when parsing a Tensor
-
-    :param tens: Tensor object that resulted in the error
-    :param msg: str object that contains a description of the specific error encountered
-    """
-
-    def _print_operators(ops):
-        lines = []
-        for idx, op in enumerate(ops):
-            if isinstance(op, Operation):
-                op_type = op.type
-                op_id = f"({op.op_index})"
-            else:
-                op_type = "Not an Operation"
-                op_id = ""
-            lines.append(f"        {idx} = {op_type} {op_id}")
-        return lines
-
-    assert isinstance(tens, Tensor)
-
-    lines = [f"Invalid {tens.name} tensor. {msg}"]
-
-    lines += ["    Driving operators:"]
-    lines += _print_operators(tens.ops)
-
-    lines += ["    Consuming operators:"]
-    lines += _print_operators(tens.consumer_list)
-
-    raise VelaError("\n".join(lines))
