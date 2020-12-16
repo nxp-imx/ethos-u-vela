@@ -231,9 +231,9 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 ofm_tensor = op.ofm
                 if ofm_tensor is None:
                     ofm_tensor = op.outputs[0]
-                build_pass((op,), ofm_tensor)
+                build_pass((op,), ofm_tensor, op.ofm_shapes[0].clone())
 
-    def build_pass(start_ops_to_process, ofm_tensor=None):
+    def build_pass(start_ops_to_process, ofm_tensor=None, ofm_shapes=None):
         reverse_ops_list = []
         curr_flags = PassFlags.Empty
         npu_block_type = NpuBlockType.Default
@@ -416,8 +416,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 ps.ifm_shapes.append(ps.primary_op.ifm_shapes[0])
 
         ps.ofm_tensor = ofm_tensor
-        if ps.primary_op is not None:
-            ps.ofm_shapes.append(ps.primary_op.ofm_shapes[0])
+        ps.ofm_shapes.append(ofm_shapes)
 
         assert ps.placement != PassPlacement.Npu or ps.ofm_tensor is not None
         ps.weight_tensor = ps.get_primary_op_ifm_weights()[1]
@@ -453,11 +452,11 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_out = inp.clone("_avgpooled")
             avgpool_out.consumer_list.append(op)
             avgpool_op.set_output_tensor(avgpool_out)
-            avgpool_op.ifm_shapes = op.ifm_shapes
-            avgpool_op.ofm_shapes = op.ofm_shapes
+            avgpool_op.set_ifm_ofm_shapes()
 
             op.inputs[0] = avgpool_out
             op_list.insert(0, avgpool_op)
+            op.set_ifm_ofm_shapes()
 
             DebugDatabase.add_optimised(op, avgpool_op)
             return avgpool_op

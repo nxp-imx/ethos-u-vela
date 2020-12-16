@@ -62,7 +62,7 @@ def test_constraint_tens_input_scalar():
 
 def test_constraint_tens_shape_size():
     # Tensors cannot be > 4D
-    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 1, 8, 8, 8], [1, 1, 8, 8, 8])
+    op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 1, 8, 8, 8], [1, 1, 8, 8, 8], set_ifm_ofm_shapes=False)
     assert not support.is_operator_supported(op)
 
 
