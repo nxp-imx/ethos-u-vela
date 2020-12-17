@@ -21,6 +21,7 @@ import uuid
 from collections import defaultdict
 from enum import auto
 from functools import lru_cache
+from functools import total_ordering
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -342,6 +343,7 @@ class TensorAddressMap:
         cls.address_map[tens_id][mem_type] = address
 
 
+@total_ordering
 class Tensor:
     __slots__ = (
         "shape",
@@ -840,6 +842,9 @@ class Tensor:
             return False
 
         return (self.dtype.type & BaseType.Int) != 0 and self.quantization.is_valid()
+
+    def __lt__(self, other: "Tensor") -> bool:
+        return self.equivalence_id < other.equivalence_id
 
     def __str__(self):
         return "<nng.Tensor '%s' shape=%s dtype=%s>" % (self.name, self.shape, self.dtype)
