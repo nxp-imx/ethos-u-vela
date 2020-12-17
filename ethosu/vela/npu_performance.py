@@ -509,8 +509,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
                 )
             else:
                 weight_tensor_shape = [
-                    primary_op.attrs["ksize"][1],
-                    primary_op.attrs["ksize"][2],
+                    *primary_op.get_kernel_size(),
                     1,
                     ifm_tensor_shape.depth,
                 ]

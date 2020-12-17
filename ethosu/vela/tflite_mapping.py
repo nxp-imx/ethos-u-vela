@@ -563,7 +563,7 @@ builtin_operator_map = {
     BuiltinOperator.BATCH_TO_SPACE_ND: (Op.BatchToSpaceND, OptionsSerializer("BatchToSpaceNDOptions")),
     BuiltinOperator.SPACE_TO_BATCH_ND: (Op.SpaceToBatchND, OptionsSerializer("SpaceToBatchNDOptions")),
     BuiltinOperator.TRANSPOSE: (Op.Transpose, OptionsSerializer("TransposeOptions")),
-    BuiltinOperator.MEAN: (Op.Mean, None),
+    BuiltinOperator.MEAN: (Op.Mean, reducer_opts),
     BuiltinOperator.SUB: (Op.Sub, OptionsSerializer("SubOptions", (fused_act, "pot_scale_int16",))),
     BuiltinOperator.DIV: (Op.Div, OptionsSerializer("DivOptions", (fused_act,))),
     BuiltinOperator.SQUEEZE: (Op.Squeeze, OptionsSerializer("SqueezeOptions", (("squeeze_dims", is_int_vec),))),

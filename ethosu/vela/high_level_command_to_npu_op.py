@@ -209,13 +209,15 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
 
 def get_ifm_or_ifm2_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
     """Gets quantization for IFM/IFM2"""
-    if tens.quantization is None:
+    op = ps.primary_op
+    ifm_quant = op.forced_input_quantization if op.forced_input_quantization is not None else tens.quantization
+    if ifm_quant is None:
         return None
     if use_zero_point_0(ps, tens, True):
         zero_point = 0
     else:
-        zero_point = int(tens.quantization.zero_point)
-    return NpuQuantization(scale_f32=tens.quantization.scale_f32, zero_point=zero_point)
+        zero_point = int(ifm_quant.zero_point)
+    return NpuQuantization(scale_f32=ifm_quant.scale_f32, zero_point=zero_point)
 
 
 def get_ofm_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
@@ -389,8 +391,7 @@ def create_npu_pool_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> NpuPooling
     npu_op = NpuPoolingOperation(pool_op)
     set_common_op_fields(npu_op, cmd, arch)
     # Pooling specific info
-    if op.type == Op.ResizeBilinear:
-        npu_op.rescale = op.rescale
+    npu_op.rescale = op.rescale
     return npu_op
 
 
