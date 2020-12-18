@@ -129,11 +129,15 @@ class TFLiteSubgraph:
 
         tens.values = None
         buf = self.graph.buffers[tens_data.Buffer()]
-        if buf is not None and dtype != DataType.string:
-            tens.values = np.array(buf.view(datatype_map_numpy[tens_dtype]).reshape(shape))
-            if tens.quantization is not None:
-                tens.quant_values = tens.values
-                tens.values = tens.quantization.dequantize(tens.quant_values)
+        if buf is not None:
+            np_dtype = datatype_map_numpy[tens_dtype]
+            if dtype == DataType.string:
+                tens.values = np.array(buf.view(np_dtype))
+            else:
+                tens.values = np.array(buf.view(np_dtype).reshape(shape))
+                if tens.quantization is not None:
+                    tens.quant_values = tens.values
+                    tens.values = tens.quantization.dequantize(tens.quant_values)
         return tens
 
     def parse_operator(self, op_index, op_data):

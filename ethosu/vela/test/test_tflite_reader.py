@@ -84,9 +84,9 @@ class TestTFLiteSubgraph:
 
     string_buffer_testdata = [
         (np.array([np.random.randint(256) for _ in range(100)], dtype=np.uint8), [3, 5]),
-        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.int16), [10, 10]),
-        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.float32), [100]),
-        (np.array([], dtype=np.int8), [30]),
+        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.uint8), [10, 10]),
+        (np.array([np.random.randint(256) for _ in range(100)], dtype=np.uint8), []),
+        (np.array([], dtype=np.uint8), [30]),
     ]
 
     @pytest.mark.parametrize("buffer, tens_shape", string_buffer_testdata)
@@ -111,4 +111,4 @@ class TestTFLiteSubgraph:
         subgraph = TFLiteSubgraph(graph, tfl_sg)
 
         tens = subgraph.parse_tensor(tens_data)
-        assert tens.values is None
+        assert np.array_equal(tens.values, buffer)
