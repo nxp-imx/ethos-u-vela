@@ -48,7 +48,7 @@ def rolling_buffer_dims_from_passes(arch, ps1, block_config_ps1, ps2, block_conf
 
     if ps2.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct):
         op = ps2.primary_op
-        ifm_block_depth = arch.calc_ifm_block_depth(op.ifm_shapes[0].depth, op.ifm.dtype.size_in_bits())
+        ifm_block_depth = arch.calc_ifm_block_depth(op.ifm_shapes[0][-1], op.ifm.dtype.size_in_bits())
     else:
         ifm_block_depth = block_config_ps2[-1]
 
@@ -231,9 +231,9 @@ def estimate_conv_pooling_cycles(
         arch.config.ofm_ublock.height == 2
         and npu_block_type
         in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise, NpuBlockType.VectorProduct)
-        and ofm_tens_shape.height == 1
+        and ofm_tens_shape[1] == 1
         # Optimisation only applies for even width tensors
-        and ofm_tens_shape.width % 2 == 0
+        and ofm_tens_shape[2] % 2 == 0
         and kernel_dims[0] == 1
     ):
         ofm_ublock.width = 4
@@ -319,14 +319,14 @@ def estimate_conv_pooling_cycles(
         cycles_dpu_blk += delay_cycles
 
     if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
-        cycles_dpu_blk *= numeric_util.round_up_divide(ifm_tens_shape.depth, ifm_block.depth)
+        cycles_dpu_blk *= numeric_util.round_up_divide(ifm_tens_shape[3], ifm_block.depth)
 
     cycles_dpu_blk /= arch.ncores
 
     num_ofm_blk = (
-        numeric_util.round_up_divide(ofm_tens_shape.height, ofm_block.height)
-        * numeric_util.round_up_divide(ofm_tens_shape.width, ofm_block.width)
-        * numeric_util.round_up_divide(ofm_tens_shape.depth, ofm_block.depth)
+        numeric_util.round_up_divide(ofm_tens_shape[1], ofm_block.height)
+        * numeric_util.round_up_divide(ofm_tens_shape[2], ofm_block.width)
+        * numeric_util.round_up_divide(ofm_tens_shape[3], ofm_block.depth)
     )
 
     cycles_output_blk = estimate_output_cycles(
@@ -336,7 +336,7 @@ def estimate_conv_pooling_cycles(
     if scale_tensor:
         cycles_bias_blk = (
             10
-            * min(ofm_block.depth, ofm_tens_shape.depth)
+            * min(ofm_block.depth, ofm_tens_shape[3])
             * arch.memory_latency[scale_tensor.mem_area][BandwidthDirection.Read]
             / 256
         )
@@ -420,8 +420,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
         npu_block_type = primary_op.type.npu_block_type
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
-        ifm_tensor_shape = ps.primary_op.ifm_shapes[0].clone()
-        ofm_tensor_shape = ps.primary_op.ofm_shapes[0].clone()
+        ifm_tensor_shape = list(ps.primary_op.ifm_shapes[0])
+        ofm_tensor_shape = list(ps.primary_op.ofm_shapes[0])
 
         if npu_block_type == NpuBlockType.ReduceSum:
             block_traversal = TensorBlockTraversal.DepthFirst
@@ -434,7 +434,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
         else:
             block_traversal = TensorBlockTraversal.Default
         ifm_block_depth = get_ifm_block_depth(
-            npu_block_type, ifm_tensor_shape.depth, ifm_tensor.dtype.size_in_bits(), block_traversal, ofm_block.depth
+            npu_block_type, ifm_tensor_shape[3], ifm_tensor.dtype.size_in_bits(), block_traversal, ofm_block.depth
         )
         ifm_block = arch.get_ifm_block_size(
             ifm_block_depth, ofm_block, primary_op.kernel, ifm_resampling_mode=ifm_tensor.resampling_mode
@@ -448,12 +448,11 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
             NpuBlockType.ReduceSum,
         ):
             # extent the ifm to full dimension
-
-            batch_size = ifm_tensor_shape.batch
+            batch_size = ifm_tensor_shape[0]
 
             # add in padding
-            ifm_tensor_shape.height += explicit_padding[0] + explicit_padding[2]  # height += top and bottom
-            ifm_tensor_shape.width += explicit_padding[1] + explicit_padding[3]  # width  += left and right
+            ifm_tensor_shape[1] += explicit_padding[0] + explicit_padding[2]  # height += top and bottom
+            ifm_tensor_shape[2] += explicit_padding[1] + explicit_padding[3]  # width  += left and right
 
             if npu_block_type != NpuBlockType.Pooling:
                 if npu_block_type == NpuBlockType.ReduceSum:
@@ -469,9 +468,9 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
                     weight_tensor_bandwidth_compression_scale = weight_tensor.bandwidth_compression_scale
 
                 nn_ops = (
-                    int(ofm_tensor_shape.batch)
-                    * int(ofm_tensor_shape.height)
-                    * int(ofm_tensor_shape.width)
+                    int(ofm_tensor_shape[0])
+                    * int(ofm_tensor_shape[1])
+                    * int(ofm_tensor_shape[2])
                     * int(weight_tensor_shape[0])
                     * int(weight_tensor_shape[1])
                     * int(weight_tensor_shape[2])
@@ -482,7 +481,7 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
                     primary_op.attrs["ksize"][1],
                     primary_op.attrs["ksize"][2],
                     1,
-                    ifm_tensor_shape.depth,
+                    ifm_tensor_shape[3],
                 ]
                 weight_tensor_bandwidth_shape = weight_tensor_shape
                 weight_tensor_element_size = 0
@@ -505,8 +504,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
             replacement_read_bws[ifm_tensor] = ifm_tensor.bandwidth() * ifm_read_multiple
 
             weight_read_multiple = numeric_util.round_up_divide(
-                ofm_tensor_shape.height, ofm_block.height
-            ) * numeric_util.round_up_divide(ofm_tensor_shape.width, ofm_block.width)
+                ofm_tensor_shape[1], ofm_block.height
+            ) * numeric_util.round_up_divide(ofm_tensor_shape[2], ofm_block.width)
             replacement_read_bws[weight_tensor] = (
                 batch_size
                 * shape_num_elements(weight_tensor_bandwidth_shape)

@@ -21,10 +21,8 @@
 # Subgraph - Holds a neural network subgraph, pointing at Tensors, Operations, Passes, and CascadedPasses.
 # Graph - A full neural network graph with one or more Subgraphs.
 import enum
-from typing import List
 
 from .operation import Op
-from .shape4d import Shape4D
 
 
 class PassPlacement(enum.Enum):
@@ -60,8 +58,8 @@ class Pass:
         self.name = name
         self.cascade = None
         self.placement = placement
-        self.ifm_shapes: List[Shape4D] = []
-        self.ofm_shapes: List[Shape4D] = []
+        self.ifm_shapes = []
+        self.ofm_shapes = []
 
         # TODO: rename is_element_wise because it is not the same as an ElementWise operator. It is used by the tensor
         # allocation and requires that the OFM and IFM has the exact same address. Essentially complete overlap.

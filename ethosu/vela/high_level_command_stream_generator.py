@@ -27,7 +27,6 @@ from .numeric_util import round_up_divide
 from .operation import create_activation_function
 from .operation import NpuBlockType
 from .operation import Op
-from .shape4d import Shape4D
 from .tensor import TensorPurpose
 
 
@@ -91,8 +90,8 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
     weight_tensor = ps.weight_tensor
     scale_tensor = ps.scale_tensor
 
-    ofm_start = [0, 0, 0, 0]
-    ofm_end = ofm_shape.as_list()
+    ofm_start = [0] * len(ofm_shape)
+    ofm_end = list(ofm_shape)
 
     strides = None
     skirt = None
@@ -101,9 +100,9 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
         strides = ps.primary_op.attrs.get("strides", None)
         skirt = ps.primary_op.attrs.get("skirt", None)
         if ps.primary_op.type == Op.Conv2DBackpropInputSwitchedBias:
-            upscaling = ofm_shape.height // ifm_shape.height
+            upscaling = ofm_shape[-3] // ifm_shape[-3]
         elif ps.primary_op.type == Op.ResizeBilinear:
-            upscaling = round_up_divide(ofm_shape.height, ifm_shape.height)
+            upscaling = round_up_divide(ofm_shape[-3], ifm_shape[-3])
 
     concat_axis = 0
     concat_offset = 0
@@ -136,7 +135,14 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
             if ifm_shape is not None:
                 ifm_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm_shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling,
+                    strides,
+                    skirt,
+                    ifm_tensor.shape,
+                    npu_block_type,
+                    concat_axis,
+                    concat_offset,
+                    split_offsets[0],
+                    upscaling,
                 )
             else:
                 ifm_box = Box([], [])
@@ -157,7 +163,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                         intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
                             strides,
                             skirt,
-                            Shape4D(intermediate.shape),
+                            intermediate.shape,
                             npu_block_type,
                             concat_axis,
                             concat_offset,
@@ -206,7 +212,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             )
 
     elif strat == SchedulingStrategy.IfmStream:
-        assert ifm_shape is not None
         y_step = block_config[0]
         y_start = ofm_start[-3]
         y_dim = ofm_end[-3]
@@ -217,7 +222,8 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             prev_pass_gen = generate_high_level_command_stream_for_pass(strat, passes, block_configs, idx - 1)
         else:
             ifm_y_present = 1
-            ifm_y_present = ifm_shape.height
+            if len(ifm_shape) >= 3:
+                ifm_y_present = ifm_shape[-3]
             prev_pass_gen = []
             prev_pass = None
 
@@ -270,7 +276,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                         intermediate_box, _, _ = ofm_box.transform_with_strides_and_skirt(
                             strides,
                             skirt,
-                            Shape4D(intermediate.shape),
+                            intermediate.shape,
                             npu_block_type,
                             concat_axis,
                             concat_offset,
@@ -374,13 +380,13 @@ def calc_allowed_ofm_ifm_overlap_for_pass_list(strat, passes, block_configs):
         if cmd.is_npu_pass_command():
             if cmd.is_first:
                 ifm_read = cmd.ifm_tensor.address_offset_for_coordinate(
-                    cmd.ifm_box.start_coord, cmd.ps.ifm_shapes[0].as_list(), is_top_box=False
+                    cmd.ifm_box.start_coord, shape=cmd.ps.ifm_shapes[0], is_top_box=False
                 )
                 if ifm_read is None:
                     return 0
             if cmd.is_last:
                 write_offset = cmd.ofm_tensor.address_offset_for_coordinate(
-                    cmd.ofm_box.end_coord, cmd.ps.ofm_shapes[0].as_list(), is_top_box=True
+                    cmd.ofm_box.end_coord, shape=cmd.ps.ofm_shapes[0], is_top_box=True
                 )
                 if write_offset is None:
                     return 0
@@ -393,7 +399,7 @@ def calc_allowed_ofm_ifm_overlap_for_pass_list(strat, passes, block_configs):
 
             if cmd.is_first:
                 ifm_read = cmd.ifm_tensor.address_offset_for_coordinate(
-                    cmd.ifm_box.end_coord, cmd.ps.ifm_shapes[0].as_list(), is_top_box=True
+                    cmd.ifm_box.end_coord, shape=cmd.ps.ifm_shapes[0], is_top_box=True
                 )
 
     min_overlap = max(min_overlap, 0)

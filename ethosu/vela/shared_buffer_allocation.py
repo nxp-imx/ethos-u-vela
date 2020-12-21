@@ -32,7 +32,6 @@ from .operation import Kernel
 from .operation import NpuBlockType
 from .range_set import MemoryRangeSet
 from .register_command_stream_util import to_kernel
-from .shape4d import Shape4D
 from .tensor import MemArea
 
 
@@ -196,14 +195,14 @@ def shared_buffer_allocation_for_pass(arch, ps) -> SharedBufferAllocation:
         ifm_bits = ifm_tensor.dtype.size_in_bits()
         ifm_shape = ps.primary_op.ifm_shapes[0]
 
-        if ifm_tensor.shape != []:
-            ifm_depth = ifm_shape.depth
+        if ifm_shape != []:
+            ifm_depth = ifm_shape[-1]
 
         if is_elementwise:
             ifm_count = 2
             if ifm_tensor.shape == []:  # Scalar in ifm1
                 assert ifm2_tensor
-                ifm_depth = ps.primary_op.ifm_shapes[1].depth
+                ifm_depth = ps.primary_op.ifm_shapes[1][-1]
                 ifm_count = 1
             elif not ifm2_tensor or ifm2_tensor.shape == []:  # Scalar in ifm2
                 ifm_count = 1
@@ -252,7 +251,7 @@ def shared_buffer_allocation_for_npu_op(
         ifm_bits=ifm_bits,
         ifm_depth=ifm_depth,
         ifm_count=ifm_count,
-        ofm_shape=Shape4D(ofm_shape),
+        ofm_shape=ofm_shape,
     )
 
 
@@ -266,9 +265,14 @@ def find_suitable_block_configs(arch, alloc: SharedBufferAllocation) -> List[Tup
 
     # Constrain the search space if the OFM is smaller than the max block size
     # - Add other block search constraints here if required
-    max_block_width = alloc.ofm_shape.width
-    max_block_height = alloc.ofm_shape.height
-    max_block_depth = alloc.ofm_shape.depth
+    if len(alloc.ofm_shape) <= 2:
+        max_block_height = max_block_width = alloc.ofm_shape[0]
+    else:
+        max_block_width = alloc.ofm_shape[-2]
+        max_block_height = alloc.ofm_shape[-3]
+
+    # Common block depth
+    max_block_depth = alloc.ofm_shape[-1]
 
     # Constrain to valid ranges before search
     max_block_width = min(arch.ofm_block_max.width, max_block_width)

@@ -213,7 +213,7 @@ class SoftMax:
         ofm = self.op.outputs[0]
 
         # Reshape ifm/ofm (if needed)
-        full_shape = self.op.ifm_shapes[0].as_list()
+        full_shape = self.op.ifm_shapes[0]
         if full_shape[0] > 1:
             full_shape[1] *= full_shape[0]
             full_shape[0] = 1
@@ -414,7 +414,6 @@ class SoftMax:
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)
-        shr30_op.set_ifm_ofm_shapes()
         DebugDatabase.add_optimised(self.op, shr30_op)
 
         return shr30_op
@@ -536,7 +535,6 @@ class SoftMax:
         shr13_op.add_input_tensor(mul_ofm)
         shr13_op.add_input_tensor(reciprocal_right_shift)
         shr13_op.set_output_tensor(ofm)
-        shr13_op.set_ifm_ofm_shapes()
         DebugDatabase.add_optimised(self.op, shr13_op)
 
         return shr13_op
