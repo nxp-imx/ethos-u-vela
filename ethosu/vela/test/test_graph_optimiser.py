@@ -21,6 +21,7 @@ import numpy as np
 from ethosu.vela.graph_optimiser import convert_batched_fc_shape
 from ethosu.vela.operation import Op
 from ethosu.vela.tensor import create_const_tensor
+from ethosu.vela.tensor import Shape4D
 from ethosu.vela.tensor import Tensor
 from ethosu.vela.test import testutil
 
@@ -35,8 +36,8 @@ def test_convert_batched_fc():
 
     ifm.consumer_list.append(op)
 
-    op.ifm_shapes.append([4, 1, 1, 8])
-    op.ofm_shapes.append([4, 1, 1, 8])
+    op.ifm_shapes.append(Shape4D([4, 1, 1, 8]))
+    op.ofm_shapes.append(Shape4D([4, 1, 1, 8]))
 
     prev_op = op.clone()
     prev_op.ifm_shapes = op.ifm_shapes

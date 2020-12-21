@@ -58,6 +58,7 @@ from .register_command_stream_generator import generate_command_stream
 from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
 from .register_command_stream_util import to_npu_kernel
 from .register_command_stream_util import UNARY_ELEMWISE_OPS
+from .shape4d import Shape4D
 from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorBlockTraversal
@@ -231,7 +232,7 @@ def get_ofm_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
     return NpuQuantization(scale_f32=ofm_quant.scale_f32, zero_point=zero_point)
 
 
-def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, fm_shape: List[int]) -> NpuFeatureMap:
+def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, fm_shape: Shape4D) -> NpuFeatureMap:
     """Creates feature map with common fields populated"""
     fm = NpuFeatureMap()
     fm.region = get_region(tens, arch)
