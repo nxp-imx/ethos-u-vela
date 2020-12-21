@@ -231,9 +231,11 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 ofm_tensor = op.ofm
                 if ofm_tensor is None:
                     ofm_tensor = op.outputs[0]
-                build_pass((op,), ofm_tensor, op.ofm_shapes[0].clone())
+                ofm_shape = op.ofm_shapes[0].clone() if op.run_on_npu else None
 
-    def build_pass(start_ops_to_process, ofm_tensor=None, ofm_shapes=None):
+                build_pass((op,), ofm_tensor, ofm_shape)
+
+    def build_pass(start_ops_to_process, ofm_tensor=None, ofm_shape=None):
         reverse_ops_list = []
         curr_flags = PassFlags.Empty
         npu_block_type = NpuBlockType.Default
@@ -416,7 +418,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 ps.ifm_shapes.append(ps.primary_op.ifm_shapes[0])
 
         ps.ofm_tensor = ofm_tensor
-        ps.ofm_shapes.append(ofm_shapes)
+        ps.ofm_shapes.append(ofm_shape)
 
         assert ps.placement != PassPlacement.Npu or ps.ofm_tensor is not None
         ps.weight_tensor = ps.get_primary_op_ifm_weights()[1]
