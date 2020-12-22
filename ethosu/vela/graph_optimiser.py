@@ -893,6 +893,7 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
         op.name = op.name.replace("Maximum", new_op.name)
         op.outputs[0].name = op.outputs[0].name.replace("Maximum", new_op.name)
         op.inputs = [shared_in]
+        op.set_ifm_ofm_shapes()
 
         # Record optimisation in debug database
         DebugDatabase.add_optimised(op, op)
@@ -953,6 +954,7 @@ def convert_lrelu_to_mul_max(op, arch):
     ifm.consumer_list.remove(op)
     op.add_input_tensor(fm_alpha)
     op.add_input_tensor(fm_id)
+    op.set_ifm_ofm_shapes()
 
     DebugDatabase.add_optimised(op, op)
     return op
@@ -982,6 +984,7 @@ def convert_to_lut(op, lut_values, lut_name):
     op.forced_output_quantization = ifm.quantization
     lut_tensor = lut.create_lut_tensor(op.name + "_values", lut_values, DataType.int8)
     op.set_activation_lut(lut_tensor)
+    op.set_ifm_ofm_shapes()
     return op
 
 
