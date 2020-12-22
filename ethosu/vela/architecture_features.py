@@ -491,13 +491,16 @@ class ArchitectureFeatures:
         # ArchitectureFeatures.DEFAULT_CONFIG values
         if self.is_ethos_u65_system:
             # Default Ethos-U65 memory mode
-            # Dedicated SRAM: SRAM is only used by the Ethos-U
+            # Dedicated SRAM: the SRAM is only for use by the Ethos-U
+            # The non-SRAM memory is assumed to be read-writeable
             self.const_mem_area = MemPort.Axi1
             self.arena_mem_area = MemPort.Axi1
             self.cache_mem_area = MemPort.Axi0
             self.cache_sram_size = 384 * 1024
         else:
-            # Default Ethos-U65 memory mode
+            # Default Ethos-U55 memory mode
+            # Shared SRAM: the SRAM is shared between the Ethos-U and the Cortex-M software
+            # The non-SRAM memory is assumed to be read-only
             self.const_mem_area = MemPort.Axi1
             self.arena_mem_area = MemPort.Axi0
             self.cache_mem_area = MemPort.Axi0
@@ -513,8 +516,8 @@ class ArchitectureFeatures:
         self.axi0_port = MemArea(1)
         self.axi1_port = MemArea(1)
         self.memory_clock_scales = np.ones(MemArea.Size)
-        self.memory_burst_length = np.ones(MemArea.Size)
-        self.memory_latency = np.zeros((MemArea.Size, BandwidthDirection.Size))
+        self.memory_burst_length = np.ones(MemArea.Size, np.int)
+        self.memory_latency = np.zeros((MemArea.Size, BandwidthDirection.Size), np.int)
         self.const_mem_area = MemPort(1)
         self.arena_mem_area = MemPort(1)
         self.cache_mem_area = MemPort(1)
@@ -615,33 +618,22 @@ class ArchitectureFeatures:
                 self.memory_latency[MemArea.OnChipFlash] = self.memory_latency[MemArea.Sram]
 
         # check configuration
+        if self._mem_port_mapping(self.const_mem_area) not in (
+            MemArea.Dram,
+            MemArea.OnChipFlash,
+            MemArea.OffChipFlash,
+        ):
+            raise ConfigOptionError(
+                "const_mem_area",
+                self._mem_port_mapping(self.const_mem_area).name,
+                "Dram or OnChipFlash or OffChipFlash",
+            )
+
+        if self._mem_port_mapping(self.arena_mem_area) not in (MemArea.Sram, MemArea.Dram):
+            raise ConfigOptionError("arena_mem_area", self._mem_port_mapping(self.arena_mem_area).name, "Sram or Dram")
+
         if self._mem_port_mapping(self.cache_mem_area) != MemArea.Sram:
             raise ConfigOptionError("cache_mem_area", self._mem_port_mapping(self.cache_mem_area).name, "Sram")
-
-        if self.is_ethos_u65_system:
-            if self._mem_port_mapping(self.const_mem_area) not in (
-                MemArea.Dram,
-                MemArea.OnChipFlash,
-                MemArea.OffChipFlash,
-            ):
-                raise ConfigOptionError(
-                    "const_mem_area",
-                    self._mem_port_mapping(self.const_mem_area).name,
-                    "Dram or OnChipFlash or OffChipFlash",
-                )
-
-            if self._mem_port_mapping(self.arena_mem_area) not in (MemArea.Sram, MemArea.Dram):
-                raise ConfigOptionError(
-                    "arena_mem_area", self._mem_port_mapping(self.arena_mem_area).name, "Sram or Dram"
-                )
-        else:
-            if self._mem_port_mapping(self.const_mem_area) not in (MemArea.OnChipFlash, MemArea.OffChipFlash):
-                raise ConfigOptionError(
-                    "const_mem_area", self._mem_port_mapping(self.const_mem_area).name, "OnChipFlash or OffChipFlash"
-                )
-
-            if self._mem_port_mapping(self.arena_mem_area) != MemArea.Sram:
-                raise ConfigOptionError("arena_mem_area", self._mem_port_mapping(self.arena_mem_area).name, "Sram")
 
         # assign existing memory areas
         self.permanent_storage_mem_area = self._mem_port_mapping(self.const_mem_area)
