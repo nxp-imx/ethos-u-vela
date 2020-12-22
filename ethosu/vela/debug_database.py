@@ -23,7 +23,6 @@ import lxml.etree as xml
 
 from . import numeric_util
 from .operation import Operation
-from .shape4d import Shape4D
 
 UntypedDict = Dict[Any, Any]
 UntypedList = List[Any]
@@ -79,18 +78,9 @@ class DebugDatabase:
                 src_uid = cls._sourceUID[parent]
             uid = len(cls._optimisedUID)
             cls._optimisedUID[op] = (uid, src_uid)
-            ofm_shape = op.ofm_shapes[0] if op.ofm_shapes else Shape4D(op.outputs[0].shape)
+            ofm_shape = numeric_util.full_shape(3, op.outputs[0].shape, 1)
             cls._optimisedTable.append(
-                [
-                    uid,
-                    src_uid,
-                    op.type,
-                    op.kernel.width,
-                    op.kernel.height,
-                    ofm_shape.width,
-                    ofm_shape.height,
-                    ofm_shape.depth,
-                ]
+                [uid, src_uid, op.type, op.kernel.width, op.kernel.height, ofm_shape[-2], ofm_shape[-3], ofm_shape[-1]]
             )
 
     @classmethod

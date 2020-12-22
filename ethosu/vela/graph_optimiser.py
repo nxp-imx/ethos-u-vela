@@ -276,6 +276,7 @@ def convert_resizebilinear_to_2x2_pool(op):
             scaled_op.attrs["rescale"] = 1 / 128
         elif "rescale" in scaled_op.attrs:
             del scaled_op.attrs["rescale"]
+        scaled_op.set_ifm_ofm_shapes()
 
     return op
 

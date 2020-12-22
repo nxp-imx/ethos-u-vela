@@ -414,7 +414,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         else:
             ps.ifm_tensor = ifm_tensor
             ps.ifm2_tensor = None
-            if ps.primary_op is not None:
+            if ps.primary_op is not None and ps.primary_op.run_on_npu:
                 ps.ifm_shapes.append(ps.primary_op.ifm_shapes[0])
 
         ps.ofm_tensor = ofm_tensor
