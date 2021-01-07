@@ -918,9 +918,17 @@ def convert_lrelu_to_mul_max(op, arch):
     quantization = ifm.quantization.clone()
     quantization.min = 0
     quantization.max = alpha * (quantization.quant_max - quantization.quant_min)
-    quantization.scale_f32 = alpha
     quantization.zero_point = 0
-    alpha_tens = create_const_tensor(op.name + "_alpha_scalar", [], ifm.dtype, [1], np.int8, quantization=quantization)
+    if np.isinf(1 / np.float32(alpha)):
+        # Handling of alpha near zero
+        quantization.scale_f32 = 1
+        scalar = 0
+    else:
+        quantization.scale_f32 = alpha
+        scalar = 1
+    alpha_tens = create_const_tensor(
+        op.name + "_alpha_scalar", [], ifm.dtype, [scalar], np.int8, quantization=quantization
+    )
     mul_alpha.add_input_tensor(alpha_tens)
     fm_alpha = ofm.clone(op.name + "_alpha")
     mul_alpha.set_output_tensor(fm_alpha)
@@ -944,7 +952,8 @@ def convert_lrelu_to_mul_max(op, arch):
             op.name + "_id_scalar", [], ifm.dtype, [1], np.uint8, quantization=quantization
         )
         mul_identity.add_input_tensor(identity_tens)
-        fm_id = ofm.clone(op.name + "_id")
+        # Make sure that fm_id is allocated to a different address than fm_alpha
+        fm_id = ofm.clone(op.name + "_id", set_unique=True)
         mul_identity.set_output_tensor(fm_id)
         mul_identity.set_ifm_ofm_shapes()
         DebugDatabase.add_optimised(op, mul_identity)
