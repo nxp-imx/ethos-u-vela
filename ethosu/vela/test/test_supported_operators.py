@@ -93,7 +93,7 @@ def test_constraint_tens_quant_none_check():
 
 
 def test_constraint_tens_quant_scale():
-    # Quantization scale cannot be infinit
+    # Quantization scale cannot be infinite
     qp = QuantizationParameters()
     qp.zero_point = 0
     qp.scale_f32 = np.inf
@@ -248,8 +248,19 @@ def test_constraint_batch_size():
 
 
 def test_constraint_quant_scale_inf():
+    # Test handling IFM scale/OFM scale is infinite
     op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.ofm.quantization.scale_f32 = np.float32(1e-39)
+    op.ifm.quantization.scale_f32 = np.float32(1e9)
+    op.ofm.quantization.scale_f32 = np.float32(1e-35)
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_ofm_scale_too_small():
+    # Tests handling of OFM scale < 1e-38
+    shp = [1, 10, 20, 16]
+    op = testutil.create_elemwise_op(Op.Mul, "mul", shp, shp, shp, ofm_quant=testutil.default_quant_params(),)
+    assert support.is_operator_supported(op)
+    op.ofm.quantization.scale_f32 = 1e-43
     assert not support.is_operator_supported(op)
 
 

@@ -135,6 +135,7 @@ class SupportedOperators:
         self.generic_constraints.append(SupportedOperators.constraint_tens_quant_scale)
         self.generic_constraints.append(SupportedOperators.constraint_tens_quant_per_axis)
         self.generic_constraints.append(SupportedOperators.constraint_faf)
+        self.generic_constraints.append(SupportedOperators.constraint_quant_scale_inf)
 
         # Setup specific constraints. Note: the order matters
         self.specific_constraints = defaultdict(list)
@@ -180,11 +181,6 @@ class SupportedOperators:
             self.specific_constraints[op_type].append(SupportedOperators.constraint_filter_type)
             self.specific_constraints[op_type].append(SupportedOperators.constraint_filter_height_range)
             self.specific_constraints[op_type].append(SupportedOperators.constraint_filter_product_range)
-        # TODO: Check ReduceSum restrictions
-
-        # Relu specific checks:
-        for op_type in SupportedOperators.relu_ops:
-            self.specific_constraints[op_type].append(SupportedOperators.constraint_quant_scale_inf)
 
         # Resizing specific checks:
         for op_type in SupportedOperators.resizing_ops:
@@ -552,11 +548,23 @@ class SupportedOperators:
 
     @staticmethod
     def constraint_quant_scale_inf(op):
-        "The IFM quantization scale divided by the OFM quantization scale must not be infinite"
-        ifm_scale = op.ifm.quantization.scale_f32
-        ofm_scale = op.ofm.quantization.scale_f32
-        valid = not np.isinf(ifm_scale / ofm_scale)
-        return valid, f"Op has infinite quantization scale. ifm_scale={ifm_scale} ofm_scale={ofm_scale}"
+        "Input and Output tensors must have quantization scales that fit within float32 precision"
+        if op.ofm is not None and op.ofm.is_quantized():
+            ofm_scale = op.ofm.quantization.scale_f32
+            if ofm_scale < np.finfo(np.float32).tiny:
+                return (
+                    False,
+                    f"The quantization scale of the output tensor is {ofm_scale}, "
+                    + f"minimum supported is: {np.finfo(np.float32).tiny}",
+                )
+            if op.ifm is not None and op.ifm.is_quantized():
+                ifm_scale = op.ifm.quantization.scale_f32
+                if np.isinf(ifm_scale / ofm_scale):
+                    return (
+                        False,
+                        f"IFM scale divided by OFM scale is infinite, ifm_scale={ifm_scale} ofm_scale={ofm_scale}",
+                    )
+        return True, "Op's quantization is ok"
 
     @staticmethod
     def constraint_depth_multiplier(op):
