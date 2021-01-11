@@ -202,8 +202,11 @@ def allocate_tensors(
             else:
                 sg.memory_used_per_type[mem_type] += total_sz
 
-        nng.total_size[mem_area] = nng.total_size.get(mem_area, 0) + sum(tens.storage_size() for tens in lrs.ranges)
-        nng.total_elements[mem_area] = nng.total_elements.get(mem_area, 0) + sum(tens.elements() for tens in lrs.ranges)
+        if mem_area == arch.fast_storage_mem_area:
+            for tens in lrs.ranges:
+                if tens.purpose == TensorPurpose.Weights:
+                    nng.total_compressed_weights += tens.storage_size()
+                    nng.total_original_weights += tens.elements() * tens.element_size()
 
         print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation)
 
@@ -214,9 +217,10 @@ def allocate_tensors(
 
     if sg == nng.get_root_subgraph():
         nng.memory_used = sg.memory_used
-        for mem_area in nng.total_elements.keys():
+        if mem_area == arch.fast_storage_mem_area:
             try:
-                nng.bits_per_element[mem_area] = nng.total_size[mem_area] * 8 / nng.total_elements[mem_area]
+                nng.weights_compression_ratio = nng.total_compressed_weights / nng.total_original_weights
             except ZeroDivisionError:
-                nng.bits_per_element[mem_area] = 0.0
+                nng.weights_compression_ratio = 0.0
+
     return True

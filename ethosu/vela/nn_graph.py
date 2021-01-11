@@ -512,9 +512,9 @@ class Graph:
         self.subgraphs = []
         self.metadata = []
         self.memory_used = {}
-        self.bits_per_element = {}
-        self.total_size = {}
-        self.total_elements = {}
+        self.weights_compression_ratio = 0
+        self.total_original_weights = 0
+        self.total_compressed_weights = 0
         self.weight_cache = None  # See CompressedWeightCache
 
     def get_root_subgraph(self):

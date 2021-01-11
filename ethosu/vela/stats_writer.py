@@ -58,7 +58,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
             "passes_after_fusing",
         ]
         labels += [area.identifier_name() + "_memory_used" for area in mem_areas]
-        labels += ["on_chip_flash_bits_per_element", "off_chip_flash_bits_per_element"]
+        labels += ["weights_compression_ratio"]
 
         for mem_area in mem_areas:
             labels += [
@@ -107,11 +107,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
 
         data_items += [midpoint_fps, nng.batch_size, midpoint_inference_time, n_passes, n_cascaded_passes]
         data_items += [nng.memory_used.get(mem_area, 0) / 1024.0 for mem_area in mem_areas]
-
-        data_items += [
-            nng.bits_per_element.get(MemArea.OnChipFlash, 0.0),
-            nng.bits_per_element.get(MemArea.OffChipFlash, 0.0),
-        ]
+        data_items += [nng.weights_compression_ratio]
 
         for mem_area in mem_areas:
             bws = nng.bandwidths[mem_area]
@@ -231,7 +227,7 @@ def print_performance_metrics_for_strat(
     num_cascaded_passes,
     n_operations=0,
     cpu_operations=None,
-    bits_per_element=None,
+    weights_compression_ratio=None,
     show_cpu_operations=False,
     f=sys.stdout,
 ):
@@ -268,11 +264,7 @@ def print_performance_metrics_for_strat(
 
         aug_label = label + " used"
 
-        extra = ""
-        if (mem_area == MemArea.OnChipFlash or mem_area == MemArea.OffChipFlash) and bits_per_element is not None:
-            extra = f" ({bits_per_element[mem_area]:.2f} bits per element)"
-
-        print(f"Total {aug_label:25}          {memory_used[mem_area] / 1024.0:12.2f} KiB{extra}", file=f)
+        print(f"Total {aug_label:25}          {memory_used[mem_area] / 1024.0:12.2f} KiB", file=f)
 
     print(file=f)
     print(f"{num_passes:d} passes fused into {num_cascaded_passes:d}", file=f)
@@ -329,6 +321,11 @@ def print_performance_metrics_for_strat(
         )
         print(file=f)
 
+    if weights_compression_ratio != 0:
+        print(
+            f"Weights Compression Ratio                {weights_compression_ratio:12.2f}", file=f,
+        )
+
     print(
         f"Neural network macs                      {int(macs):12d} MACs/batch", file=f,
     )
@@ -368,7 +365,7 @@ def print_performance_metrics(nng, arch, show_cpu_operations=False, f=sys.stdout
         n_cascaded_passes,
         n_operations,
         cpu_operations,
-        nng.bits_per_element,
+        nng.weights_compression_ratio,
         show_cpu_operations,
         f,
     )
