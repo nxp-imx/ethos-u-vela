@@ -284,7 +284,7 @@ def print_performance_metrics_for_strat(
     if n_operations > 0:
         print(
             f"{n_cpu_operations:d}/{n_operations:d}"
-            f" ({n_cpu_operations / n_operations * 100:4.1%}) operations falling back to the CPU",
+            f" ({n_cpu_operations / n_operations:4.1%}) operations falling back to the CPU",
             file=f,
         )
 
