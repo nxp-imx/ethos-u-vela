@@ -106,7 +106,7 @@ def rewrite_concat(tens, arch, nng):
 
 def rewrite_split(tens, arch, nng):
 
-    if len(tens.ops) == 1 and tens.ops[0].type.is_split_op():
+    if len(tens.ops) == 1 and tens.ops[0].type.is_split_op() and tens.ops[0].type != Op.Unpack:
         split_op = tens.ops[0]
 
         # Not supported so leave it and run on CPU
@@ -125,6 +125,7 @@ def rewrite_split(tens, arch, nng):
             # Get the start and end of the split
             offset_start = [0] * 4
             for idx, out in enumerate(outputs):
+                split_op.ofm_shapes[idx] = Shape4D(out.shape)
                 if out == tens:
                     break
                 if axis >= 0:
@@ -143,7 +144,8 @@ def rewrite_split(tens, arch, nng):
         new_op.attrs["split_start"] = offset_start
         new_op.run_on_npu = True
         new_op.set_output_tensor(tens)
-        new_op.set_ifm_ofm_shapes()
+        new_op.ifm_shapes.append(Shape4D(inp.shape))
+        new_op.ofm_shapes.append(Shape4D(full_shape(4, tens.shape, 1)))
         DebugDatabase.add_optimised(split_op, new_op)
 
     return tens

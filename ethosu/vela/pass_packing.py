@@ -244,6 +244,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         input_set = set()
         ifm_tensor = None
         primary_op = None
+        ifm_shapes = None
 
         to_process = collections.deque()
         for start_op in start_ops_to_process:
@@ -279,6 +280,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                             ):
                                 assert len(curr_op.inputs) >= 1
                                 ifm_tensor = curr_op.ifm
+                                ifm_shapes = curr_op.ifm_shapes.copy()
                                 assert ifm_tensor is not None, "IFM missing in {}".format(curr_op)
                                 assert ifm_tensor.purpose == TensorPurpose.FeatureMap
 
@@ -417,7 +419,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             ps.ifm_tensor = ifm_tensor
             ps.ifm2_tensor = None
             if ps.primary_op is not None and ps.primary_op.run_on_npu:
-                ps.ifm_shapes.append(ps.primary_op.ifm_shapes[0])
+                ps.ifm_shapes.append(ifm_shapes[0])
 
         ps.ofm_tensor = ofm_tensor
         ps.ofm_shapes.append(ofm_shape)
