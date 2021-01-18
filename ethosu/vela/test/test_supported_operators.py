@@ -518,7 +518,13 @@ def create_strided_slice_op(in_shape, out_shape, start_offsets, end_offsets):
 
 
 def create_pad_op(
-    in_shape, out_shape, padding, in_dtype=DataType.int8, out_dtype=DataType.int8, pad_dtype=DataType.int32
+    in_shape,
+    out_shape,
+    padding,
+    in_dtype=DataType.int8,
+    out_dtype=DataType.int8,
+    pad_dtype=DataType.int32,
+    pad_setting=Padding.VALID,
 ):
     qp = testutil.default_quant_params()
     in0 = Tensor(in_shape, in_dtype, "in")
@@ -527,19 +533,17 @@ def create_pad_op(
     out = Tensor(out_shape, out_dtype, "out")
     out.quantization = qp.clone()
     op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
-
     conv_out_tens = Tensor(in_shape, in_dtype, "output")
     conv_out_tens.quantization = qp.clone()
     weight_tens = Tensor(in_shape, in_dtype, "weights")
     weight_tens.values = np.zeros(weight_tens.shape)
     weight_tens.quant_values = np.zeros(weight_tens.shape, np.int8)
     weight_tens.quantization = qp.clone()
-    bias_tens = Tensor([in_shape[-1]], pad_dtype, "biases")
-    attrs = {"padding": Padding.VALID, "stride_w": 2, "stride_h": 2, "dilation_w_factor": 1, "dilation_h_factor": 1}
+    bias_tens = Tensor(out_shape, pad_dtype, "biases")
+    attrs = {"padding": pad_setting, "stride_w": 2, "stride_h": 2, "dilation_w_factor": 1, "dilation_h_factor": 1}
     attrs["strides"] = (1, attrs["stride_h"], attrs["stride_w"], 1)
-    conv2d_op = testutil.create_op(Op.Conv2D, [out, weight_tens, bias_tens], conv_out_tens, attrs)
+    conv2d_op = testutil.create_op(Op.Conv2DBias, [out, weight_tens, bias_tens], conv_out_tens, attrs)
     conv2d_op.add_input_tensor(out)
-    conv2d_op.set_ifm_ofm_shapes()
     return op
 
 
@@ -581,11 +585,16 @@ def test_constraint_pad_dtype():
 
 def test_constraint_pad_consumer():
     # PAD operator must be followed by a valid consumer with Padding.VALID attribute
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],)
-    conv_op = op.ofm.consumers()[0]
-    conv_op.attrs["Padding"] = Padding.SAME
+    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[0, 0], [1, 1], [1, 1], [0, 0]],)
+    assert support.is_operator_supported(op)
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[[0, 0], [1, 1], [1, 1], [0, 0]],
+        pad_setting=Padding.SAME,
+    )
     assert not support.is_operator_supported(op)
-    op_consumer = testutil.create_op_with_quant_tensors(Op.Concat, [1, 1, 1, 4], [1, 1, 1, 8])
+    op_consumer = testutil.create_op_with_quant_tensors(Op.ConcatTFLite, [1, 1, 1, 4], [1, 1, 1, 8])
     op.ofm.consumer_list = [op_consumer]
     assert not support.is_operator_supported(op)
     op_consumer = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])

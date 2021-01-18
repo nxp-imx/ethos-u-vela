@@ -829,17 +829,15 @@ class SupportedOperators:
     def constraint_pad_ofm(cls, op):
         "Must be followed by one of the following operator types: {}"
         consumers = op.ofm.consumers()
-        consumers_to_pad = 0
-        for consumer in consumers:
-            if consumer.type in cls.supported_pad_consumers:
-                if consumer.attrs["padding"] == Padding.VALID:
-                    consumers_to_pad += 1
-        valid = len(consumers) > 0 and len(consumers) == consumers_to_pad
-        return (
-            valid,
-            f"Operator is followed by {consumers_to_pad} consumers with "
-            f"padding set to VALID, out of {len(consumers)} consumers",
-        )
+        unsupported_consumers = [
+            cons.type
+            for cons in consumers
+            if cons is not None
+            if cons.type not in cls.supported_pad_consumers or cons.attrs["padding"] != Padding.VALID
+        ] + [None for cons in consumers if cons is None]
+        none_string = ", ".join(["NoneType" for cons in consumers if cons is None])
+        valid = len(unsupported_consumers) == 0
+        return valid, f"PAD operator is followed by: {_optype_formatter(unsupported_consumers)+none_string}"
 
     @staticmethod
     def constraint_stridedslice_inputs_const(op):
