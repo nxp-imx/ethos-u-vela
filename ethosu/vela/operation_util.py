@@ -16,6 +16,7 @@
 # Description:
 # Utility functions for creating Network Operations.
 from typing import Optional
+from typing import Tuple
 
 from .data_type import DataType
 from .high_level_command_to_npu_op import ifm_ifm2_correct_order
@@ -96,6 +97,21 @@ def create_add(
     attrs: Optional[dict] = None,
 ) -> Operation:
     return create_binary_elementwise(Op.Add, name, ifm, ifm2, quantization, activation, dtype, attrs)
+
+
+def create_rescale_add(
+    name: str,
+    ifm: Tensor,
+    ifm2: Tensor,
+    rescale: Tuple[int, int],
+    quantization: QuantizationParameters,
+    activation: Optional[ActivationFunction] = None,
+    dtype: Optional[DataType] = None,
+    attrs: Optional[dict] = None,
+) -> Operation:
+    op = create_binary_elementwise(Op.RescaleAdd, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    op.rescale = rescale
+    return op
 
 
 def create_clz(

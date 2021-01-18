@@ -288,11 +288,11 @@ def convert_resizebilinear_to_2x2_pool(op):
 
         # Setup the scale value
         if scaled_op.inputs[0].dtype.bits == 8 and scaled_op.outputs[0].dtype.bits == 16:
-            scaled_op.attrs["rescale"] = 128
+            scaled_op.rescale = 128
         elif scaled_op.inputs[0].dtype.bits == 16 and scaled_op.outputs[0].dtype.bits == 8:
-            scaled_op.attrs["rescale"] = 1 / 128
-        elif "rescale" in scaled_op.attrs:
-            del scaled_op.attrs["rescale"]
+            scaled_op.rescale = 1 / 128
+        else:
+            scaled_op.rescale = None
         scaled_op.set_ifm_ofm_shapes()
 
     return op

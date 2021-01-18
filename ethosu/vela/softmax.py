@@ -35,6 +35,7 @@ from .operation_util import create_clz
 from .operation_util import create_depthwise_maxpool
 from .operation_util import create_mul
 from .operation_util import create_reduce_sum
+from .operation_util import create_rescale_add
 from .operation_util import create_shl
 from .operation_util import create_shr
 from .operation_util import create_sub
@@ -331,13 +332,13 @@ class SoftMax:
             "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], np.int32, quantization=no_scale_quant
         )
         half_denominator = add_op_get_ofm(
-            create_add(
+            create_rescale_add(
                 f"{self.op.name}_add{pass_number}",
                 f0_one_const,
                 shifted_sum_minus_one,
+                (1, 1),  # Custom rescale
                 one_scale_quant,
                 activation,
-                attrs={"rescale": (1, 1)},
             )
         )
 

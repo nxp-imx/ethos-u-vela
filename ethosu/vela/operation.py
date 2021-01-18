@@ -219,6 +219,7 @@ class Op(Enum):
     Relu = OperatorInfo(indices=IFM_INDICES)
     Relu6 = OperatorInfo(indices=IFM_INDICES)
     ReluN1To1 = OperatorInfo(indices=IFM_INDICES)
+    RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
     Reshape = OperatorInfo(indices=IFM_INDICES)
     ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
     ResizeNearestNeighbor = OperatorInfo()
@@ -408,6 +409,7 @@ class Operation:
         "_kernel",
         "ifm_shapes",
         "ofm_shapes",
+        "rescale",
     )
 
     def __init__(self, op_type: Op, name: str):
@@ -431,6 +433,9 @@ class Operation:
         self._kernel = None
         self.ifm_shapes: List[Shape4D] = []
         self.ofm_shapes: List[Shape4D] = []
+        # If not none: contains rescale to be used as output scaling
+        # (which overrides the ofm tensor's scale)
+        self.rescale = None
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
