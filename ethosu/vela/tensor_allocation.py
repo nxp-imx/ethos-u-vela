@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -20,6 +20,7 @@ import math
 
 import numpy as np
 
+from . import hillclimb_allocation
 from . import live_range
 from . import numeric_util
 from .errors import AllocationError
@@ -30,7 +31,6 @@ from .tensor import MemArea
 from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorPurpose
-from ethosu import tensor_allocator
 
 
 def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.AllocationQuantum):
@@ -63,22 +63,14 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.Allocation
     return total_sz
 
 
-def search_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularity: int) -> int:
-    # Allocates using the search-based allocator (implemented in C++)
-    input = []
-    lrs = []
-    lr_set = set()
-    for lr in live_ranges.ranges.values():
-        lr_set.add((lr.start_time, lr.end_time, lr))
-    lr_list = sorted(lr_set)
-    # Create a single array of ints containing start/end/size of the live ranges
-    for start, end, lr in lr_list:
-        input += [start, end, numeric_util.round_up(lr.size, alloc_granularity)]
-        lrs.append(lr)
-    addresses = tensor_allocator.allocate(input, 0)
+def hillclimb_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularity: int) -> int:
+    # Allocates using the hill climb allocator
+    lr_set = {(lr.start_time, lr.end_time, lr) for lr in live_ranges.ranges.values()}
+    lr_list = [lr for _, _, lr in lr_set]
+    addresses = hillclimb_allocation.allocate_live_ranges(lr_list)
     # The result is a list containing the allocated addresses
     total_sz = 0
-    for lr, address in zip(lrs, addresses):
+    for lr, address in zip(lr_list, addresses):
         total_sz = max(total_sz, address + lr.size)
         lr.set_address(address)
     verify_allocation(live_ranges, alloc_granularity)
@@ -179,8 +171,8 @@ def allocate_tensors(
             verify_allocation(lrs, cpu_tensor_alignment)
         elif tens_alloc == TensorAllocator.LinearAlloc:
             total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
-        elif tens_alloc == TensorAllocator.Search:
-            total_sz = search_allocate_live_ranges(lrs, cpu_tensor_alignment)
+        elif tens_alloc == TensorAllocator.HillClimb:
+            total_sz = hillclimb_allocate_live_ranges(lrs, cpu_tensor_alignment)
         else:
             assert 0
         alloc_ok = max_size is None or total_sz <= max_size

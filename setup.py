@@ -44,12 +44,6 @@ mlw_module = Extension(
     ["ethosu/mlw_codec/mlw_encode.c", "ethosu/mlw_codec/mlw_decode.c", "ethosu/mlw_codec/mlw_codecmodule.c"],
 )
 
-tensor_allocator_module = Extension(
-    "ethosu.tensor_allocator",
-    ["ethosu/tensor_allocator/tensor_allocatormodule.cpp", "ethosu/tensor_allocator/search_allocator.cpp"],
-    depends=["ethosu/tensor_allocator/search_allocator.h"],
-)
-
 setup(
     name="ethos-u-vela",
     use_scm_version=True,
@@ -66,7 +60,6 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: C",
-        "Programming Language :: C++ :: C++11",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
@@ -84,6 +77,6 @@ setup(
         "lxml>=4.5.1",
     ],
     entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
-    ext_modules=[mlw_module, tensor_allocator_module],
+    ext_modules=[mlw_module],
     setup_requires=["setuptools_scm"],
 )

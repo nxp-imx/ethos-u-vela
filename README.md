@@ -54,9 +54,9 @@ source code from
 [ML Platform](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela).
 Both methods will automatically install all the required dependencies.
 
-**Note:** For installing on Microsoft Windows you need to have a C99 and C++11
-capable toolchain installed. The recommended and tested toolchain is Microsoft
-Visual C++ 14.x Build Tools, see <https://wiki.python.org/moin/WindowsCompilers>
+**Note:** For installing on Microsoft Windows you need to have a C99 capable
+toolchain installed. The recommended and tested toolchain is Microsoft Visual
+C++ 14.x Build Tools, see <https://wiki.python.org/moin/WindowsCompilers>
 
 ### PyPi
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -15,10 +15,12 @@
 # limitations under the License.
 #
 # Description:
-# Unit tests for tensor_allocator.
+# Unit tests for hillclimb_allocator.
 import pytest
 
-from ethosu import tensor_allocator
+from ethosu.vela.hillclimb_allocation import allocate_live_ranges
+from ethosu.vela.live_range import LiveRange
+
 
 test_data = [
     ([(0, 100, 8000), (0, 1, 8016), (100, 110, 2000), (108, 110, 4000), (109, 110, 6000)], 16016),
@@ -40,24 +42,22 @@ test_data = [
 ]
 
 
+def live_range(start_time, end_time, size):
+    lr = LiveRange(None, 1)
+    lr.start_time = start_time
+    lr.end_time = end_time
+    lr.size = size
+    return lr
+
+
 @pytest.mark.parametrize("lrs, expected_size", test_data)
 def test_allocate(lrs, expected_size):
     """Tests the search allocator"""
-    input = [x for lr in lrs for x in lr]
-    res = tensor_allocator.allocate(input, 0)
+    lr_list = [live_range(start, end, size) for start, end, size in lrs]
+    res = allocate_live_ranges(lr_list)
     assert len(res) == len(lrs)
     assert max(addr + lr[2] for addr, lr in zip(res, lrs)) == expected_size
 
 
 def test_allocate_empty_input():
-    assert [] == tensor_allocator.allocate([], 0)
-
-
-invalid_input_test_data = [None, 3, [1, 2, 16, 9, 15], [1, 5, None], [-1, 0, 16], [1, 2, 10000000000]]
-
-
-@pytest.mark.parametrize("input", invalid_input_test_data)
-def test_allocate_invalid_input(input):
-    """Tests the search allocator with invalid input data"""
-    with pytest.raises(Exception):
-        tensor_allocator.allocate(input, 0)
+    assert [] == allocate_live_ranges([])
