@@ -16,15 +16,34 @@
 #
 # Description:
 # Unit tests for tensor_allocator.
+import pytest
+
 from ethosu import tensor_allocator
 
+test_data = [
+    ([(0, 100, 8000), (0, 1, 8016), (100, 110, 2000), (108, 110, 4000), (109, 110, 6000)], 16016),
+    (
+        [
+            (0, 23, 131072),
+            (4, 5, 65568),
+            (4, 9, 8192),
+            (8, 30, 15360),
+            (10, 11, 65568),
+            (10, 15, 4096),
+            (16, 17, 65552),
+            (16, 21, 2048),
+            (22, 23, 32784),
+            (22, 27, 1024),
+        ],
+        216096,
+    ),
+]
 
-def test_allocate():
+
+@pytest.mark.parametrize("lrs, expected_size", test_data)
+def test_allocate(lrs, expected_size):
     """Tests the search allocator"""
-    # Create an input that requires a search to produce a perfect allocation.
-    # Should result in size 16016
-    lrs = [(0, 100, 8000), (0, 1, 8016), (100, 110, 2000), (108, 110, 4000), (109, 110, 6000)]
     input = [x for lr in lrs for x in lr]
     res = tensor_allocator.allocate(input, 0)
     assert len(res) == len(lrs)
-    assert max(addr + lr[2] for addr, lr in zip(res, lrs)) == 16016
+    assert max(addr + lr[2] for addr, lr in zip(res, lrs)) == expected_size

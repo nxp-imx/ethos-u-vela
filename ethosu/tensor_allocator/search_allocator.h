@@ -98,10 +98,6 @@ private:
      * The minimum possible size, assuming all live ranges can be perfectly allocated
      */
     uint32_t min_required_size;
-    /**
-     * The available size (input to algorithm).
-     */
-    uint32_t available_size;
     /** The algorithm stops once the target size has been achieved */
     uint32_t target_size;
     /** The highest end address of the best found allocation */

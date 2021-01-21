@@ -68,7 +68,7 @@ SearchAllocator::SearchAllocator(const std::vector<LiveRange> &live_ranges, uint
             }
         }
     }
-    target_size = std::max(min_required_size, available_size);
+    target_size = std::max(min_required_size, size_limit);
     // Calculate the urgency of each live range
     lr_urgency.resize(lrs.size());
     for (size_t i = 0; i < lrs.size(); ++i) {
@@ -217,7 +217,8 @@ void SearchAllocator::attempt_bottleneck_fix(std::vector<size_t> &indices) {
         // Pick any affecting live range.
         ix1 = turn_list[rng() % turn_list.size()];
     }
-    size_t ix2 = turn_list[rng() % turn_list.size() - 1];
+    // Note: turn_list has always at least 2 elements for bottlenecks
+    size_t ix2 = turn_list[rng() % (turn_list.size() - 1)];
     if (ix1 == ix2) {
         ix2 = turn_list[turn_list.size() - 1];
     }
