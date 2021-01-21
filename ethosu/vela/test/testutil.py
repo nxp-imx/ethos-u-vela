@@ -113,14 +113,15 @@ def create_op_with_quant_tensors(
     return op
 
 
-def create_op(op_type, inputs, output, attrs=None):
+def create_op(op_type, inputs, output, attrs=None, set_ifm_ofm_shapes=True):
     op = Operation(op_type, output.name + "_op")
     for input in inputs:
         op.add_input_tensor(input)
     op.set_output_tensor(output)
     if attrs is not None:
         op.attrs = attrs
-    op.set_ifm_ofm_shapes()
+    if set_ifm_ofm_shapes:
+        op.set_ifm_ofm_shapes()
     return op
 
 

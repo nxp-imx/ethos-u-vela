@@ -629,7 +629,6 @@ class Operation:
         elif self.type == Op.StridedSlice:
             input_tens, begin_tens, end_tens, strides_tens = self.inputs
             outputs = self.outputs
-            out_tens = outputs[0]
 
             # Extract masks
             begin_mask = self.attrs["begin_mask"]
@@ -641,7 +640,6 @@ class Operation:
             # shrink_axis_mask/new_axis_mask/ellipsis_mask is not supported by the Operation class but the operation
             # may have the attribute modified and handled in the graph optimization phase.
             assert shrink_axis_mask == new_axis_mask == ellipsis_mask == 0
-            assert len(input_tens.shape) == len(out_tens.shape)
             offset_start = get_slice_offsets(input_tens.shape, begin_tens, begin_mask, is_begin=True)
             offset_end = get_slice_offsets(input_tens.shape, end_tens, end_mask, is_begin=False)
         elif self.type == Op.UnpackReshaped:

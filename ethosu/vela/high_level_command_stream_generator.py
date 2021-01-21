@@ -374,13 +374,13 @@ def calc_allowed_ofm_ifm_overlap_for_pass_list(strat, passes, block_configs):
         if cmd.is_npu_pass_command():
             if cmd.is_first:
                 ifm_read = cmd.ifm_tensor.address_offset_for_coordinate(
-                    cmd.ifm_box.start_coord, cmd.ps.ifm_shapes[0].as_list(), is_top_box=False
+                    cmd.ifm_box.start_coord, cmd.ps.ifm_shapes[0], is_top_box=False
                 )
                 if ifm_read is None:
                     return 0
             if cmd.is_last:
                 write_offset = cmd.ofm_tensor.address_offset_for_coordinate(
-                    cmd.ofm_box.end_coord, cmd.ps.ofm_shapes[0].as_list(), is_top_box=True
+                    cmd.ofm_box.end_coord, cmd.ps.ofm_shapes[0], is_top_box=True
                 )
                 if write_offset is None:
                     return 0
@@ -393,7 +393,7 @@ def calc_allowed_ofm_ifm_overlap_for_pass_list(strat, passes, block_configs):
 
             if cmd.is_first:
                 ifm_read = cmd.ifm_tensor.address_offset_for_coordinate(
-                    cmd.ifm_box.end_coord, cmd.ps.ifm_shapes[0].as_list(), is_top_box=True
+                    cmd.ifm_box.end_coord, cmd.ps.ifm_shapes[0], is_top_box=True
                 )
 
     min_overlap = max(min_overlap, 0)

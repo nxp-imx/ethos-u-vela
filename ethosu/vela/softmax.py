@@ -39,8 +39,8 @@ from .operation_util import create_rescale_add
 from .operation_util import create_shl
 from .operation_util import create_shr
 from .operation_util import create_sub
+from .shape4d import Shape4D
 from .tensor import create_const_tensor
-from .tensor import create_reshape_tensor
 from .tensor import TensorPurpose
 
 
@@ -214,12 +214,13 @@ class SoftMax:
         ofm = self.op.outputs[0]
 
         # Reshape ifm/ofm (if needed)
-        full_shape = self.op.ifm_shapes[0].as_list()
-        if full_shape[0] > 1:
-            full_shape[1] *= full_shape[0]
-            full_shape[0] = 1
-        ifm = create_reshape_tensor(ifm, full_shape)
-        ofm = create_reshape_tensor(ofm, full_shape, False)
+        ifm_shape = self.op.ifm_shapes[0]
+        if ifm_shape.batch > 1:
+            ifm_shape.height = ifm_shape.batch * ifm_shape.height
+            ifm_shape.batch = 1
+            self.op.ifm.avoid_NHCWB16 = True
+            self.op.ofm_shapes[0] = ifm_shape.clone()
+            self.op.ofm.avoid_NHCWB16 = True
 
         if ifm.dtype in (DataType.uint8, DataType.int8) and ofm.dtype == ifm.dtype:
             return self.get_graph_8bit(ifm, ofm)
@@ -233,7 +234,6 @@ class SoftMax:
         exp_lut = self.generate_exp_table(self.op.attrs.get("beta", 1.0), ifm.quantization.scale_f32)
         no_scale_quant = ifm.quantization.clone()
         no_scale_quant.scale_f32 = None
-        no_scale_quant.zero_point = 0
         activation = ActivationFunction(Op.Clip)
         activation.min = ifm.quantization.quant_min
         activation.max = ifm.quantization.quant_max
@@ -245,7 +245,6 @@ class SoftMax:
         one_scale_quant.zero_point = 0
         two_scale_quant = one_scale_quant.clone()
         two_scale_quant.scale_f32 = 2.0
-        ifm.quantization.zero_point = 0
         pass_number = 0
 
         def add_op_get_ofm(op):
@@ -255,13 +254,25 @@ class SoftMax:
             return op.ofm
 
         # PASS 0 - Depthwise Maxpool
-        ifm_max = add_op_get_ofm(create_depthwise_maxpool(f"{self.op.name}_maxpool{pass_number}", ifm, no_scale_quant))
+        ifm_shape = self.op.ifm_shapes[0]
+        ifm_max = add_op_get_ofm(
+            create_depthwise_maxpool(f"{self.op.name}_maxpool{pass_number}", ifm, ifm_shape, no_scale_quant)
+        )
 
         # PASS 1 - Sub+LUT(exp)
         sub_op_quantization = one_scale_quant.clone()
         sub_op_quantization.zero_point = 127
-        ifm_max = create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1])
-        sub_op = create_sub(f"{self.op.name}_sub{pass_number}", ifm, ifm_max, sub_op_quantization, dtype=DataType.int32)
+        ifm_max_shape = Shape4D([1, ifm_shape.height, ifm_shape.width, 1])
+        ifm_max.avoid_NHCWB16 = True
+        sub_op = create_sub(
+            f"{self.op.name}_sub{pass_number}",
+            ifm,
+            ifm_max,
+            sub_op_quantization,
+            dtype=DataType.int32,
+            ifm_shape=ifm_shape,
+            ifm2_shape=ifm_max_shape,
+        )
         sub_op.set_activation_lut(
             create_const_tensor(
                 f"{sub_op.name}_exp_lut", [1, 1, 1, 256], DataType.int32, exp_lut, np.int32, TensorPurpose.LUT
@@ -415,7 +426,9 @@ class SoftMax:
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)
-        shr30_op.set_ifm_ofm_shapes()
+        shr30_op.ifm_shapes.append(Shape4D(scaled_exp.shape))
+        shr30_op.ifm_shapes.append(Shape4D(right_shift.shape))
+        shr30_op.ofm_shapes.append(Shape4D(scaled_exp.shape))
         DebugDatabase.add_optimised(self.op, shr30_op)
 
         return shr30_op
@@ -432,12 +445,24 @@ class SoftMax:
             return op.ofm
 
         # PASS 0 - Depthwise Maxpool
-        ifm_max = add_op_get_ofm(create_depthwise_maxpool(f"{self.op.name}_maxpool{pass_number}", ifm, no_scale_quant))
+        ifm_shape = self.op.ifm_shapes[0]
+        ifm_max = add_op_get_ofm(
+            create_depthwise_maxpool(f"{self.op.name}_maxpool{pass_number}", ifm, ifm_shape, no_scale_quant)
+        )
 
         # PASS 1 - Sub
-        ifm_max = create_reshape_tensor(ifm_max, [1, ifm.shape[1], ifm.shape[2], 1])
+        ifm_max_shape = Shape4D([1, ifm_shape.height, ifm_shape.width, 1])
+        ifm_max.avoid_NHCWB16 = True
         sub1_ofm = add_op_get_ofm(
-            create_sub(f"{self.op.name}_sub{pass_number}", ifm, ifm_max, ifm.quantization.clone(), dtype=DataType.int32)
+            create_sub(
+                f"{self.op.name}_sub{pass_number}",
+                ifm,
+                ifm_max,
+                ifm.quantization.clone(),
+                dtype=DataType.int32,
+                ifm_shape=ifm_shape,
+                ifm2_shape=ifm_max_shape,
+            )
         )
 
         # PASS 2 - Mul
@@ -537,7 +562,9 @@ class SoftMax:
         shr13_op.add_input_tensor(mul_ofm)
         shr13_op.add_input_tensor(reciprocal_right_shift)
         shr13_op.set_output_tensor(ofm)
-        shr13_op.set_ifm_ofm_shapes()
+        shr13_op.ifm_shapes.append(Shape4D(mul_ofm.shape))
+        shr13_op.ifm_shapes.append(Shape4D(reciprocal_right_shift.shape))
+        shr13_op.ofm_shapes.append(Shape4D(mul_ofm.shape))
         DebugDatabase.add_optimised(self.op, shr13_op)
 
         return shr13_op

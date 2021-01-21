@@ -150,7 +150,7 @@ test_sequence = [
         # ops_set
         npu_pre_ops,
         # incompatible_pack_flags
-        PassFlags.Cpu | PassFlags.MemoryOnly,
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.ElementWise,
         # flags_to_set
         PassFlags.Npu | PassFlags.Mac | PassFlags.Pre | PassFlags.ElementWise,
         # flags_to_clear
@@ -458,11 +458,11 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_out = inp.clone("_avgpooled")
             avgpool_out.consumer_list.append(op)
             avgpool_op.set_output_tensor(avgpool_out)
-            avgpool_op.set_ifm_ofm_shapes()
+            avgpool_op.ifm_shapes = op.ifm_shapes.copy()
+            avgpool_op.ofm_shapes = op.ofm_shapes.copy()
 
             op.inputs[0] = avgpool_out
             op_list.insert(0, avgpool_op)
-            op.set_ifm_ofm_shapes()
 
             DebugDatabase.add_optimised(op, avgpool_op)
             return avgpool_op

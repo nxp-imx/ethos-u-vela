@@ -24,7 +24,7 @@ from .operation import ActivationFunction
 from .operation import Op
 from .operation import Operation
 from .operation import Padding
-from .tensor import create_reshape_tensor
+from .shape4d import Shape4D
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
@@ -44,12 +44,17 @@ def create_avgpool_nop(name: str) -> Operation:
 
 
 def create_depthwise_maxpool(
-    name: str, ifm: Tensor, quantization: QuantizationParameters, activation: Optional[ActivationFunction] = None
+    name: str,
+    ifm: Tensor,
+    inp_shape: Shape4D,
+    quantization: QuantizationParameters,
+    activation: Optional[ActivationFunction] = None,
 ) -> Operation:
     op = Operation(Op.MaxPool, name)
-    height = ifm.shape[1] * ifm.shape[2]
-    width = ifm.shape[3]
-    ifm_shape = [1, height, width, 1]
+    height = inp_shape.height * inp_shape.width
+    width = inp_shape.depth
+    ifm_shape = Shape4D([1, height, width, 1])
+
     op.attrs["padding"] = Padding.VALID
     op.attrs["stride_w"] = 1
     op.attrs["stride_h"] = 1
@@ -58,11 +63,14 @@ def create_depthwise_maxpool(
     op.attrs["strides"] = [1, op.attrs["stride_h"], op.attrs["stride_w"], 1]
     op.attrs["ksize"] = [1, op.attrs["filter_height"], op.attrs["filter_width"], 1]
     op.activation = activation
-    op.inputs = [create_reshape_tensor(ifm, ifm_shape)]
+    op.inputs = [ifm]
     ofm = Tensor([1, height, 1, 1], ifm.dtype, op.name + "_tens0")
     ofm.quantization = quantization
     op.set_output_tensor(ofm)
-    op.set_ifm_ofm_shapes()
+    op.ifm_shapes.append(ifm_shape)
+    op.ofm_shapes.append(Shape4D(ofm.shape))
+    op.ifm.avoid_NHCWB16 = True
+    op.ofm.avoid_NHCWB16 = True
     return op
 
 
@@ -95,8 +103,12 @@ def create_add(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_binary_elementwise(Op.Add, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    return create_binary_elementwise(
+        Op.Add, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
+    )
 
 
 def create_rescale_add(
@@ -108,8 +120,12 @@ def create_rescale_add(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    op = create_binary_elementwise(Op.RescaleAdd, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    op = create_binary_elementwise(
+        Op.RescaleAdd, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
+    )
     op.rescale = rescale
     return op
 
@@ -121,8 +137,9 @@ def create_clz(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_unary_elementwise(Op.CLZ, name, ifm, quantization, activation, dtype, attrs)
+    return create_unary_elementwise(Op.CLZ, name, ifm, quantization, activation, dtype, attrs, ifm_shape)
 
 
 def create_mul(
@@ -133,8 +150,12 @@ def create_mul(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_binary_elementwise(Op.Mul, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    return create_binary_elementwise(
+        Op.Mul, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
+    )
 
 
 def create_shl(
@@ -145,8 +166,12 @@ def create_shl(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_binary_elementwise(Op.SHL, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    return create_binary_elementwise(
+        Op.SHL, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
+    )
 
 
 def create_shr(
@@ -157,8 +182,12 @@ def create_shr(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_binary_elementwise(Op.SHR, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    return create_binary_elementwise(
+        Op.SHR, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
+    )
 
 
 def create_sub(
@@ -169,8 +198,12 @@ def create_sub(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_binary_elementwise(Op.Sub, name, ifm, ifm2, quantization, activation, dtype, attrs)
+    return create_binary_elementwise(
+        Op.Sub, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
+    )
 
 
 def create_unary_elementwise(
@@ -181,8 +214,9 @@ def create_unary_elementwise(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
 ) -> Operation:
-    return create_binary_elementwise(op_type, name, ifm, None, quantization, activation, dtype, attrs)
+    return create_binary_elementwise(op_type, name, ifm, None, quantization, activation, dtype, attrs, ifm_shape, None)
 
 
 def create_binary_elementwise(
@@ -194,19 +228,34 @@ def create_binary_elementwise(
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,
     attrs: Optional[dict] = None,
+    ifm_shape: Optional[Shape4D] = None,
+    ifm2_shape: Optional[Shape4D] = None,
 ) -> Operation:
+    if ifm_shape is None:
+        ifm_shape = Shape4D(ifm.shape)
     op = Operation(op_type, name)
     op.add_input_tensor(ifm)
+    op.ifm_shapes.append(ifm_shape)
     if ifm2:
         op.add_input_tensor(ifm2)
+        if ifm2_shape is None:
+            ifm2_shape = Shape4D(ifm2.shape)
+        op.ifm_shapes.append(ifm2_shape)
     op.activation = activation
     if not dtype:
         dtype = ifm.dtype
     if attrs:
         op.attrs.update(attrs)
-    ofm_shape = ifm.shape if ifm2 is None or ifm_ifm2_correct_order(ifm.shape, ifm2.shape) else ifm2.shape
-    ofm = Tensor(ofm_shape, dtype, f"{op.name}_tens0")
+
+    if ifm2 is None:
+        ofm_shape = ifm_shape
+    else:
+        in_shape = [] if ifm.shape == [] else ifm_shape.as_list()
+        in2_shape = [] if ifm2.shape == [] else ifm2_shape.as_list()
+        ofm_shape = ifm_shape if ifm_ifm2_correct_order(in_shape, in2_shape) else ifm2_shape
+
+    ofm = Tensor(ofm_shape.as_list(), dtype, f"{op.name}_tens0")
     ofm.quantization = quantization
     op.set_output_tensor(ofm)
-    op.set_ifm_ofm_shapes()
+    op.ofm_shapes.append(ofm_shape)
     return op

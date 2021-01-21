@@ -146,9 +146,6 @@ def compiler_driver(nng, arch, options, scheduler_options):
     if options.verbose_quantization:
         nng.print_graph_with_tensor_quantization()
 
-    nng = graph_optimiser.optimise_graph_b(nng, arch, options.verbose_graph)
-    assert verify_graph_health(nng)
-
     nng = mark_tensors.mark_tensor_purpose(nng, arch, options.verbose_tensor_purpose)
     assert verify_graph_health(nng)
     nng = insert_dma.insert_dma_commands(nng, arch, options.verbose_graph)

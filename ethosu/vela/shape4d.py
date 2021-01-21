@@ -75,3 +75,6 @@ class Shape4D:
 
     def as_list(self):
         return list(self._shape4D)
+
+    def get_hw_as_list(self):
+        return list([self.height, self.width])

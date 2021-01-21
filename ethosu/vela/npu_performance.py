@@ -117,15 +117,21 @@ def get_ifm_block_depth(npu_block_type, ifm_depth, ifm_elemwidth, block_traversa
     return min(ifm_depth, ifm_blk_depth)
 
 
-def get_minimal_cmd_cycles(arch, ifm_tensor, ofm_tensor, ifm_blk: Block, ofm_blk: Block, output_cycles, dpu_cycles=0):
+def get_minimal_cmd_cycles(
+    arch, ifm_tensor, ofm_tensor, ifm_blk: Block, ofm_blk: Block, output_cycles, ifm_shape4D, ofm_shape4D, dpu_cycles=0
+):
     ifm_tens_blk = Tensor((1, ifm_blk.height, ifm_blk.width, ifm_blk.depth), ifm_tensor.dtype, "ifm_blk")
     ofm_tens_blk = Tensor((1, ofm_blk.height, ofm_blk.width, ofm_blk.depth), ofm_tensor.dtype, "ofm_blk")
     cycles_ifm_blk = (
-        estimate_memory_transfer_efficiency(arch, ifm_tensor.mem_area, BandwidthDirection.Read, ifm_tens_blk, ifm_blk)
+        estimate_memory_transfer_efficiency(
+            arch, ifm_tensor.mem_area, BandwidthDirection.Read, ifm_tens_blk, ifm_blk, shape4D=ifm_shape4D
+        )
         / arch.memory_bandwidths_per_cycle[ifm_tensor.mem_area]
     )
     cycles_ofm_blk = (
-        estimate_memory_transfer_efficiency(arch, ofm_tensor.mem_area, BandwidthDirection.Write, ofm_tens_blk, ofm_blk)
+        estimate_memory_transfer_efficiency(
+            arch, ofm_tensor.mem_area, BandwidthDirection.Write, ofm_tens_blk, ofm_blk, shape4D=ofm_shape4D
+        )
         / arch.memory_bandwidths_per_cycle[ofm_tensor.mem_area]
     )
     return (
@@ -204,7 +210,14 @@ def estimate_output_cycles(
     if primary_op.type.is_elementwise_op() and block_config is not None:
         num_elems_blk = block_config.width * block_config.height * block_config.depth
         cycle_cmd = get_minimal_cmd_cycles(
-            arch, ifm_tensor, ofm_tensor, block_config, block_config, num_elems_blk * cycle_per_elem
+            arch,
+            ifm_tensor,
+            ofm_tensor,
+            block_config,
+            block_config,
+            num_elems_blk * cycle_per_elem,
+            primary_op.ifm_shapes[0],
+            primary_op.ofm_shapes[0],
         )
         cycle_per_elem = max(cycle_per_elem, cycle_cmd / num_elems_blk)
 
@@ -343,7 +356,15 @@ def estimate_conv_pooling_cycles(
         cycles_output_blk = max(cycles_output_blk, cycles_bias_blk)
 
     cycles_cmd = get_minimal_cmd_cycles(
-        arch, ifm_tensor, ofm_tensor, ifm_block, ofm_block, cycles_dpu_blk, cycles_output_blk
+        arch,
+        ifm_tensor,
+        ofm_tensor,
+        ifm_block,
+        ofm_block,
+        cycles_dpu_blk,
+        ifm_tens_shape,
+        ofm_tens_shape,
+        cycles_output_blk,
     )
     cycles_dpu_blk = max(cycles_dpu_blk, cycles_cmd)
     cycles_output_blk = max(cycles_output_blk, cycles_cmd)
@@ -356,7 +377,9 @@ def estimate_conv_pooling_cycles(
     return total_cycles
 
 
-def estimate_memory_transfer_efficiency(arch, mem_area, direction, tensor, block_size: Block, replace_bw=None):
+def estimate_memory_transfer_efficiency(
+    arch, mem_area, direction, tensor, block_size: Block, replace_bw=None, shape4D=None
+):
     if tensor.format not in (TensorFormat.NHWC, TensorFormat.NHCWB16):
         return tensor.bandwidth() if replace_bw is None else replace_bw
 
@@ -368,9 +391,10 @@ def estimate_memory_transfer_efficiency(arch, mem_area, direction, tensor, block
     tens = tensor.clone()
     if not tens.avoid_NHCWB16:
         tens.set_format(TensorFormat.NHCWB16, arch)
+    strides = tens.get_strides(shape4D=shape4D)
 
     if tens.format == TensorFormat.NHCWB16:
-        if tens.get_strides()[1] == block_size.depth:
+        if strides[1] == block_size.depth:
             burst_len = elem_size * block_size.depth * block_size.width
         elif is_ifm:
             burst_len = 16 * elem_size * block_size.width
@@ -379,12 +403,12 @@ def estimate_memory_transfer_efficiency(arch, mem_area, direction, tensor, block
     else:
         assert tens.format == TensorFormat.NHWC
         if is_ifm:
-            if tens.get_strides()[3] == block_size.depth:
+            if strides[3] == block_size.depth:
                 burst_len = elem_size * block_size.depth * block_size.width
             else:
                 burst_len = elem_size * block_size.depth
         else:
-            if block_size.depth <= 16 and tens.get_strides()[3] == block_size.depth:
+            if block_size.depth <= 16 and strides[3] == block_size.depth:
                 burst_len = elem_size * block_size.depth * block_size.width
             else:
                 burst_len = min(64, 16 * elem_size * arch.ncores, block_size.depth * elem_size)
@@ -585,12 +609,12 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
             scaled_bws[arch.fast_storage_mem_area][tens.purpose][
                 BandwidthDirection.Write
             ] += estimate_memory_transfer_efficiency(
-                arch, arch.fast_storage_mem_area, BandwidthDirection.Write, tens, ofm_block
+                arch, arch.fast_storage_mem_area, BandwidthDirection.Write, tens, ofm_block, shape4D=ps.ofm_shapes[0],
             )
         else:
             bws[tens.mem_area][tens.purpose][BandwidthDirection.Write] += tens.bandwidth()
             scaled_bws[tens.mem_area][tens.purpose][BandwidthDirection.Write] += estimate_memory_transfer_efficiency(
-                arch, tens.mem_area, BandwidthDirection.Write, tens, ofm_block
+                arch, tens.mem_area, BandwidthDirection.Write, tens, ofm_block, shape4D=ps.ofm_shapes[0]
             )
 
     for tens in ps.intermediates:
@@ -612,8 +636,16 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
             bw = tens.bandwidth()
 
         bws[tens.mem_area][tens.purpose][BandwidthDirection.Read] += bw
+
+        op_shape = None
+        if ps.placement == PassPlacement.Npu and primary_op:
+            if tens == ps.ifm_tensor:
+                op_shape = ps.ifm_shapes[0]
+            elif tens == ps.ifm2_tensor:
+                op_shape = ps.ifm_shapes[1]
+
         scaled_bws[tens.mem_area][tens.purpose][BandwidthDirection.Read] += estimate_memory_transfer_efficiency(
-            arch, tens.mem_area, BandwidthDirection.Read, tens, ifm_block, bw
+            arch, tens.mem_area, BandwidthDirection.Read, tens, ifm_block, bw, op_shape
         )
 
     # quick build access counts for only current pass, even though these aren't the final numbers

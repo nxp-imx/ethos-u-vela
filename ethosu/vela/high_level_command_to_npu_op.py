@@ -43,7 +43,6 @@ from .api import NpuRoundingMode
 from .api import NpuShape3D
 from .api import NpuTileBox
 from .architecture_features import ArchitectureFeatures
-from .architecture_features import Block
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
@@ -152,7 +151,7 @@ def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
     # because of activation function needed to be fused.
     if len(cmd.ifm_box.start_coord) >= 2 and cmd.ifm_box.start_coord[-2] > 0:
         left = 0
-    if len(cmd.ifm_box.end_coord) >= 2 and cmd.ifm_box.end_coord[-2] < Block.from_shape(cmd.ifm_tensor.shape).width:
+    if len(cmd.ifm_box.end_coord) >= 2 and cmd.ifm_box.end_coord[-2] < cmd.ps.ifm_shapes[0].width:
         right = 0
     return NpuPadding(top=top, left=left, bottom=bottom, right=right)
 
@@ -233,7 +232,7 @@ def get_ofm_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
     return NpuQuantization(scale_f32=ofm_quant.scale_f32, zero_point=zero_point)
 
 
-def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, fm_shape: Shape4D) -> NpuFeatureMap:
+def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_shape4D: Shape4D) -> NpuFeatureMap:
     """Creates feature map with common fields populated"""
     fm = NpuFeatureMap()
     fm.region = get_region(tens, arch)
@@ -244,14 +243,16 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, fm_sh
         fm.layout = NpuLayout.NHCWB16
     else:
         assert 0, "Incorrect tensor format"
-    height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(box.start_coord, box.end_coord, fm_shape)
+    height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(
+        box.start_coord, box.end_coord, op_shape4D
+    )
     for idx, addr in enumerate(addresses):
         if addr is None:
             addresses[idx] = 0
     fm.tiles = NpuTileBox(
         height_0=height_0, height_1=height_1, width_0=width_0, addresses=[int(addr) for addr in addresses]
     )
-    strides = tens.get_strides()
+    strides = tens.get_strides(shape4D=op_shape4D)
     fm.strides = NpuShape3D(height=int(strides[2]), width=int(strides[3]), depth=int(strides[1]))
     return fm
 
@@ -325,7 +326,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     op = ps.primary_op
 
     ifm_height = cmd.ifm_box.get_block().height
-    ifm_width = Block.from_shape(cmd.ifm_tensor.shape).width
+    ifm_width = cmd.ps.ifm_shapes[0].width
     ifm_depth = get_ifm_depth(op.type.npu_block_type, cmd.ifm_box, cmd.ofm_box)
 
     npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch, ps.ifm_shapes[0])
@@ -401,7 +402,9 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
     npu_op = NpuElementWiseOperation(elemwise_op)
 
     if elemwise_op not in UNARY_ELEMWISE_OPS:
-        if not ifm_ifm2_correct_order(cmd.ifm_tensor.shape, cmd.ifm2_tensor.shape):
+        ifm_shape = [] if cmd.ifm_tensor.shape == [] else ps.ifm_shapes[0].as_list()
+        ifm2_shape = [] if cmd.ifm2_tensor.shape == [] else ps.ifm_shapes[1].as_list()
+        if not ifm_ifm2_correct_order(ifm_shape, ifm2_shape):
             # The scalar/broadcasted feature map has to be the ifm2 tensor so switch the ifms
             cmd.ifm_tensor, cmd.ifm2_tensor = cmd.ifm2_tensor, cmd.ifm_tensor
             cmd.ifm_box, cmd.ifm2_box = cmd.ifm2_box, cmd.ifm_box
@@ -416,7 +419,7 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
             npu_op.ifm2.shape = NpuShape3D(height=0, width=0, depth=0)
         else:
             ifm2_blk = cmd.ifm2_box.get_block()
-            ifm2_width = Block.from_shape(cmd.ifm2_tensor.shape).width
+            ifm2_width = ps.ifm_shapes[1].width
             npu_op.ifm2.shape = NpuShape3D(height=ifm2_blk.height, width=ifm2_width, depth=ifm2_blk.depth)
     set_common_op_fields(npu_op, cmd, arch)
     # Check if output scale needs to be overridden
