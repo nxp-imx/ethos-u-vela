@@ -60,3 +60,17 @@ class TestMLWCodec:
     def _call_mlw_codec_method(self, method_name, test_input, expected):
         output = method_name(test_input)
         assert output == expected
+
+    invalid_encode_test_data = [None, 3, [4, 5, None, 7], [0, 1, "two", 3], [1, 2, 256, 4], [2, 4, 8, -256]]
+
+    @pytest.mark.parametrize("input", invalid_encode_test_data)
+    def test_encode_invalid_input(self, input):
+        with pytest.raises(Exception):
+            mlw_codec.encode(input)
+
+    invalid_decode_test_data = [None, 3, []]
+
+    @pytest.mark.parametrize("input", invalid_decode_test_data)
+    def test_decode_invalid_input(self, input):
+        with pytest.raises(Exception):
+            mlw_codec.decode(input)

@@ -53,9 +53,10 @@ method_encode (PyObject *self, PyObject *args)
     return NULL;
 
   /* Unpack the length of the input integer list.  */
-  int input_length = (int)PyObject_Length (input_list_object);
-  if (input_length < 0)
-    input_length = 0;
+  Py_ssize_t input_length = PyObject_Length (input_list_object);
+  if (input_length < 0) {
+    return NULL;
+  }
 
   /* We need to marshall the integer list into an input buffer
    * suitable for mlw_encode, use a temporary heap allocated buffer
@@ -71,15 +72,22 @@ method_encode (PyObject *self, PyObject *args)
     {
       PyObject *item;
       item = PyList_GetItem(input_list_object, i);
-      if (!PyLong_Check(item))
-        input_buffer[i] = 0;
-      input_buffer[i] = (int16_t)PyLong_AsLong(item);
+      long value = PyLong_AsLong(item);
+      if (value < -255 || value > 255) {
+        PyErr_SetString(PyExc_ValueError, "Input value out of bounds");
+        return NULL;
+      }
+      input_buffer[i] = value;
     }
+  if (PyErr_Occurred() != NULL) {
+    PyErr_SetString(PyExc_ValueError, "Invalid input");
+    return NULL;
+  }
 
   /* We don't know the output length required, we guess worst case,
    * the mlw_encode call will do a resize (downwards) anyway.
    */
-  uint8_t *output_buffer = malloc(input_length);
+  uint8_t *output_buffer = (uint8_t *) malloc(input_length);
   if (output_buffer == NULL)
     return PyErr_NoMemory();
 
@@ -126,13 +134,13 @@ method_decode(PyObject *self, PyObject *args)
 
   /* Unpack the input buffer and length from the bytearray object.  */
   uint8_t *input_buffer = (uint8_t *) PyByteArray_AsString(input_bytearray_object);
-  int input_length = (int)PyByteArray_Size(input_bytearray_object);
+  Py_ssize_t input_length = PyByteArray_Size(input_bytearray_object);
 
   /* We don't know the output length required, we guess, but the guess
    * will be too small, the mlw_decode call will do a resize (upwards)
    * anyway.
    */
-  int16_t *output_buffer = malloc (input_length);
+  int16_t *output_buffer = (int16_t *) malloc (input_length);
   if (output_buffer == NULL)
     return PyErr_NoMemory();
 
