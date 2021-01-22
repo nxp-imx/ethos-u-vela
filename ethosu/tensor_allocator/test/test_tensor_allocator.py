@@ -47,3 +47,17 @@ def test_allocate(lrs, expected_size):
     res = tensor_allocator.allocate(input, 0)
     assert len(res) == len(lrs)
     assert max(addr + lr[2] for addr, lr in zip(res, lrs)) == expected_size
+
+
+def test_allocate_empty_input():
+    assert [] == tensor_allocator.allocate([], 0)
+
+
+invalid_input_test_data = [None, 3, [1, 2, 16, 9, 15], [1, 5, None], [-1, 0, 16], [1, 2, 10000000000]]
+
+
+@pytest.mark.parametrize("input", invalid_input_test_data)
+def test_allocate_invalid_input(input):
+    """Tests the search allocator with invalid input data"""
+    with pytest.raises(Exception):
+        tensor_allocator.allocate(input, 0)

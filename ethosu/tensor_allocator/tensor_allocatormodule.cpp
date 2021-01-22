@@ -18,6 +18,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <cstdint>
 
 #include <vector>
 #include "search_allocator.h"
@@ -45,23 +46,35 @@ static PyObject *method_allocate (PyObject *self, PyObject *args)
     int available_size = 0;
 
     /* Arguments to the method are delivered as a tuple, unpack the
-      * tuple to get the individual arguments, note the second is
-      * optional.
-      */
+     * tuple to get the individual arguments, note the second is
+     * optional.
+     */
     if (!PyArg_ParseTuple(args, "O|i", &input_list_object, &available_size)) {
         return NULL;
     }
 
     /* Unpack the length of the input integer list. */
-    int input_length = static_cast<int>(PyObject_Length (input_list_object));
+    auto input_length = PyObject_Length(input_list_object);
     if (input_length < 0) {
-        input_length = 0;
+        return NULL;
+    }
+    if (input_length % 3 != 0) {
+        PyErr_SetString(PyExc_ValueError, "Input length must be multiple of 3");
+        return NULL;
     }
     std::vector<uint32_t> input;
     std::vector<uint32_t> output;
     for (int i = 0; i < input_length; ++i) {
         PyObject *obj = PyList_GetItem(input_list_object, i);
-        uint32_t value = (uint32_t)PyLong_AsLong(obj);
+        if (!PyLong_Check(obj)) {
+            PyErr_SetString(PyExc_ValueError, "Illegal value in input");
+            return NULL;
+        }
+        auto value = PyLong_AsLong(obj);
+        if (value < 0 || value > UINT32_MAX) {
+            PyErr_SetString(PyExc_ValueError, "Input value out of bounds");
+            return NULL;
+        }
         input.push_back(value);
     }
     allocate(input, available_size, output);
