@@ -203,7 +203,7 @@ class SoftMax:
         for x in range(256):
             input_diff = x - 255
             if input_diff >= diff_min:
-                rescale = fp_math.saturating_rounding_mul(input_diff * (1 << shift), scale)
+                rescale = fp_math.saturating_rounding_mul32(input_diff * (1 << shift), scale)
                 lut.append(fp_math.exp_on_negative_values(rescale))
             else:
                 lut.append(0)

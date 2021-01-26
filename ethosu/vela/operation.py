@@ -165,7 +165,7 @@ class Op(Enum):
     GatherV2 = OperatorInfo()
     Greater = OperatorInfo()
     GreaterEqual = OperatorInfo()
-    HardSwish = OperatorInfo()
+    HardSwish = OperatorInfo(indices=IFM_INDICES)
     HashtableLookup = OperatorInfo()
     Identity = OperatorInfo()
     If = OperatorInfo()
@@ -305,7 +305,7 @@ class Op(Enum):
         return self in (Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Clip)
 
     def is_activation_op(self):
-        return self.is_relu_op() or self in (Op.Tanh, Op.Sigmoid, Op.Softmax, Op.LUT)
+        return self.is_relu_op() or self in (Op.Tanh, Op.Sigmoid, Op.Softmax, Op.LUT, Op.HardSwish)
 
     def is_split_op(self):
         return self in (Op.Split, Op.SplitV, Op.StridedSlice, Op.Slice, Op.UnpackReshaped, Op.Unpack)
@@ -372,6 +372,8 @@ def create_activation_function(op_type: Op) -> ActivationFunction:
     elif op_type == Op.Sigmoid:
         act.min = 0.0
         act.max = 1.0
+    elif op_type == Op.HardSwish:
+        act.min = 0.0
     return act
 
 

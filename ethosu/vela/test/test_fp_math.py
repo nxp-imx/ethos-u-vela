@@ -64,52 +64,80 @@ EXP_LUT = [
 
 def test_saturating_rounding_mul():
     i32info = np.iinfo(np.int32)
+    i16info = np.iinfo(np.int16)
+
     # Saturation
-    assert fp_math.saturating_rounding_mul(i32info.min, i32info.min) == i32info.max
-    assert fp_math.saturating_rounding_mul(i32info.min, i32info.max) == -i32info.max
-    assert fp_math.saturating_rounding_mul(i32info.max, i32info.min) == -i32info.max
+    assert fp_math.saturating_rounding_mul32(i32info.min, i32info.min) == i32info.max
+    assert fp_math.saturating_rounding_mul32(i32info.min, i32info.max) == -i32info.max
+    assert fp_math.saturating_rounding_mul32(i32info.max, i32info.min) == -i32info.max
+
+    assert fp_math.saturating_rounding_mul16(i16info.min, i16info.min) == i16info.max
+    assert fp_math.saturating_rounding_mul16(i16info.min, i16info.max) == -i16info.max
+    assert fp_math.saturating_rounding_mul16(i16info.max, i16info.min) == -i16info.max
 
     # Multiply by zero
-    assert fp_math.saturating_rounding_mul(0, fp_math.from_float(1.0)) == 0
-    assert fp_math.saturating_rounding_mul(0, fp_math.from_float(-1.0)) == 0
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(1.0), 0) == 0
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(-1.0), 0) == 0
+    assert fp_math.saturating_rounding_mul32(0, fp_math.from_float(1.0)) == 0
+    assert fp_math.saturating_rounding_mul32(0, fp_math.from_float(-1.0)) == 0
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(1.0), 0) == 0
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(-1.0), 0) == 0
+
+    assert fp_math.saturating_rounding_mul16(0, i16info.max) == 0
+    assert fp_math.saturating_rounding_mul16(0, i16info.min) == 0
+    assert fp_math.saturating_rounding_mul16(i16info.max, 0) == 0
+    assert fp_math.saturating_rounding_mul16(i16info.min, 0) == 0
 
     # Multiply positive/negative
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(1.0), fp_math.from_float(1.0)) == fp_math.from_float(
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(1.0), fp_math.from_float(1.0)) == fp_math.from_float(
         1.0, 5 + 5
     )
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(-1.0), fp_math.from_float(1.0)) == fp_math.from_float(
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(-1.0), fp_math.from_float(1.0)) == fp_math.from_float(
         -1.0, 5 + 5
     )
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(1.0), fp_math.from_float(-1.0)) == fp_math.from_float(
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(1.0), fp_math.from_float(-1.0)) == fp_math.from_float(
         -1.0, 5 + 5
     )
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(-1.0), fp_math.from_float(-1.0)) == fp_math.from_float(
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(-1.0), fp_math.from_float(-1.0)) == fp_math.from_float(
         1.0, 5 + 5
     )
 
     # Rounding
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(16.0), 1) == 1
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(-16.0), 1) == 0
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(16.0) - 1, 1) == 0
-    assert fp_math.saturating_rounding_mul(fp_math.from_float(-16.0) - 1, 1) == -1
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(16.0), 1) == 1
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(-16.0), 1) == 0
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(16.0) - 1, 1) == 0
+    assert fp_math.saturating_rounding_mul32(fp_math.from_float(-16.0) - 1, 1) == -1
+
+    assert fp_math.saturating_rounding_mul16(fp_math.from_float(16.0, 21), 1) == 1
+    assert fp_math.saturating_rounding_mul16(fp_math.from_float(-16.0, 21), 1) == 0
+    assert fp_math.saturating_rounding_mul16(fp_math.from_float(16.0, 21) - 1, 1) == 0
+    assert fp_math.saturating_rounding_mul16(fp_math.from_float(-16.0, 21) - 1, 1) == -1
 
 
 def test_shift_left():
     i32info = np.iinfo(np.int32)
-    assert fp_math.shift_left(1, i32info.bits) == i32info.max
-    assert fp_math.shift_left(-1, i32info.bits) == i32info.min
-    assert fp_math.shift_left(1, i32info.bits - 2) == (i32info.max + 1) / 2
-    assert fp_math.shift_left(-1, i32info.bits - 2) == i32info.min // 2
+    i16info = np.iinfo(np.int16)
+    assert fp_math.shift_left32(1, i32info.bits) == i32info.max
+    assert fp_math.shift_left32(-1, i32info.bits) == i32info.min
+    assert fp_math.shift_left32(1, i32info.bits - 2) == (i32info.max + 1) / 2
+    assert fp_math.shift_left32(-1, i32info.bits - 2) == i32info.min // 2
 
-    assert fp_math.shift_left(fp_math.from_float(1.0), 5) == i32info.max
-    assert fp_math.shift_left(fp_math.from_float(-1.0), 5) == i32info.min
-    assert fp_math.shift_left(fp_math.from_float(1.0), 4) == 16 * fp_math.from_float(1.0)
-    assert fp_math.shift_left(fp_math.from_float(-1.0), 4) == 16 * fp_math.from_float(-1.0)
+    assert fp_math.shift_left16(1, i16info.bits) == i16info.max
+    assert fp_math.shift_left16(-1, i16info.bits) == i16info.min
+    assert fp_math.shift_left16(1, i16info.bits - 2) == (i16info.max + 1) / 2
+    assert fp_math.shift_left16(-1, i16info.bits - 2) == i16info.min // 2
+
+    assert fp_math.shift_left32(fp_math.from_float(1.0), 5) == i32info.max
+    assert fp_math.shift_left32(fp_math.from_float(-1.0), 5) == i32info.min
+    assert fp_math.shift_left32(fp_math.from_float(1.0), 4) == 16 * fp_math.from_float(1.0)
+    assert fp_math.shift_left32(fp_math.from_float(-1.0), 4) == 16 * fp_math.from_float(-1.0)
+
+    assert fp_math.shift_left16(fp_math.from_float(1.0, 21), 5) == i16info.max
+    assert fp_math.shift_left16(fp_math.from_float(-1.0, 21), 5) == i16info.min
+    assert fp_math.shift_left16(fp_math.from_float(1.0, 21), 4) == 16 * fp_math.from_float(1.0, 21)
+    assert fp_math.shift_left16(fp_math.from_float(-1.0, 21), 4) == 16 * fp_math.from_float(-1.0, 21)
 
     with pytest.raises(AssertionError):
-        fp_math.shift_left(1, -1)
+        fp_math.shift_left32(1, -1)
+        fp_math.shift_left16(1, -1)
 
 
 def test_rounding_divide_by_pot():

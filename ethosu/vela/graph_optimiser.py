@@ -823,6 +823,58 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
     return op
 
 
+def convert_hardswish_to_lut(op, arch, nng):
+    if op.type == Op.HardSwish:
+        ifm, ofm = op.get_ifm_ofm()
+        # Generate the LUT
+        ifm_scale = np.double(ifm.quantization.scale_f32)
+        ofm_scale = np.double(ofm.quantization.scale_f32)
+        zp_in = ifm.quantization.zero_point
+        zp_out = ofm.quantization.zero_point
+        ifm_scale_hires = (1 / 128) * ifm_scale
+        relu_multiplier = np.double(3 / 32768)
+        out_scale, out_shift = scaling.quantise_scale(ifm_scale_hires / ofm_scale)
+        relu_scale, relu_shift = scaling.quantise_scale(ifm_scale_hires / relu_multiplier)
+        # Use 16bit scale
+        out_scale_16 = fp_math.downscale_multiplier_int32_to_int16(out_scale)
+        relu_scale_16 = fp_math.downscale_multiplier_int32_to_int16(relu_scale)
+
+        values = []
+        ix = range(256) if ifm.dtype == DataType.uint8 else range(-128, 128)
+        quantized_min = min(ix)
+        quantized_max = max(ix)
+        for x in ix:
+            input_value = x - zp_in
+            input_value_hires = input_value * 128
+            # Compute the input value on essentially the output scale, not shifted yet
+            input_value_preshift = fp_math.saturating_rounding_mul16(input_value_hires, out_scale_16)
+            # Compute the "relu-ish multiplier". This matches the code in TensorFlow Lite Micro kernel
+            relu_value = np.int16(input_value_hires)
+            if relu_shift < 31:
+                relu_value = fp_math.shift_left16(relu_value, 30 - relu_shift)
+
+            relu_value = fp_math.saturating_rounding_mul16(relu_value, relu_scale_16)
+
+            if relu_shift < 31:
+                relu_value = fp_math.shift_left16(relu_value, 1)
+
+            if relu_shift > 31:
+                relu_value = fp_math.rounding_divide_by_pot(relu_value, relu_shift - 31)
+
+            # Rescaled the value into a 16bit fixedpoint relu_value in [-1, 1]
+            # Now convert that to a 16bit fixedpoint value in [0, 1]
+            relu_value = (relu_value + (1 << 15)) >> 1
+            lut_result = fp_math.saturating_mul16(relu_value, input_value_preshift)
+            shift = 31 - out_shift
+            shift = -shift if shift < 0 else 0
+            # Finally apply the output shift
+            lut_result = fp_math.rounding_divide_by_pot(lut_result, shift) + zp_out
+            lut_result = min(quantized_max, max(quantized_min, lut_result))
+            values.append(lut_result)
+        return convert_to_lut(op, values, "hardswish")
+    return op
+
+
 def convert_lrelu_to_mul_max(op, arch):
     # Converts LeakyRelu to Max(alpha * IFM, identity * IFM)
     # (the opposite of convert_mul_max_to_abs_or_lrelu)
@@ -1245,6 +1297,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_conv_to_fc,
         convert_softmax,
         optimise_strided_conv,
+        convert_hardswish_to_lut,
         rewrite_fully_connected_input,
         convert_batched_fc_shape,
         fixup_conv2d_backprop,
