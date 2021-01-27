@@ -411,16 +411,19 @@ class TFLiteSerialiser:
         subgraph_idx = np.int32(len(self.subgraphs_to_write))  # Only 1 supported currently
         nbr_tensors = np.int32(len(self.tensor_map))
 
-        # An offset of -1 indicates that the tensor will be allocated online by Tensorflow Lite Micro
-        offsets = [np.int32(-1)] * nbr_tensors
+        if not any([name == b"OfflineMemoryAllocation" for name, _ in self.nng.metadata]):
+            # An offset of -1 indicates that the tensor will be allocated online by Tensorflow Lite Micro
+            offsets = [np.int32(-1)] * nbr_tensors
 
-        # Ensure that the order of the offsets match the order of the tensors
-        for tens, idx in self.tensor_map.items():
-            # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
-            if tens.mem_type in (MemType.Scratch, MemType.Scratch_fast):
-                offsets[idx] = np.int32(tens.address) if tens.address is not None else np.int32(0)
+            # Ensure that the order of the offsets match the order of the tensors
+            for tens, idx in self.tensor_map.items():
+                # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
+                if tens.mem_type in (MemType.Scratch, MemType.Scratch_fast):
+                    offsets[idx] = np.int32(tens.address) if tens.address is not None else np.int32(0)
 
-        self.nng.metadata.append(("OfflineMemoryAllocation", np.array([version, subgraph_idx, nbr_tensors] + offsets)))
+            self.nng.metadata.append(
+                ("OfflineMemoryAllocation", np.array([version, subgraph_idx, nbr_tensors] + offsets))
+            )
 
         metadata_list = []
         for name, buffer in self.nng.metadata:

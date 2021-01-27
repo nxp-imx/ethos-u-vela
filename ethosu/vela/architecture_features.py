@@ -275,6 +275,8 @@ class ArchitectureFeatures:
             TensorPurpose.Weights: self.permanent_storage_mem_area,
             TensorPurpose.FeatureMap: self.feature_map_storage_mem_area,
             TensorPurpose.LUT: self.permanent_storage_mem_area,
+            TensorPurpose.Scratch: self.feature_map_storage_mem_area,
+            TensorPurpose.ScratchFast: self.fast_storage_mem_area,
         }
 
         self.tensor_storage_mem_type = {
@@ -282,6 +284,8 @@ class ArchitectureFeatures:
             TensorPurpose.Weights: MemType.Permanent_NPU,
             TensorPurpose.FeatureMap: MemType.Scratch,
             TensorPurpose.LUT: MemType.Scratch,
+            TensorPurpose.Scratch: MemType.Scratch,
+            TensorPurpose.ScratchFast: MemType.Scratch_fast,
         }
 
         self.min_block_sizes = {

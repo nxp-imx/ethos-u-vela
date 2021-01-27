@@ -111,15 +111,20 @@ class TensorPurpose(enum.IntFlag):
     Weights = 1
     FeatureMap = 2
     Scratch = 3
-    LUT = 4
-    FSBias = 5
-    Size = 6
+    ScratchFast = 4
+    LUT = 5
+    FSBias = 6
+    Size = 7
 
     def display_name(self) -> str:
-        return ("Unknown", "Weights", "FeatureMap", "Scratch", "LUT", "FastStorageBias", "Size")[self.value]
+        return ("Unknown", "Weights", "FeatureMap", "Scratch", "ScratchFast", "LUT", "FastStorageBias", "Size")[
+            self.value
+        ]
 
     def identifier_name(self) -> str:
-        return ("unknown", "weights", "feature_map", "scratch", "lut", "fast_storage_bias", "size")[self.value]
+        return ("unknown", "weights", "feature_map", "scratch", "scratch_fast", "lut", "fast_storage_bias", "size")[
+            self.value
+        ]
 
     @staticmethod
     def all():
