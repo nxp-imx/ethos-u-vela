@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -260,6 +260,7 @@ class SupportedOperators:
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_type)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_constant)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_ofm)
+        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_size)
 
         # HardSwish specific checks:
         self.specific_constraints[Op.HardSwish].append(SupportedOperators.constraint_input_8bit)
@@ -842,6 +843,39 @@ class SupportedOperators:
         none_string = ", ".join(["NoneType" for cons in consumers if cons is None])
         valid = len(unsupported_consumers) == 0
         return valid, f"PAD operator is followed by: {_optype_formatter(unsupported_consumers)+none_string}"
+
+    @staticmethod
+    def __leading_pad_ok(leading_pad, stride, kernel_size):
+        # If kernel size // 2 > stride, then (left, top) padding must be a multiple of stride,
+        # otherwise replacing PAD by hardware padding would iterate the wrong IFM rows/columns
+        max_size = kernel_size // 2
+        return leading_pad == max_size or max_size <= stride or leading_pad % stride == 0
+
+    @staticmethod
+    def constraint_pad_size(op):
+        "Padding must be at most kernel size divided by 2"
+        if SupportedOperators.constraint_pad_ofm(op)[0]:
+            padding = op.inputs[1].values  # 4x2 tensor, first dimension is N, H, W, C
+            top, left, bottom, right = (padding[1][0], padding[2][0], padding[1][1], padding[2][1])
+            for cons in op.ofm.consumers():
+                if cons is not None:
+                    # Note: pre-order graph traversal removes inputs of operators that are in traversal,
+                    # which makes it impossible to calculate kernel size, hence use cached _kernel for those operators
+                    k = cons.kernel if cons.inputs else cons._kernel
+                    k_w, k_h = k.dilated_wh()
+                    if left > k_w // 2:
+                        return False, f"Left padding is {left}, kernel width is {k_w}"
+                    if right > k_w // 2:
+                        return False, f"Right padding is {right}, kernel width is {k_w}"
+                    if top > k_h // 2:
+                        return False, f"Top padding is {top}, kernel height is {k_h}"
+                    if bottom > k_h // 2:
+                        return False, f"Bottom padding is {bottom}, kernel height is {k_h}"
+                    if not SupportedOperators.__leading_pad_ok(top, k.stride.y, k_h):
+                        return False, f"Top padding is {top}, must be {k_h // 2} or multiple of {k.stride.y}"
+                    if not SupportedOperators.__leading_pad_ok(left, k.stride.x, k_w):
+                        return False, f"Left padding is {left}, must be {k_w // 2} or multiple of {k.stride.x}"
+        return True, "Pad size is ok"
 
     @staticmethod
     def constraint_stridedslice_inputs_const(op):

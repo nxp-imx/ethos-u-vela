@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -17,6 +17,7 @@
 # Description:
 # Unit tests for support_operators
 import numpy as np
+import pytest
 
 from ethosu.vela.data_type import DataType
 from ethosu.vela.operation import ActivationFunction
@@ -525,6 +526,7 @@ def create_pad_op(
     out_dtype=DataType.int8,
     pad_dtype=DataType.int32,
     pad_setting=Padding.VALID,
+    kernel_size=3,
 ):
     qp = testutil.default_quant_params()
     in0 = Tensor(in_shape, in_dtype, "in")
@@ -535,7 +537,7 @@ def create_pad_op(
     op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
     conv_out_tens = Tensor(in_shape, in_dtype, "output")
     conv_out_tens.quantization = qp.clone()
-    weight_tens = Tensor(in_shape, in_dtype, "weights")
+    weight_tens = Tensor([kernel_size, kernel_size, in_shape[-1], out_shape[-1]], in_dtype, "weights")
     weight_tens.values = np.zeros(weight_tens.shape)
     weight_tens.quant_values = np.zeros(weight_tens.shape, np.int8)
     weight_tens.quantization = qp.clone()
@@ -607,6 +609,40 @@ def test_constraint_pad_consumer():
     }
     op.ofm.consumer_list = [op_consumer]
     assert not support.is_operator_supported(op)
+
+
+pad_invalid_size_test_data = [
+    (2, 1, 1, 1),
+    (1, 2, 1, 1),
+    (1, 1, 2, 1),
+    (1, 1, 1, 2),
+]
+
+
+@pytest.mark.parametrize("top, left, bottom, right", pad_invalid_size_test_data)
+def test_constraint_pad_size(top, left, bottom, right):
+    # Tests PAD operator with a padding that is too high to be handled by the NPU
+    out_shape = [1, 11 + left + right, 11 + top + bottom, 1]
+    padding = [[0, 0], [top, bottom], [left, right], [0, 0]]
+    op = create_pad_op(in_shape=[1, 11, 11, 1], out_shape=out_shape, padding=padding,)
+    assert not support.is_operator_supported(op)
+
+
+leading_pad_test_data = [
+    (2, 2, 11, True),
+    (1, 2, 11, False),
+    (2, 1, 11, False),
+    (5, 2, 11, True),
+]
+
+
+@pytest.mark.parametrize("top, left, kernel_size, expected", leading_pad_test_data)
+def test_constraint_leading_pad_size(top, left, kernel_size, expected):
+    # Tests PAD operator with big kernel size; top and left pad must be multiple of stride
+    out_shape = [1, 11 + left, 11 + top, 1]
+    padding = [[0, 0], [top, 0], [left, 0], [0, 0]]
+    op = create_pad_op(in_shape=[1, 11, 11, 1], out_shape=out_shape, padding=padding, kernel_size=kernel_size)
+    assert support.is_operator_supported(op) == expected
 
 
 def create_strided_slice():

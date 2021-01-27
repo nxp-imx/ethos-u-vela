@@ -17,8 +17,10 @@
 # Description:
 # Unit tests for graph_optimiser
 import numpy as np
+import pytest
 
 from ethosu.vela.data_type import DataType
+from ethosu.vela.graph_optimiser import calc_explicit_padding
 from ethosu.vela.graph_optimiser import convert_batched_fc_shape
 from ethosu.vela.graph_optimiser import optimise_graph_a
 from ethosu.vela.graph_optimiser import optimise_pad
@@ -80,6 +82,38 @@ def test_convert_batched_fc():
     assert len(conv_op.ifm.shape) == 2
     assert len(conv_op.ofm.shape) == 2
     assert conv_op.ifm.shape == conv_op.ofm.shape
+
+
+explicit_padding_test_data = [
+    # Kernel size 2
+    [(17, 1, 2, 1, 1), (1, 1)],
+    [(18, 1, 2, 0, 1), (0, 1)],
+    [(18, 1, 2, 1, 0), (1, 0)],
+    # Kernel size 3
+    [(18, 2, 3, 1, 1), (1, 0)],
+    [(25, 2, 3, 1, 1), (1, 1)],
+    # Kernel size 4
+    [(18, 1, 4, 1, 2), (1, 2)],
+    [(18, 1, 4, 2, 1), (2, 1)],
+    [(19, 1, 4, 2, 2), (2, 2)],
+    # Kernel size 5
+    [(19, 1, 5, 1, 2), (1, 2)],
+    [(19, 1, 5, 0, 2), (0, 2)],
+    [(19, 1, 5, 1, 0), (1, 0)],
+    # Kernel size 21
+    [(41, 2, 21, 8, 10), (8, 10)],
+    [(41, 3, 21, 10, 10), (10, 9)],
+    [(42, 3, 21, 10, 10), (10, 8)],
+    [(42, 3, 21, 9, 10), (9, 9)],
+    [(41, 3, 21, 10, 6), (10, 6)],
+]
+
+
+@pytest.mark.parametrize("test_input, expected_result", explicit_padding_test_data)
+def test_calc_explicit_padding(test_input, expected_result):
+    input_size, stride, filter_size, explicit_pad_before, explicit_pad_after = test_input
+    before, after = calc_explicit_padding(input_size, stride, filter_size, explicit_pad_before, explicit_pad_after)
+    assert (before, after) == expected_result
 
 
 def test_optimise_pad():

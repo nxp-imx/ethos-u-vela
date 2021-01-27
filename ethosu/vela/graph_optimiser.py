@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,6 +18,7 @@
 # split into two parts optimise_graph_a and optimise_graph_b.
 import math
 import uuid
+from typing import Tuple
 
 import numpy as np
 
@@ -183,9 +184,26 @@ def needed_total_padding(input_size, stride, filter_size):
     return total_padding
 
 
-def calc_padding_and_skirt(padding_type, kernel_size, stride, input_shape, explicit_padding):
-    ypad = needed_total_padding(int(input_shape.height), int(stride[1]), int(kernel_size[0]))
-    xpad = needed_total_padding(int(input_shape.width), int(stride[2]), int(kernel_size[1]))
+def calc_explicit_padding(input_size, stride, filter_size, pad_before, pad_after) -> Tuple[int, int]:
+    """
+    Based on explicit padding provided in a PAD operation, returns the corresponding hardware padding
+    that provides equivalent results.
+    """
+    total_padding = needed_total_padding(input_size, stride, filter_size)
+    # The top/left padding can be taken as is from the PAD
+    output_pad_before = pad_before
+    # The bottom/right padding might need downward adjustment depending on stride/input size
+    output_pad_after = pad_after
+    while output_pad_after > 0 and output_pad_after % stride != (total_padding - pad_before) % stride:
+        output_pad_after -= 1
+    return output_pad_before, output_pad_after
+
+
+def calc_padding_and_skirt(padding_type, kernel, input_shape, explicit_padding):
+    k_w, k_h = kernel.dilated_wh()
+    s_x, s_y = kernel.stride
+    ypad = needed_total_padding(int(input_shape.height), int(s_y), int(k_h))
+    xpad = needed_total_padding(int(input_shape.width), int(s_x), int(k_w))
     if padding_type == Padding.SAME:
         left_pad = (xpad + 0) // 2
         right_pad = (xpad + 1) // 2
@@ -198,10 +216,9 @@ def calc_padding_and_skirt(padding_type, kernel_size, stride, input_shape, expli
         bottom_pad = 0
     elif padding_type == Padding.EXPLICIT:
         # Padding is specified in a PAD operator which has been bypassed.
-        # The top and left padding are taken from the PAD; bottom and right are calculated.
-        top_pad, left_pad, _, _ = explicit_padding
-        bottom_pad = ypad - top_pad
-        right_pad = xpad - left_pad
+        top, left, bottom, right = explicit_padding
+        top_pad, bottom_pad = calc_explicit_padding(int(input_shape.height), int(s_y), int(k_h), int(top), int(bottom))
+        left_pad, right_pad = calc_explicit_padding(int(input_shape.width), int(s_x), int(k_w), int(left), int(right))
     else:
         raise UnsupportedFeatureError(f"Unknown padding")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
@@ -495,14 +512,8 @@ def add_padding_fields(op, arch, nng):
                     op.attrs["padding"], kernel_size, op.attrs["strides"], input_shape, upscaling_factor
                 )
             else:
-                dilation_h, dilation_w = op.get_dilation_h_w()
-                dilated_kernel_size = [dilation_h * (kernel_size[0] - 1) + 1, dilation_w * (kernel_size[1] - 1) + 1]
                 padding, skirt = calc_padding_and_skirt(
-                    op.attrs["padding"],
-                    dilated_kernel_size,
-                    op.attrs["strides"],
-                    input_shape,
-                    op.attrs.get("explicit_padding"),
+                    op.attrs["padding"], op.kernel, input_shape, op.attrs.get("explicit_padding"),
                 )
 
             op.attrs["explicit_padding"] = padding

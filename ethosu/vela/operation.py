@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -22,6 +22,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import TYPE_CHECKING
 
 from .errors import VelaError
@@ -67,6 +68,10 @@ class Kernel:
 
     def area_height(self) -> int:
         return (self.height - 1) * self.dilation.y + 1
+
+    def dilated_wh(self) -> Tuple[int, int]:
+        """Returns the dilated kernel width/height"""
+        return self.dilation.x * (self.width - 1) + 1, self.dilation.y * (self.height - 1) + 1
 
     def __str__(self):
         return f"w={self.width}, h={self.height}, stride={tuple(self.stride)}, dilation={tuple(self.dilation)}"
