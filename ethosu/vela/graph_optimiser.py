@@ -68,6 +68,8 @@ def rewrite_concat_ops(op, arch, nng):
     ofm.ops = []
     offset = 0
 
+    unfuse_activation_function(op)
+
     if op.type == Op.Pack:
         # Pack is also referred to as Stack
         axis = int(op.attrs["axis"])
@@ -367,7 +369,7 @@ def convert_batched_fc_shape(op, arch, nng):
     return op
 
 
-def unfuse_activation_function(op, arch, nng):
+def unfuse_activation_function(op):
     if op.type == Op.ConcatTFLite and op.run_on_npu and op.activation is not None:
         act_op = Operation(op.activation.op_type, op.name + op.activation.op_type.name)
         op.activation = None
@@ -377,8 +379,6 @@ def unfuse_activation_function(op, arch, nng):
         act_op.add_input_tensor(intermediate_tens)
         op.set_output_tensor(intermediate_tens)
         act_op.set_ifm_ofm_shapes()
-
-    return op
 
 
 def rewrite_stridedslice_output(op, arch, nng):
@@ -1233,7 +1233,6 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_softmax,
         optimise_strided_conv,
         convert_batched_fc_shape,
-        unfuse_activation_function,
         fixup_conv2d_backprop,
         fixup_relus_with_differing_ifm_ofm_scaling,
         fixup_act_reorder,
