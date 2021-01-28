@@ -522,22 +522,6 @@ def add_padding_fields(op, arch, nng):
     return op
 
 
-# Check if the op can be reordered
-def get_prepend_op(op):
-    inp = op.inputs[0]
-    # The op should be reordered between prev_op and prep_op
-    prev_op = inp.ops[-1]
-    prep_op = None
-    while prev_op.type in memory_only_ops and len(prev_op.outputs) == 1 and len(prev_op.outputs[0].consumers()) == 1:
-        prep_op = prev_op
-        inp = prev_op.inputs[0]
-        prev_op = inp.ops[-1]
-    if prev_op is not None and len(prev_op.outputs) == 1 and len(prev_op.outputs[0].consumers()) == 1:
-        return prep_op
-
-    return None
-
-
 def convert_depthwise_to_conv(op, arch, nng):
     # Depthwise is equivalent to a single conv2d if the ifm depth is 1 and
     # the ofm depth equals the depth multipler.
@@ -664,41 +648,6 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             relu_fused_op.set_output_tensor(ofm)
             relu_fused_op.set_ifm_ofm_shapes()
             op = relu_fused_op
-    return op
-
-
-# TODO remove if mem only ops can all be removed
-# Reorder activation op if it's after the memory only operations
-def fixup_act_reorder(op, arch, nng):
-    if op.type.is_relu_op() or op.type in (Op.Sigmoid, Op.Tanh):
-        prep_op = get_prepend_op(op)
-        if prep_op is not None:
-            act_op = op.clone("_reordered")
-            act_op.ifm_shapes = list(op.ifm_shapes)
-            act_op.ofm_shapes = list(op.ofm_shapes)
-
-            # There is only one input tensor, overwrite it
-            act_op.set_input_tensor(prep_op.inputs[0], 0)
-
-            act_op_out = act_op.inputs[0].clone("_acted")
-            act_op_out.quantization = op.outputs[0].quantization.clone()
-            act_op.set_output_tensor(act_op_out)
-            act_op.ofm_shapes[0] = act_op.ifm_shapes[0].clone()
-            act_op.ifm_shapes[0] = prep_op.ifm_shapes[0].clone()
-
-            # Update the consumer list
-            act_op_out.consumer_list = op.outputs[0].consumer_list.copy()
-            act_op_out.consumer_list.append(prep_op)
-
-            prep_op.inputs[0] = act_op_out
-            prep_op.outputs[0].quantization = act_op_out.quantization.clone()
-
-            # Mark the op so that it will be removed as passthrough later on
-            op.type = Op.Identity
-
-            # Record optimisation in debug database
-            DebugDatabase.add_optimised(op, act_op)
-            DebugDatabase.add_optimised(op, op)
     return op
 
 
@@ -1313,7 +1262,6 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_batched_fc_shape,
         fixup_conv2d_backprop,
         fixup_relus_with_differing_ifm_ofm_scaling,
-        fixup_act_reorder,
         fixup_elementwise_with_scalars,  # TODO Move to early stage?
         reorder_depthwise_weights,
         fixup_resizebilinear,
