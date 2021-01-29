@@ -719,14 +719,16 @@ class Operation:
 
         # set all shapes to op, as 4D
         if self.type == Op.FullyConnected:
-            n_in_elems = weight_tensor.shape[-2]
-            elms = ifm_tensor.elements()
-            batch_size = elms // n_in_elems
-            assert batch_size * n_in_elems == elms
-
-            self.ifm_shapes.append(Shape4D([batch_size, 1, 1, n_in_elems]))
-            self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
-        elif self.type == Op.Softmax:
+            if len(self.ifm.shape) == 2:
+                self.ifm_shapes.append(Shape4D([self.ifm.shape[0], 1, 1, self.ifm.shape[1]]))
+            else:
+                # Special case, handled in graph optimization
+                self.ifm_shapes.append(Shape4D(ifm_tensor.get_full_shape()))
+            if len(self.ofm.shape) == 2:
+                self.ofm_shapes.append(Shape4D([self.ofm.shape[0], 1, 1, self.ofm.shape[1]]))
+            else:
+                self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
+        if self.type == Op.Softmax:
             self.ifm_shapes.append(Shape4D(ifm_tensor.get_full_shape()))
             self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
         elif self.type.is_split_op or self.type.is_concat_op():
