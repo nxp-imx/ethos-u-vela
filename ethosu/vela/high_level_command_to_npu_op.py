@@ -428,6 +428,8 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
         # Force output scale same as the input scale for
         # resizebilinear 1x1 that is converted to add
         output_scale = npu_op.ifm2.quantization.scale_f32
+    if op.type == Op.Abs:
+        output_scale = npu_op.ifm.quantization.scale_f32 / npu_op.ofm.quantization.scale_f32
     if op.type == Op.LeakyRelu:
         output_scale = op.attrs["alpha"]
     if op.type == Op.RescaleAdd:
