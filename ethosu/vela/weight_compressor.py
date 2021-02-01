@@ -521,6 +521,9 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                 compress_weights(
                     arch, nng, tens, op.type.npu_block_type, ps.block_config[-1], ofm_depth_step, op.get_dilation_h_w()
                 )
+                nng.total_compressed_weights += tens.weight_compressed_offsets[-1]
+                nng.total_original_weights += tens.elements() * tens.element_size()
+
                 # Update source tensor
                 if needs_dma:
                     src_tens = tens.get_dma_src_tensor()
