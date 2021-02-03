@@ -105,6 +105,7 @@ class SupportedOperators:
     supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | pad_ops | npu_post_ops | memory_only_ops
     # Supported data types
     supported_op_dtypes = set((DataType.uint8, DataType.int8, DataType.int16, DataType.int32))
+    supported_faf_dtypes = set((DataType.uint8, DataType.int8, DataType.int16))
     supported_bias_dtypes = set((DataType.int32, DataType.int64))
     supported_pad_dtypes = set((DataType.int32, DataType.int64))
     # Defined ranges for allowed values:
@@ -135,6 +136,7 @@ class SupportedOperators:
         self.generic_constraints.append(SupportedOperators.constraint_tens_quant_scale)
         self.generic_constraints.append(SupportedOperators.constraint_tens_quant_per_axis)
         self.generic_constraints.append(SupportedOperators.constraint_faf)
+        self.generic_constraints.append(SupportedOperators.constraint_faf_type)
         self.generic_constraints.append(SupportedOperators.constraint_quant_scale_inf)
 
         # Setup specific constraints. Note: the order matters
@@ -449,6 +451,18 @@ class SupportedOperators:
             faf = op.activation.op_type
             valid = faf in cls.supported_fused_activations
             res = valid, f"Op has its fused activation function as: {faf}"
+        return res
+
+    @classmethod
+    @docstring_format_args([_list_formatter(supported_faf_dtypes)])
+    def constraint_faf_type(cls, op):
+        "If a fused activation function is present, the Output tensor must be one of type: {}"
+        if op.activation is None:
+            res = True, "Op has no fused activation function"
+        else:
+            valid = op.ofm.dtype in cls.supported_faf_dtypes
+            ext_type = optype_to_builtintype(op.activation.op_type)
+            res = valid, f"Op has fused activation function {ext_type}, and Output tensor data type: {op.ofm.dtype}"
         return res
 
     @staticmethod

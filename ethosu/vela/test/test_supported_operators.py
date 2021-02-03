@@ -147,6 +147,16 @@ def test_constraint_faf():
     assert not support.is_operator_supported(op)
 
 
+def test_constraint_faf_ofm_dtype():
+    # If fused activation function is present, OFM must be 8 or 16 bit
+    shp = [1, 8, 8, 8]
+    for dtype in [DataType.int8, DataType.uint8, DataType.int16, DataType.int32]:
+        op = testutil.create_elemwise_op(Op.Add, "op", shp, shp, shp, datatype=dtype)
+        op.activation = ActivationFunction(Op.Relu)
+        expected = dtype.size_in_bytes() <= 2
+        assert support.is_operator_supported(op) == expected, f"Data type: {dtype}"
+
+
 def test_constraint_conv_pass():
     # First test a simple conv passes
     op = testutil.create_op_with_quant_tensors(Op.Conv2D, [1, 1, 1, 1], [1, 1, 1, 1], weights_shape=[1, 1, 1, 1])
