@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -23,6 +23,8 @@ import os
 import sys
 import time
 
+import flatbuffers
+
 from . import architecture_features
 from . import compiler_driver
 from . import model_reader
@@ -39,6 +41,7 @@ from .scheduler import ParetoMetric
 from .supported_operators import SupportedOperators
 from .tensor import MemArea
 from .tensor import Tensor
+from .tflite.Model import Model
 from .tflite_mapping import builtin_operator_map
 from .tflite_mapping import builtin_type_name
 from ethosu.vela.architecture_features import ArchitectureFeatures
@@ -80,6 +83,11 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         tflite_writer.write_tflite(nng, output_filename)
 
     if enable_debug_db:
+        file_offsets = calculate_operator_file_offsets(output_filename)
+        for idx, offset in enumerate(sorted(file_offsets)):
+            sg = find_subgraph_with_command_stream_order(nng, idx)
+            if sg is not None:
+                DebugDatabase.set_stream_offset(sg, offset)
         debug_filename = output_basename + "_debug.xml"
         DebugDatabase.write(debug_filename, input_name, output_filename)
 
@@ -88,6 +96,33 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         print("Compiler driver took %f s" % (stop - start))
 
     return nng
+
+
+def find_subgraph_with_command_stream_order(nng, idx):
+    for sg in nng.subgraphs:
+        if sg.generated_stream_id == idx:
+            return sg
+    return None
+
+
+def calculate_operator_file_offsets(name: str):
+    # Read the vela optimized tflite file
+    with open(name, "rb") as f:
+        buf = bytearray(f.read())
+    # Calculate the file offsets for each custom operator
+    file_offsets = []
+    model = Model.GetRootAsModel(buf, 0)
+    for idx in range(model.SubgraphsLength()):  # However only one subgraph is supported as of now
+        sg = model.Subgraphs(idx)
+        for idx in range(sg.OperatorsLength()):
+            operator = sg.Operators(idx)
+            if model.OperatorCodes(operator.OpcodeIndex()).CustomCode() is not None:
+                tensor_idx = operator.Inputs(0)
+                tensor = sg.Tensors(tensor_idx)
+                buffer = model.Buffers(tensor.Buffer())
+                offset = flatbuffers.number_types.UOffsetTFlags.py_type(buffer._tab.Offset(4))
+                file_offsets.append(buffer._tab.Vector(offset))
+    return file_offsets
 
 
 def print_subgraph_io_summary(nng):

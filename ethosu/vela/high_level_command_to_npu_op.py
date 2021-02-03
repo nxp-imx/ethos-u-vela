@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -501,13 +501,14 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
             npu_op_list.append(npu_op)
             npu_op_to_cmd[npu_op] = cmd
     # Generate register commands
-    stream_id = DebugDatabase.add_stream(sg)
-    DebugDatabase.set_stream_offset(sg, 0)  # Default to zero, can only set during file writing
+    if len(sg.high_level_command_stream) > 0:
+        stream_id = DebugDatabase.add_stream(sg)
+        sg.generated_stream_id = stream_id
 
-    def add_to_debug_db(npu_op: NpuOperation, offset: int):
-        """Adds info to the debug database"""
-        if not isinstance(npu_op, NpuDmaOperation):
-            cmd = npu_op_to_cmd[npu_op]
-            DebugDatabase.add_command(stream_id, offset, cmd.ps.primary_op)
+        def add_to_debug_db(npu_op: NpuOperation, offset: int):
+            """Adds info to the debug database"""
+            if not isinstance(npu_op, NpuDmaOperation):
+                cmd = npu_op_to_cmd[npu_op]
+                DebugDatabase.add_command(stream_id, offset, cmd.ps.primary_op)
 
-    sg.register_command_stream = generate_command_stream(npu_op_list, arch, verbose, add_to_debug_db, npu_op_to_cmd)
+        sg.register_command_stream = generate_command_stream(npu_op_list, arch, verbose, add_to_debug_db, npu_op_to_cmd)

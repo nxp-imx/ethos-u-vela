@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -150,6 +150,7 @@ class Subgraph:
         self.flash_tensor = None
         # Scratch information locally used in the scheduler
         self.scheduling_info = {}
+        self.generated_stream_id = None
 
         self.memory_used = {}
         self.memory_used_per_type = {}
