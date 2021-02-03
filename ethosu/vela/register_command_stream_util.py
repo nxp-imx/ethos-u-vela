@@ -463,6 +463,12 @@ def calc_blockdep(arch: ArchitectureFeatures, prev_op: Optional[NpuBlockOperatio
         return 0
     assert npu_op.ifm is not None
     assert prev_op.ofm is not None
+    # Check if the reserved shram will be used in current/prev op
+    prev_uses_lut = prev_op.activation is not None and prev_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP
+    curr_uses_lut = npu_op.activation is not None and npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP
+    if prev_uses_lut and arch.shram_reserved_unused_banks == 0 and not curr_uses_lut:
+        return 0
+
     # Check if IFM or IFM2 overlaps with prev op's OFM
     prev_ofm_ranges = get_address_ranges(prev_op.ofm)
     ifm_ranges = get_address_ranges(npu_op.ifm)

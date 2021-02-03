@@ -260,6 +260,18 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                 upscaling,
             )
 
+            ifm_y_needed = 1
+            if len(ifm_box.end_coord) >= 3:
+                ifm_y_needed = ifm_box.end_coord[-3]
+            if ifm_y_present < ifm_y_needed:
+                for prev_cmd in prev_pass_gen:
+                    yield prev_cmd
+                    rng = prev_cmd.get_ofm_y_range_for_pass(prev_pass)
+                    if rng is not None:
+                        ifm_y_present = max(ifm_y_present, rng[1])
+                        if ifm_y_present >= ifm_y_needed:
+                            break
+
             for intermediate in ps.intermediates:
                 if (
                     intermediate is not None
@@ -280,18 +292,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                     else:
                         intermediate_box = Box([0] * len(intermediate.shape), list(intermediate.shape))
                     yield from dma_if_necessary(ps, intermediate_box, intermediate)
-
-            ifm_y_needed = 1
-            if len(ifm_box.end_coord) >= 3:
-                ifm_y_needed = ifm_box.end_coord[-3]
-            if ifm_y_present < ifm_y_needed:
-                for prev_cmd in prev_pass_gen:
-                    yield prev_cmd
-                    rng = prev_cmd.get_ofm_y_range_for_pass(prev_pass)
-                    if rng is not None:
-                        ifm_y_present = max(ifm_y_present, rng[1])
-                        if ifm_y_present >= ifm_y_needed:
-                            break
 
             if scale_tensor is not None and scale_tensor.purpose == TensorPurpose.FSBias and scale_box is None:
                 scale_box = Box([0] * len(scale_tensor.shape), list(scale_tensor.shape))
