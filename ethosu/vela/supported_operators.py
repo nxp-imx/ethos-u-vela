@@ -98,7 +98,7 @@ class SupportedOperators:
     )
     split_ops = set((Op.Split, Op.SplitV, Op.StridedSlice, Op.Slice, Op.UnpackReshaped, Op.Unpack,))
     concat_ops = set((Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack,))
-    memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape,)) | concat_ops | split_ops
+    memory_only_ops = set((Op.Reshape, Op.QuantizedReshape,)) | concat_ops | split_ops
     shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV,))
     per_axis_quant_ops = convolution_like_ops  # per-axis/channel quantization only currently supported for conv ops
     supported_fused_activations = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.LUT,))
@@ -839,6 +839,7 @@ class SupportedOperators:
 
     @staticmethod
     def constraint_pad_constant(op):
+        "The padding tensor must be constant"
         pad_tensor = op.inputs[1].values
         valid = pad_tensor is not None
         return valid, f"Op has non-constant padding tensor: {op.inputs[1].values}"
