@@ -251,7 +251,6 @@ def fixup_conv2d_backprop(op, arch, nng):
     if op.type == Op.Conv2DBackpropInput:
         # flip the inputs
         op.inputs[0], op.inputs[2] = op.inputs[2], op.inputs[0]
-        op.set_ifm_ofm_shapes()
         op.type = Op.Conv2DBackpropInputSwitchedBias
         op.ifm.resampling_mode = resampling_mode.TRANSPOSE
 
@@ -370,10 +369,9 @@ def rewrite_fully_connected_input(op, arch, nng):
         batch_size = elms // n_in_elems
         assert batch_size * n_in_elems == elms
 
-        if op.ifm.shape != [batch_size, n_in_elems]:
-            op.ifm.avoid_NHCWB16 = True
-
         op.ifm_shapes[0] = Shape4D([batch_size, 1, 1, n_in_elems])
+        if Shape4D(op.ifm.shape) != op.ifm_shapes[0]:
+            op.ifm.avoid_NHCWB16 = True
     return op
 
 

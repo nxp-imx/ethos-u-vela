@@ -739,7 +739,7 @@ class Operation:
         if self.type == Op.Softmax:
             self.ifm_shapes.append(Shape4D(ifm_tensor.get_full_shape()))
             self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
-        elif self.type.is_split_op or self.type.is_concat_op():
+        elif self.type.is_split_op() or self.type.is_concat_op():
             for inp in self.inputs:
                 if inp is not None:
                     self.ifm_shapes.append(Shape4D(full_shape(4, inp.shape, 1)))
@@ -751,7 +751,9 @@ class Operation:
                 else:
                     self.ofm_shapes.append(None)
         else:
-            self.ifm_shapes.append(Shape4D(full_shape(4, ifm_tensor.shape, 1)))
+            if ifm_tensor is not None:
+                self.ifm_shapes.append(Shape4D(full_shape(4, ifm_tensor.shape, 1)))
             if ifm2_tensor is not None:
                 self.ifm_shapes.append(Shape4D(full_shape(4, ifm2_tensor.shape, 1)))
-            self.ofm_shapes.append(Shape4D(full_shape(4, ofm_tensor.shape, 1)))
+            if ofm_tensor is not None:
+                self.ofm_shapes.append(Shape4D(full_shape(4, ofm_tensor.shape, 1)))
