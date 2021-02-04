@@ -964,10 +964,10 @@ class DynamicProgrammingScheduler:
                 if ps.placement != PassPlacement.Npu:
                     continue
                 for output in ps.outputs:
-                    if output.purpose != TensorPurpose.FeatureMap or output.avoid_NHCWB16:
+                    if output.purpose != TensorPurpose.FeatureMap:
                         continue
 
-                    use_NHCWB16 = True
+                    use_NHCWB16 = not output.avoid_NHCWB16
                     use_fast_storage = True
                     rewrites = []
                     for op in output.consumer_list:
@@ -1001,7 +1001,7 @@ class DynamicProgrammingScheduler:
                                 # Detect no-op reshapes by comparing their full input and output tensor shapes.
                                 inshape = op.ifm_shapes[0]
                                 compatible_shape = [(inshape == oper.ofm_shapes[0]) for oper in get_rewrites(op)]
-                                use_NHCWB16 = compatible_shape and all(compatible_shape)
+                                use_NHCWB16 &= compatible_shape and all(compatible_shape)
                             else:
                                 use_NHCWB16 = False
                                 use_fast_storage = False
