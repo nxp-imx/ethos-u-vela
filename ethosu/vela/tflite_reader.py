@@ -266,6 +266,8 @@ class TFLiteGraph:
 
     def parse_operator_code(self, code):
         c = code.BuiltinCode()
+        if c == 0:
+            c = code.DeprecatedBuiltinCode()
         if c not in builtin_operator_map:
             raise InputFileError(
                 self.name, f"The input file contains operator code '{c}' which is currently not supported"

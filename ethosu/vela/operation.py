@@ -145,6 +145,7 @@ class Op(Enum):
     )
     Conv2DBias = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=IFM_WEIGHTS_BIAS_INDICES)
     Cos = OperatorInfo()
+    Cumsum = OperatorInfo()
     Custom = OperatorInfo()  # Custom 3rd party operator, only used in CPU subgraphs
     CustomNpuOp = OperatorInfo()  # NPU custom operator, only used in CPU subgraphs
     DMA = OperatorInfo()

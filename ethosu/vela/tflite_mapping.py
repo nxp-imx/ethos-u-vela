@@ -40,6 +40,7 @@ from .tflite import ConcatEmbeddingsOptions
 from .tflite import ConcatenationOptions
 from .tflite import Conv2DOptions
 from .tflite import CosOptions
+from .tflite import CumsumOptions
 from .tflite import DensifyOptions
 from .tflite import DepthToSpaceOptions
 from .tflite import DepthwiseConv2DOptions
@@ -278,6 +279,7 @@ builtin_options_map = {
     BuiltinOptions.SelectV2Options: SelectV2Options.SelectV2Options,
     BuiltinOptions.WhileOptions: WhileOptions.WhileOptions,
     BuiltinOptions.BatchMatMulOptions: BatchMatMulOptions.BatchMatMulOptions,
+    BuiltinOptions.CumsumOptions: CumsumOptions.CumsumOptions,
 }
 
 builtin_options_inv_map = inverse_map(builtin_options_map)
@@ -690,6 +692,7 @@ builtin_operator_map = {
     BuiltinOperator.DENSIFY: (Op.Densify, OptionsSerializer("DensifyOptions")),
     BuiltinOperator.SEGMENT_SUM: (Op.SegmentSum, OptionsSerializer("SegmentSumOptions")),
     BuiltinOperator.BATCH_MATMUL: (Op.BatchMatMul, OptionsSerializer("BatchMatMulOptions", ("adj_x", "adj_y"))),
+    BuiltinOperator.CUMSUM: (Op.Cumsum, OptionsSerializer("CumsumOptions", ("exclusive", "reverse"))),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer()),
 }
 

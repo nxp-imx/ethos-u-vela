@@ -193,6 +193,7 @@ class TFLiteSerialiser:
             self.operator_code_map[op_type] = (idx, tf_code, opt_serializer)
 
         OperatorCode.OperatorCodeStart(builder)
+        OperatorCode.OperatorCodeAddDeprecatedBuiltinCode(builder, tf_code if tf_code < 127 else 127)
         OperatorCode.OperatorCodeAddBuiltinCode(builder, tf_code)
         if custom_code_offset is not None:
             OperatorCode.OperatorCodeAddCustomCode(builder, custom_code_offset)

@@ -25,7 +25,9 @@ compiled model.
 
 ## TensorFlow Support
 
-Vela supports TensorFlow 2.3.0
+* Vela 2.1.0 to current supports TensorFlow 2.4
+* Vela 2.0.0 to 2.0.1 supports TensorFlow 2.3
+* Vela 0.1.0 to 1.2.0 supports TensorFlow 2.1
 
 ## Environment
 

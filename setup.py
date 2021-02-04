@@ -78,7 +78,7 @@ setup(
     packages=find_namespace_packages(include=["ethosu.*"]),
     python_requires="~=3.6",  # We support only 3.6+
     install_requires=[
-        "flatbuffers==1.11.0",
+        "flatbuffers==1.12.0",
         "numpy>=1.16.6",
         "numpy>=1.16.6,<1.19.4 ; platform_system=='Windows'",
         "lxml>=4.5.1",
