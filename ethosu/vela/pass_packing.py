@@ -231,7 +231,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 ofm_tensor = op.ofm
                 if ofm_tensor is None:
                     ofm_tensor = op.outputs[0]
-                ofm_shape = op.ofm_shapes[0].clone() if op.run_on_npu else None
+                ofm_shape = op.ofm_shapes[0] if op.run_on_npu else None
 
                 build_pass((op,), ofm_tensor, ofm_shape)
 

@@ -101,14 +101,14 @@ def rewrite_concat_ops(op, arch):
         new_op.outputs = [ofm]
         new_op.attrs["concat_axis"] = axis_4D
         new_op.attrs["concat_start"] = offset
-        offset += op.ifm_shapes[idx].get_dim(axis_4D)
+        offset += op.ifm_shapes[idx][axis_4D]
 
         new_op.attrs["concat_end"] = offset
         new_op.run_on_npu = True
         ofm.ops.append(new_op)
         DebugDatabase.add_optimised(op, new_op)
-        new_op.ifm_shapes.append(op.ifm_shapes[idx].clone())
-        new_op.ofm_shapes.append(op.ofm_shapes[0].clone())
+        new_op.ifm_shapes.append(op.ifm_shapes[idx])
+        new_op.ofm_shapes.append(op.ofm_shapes[0])
     assert ofm.shape[axis] == offset
 
     # If axis corresponds to C-dimension, NHCWB16 can only be used in the output if all the concat_start's are a
@@ -159,7 +159,7 @@ def rewrite_split_ops(tens, arch, nng):
                     ofm_shape_idx = idx
                     break
 
-                offset_start[axis_4D] += split_op.ofm_shapes[idx].get_dim(axis_4D)
+                offset_start[axis_4D] += split_op.ofm_shapes[idx][axis_4D]
 
                 # If start offset is not a multiple of 16 in the C-dimension, NHCWB16 need to be avoided in the input
                 if (offset_start[-1] % 16) != 0:
@@ -171,7 +171,7 @@ def rewrite_split_ops(tens, arch, nng):
         new_op.run_on_npu = True
         new_op.set_output_tensor(tens)
         new_op.ifm_shapes.append(Shape4D(inp.shape))
-        new_op.ofm_shapes.append(split_op.ofm_shapes[ofm_shape_idx].clone())
+        new_op.ofm_shapes.append(split_op.ofm_shapes[ofm_shape_idx])
         DebugDatabase.add_optimised(split_op, new_op)
 
     return tens

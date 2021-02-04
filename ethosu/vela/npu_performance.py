@@ -444,8 +444,8 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
         npu_block_type = primary_op.type.npu_block_type
 
         ifm_tensor, _, weight_tensor, ofm_tensor = ps.get_primary_op_ifm_ifm2_weights_ofm()
-        ifm_tensor_shape = ps.primary_op.ifm_shapes[0].clone()
-        ofm_tensor_shape = ps.primary_op.ofm_shapes[0].clone()
+        ifm_tensor_shape = ps.primary_op.ifm_shapes[0]
+        ofm_tensor_shape = ps.primary_op.ofm_shapes[0]
         ofm_block.width = min(ofm_block.width, ofm_tensor_shape.width)
         ofm_block.height = min(ofm_block.height, ofm_tensor_shape.height)
         ofm_block.depth = min(ofm_block.depth, ofm_tensor_shape.depth)
@@ -480,9 +480,10 @@ def performance_metrics_for_pass(arch, ps, block_config=None, rewrite_list=None,
 
             batch_size = ifm_tensor_shape.batch
 
-            # add in padding
-            ifm_tensor_shape.height += explicit_padding[0] + explicit_padding[2]  # height += top and bottom
-            ifm_tensor_shape.width += explicit_padding[1] + explicit_padding[3]  # width  += left and right
+            # add in padding, height += top and bottom, width  += left and right
+            ifm_tensor_shape = ifm_tensor_shape.add(
+                0, explicit_padding[0] + explicit_padding[2], explicit_padding[1] + explicit_padding[3], 0
+            )
 
             if npu_block_type != NpuBlockType.Pooling:
                 if npu_block_type == NpuBlockType.ReduceSum:

@@ -216,10 +216,9 @@ class SoftMax:
         # Reshape ifm/ofm (if needed)
         ifm_shape = self.op.ifm_shapes[0]
         if ifm_shape.batch > 1:
-            ifm_shape.height = ifm_shape.batch * ifm_shape.height
-            ifm_shape.batch = 1
+            self.op.ifm_shapes[0] = ifm_shape.with_height(ifm_shape.batch * ifm_shape.height).with_batch(1)
             self.op.ifm.avoid_NHCWB16 = True
-            self.op.ofm_shapes[0] = ifm_shape.clone()
+            self.op.ofm_shapes[0] = self.op.ifm_shapes[0]
             self.op.ofm.avoid_NHCWB16 = True
 
         if ifm.dtype in (DataType.uint8, DataType.int8) and ofm.dtype == ifm.dtype:

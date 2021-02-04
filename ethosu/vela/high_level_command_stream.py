@@ -197,7 +197,7 @@ class NpuStripe(Command):
         self.pad_top = pad_top
         self.pad_bottom = pad_bottom
         for i in range(len(self.ofm_box.end_coord)):
-            assert self.ofm_box.end_coord[i] <= ps.ofm_shapes[0].get_dim(i)
+            assert self.ofm_box.end_coord[i] <= ps.ofm_shapes[0][i]
 
     def is_npu_pass_command(self):
         return True
