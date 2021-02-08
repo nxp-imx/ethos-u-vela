@@ -178,17 +178,6 @@ def test_remove_reshape():
         reshape1_op.attrs["new_shape"] = reshape1_ofm_shape
         reshape1_op.run_on_npu = True
 
-        # create reshape2 op
-        reshape2_ofm_shape = [1, 8, 8, 16]
-        reshape2_ofm = create_const_tensor(
-            "reshape2_out", reshape2_ofm_shape, DataType.uint8, np.zeros(reshape2_ofm_shape)
-        )
-        reshape2_ofm.quantization = quant
-        shape_tens = create_const_tensor("reshape2_shape", [1], DataType.int32, reshape2_ofm_shape)
-        reshape2_op = testutil.create_op(Op.Reshape, [reshape1_ofm, shape_tens], reshape2_ofm, set_ifm_ofm_shapes=False)
-        reshape2_op.attrs["new_shape"] = reshape2_ofm_shape
-        reshape2_op.run_on_npu = True
-
         # create conv op
         conv_ofm = Tensor([1, 8, 8, 16], DataType.uint8, "output")
         conv_ofm.quantization = quant.clone()
@@ -206,40 +195,37 @@ def test_remove_reshape():
         )
         conv2d_op.run_on_npu = True
 
-        # create reshape3 op
+        # create reshape2 op
         ofm_shape = [8, 8, 16]
-        reshape3_ofm = create_const_tensor("reshape3_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
-        reshape3_ofm.quantization = quant
-        shape_tens = create_const_tensor("reshape3_shape", [1], DataType.int32, ofm_shape)
-        reshape3_op = testutil.create_op(Op.Reshape, [conv_ofm, shape_tens], reshape3_ofm, set_ifm_ofm_shapes=False)
-        reshape3_op.attrs["new_shape"] = ofm_shape
-        reshape3_op.run_on_npu = True
+        reshape2_ofm = create_const_tensor("reshape2_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
+        reshape2_ofm.quantization = quant
+        shape_tens = create_const_tensor("reshape2_shape", [1], DataType.int32, ofm_shape)
+        reshape2_op = testutil.create_op(Op.Reshape, [conv_ofm, shape_tens], reshape2_ofm, set_ifm_ofm_shapes=False)
+        reshape2_op.attrs["new_shape"] = ofm_shape
+        reshape2_op.run_on_npu = True
         nng = Graph()
-        sg = testutil.create_subgraph([reshape1_op, reshape2_op, conv2d_op, reshape3_op])
+        sg = testutil.create_subgraph([reshape1_op, conv2d_op, reshape2_op])
         nng.subgraphs.append(sg)
 
-        return nng, reshape1_op, reshape2_op, conv2d_op, reshape3_op
+        return nng, reshape1_op, conv2d_op, reshape2_op
 
     # Test1 no Reshape op is expected to remain in the NPU subgrapgh
     # but first one will be put on CPU
-    # Network is Reshape-Reshape-Conv-Reshape
-    # Result is cpu_Reshape-Conv
-    nng, reshape1_op, reshape2_op, conv2d_op, reshape3_op = setup_network()
+    # Network is Reshape-Conv-Reshape
+    # Result is Conv
+    nng, reshape1_op, conv2d_op, reshape2_op = setup_network()
     arch = testutil.create_arch()
     assert verify_graph_health(nng)
     nng = optimise_graph_a(nng, arch)
     assert verify_graph_health(nng)
-    assert conv2d_op.ifm == reshape1_op.ofm
-    assert conv2d_op.ofm == reshape3_op.ofm
 
-    # Test2 reshape2 with different quantisation, this Reshape op is expected to remain
-    # Network is Reshape-Reshape-Conv-Reshape
-    # expected is cpu_Reshape-Reshape-Conv
-    nng, reshape1_op, reshape2_op, conv2d_op, reshape3_op = setup_network()
+    # Test2 reshape1 with different quantisation, this Reshape op is expected to remain
+    # Network is Reshape-Conv-Reshape
+    # expected is Reshape-Conv
+    nng, reshape1_op, conv2d_op, reshape2_op = setup_network()
     quant_zp32 = testutil.default_quant_params()
     quant_zp32.zero_point = 32
-    reshape2_op.ofm.quantization = quant_zp32
+    reshape1_op.ofm.quantization = quant_zp32
     assert verify_graph_health(nng)
     nng = optimise_graph_a(nng, arch)
     assert verify_graph_health(nng)
-    assert conv2d_op.ofm == reshape3_op.ofm

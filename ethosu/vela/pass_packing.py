@@ -81,7 +81,7 @@ npu_post_ops = activation_ops
 
 npu_post_fuse_limited_ops = set(
     # Set of post operators that should not be fused with main/elementwise ops
-    (Op.ConcatSliceWrite, Op.Sigmoid, Op.Tanh, Op.Quantize)
+    (Op.Sigmoid, Op.Tanh, Op.Quantize)
 )
 
 elem_wise_ops = elem_wise_main_ops | activation_ops | set((Op.Sigmoid, Op.Tanh))

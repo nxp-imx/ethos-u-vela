@@ -96,19 +96,19 @@ def rewrite_concat_ops(op, arch):
                 axis_4D = axis + (4 - len(inp.shape))
             else:
                 axis_4D = axis
-        new_op = Operation(Op.ConcatSliceWrite, op.name + str(idx))
-        new_op.inputs = [inp]
-        new_op.outputs = [ofm]
-        new_op.attrs["concat_axis"] = axis_4D
-        new_op.attrs["concat_start"] = offset
+        avgpool_op = create_avgpool_nop(op.name + str(idx) + "_avgpool")
+        avgpool_op.inputs = [inp]
+        avgpool_op.outputs = [ofm]
+        avgpool_op.attrs["concat_axis"] = axis_4D
+        avgpool_op.attrs["concat_start"] = offset
         offset += op.ifm_shapes[idx][axis_4D]
 
-        new_op.attrs["concat_end"] = offset
-        new_op.run_on_npu = True
-        ofm.ops.append(new_op)
-        DebugDatabase.add_optimised(op, new_op)
-        new_op.ifm_shapes.append(op.ifm_shapes[idx])
-        new_op.ofm_shapes.append(op.ofm_shapes[0])
+        avgpool_op.attrs["concat_end"] = offset
+        avgpool_op.run_on_npu = True
+        ofm.ops.append(avgpool_op)
+        DebugDatabase.add_optimised(op, avgpool_op)
+        avgpool_op.ifm_shapes.append(op.ifm_shapes[idx])
+        avgpool_op.ofm_shapes.append(op.ofm_shapes[0])
     assert ofm.shape[axis] == offset
 
     # If axis corresponds to C-dimension, NHCWB16 can only be used in the output if all the concat_start's are a
@@ -175,6 +175,48 @@ def rewrite_split_ops(tens, arch, nng):
         DebugDatabase.add_optimised(split_op, new_op)
 
     return tens
+
+
+def insert_copy_op_after_tens(tens):
+    tens_cons_list_copy = tens.consumer_list.copy()
+
+    # Create a avg_pool nop op with ifm as input
+    copy_tens = tens.clone()
+    copy_op = create_avgpool_nop(tens.name + "_avgpool")
+    copy_op.add_input_tensor(tens)
+    copy_op.set_output_tensor(copy_tens)
+    copy_op.set_ifm_ofm_shapes()
+    copy_op.run_on_npu = True
+
+    # Set copy_ifm consumers
+    for tens_cons in tens_cons_list_copy:
+        if tens_cons is not None:
+            for ifm_idx, cons_inp in enumerate(tens_cons.inputs):
+                if cons_inp == tens:
+                    tens_cons.set_input_tensor(copy_tens, ifm_idx)
+
+    DebugDatabase.add_optimised(tens.ops[0], copy_op)
+
+
+def fix_sg_input_output(op, arch, nng):
+    if not op.run_on_npu or op.type != Op.Reshape:
+        return op
+
+    # For the memory operators we want to remove, tensors are removed.
+    # But in order to to do this, they cannot be outputs of the sg,
+    # this need to be fixed prior to the removal.
+    # Solution is to add a avgpool NOP, to maintain the original tensor.
+
+    # Check if operator ifm/ofm are sg ifm/ofm
+    ifm_is_sg_ifm = op.ifm.ops[0].type in (Op.Placeholder, Op.SubgraphInput, Op.Const)
+    ifm_is_sg_ofm = any(ifm_cons is None for ifm_cons in op.ifm.consumer_list)
+    ofm_is_sg_ofm = any(ofm_cons is None for ofm_cons in op.ofm.consumer_list)
+
+    if op.type == Op.Reshape and (ifm_is_sg_ofm or ifm_is_sg_ifm) and ofm_is_sg_ofm:
+        # Both ifm and ofm are sg outputs, only ifm need a copy, in order to remove the Reshape
+        insert_copy_op_after_tens(op.ifm)
+
+    return op
 
 
 def needed_total_padding(input_size, stride, filter_size):
@@ -1020,50 +1062,12 @@ def remove_reshapes(op, arch):
             # or the reshape need to be replace with a NOP.
             return
 
-        # Check if ifm is a sg input
-        if ifm.ops[0].type in (Op.Placeholder, Op.SubgraphInput, Op.Const):
-            # put the reshape on CPU
-            op.run_on_npu = False
-            return
-
         # Check if Reshape ifm/ofm are network ifm/ofm
+        ifm_is_sg_ifm = ifm.ops[0].type in (Op.Placeholder, Op.SubgraphInput, Op.Const)
         ifm_is_sg_ofm = any(ifm_cons is None for ifm_cons in ifm.consumer_list)
         ofm_is_sg_ofm = any(ofm_cons is None for ofm_cons in ofm.consumer_list)
-
-        if ifm_is_sg_ofm and ofm_is_sg_ofm:
-            # Both ifm and ofm are sg outputs,add reshape to the ifm and put it on CPU
-            ifm_cons_list_copy = ifm.consumer_list.copy()
-            ifm_ops_copy = ifm.ops.copy()
-            for ifm_cons in ifm_cons_list_copy:
-                if ifm_cons is None:
-                    # Create a reshape op with ifm as output
-                    name = ifm.name + "_cpu_reshape"
-                    reshape_ifm = ifm.clone()
-                    reshape_op = Operation(Op.Reshape, name)
-                    reshape_op.attrs["new_shape"] = ifm.shape
-                    reshape_op.add_input_tensor(reshape_ifm)
-                    reshape_op.add_input_tensor(create_const_tensor(name + "_shape", [1], DataType.int32, ifm.shape))
-                    reshape_op.set_output_tensor(ifm)
-                    reshape_op.set_ifm_ofm_shapes()
-                    reshape_op.run_on_npu = False
-                    reshape_op.ofm.ops = [reshape_op]
-                    reshape_op.ofm.consumer_list = [None]
-
-                    # Set reshape_ifm producers
-                    for prev_op in ifm_ops_copy:
-                        prev_op.outputs = [reshape_ifm]
-                        reshape_ifm.ops.append(prev_op)
-
-                    # Set reshape_ifm consumers
-                    for ifm_cons in ifm_cons_list_copy:
-                        if ifm_cons is not None:
-                            for ifm_idx, cons_ifm in enumerate(ifm_cons.inputs):
-                                if cons_ifm == ifm:
-                                    ifm_cons.set_input_tensor(reshape_ifm, ifm_idx)
-
-                    ifm = reshape_ifm
-                    break
-            ifm_is_sg_ofm = False
+        # This case should be handled prior to this function
+        assert not ((ifm_is_sg_ifm or ifm_is_sg_ofm) and ofm_is_sg_ofm)
 
         if ofm_is_sg_ofm:
             # Bypassed by replacing ifm with ofm
@@ -1242,6 +1246,12 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         # rewrite graph pass
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
             nng, sg, arch, [rewrite_split_ops], [], rewrite_unsupported=False,
+        )
+
+    # Handle sg input output
+    for idx, sg in enumerate(nng.subgraphs):
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
+            nng, sg, arch, [], [fix_sg_input_output], rewrite_unsupported=False,
         )
 
     # Removal of reshapes
