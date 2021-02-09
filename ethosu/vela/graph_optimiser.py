@@ -164,10 +164,8 @@ def rewrite_split_ops(tens, arch, nng):
                 # If start offset is not a multiple of 16 in the C-dimension, NHCWB16 need to be avoided in the input
                 if (offset_start[-1] % 16) != 0:
                     inp.avoid_NHCWB16 = True
-        else:
-            offset_start = full_shape(4, offset_start, 0)
 
-        new_op.attrs["split_start"] = offset_start
+        new_op.read_offsets[0] = Shape4D.from_list(offset_start, 0)
         new_op.run_on_npu = True
         new_op.set_output_tensor(tens)
         new_op.ifm_shapes.append(Shape4D(inp.shape))
@@ -175,6 +173,45 @@ def rewrite_split_ops(tens, arch, nng):
         DebugDatabase.add_optimised(split_op, new_op)
 
     return tens
+
+
+def remove_SplitSliceRead(op, arch):
+
+    if op.type == Op.SplitSliceRead:
+        # Check if it is possible to put the SplitSliceRead on the tensor consumer, or if an avgpool need to be inserted
+        if (
+            len(op.ofm.consumer_list) == 1
+            and op.ofm.consumer_list[0] is not None
+            and op.ofm.consumer_list[0].run_on_npu
+            and op.ofm.consumer_list[0].type != Op.Reshape
+            and op.ofm_shapes[0] == Shape4D.from_list(op.ofm.shape)
+        ):
+            # SplitSliceRead can be performed by tensor consumer
+            cons_op = op.ofm.consumer_list[0]
+            if cons_op.ifm == op.ofm:
+                cons_op.read_offsets[0] = op.read_offsets[0]
+                cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[0])
+                cons_op.ifm_shapes[0] = op.ifm_shapes[0]
+            elif cons_op.type.is_binary_elementwise_op() and cons_op.ifm2 == op.ofm:
+                cons_op.read_offsets[1] = op.read_offsets[0]
+                cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[1])
+                cons_op.ifm_shapes[1] = op.ifm_shapes[0]
+
+            op.ofm.consumer_list.remove(cons_op)
+            op.ofm.ops = []
+            op.ifm.consumer_list.remove(op)
+        else:
+            avgpool_op = create_avgpool_nop(op.name + "_avgpool")
+            avgpool_op.add_input_tensor(op.ifm)
+            avgpool_op.outputs = [op.ofm]
+            op.ofm.ops.remove(op)
+            op.ofm.ops.append(avgpool_op)
+            avgpool_op.ifm_shapes.append(op.ifm_shapes[0])
+            avgpool_op.ofm_shapes.append(op.ofm_shapes[0])
+            avgpool_op.read_offsets[0] = op.read_offsets[0]
+
+            op.ifm.consumer_list.remove(op)
+            DebugDatabase.add_optimised(op, avgpool_op)
 
 
 def insert_copy_op_after_tens(tens):
@@ -202,7 +239,7 @@ def fix_sg_input_output(op, arch, nng):
     if not op.run_on_npu or op.type != Op.Reshape:
         return op
 
-    # For the memory operators we want to remove, tensors are removed.
+    # For the Reshape operators we want to remove, tensors are removed.
     # But in order to to do this, they cannot be outputs of the sg,
     # this need to be fixed prior to the removal.
     # Solution is to add a avgpool NOP, to maintain the original tensor.
@@ -1294,6 +1331,12 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
             [remove_passthrough_tensor],
             [fuse_activation_function_with_prev, optimise_pad, add_padding_fields],
         )
+
+    # Removal of SplitSliceRead, need to be done after optimisation has been performed,
+    # since ifm/ofm_shapes are of importance to this function
+    for sg in nng.subgraphs:
+        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [remove_SplitSliceRead])
+        sg.refresh_after_modification()
 
     # Post-optimisation operator debug tracing, and checking that no undesired reshapes are left in the graph
     for sg in nng.subgraphs:

@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -41,8 +41,6 @@ class PassFlags(enum.Flag):
     MemoryOnly = 4096
     PostFusingLimited = 8192
 
-
-npu_pre_ops = set((Op.SplitSliceRead,))
 
 mac_main_ops = set(
     (
@@ -143,16 +141,6 @@ test_sequence = [
         | PassFlags.PostFusingLimited,
         # flags_to_set
         PassFlags.Npu | PassFlags.ElementWise | PassFlags.Main,
-        # flags_to_clear
-        PassFlags.Empty,
-    ),
-    (
-        # ops_set
-        npu_pre_ops,
-        # incompatible_pack_flags
-        PassFlags.Cpu | PassFlags.MemoryOnly,
-        # flags_to_set
-        PassFlags.Npu | PassFlags.Mac | PassFlags.Pre | PassFlags.ElementWise,
         # flags_to_clear
         PassFlags.Empty,
     ),
@@ -437,7 +425,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 visit_op(op, tens)
 
     def create_primary_op(op_list):
-        if any(op.type in (npu_pre_ops | npu_post_ops | npu_post_fuse_limited_ops) and op.run_on_npu for op in op_list):
+        if any(op.type in (npu_post_ops | npu_post_fuse_limited_ops) and op.run_on_npu for op in op_list):
             # Configure a 1x1 AvgPool and attach the op onto it
             op = op_list[0]
             inp = op.inputs[0]

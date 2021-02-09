@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -41,7 +41,7 @@ class Box:
         npu_block_type: NpuBlockType,
         concat_axis: int = 0,
         concat_offset: int = 0,
-        split_offset: int = None,
+        split_offset: Shape4D = None,
         k_height: int = 1,
         upscaling_factor: int = 1,
     ):

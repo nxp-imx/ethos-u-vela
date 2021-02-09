@@ -418,6 +418,7 @@ class Operation:
         "ifm_shapes",
         "ofm_shapes",
         "rescale",
+        "read_offsets",
     )
 
     def __init__(self, op_type: Op, name: str):
@@ -444,6 +445,7 @@ class Operation:
         # If not none: contains rescale to be used as output scaling
         # (which overrides the ofm tensor's scale)
         self.rescale = None
+        self.read_offsets: List[Shape4D] = [None, None]  # offset for [ifm, ifm2]
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
@@ -458,6 +460,7 @@ class Operation:
         res.forced_output_quantization = self.forced_output_quantization
         res.scheduled_pass = self.scheduled_pass
         res.op_index = None  # not relevant as not part of input network
+        res.read_offsets = list(self.read_offsets)
 
         return res
 

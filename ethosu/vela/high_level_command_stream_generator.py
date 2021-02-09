@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -38,45 +38,19 @@ def dma_if_necessary(ps, box, tensor):
         yield DMA(ps, in_tensor, tensor, box)
 
 
-def match_tensor(source, derived):
-    if source == derived:
-        return True
-    ops = derived.ops
-    return ops != [] and len(ops) == 1 and ops[0].type == Op.SplitSliceRead and source == ops[0].inputs[0]
-
-
 def generate_high_level_command_stream_for_pass(strat, passes, block_configs, idx):
     is_first = idx == 0
     is_last = idx == len(passes) - 1
     ps = passes[idx]
     block_config = block_configs[idx]
     npu_block_type = ps.npu_block_type
-    split_offsets = [None, None]  # offset for [ifm, ifm2]
+    split_offsets = list(ps.primary_op.read_offsets)  # offset for [ifm, ifm2]
 
     if ps.ifm_tensor is not None and ps.ifm2_tensor is not None and npu_block_type == NpuBlockType.ElementWise:
         # Ensure correct ifm and ifm2 order
-        if match_tensor(ps.inputs[0], ps.primary_op.inputs[1]) and match_tensor(ps.inputs[1], ps.primary_op.inputs[0]):
+        if ps.inputs[0] == ps.primary_op.inputs[1] and ps.inputs[1] == ps.primary_op.inputs[0]:
             ps.ifm_tensor, ps.ifm2_tensor = ps.ifm2_tensor, ps.ifm_tensor
             ps.ifm_shapes[0], ps.ifm_shapes[1] = ps.ifm_shapes[1], ps.ifm_shapes[0]
-
-        for op in ps.ops:
-            if op.type == Op.SplitSliceRead:
-                ps.primary_op.memory_function = op.type
-                assert len(op.inputs) == 1
-                if match_tensor(ps.ifm_tensor, op.inputs[0]):
-                    split_offsets[0] = op.attrs["split_start"]
-                elif match_tensor(ps.ifm2_tensor, op.inputs[0]):
-                    split_offsets[1] = op.attrs["split_start"]
-                else:
-                    assert False
-    else:
-        ifm_idx = 0
-        for op in ps.ops:
-            if op.type == Op.SplitSliceRead:
-                assert ifm_idx < 2
-                split_offsets[ifm_idx] = op.attrs["split_start"]
-                ps.primary_op.memory_function = op.type
-                ifm_idx += 1
 
     ifm_tensor = ps.ifm_tensor
     ifm_shape = None
