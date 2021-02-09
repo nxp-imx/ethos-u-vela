@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 #
@@ -287,11 +287,9 @@ class SoftMax:
         shift = create_const_tensor(
             f"{name}_const", [1, 1, 1, 1], DataType.int32, [12], np.int32, quantization=no_scale_quant
         )
-        rescaled_exp = add_op_get_ofm(
-            create_shr(
-                name, ifm_exp, shift, no_scale_quant, activation, attrs={"rounding_mode": NpuRoundingMode.NATURAL},
-            )
-        )
+        shr_op = create_shr(name, ifm_exp, shift, no_scale_quant, activation)
+        shr_op.rounding_mode = NpuRoundingMode.NATURAL
+        rescaled_exp = add_op_get_ofm(shr_op)
 
         # PASS 3 - Reduce sum
         sum_of_exp = add_op_get_ofm(
@@ -421,7 +419,7 @@ class SoftMax:
 
         # PASS 30 - SHR
         shr30_op = Operation(Op.SHR, f"{self.op.name}_shr{pass_number}")
-        shr30_op.attrs["rounding_mode"] = NpuRoundingMode.NATURAL
+        shr30_op.rounding_mode = NpuRoundingMode.NATURAL
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)

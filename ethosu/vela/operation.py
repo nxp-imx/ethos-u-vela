@@ -25,6 +25,7 @@ from typing import Optional
 from typing import Tuple
 from typing import TYPE_CHECKING
 
+from .api import NpuRoundingMode
 from .errors import VelaError
 from .numeric_util import full_shape
 from .shape4d import Shape4D
@@ -420,6 +421,7 @@ class Operation:
         "ofm_shapes",
         "rescale",
         "read_offsets",
+        "rounding_mode",
     )
 
     def __init__(self, op_type: Op, name: str):
@@ -448,6 +450,7 @@ class Operation:
         # (which overrides the ofm tensor's scale)
         self.rescale = None
         self.read_offsets: List[Shape4D] = [None, None]  # offset for [ifm, ifm2]
+        self.rounding_mode: Optional[NpuRoundingMode] = None
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
@@ -464,6 +467,7 @@ class Operation:
         res.scheduled_pass = self.scheduled_pass
         res.op_index = None  # not relevant as not part of input network
         res.read_offsets = list(self.read_offsets)
+        res.rounding_mode = self.rounding_mode
 
         return res
 

@@ -609,14 +609,7 @@ def test_constraint_pad_consumer():
     op_consumer = testutil.create_op_with_quant_tensors(Op.ConcatTFLite, [1, 1, 1, 4], [1, 1, 1, 8])
     op.ofm.consumer_list = [op_consumer]
     assert not support.is_operator_supported(op)
-    op_consumer = testutil.create_op_with_quant_tensors(Op.AvgPool, [1, 8, 8, 8], [1, 8, 8, 8])
-    op_consumer.attrs = {
-        "stride_w": 2,
-        "stride_h": 2,
-        "filter_width": 2,
-        "filter_height": 2,
-        "padding": Padding.VALID,
-    }
+    op_consumer = testutil.create_elemwise_op(Op.Add, "op", [1, 3, 3, 1], [1, 3, 3, 1], [1, 3, 3, 1])
     op.ofm.consumer_list = [op_consumer]
     assert not support.is_operator_supported(op)
 
@@ -652,6 +645,55 @@ def test_constraint_leading_pad_size(top, left, kernel_size, expected):
     out_shape = [1, 11 + left, 11 + top, 1]
     padding = [[0, 0], [top, 0], [left, 0], [0, 0]]
     op = create_pad_op(in_shape=[1, 11, 11, 1], out_shape=out_shape, padding=padding, kernel_size=kernel_size)
+    assert support.is_operator_supported(op) == expected
+
+
+pad_avg_pool_test_data = [
+    ((3, 3), (1, 1, 1, 1), True),
+    ((2, 4), (1, 2, 1, 2), True),
+    ((5, 3), (2, 1, 2, 1), True),
+    ((5, 3), (0, 1, 2, 1), True),
+    ((5, 3), (2, 0, 2, 1), True),
+    ((5, 3), (2, 1, 0, 1), True),
+    ((5, 3), (2, 1, 0, 1), True),
+    ((4, 4), (2, 2, 2, 2), True),
+    ((4, 4), (1, 2, 2, 2), False),
+    ((4, 4), (2, 1, 2, 2), False),
+    ((4, 4), (2, 2, 1, 2), False),
+    ((4, 4), (2, 2, 2, 1), False),
+]
+
+
+@pytest.mark.parametrize("k_size, padding, expected", pad_avg_pool_test_data)
+def test_pad_followed_by_avg_pool(k_size, padding, expected):
+    # Tests PAD followed by AvgPool
+    k_w, k_h = k_size
+    top, left, bottom, right = padding
+    pad_values = [[0, 0], [top, bottom], [left, right], [0, 0]]
+    dtype = DataType.int8
+    qp = testutil.default_quant_params()
+    in_shape = [1, 15, 17, 8]
+    out_shape = [1, in_shape[1] + top + bottom, in_shape[2] + left + right, in_shape[3]]
+    in0 = Tensor(in_shape, dtype, "in")
+    in0.quantization = qp
+    pad_tensor = create_const_tensor(
+        name="pad", shape=list(np.shape(pad_values)), values=pad_values, dtype=DataType.int32
+    )
+    out = Tensor(out_shape, dtype, "out")
+    out.quantization = qp.clone()
+    op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
+    pool_out_tens = Tensor(in_shape, dtype, "output")
+    pool_out_tens.quantization = qp.clone()
+    attrs = {
+        "padding": Padding.VALID,
+        "ksize": [1, k_w, k_h, 1],
+        "stride_w": 1,
+        "stride_h": 1,
+        "dilation_w_factor": 1,
+        "dilation_h_factor": 1,
+    }
+    pool_op = testutil.create_op(Op.AvgPool, [out], pool_out_tens, attrs)
+    pool_op.add_input_tensor(out)
     assert support.is_operator_supported(op) == expected
 
 

@@ -133,7 +133,8 @@ def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
         and op.kernel.elements_wh() == 1
     ):
         rounding_mode = NpuRoundingMode.NATURAL
-    rounding_mode = op.attrs.get("rounding_mode", rounding_mode)
+    if op.rounding_mode is not None:
+        rounding_mode = op.rounding_mode
     return rounding_mode
 
 

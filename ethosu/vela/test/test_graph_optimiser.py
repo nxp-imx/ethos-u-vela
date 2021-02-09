@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -155,6 +155,53 @@ def test_optimise_pad():
     assert op.attrs["explicit_padding"] == (2, 1, 1, 1)
     assert op.ifm.shape == [1, 76, 75, 64]
     assert pad_op not in op.ifm.ops
+
+
+def test_optimise_pad_followed_by_avg_pool():
+    """
+    Tests that the PAD operator is bypassed when followed by a average pool operator,
+    and that the average pool is converted to a depthwise
+    """
+    # Create Pad operation followed by AvgPool
+    quant = testutil.default_quant_params()
+    in_tens = Tensor([1, 76, 75, 64], DataType.uint8, "input")
+    in_tens.quantization = quant
+    pad_input = create_const_tensor("pad_input", [4, 2], DataType.int32, [[0, 0], [2, 1], [1, 1], [0, 0]])
+    temp_tens = Tensor([1, 79, 77, 64], DataType.uint8, "pad_out")
+    temp_tens.quantization = quant.clone()
+    out_tens = Tensor([1, 76, 75, 64], DataType.uint8, "output")
+    out_tens.quantization = quant.clone()
+
+    pad_op = testutil.create_op(Op.Pad, [in_tens, pad_input], temp_tens)
+    attrs = {
+        "padding": Padding.VALID,
+        "ksize": [1, 5, 3, 1],
+        "stride_w": 2,
+        "stride_h": 2,
+        "dilation_w_factor": 1,
+        "dilation_h_factor": 1,
+    }
+    attrs["strides"] = (1, attrs["stride_h"], attrs["stride_w"], 1)
+    pad_op.run_on_npu = True
+    conv2d_op = testutil.create_op(Op.AvgPool, [temp_tens], out_tens, attrs)
+    conv2d_op.run_on_npu = True
+    nng = Graph()
+    sg = testutil.create_subgraph([pad_op, conv2d_op])
+    nng.subgraphs.append(sg)
+    arch = testutil.create_arch()
+
+    optimise_pad(conv2d_op, nng, arch)
+
+    op = sg.output_tensors[0].ops[0]
+    assert op.type == Op.DepthwiseConv2DBias
+    assert op.attrs["padding"] == Padding.EXPLICIT
+    assert op.attrs["explicit_padding"] == (2, 1, 1, 1)
+    assert op.ifm.shape == [1, 76, 75, 64]
+    assert pad_op not in op.ifm.ops
+    # Check that bias and weight tensors have been added
+    assert op.bias.shape == [64]
+    print("op.weights:", op.weights)
+    assert op.weights.shape == [5, 3, 1, 64]
 
 
 def test_remove_reshape():

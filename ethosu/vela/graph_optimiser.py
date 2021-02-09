@@ -26,6 +26,7 @@ from . import fp_math
 from . import lut
 from . import rewrite_graph
 from . import scaling
+from .api import NpuRoundingMode
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
@@ -46,6 +47,7 @@ from .tensor import check_quantized_tens_scaling_equal
 from .tensor import create_const_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
+from .tensor import TensorPurpose
 from .tflite_mapping import optype_to_builtintype
 
 passthrough_nodes = (Op.Identity,)
@@ -1174,19 +1176,55 @@ def fuse_activation_function_with_prev(op, arch, nng):
     return op
 
 
-def optimise_pad(op, arch, nng):
+def optimise_pad(op: Operation, arch, nng):
     """
     Converts tens1 -> PAD -> tens2 -> CONV to tens1 -> CONV
     if both operations can be run on the NPU.
     """
     if (
-        (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op())
+        (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op() or op.type.is_pool_op())
         and op.run_on_npu
         and op.attrs["padding"] == Padding.VALID
     ):
         pad_op = op.ifm.ops[0]
         if pad_op.type != Op.Pad or not pad_op.run_on_npu:
             return op
+        if op.type.is_avgpool_op():
+            # Average pool is converted to depthwise, because NPU average pool + same padding
+            # has a special implementation that is different from PAD followed by average pool with
+            # valid padding.
+            k_w, k_h = op.kernel.width, op.kernel.height
+            ifm = op.ifm
+            # Remember other inputs
+            other_inputs = op.inputs[1:]
+            # Create a weight tensor, all weights are set to 1/(kernel width * kernel height)
+            quantization = QuantizationParameters(0.0, 255.0)
+            quantization.scale_f32 = 1.0 / (k_w * k_h)
+            quantization.zero_point = 0
+            shape = [k_h, k_w, 1, op.ofm.shape[-1]]
+            weights = np.full(shape, 1)
+
+            weight_tens = create_const_tensor(
+                op.name + "_weights",
+                shape,
+                op.ifm.dtype,
+                weights,
+                np.uint8,
+                purpose=TensorPurpose.Weights,
+                quantization=quantization,
+            )
+            weight_tens.quant_values = weights
+            op.type = Op.DepthwiseConv2DBias
+            op.inputs = []
+            op.add_input_tensor(ifm)
+            op.add_input_tensor(weight_tens)
+            # Add bias tensor, all biases set to 0
+            op.inputs.append(None)
+            fixup_bias_tensors(op, arch, nng)
+            # Add other inputs
+            op.inputs.extend(other_inputs)
+            op.rounding_mode = NpuRoundingMode.NATURAL
+
         # Bypass the PAD operator
         op.set_input_tensor(pad_op.ifm, 0)
         # Adjust the padding attributes of the convolution operator
@@ -1231,7 +1269,7 @@ def fixup_bias_tensors(op, arch, nng):
         bias_values = [0] * nr_biases
         bias_tensor = create_const_tensor(op.name + "_bias", [nr_biases], DataType.int32, bias_values)
         bias_tensor.quant_values = bias_tensor.values
-        op.set_input_tensor(bias_tensor, -1)
+        op.set_input_tensor(bias_tensor, op.type.info.indices.biases[0])
 
     return op
 
