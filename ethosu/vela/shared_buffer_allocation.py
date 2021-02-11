@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -279,10 +279,13 @@ def find_suitable_block_configs(arch, alloc: SharedBufferAllocation) -> List[Tup
     max_block_height = min(arch.ofm_block_max.height, max_block_height)
     max_block_depth = min(arch.ofm_block_max.depth, max_block_depth)
 
+    min_block_height = max(arch.ofm_ublock.height, 2 if alloc.ifm_resampling_mode != resampling_mode.NONE else 1)
+    min_block_width = max(arch.ofm_ublock.width, 2 if alloc.ifm_resampling_mode != resampling_mode.NONE else 1)
+
     valid_block_configs = []
     # Try a range of block shapes against this pass
-    for w in range(arch.ofm_ublock.width, max_block_width + arch.ofm_ublock.width, arch.ofm_ublock.width):
-        for h in range(arch.ofm_ublock.height, max_block_height + arch.ofm_ublock.height, arch.ofm_ublock.height):
+    for w in range(min_block_width, max_block_width + min_block_width, min_block_width):
+        for h in range(min_block_height, max_block_height + min_block_height, min_block_height):
             # Try valid OFM block depths
             for c in range(arch.ofm_ublock.depth, max_block_depth + arch.ofm_ublock.depth, arch.ofm_ublock.depth):
                 # OFM block depth has the constraint that if it causes the OFM to be

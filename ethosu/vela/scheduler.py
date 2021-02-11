@@ -649,8 +649,6 @@ class DynamicProgrammingScheduler:
             if len(op.outputs) > 1 or len(op.outputs[0].consumer_list) > 1:
                 # The op has consumers in other subgraphs
                 return True
-            if op.type == Op.ResizeBilinear:
-                return True
         return False
 
     def search_ifm_streaming_partial(self, ps, block_config):
