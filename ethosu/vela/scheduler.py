@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -641,7 +641,7 @@ class DynamicProgrammingScheduler:
     def avoid_for_cascading(self, pred_candidate):
         for op in pred_candidate.ops:
             if (
-                op.type == Op.ConcatSliceWrite
+                op.memory_function == Op.ConcatSliceWrite
                 and self.arch.feature_map_storage_mem_area != self.arch.fast_storage_mem_area
             ):
                 # For SRAM spilling, concat op is avoided as predecessor

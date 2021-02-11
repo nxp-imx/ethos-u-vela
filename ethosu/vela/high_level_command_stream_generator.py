@@ -91,7 +91,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
             ofm_start[concat_axis] = concat_start
             ofm_end[concat_axis] = concat_end
             concat_offset = concat_start
-            ps.primary_op.memory_function = Op.ConcatSliceWrite
         elif op.type.is_relu_op() or op.type in (Op.Tanh, Op.Sigmoid):
             ps.primary_op.activation = create_activation_function(op.type)
 

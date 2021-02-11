@@ -109,6 +109,7 @@ def rewrite_concat_ops(op, arch):
         DebugDatabase.add_optimised(op, avgpool_op)
         avgpool_op.ifm_shapes.append(op.ifm_shapes[idx])
         avgpool_op.ofm_shapes.append(op.ofm_shapes[0])
+        avgpool_op.memory_function = Op.ConcatSliceWrite
     assert ofm.shape[axis] == offset
 
     # If axis corresponds to C-dimension, NHCWB16 can only be used in the output if all the concat_start's are a
