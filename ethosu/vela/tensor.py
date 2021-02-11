@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -437,15 +437,13 @@ class Tensor:
     # Depending on set_unique, the copy is shallow, or deep
     # For set_unique==True, a new equivalence_id will be set
     def clone(self, suffix="_clone", set_unique: bool = False) -> "Tensor":
+        res = copy.copy(self)
         if set_unique:
-            res = copy.deepcopy(self)
             res.equivalence_id = uuid.uuid4()
-        else:
-            res = copy.copy(self)
-            res.storage_shape = list(self.storage_shape)
-            res.bandwidth_shape = list(self.bandwidth_shape)
-            if self.quantization is not None:
-                res.quantization = self.quantization.clone()
+        res.storage_shape = list(self.storage_shape)
+        res.bandwidth_shape = list(self.bandwidth_shape)
+        if self.quantization is not None:
+            res.quantization = self.quantization.clone()
 
         res.name = res.name + suffix
         res.ops = []
