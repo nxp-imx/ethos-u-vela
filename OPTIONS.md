@@ -123,8 +123,8 @@ vela network.tflite --cascading False
 
 ### Force Block Config
 
-Force a specific block configuration in the format HxWxC, where H, W, and C are
-positive integers specifying height, width, and channels (depth), respectively.
+Force a specific block configuration in the format WxHxC, where W, H and C are
+positive integers specifying width, height and channels (depth), respectively.
 The default behaviour is Vela searching for an optimal block configuration.  An
 exception will be raised if the chosen block configuration is incompatible.  
 **Type: String**  

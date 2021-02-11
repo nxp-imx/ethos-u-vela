@@ -294,7 +294,7 @@ def main(args=None):
         choices=[True, False],
         help="Controls the packing of multiple passes into a cascade (default: %(default)s)",
     )
-    parser.add_argument("--force-block-config", type=str, default="", help="Force a specific block configuration HxWxC")
+    parser.add_argument("--force-block-config", type=str, default="", help="Force a specific block configuration WxHxC")
     parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
     parser.add_argument(
         "--accelerator-config",
