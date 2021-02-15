@@ -67,6 +67,8 @@ def hillclimb_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularit
     # Allocates using the hill climb allocator
     lr_set = {(lr.start_time, lr.end_time, lr) for lr in live_ranges.ranges.values()}
     lr_list = [lr for _, _, lr in lr_set]
+    lr_list.sort()
+
     addresses = hillclimb_allocation.allocate_live_ranges(lr_list)
     # The result is a list containing the allocated addresses
     total_sz = 0
