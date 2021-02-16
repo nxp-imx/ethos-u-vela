@@ -407,6 +407,7 @@ class Operation:
         "attrs",
         "inputs",
         "outputs",
+        "intermediates",
         "flops",
         "scheduled_pass",
         "run_on_npu",
@@ -427,6 +428,7 @@ class Operation:
         self.attrs: Dict[str, Any] = {}
         self.inputs: List[Tensor] = []
         self.outputs: List[Tensor] = []
+        self.intermediates: List[Tensor] = []
         self.flops = 0
         self.run_on_npu = True
         # Fused activation function. If not none: operator code.
@@ -453,6 +455,7 @@ class Operation:
         res.attrs = dict(self.attrs)
         res.inputs = list(self.inputs)
         res.outputs = list(self.outputs)
+        res.intermediates = list(self.intermediates)
         res.flops = self.flops
         res.run_on_npu = self.run_on_npu
         res.activation = None if self.activation is None else self.activation.clone()

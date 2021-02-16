@@ -341,6 +341,7 @@ class Tensor:
         "bandwidth_shape",
         "dtype",
         "name",
+        "is_variable",
         "ops",
         "consumer_list",
         "values",
@@ -378,6 +379,7 @@ class Tensor:
         self.bandwidth_shape = shape
         self.dtype = dtype
         self.name = name
+        self.is_variable = False
         self.equivalence_id: UUID = uuid.uuid4()
 
         self.ops: List[Operation] = []

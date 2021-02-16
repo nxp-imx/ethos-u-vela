@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -109,6 +109,7 @@ class TFLiteSubgraph:
         dtype = datatype_map[tens_dtype]
         tens = Tensor(shape, dtype, name)
         quant = tens_data.Quantization()
+        tens.is_variable = tens_data.IsVariable()
 
         tens.quantization = QuantizationParameters()
         if quant is not None:
@@ -144,6 +145,10 @@ class TFLiteSubgraph:
         op_type, opt_serializer, custom_code = self.graph.operator_codes[op_data.OpcodeIndex()]
         inputs = [self.tensors[idx] if idx != -1 else None for idx in op_data.InputsAsNumpy()]
         outputs = [self.tensors[idx] if idx != -1 else None for idx in op_data.OutputsAsNumpy()]
+        intermediates = []
+        if op_data.IntermediatesLength():
+            intermediates = [self.tensors[idx] if idx != -1 else None for idx in op_data.IntermediatesAsNumpy()]
+
         name = "unknown_op_name"
         if len(outputs):
             name = outputs[0].name
@@ -151,6 +156,7 @@ class TFLiteSubgraph:
         op.op_index = op_index
         op.inputs = inputs
         op.outputs = outputs
+        op.intermediates = intermediates
         for out in op.outputs:
             out.ops = [op]
 
