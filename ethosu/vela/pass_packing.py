@@ -29,17 +29,16 @@ from .tensor import TensorPurpose
 
 class PassFlags(enum.Flag):
     Empty = 0
-    Pre = 1
-    Main = 2
-    Post = 4
-    Mac = 8
-    Dma = 32
-    ElementWise = 256
-    Npu = 512
-    Cpu = 1024
-    StartupInit = 2048
-    MemoryOnly = 4096
-    PostFusingLimited = 8192
+    Main = 1
+    Post = 2
+    Mac = 4
+    Dma = 8
+    ElementWise = 16
+    Npu = 32
+    Cpu = 64
+    StartupInit = 128
+    MemoryOnly = 256
+    PostFusingLimited = 512
 
 
 mac_main_ops = set(
@@ -98,7 +97,7 @@ test_sequence = [
         # ops_set
         npu_post_ops,
         # incompatible_pack_flags
-        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Pre | PassFlags.Main,
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Main,
         # flags_to_set
         PassFlags.Npu | PassFlags.Post,
         # flags_to_clear
@@ -108,7 +107,7 @@ test_sequence = [
         # ops_set
         npu_post_fuse_limited_ops,
         # incompatible_pack_flags
-        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Pre | PassFlags.Main,
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Main,
         # flags_to_set
         PassFlags.Npu | PassFlags.PostFusingLimited,
         # flags_to_clear
@@ -118,12 +117,7 @@ test_sequence = [
         # ops_set
         mac_main_ops,
         # incompatible_pack_flags
-        PassFlags.Cpu
-        | PassFlags.MemoryOnly
-        | PassFlags.ElementWise
-        | PassFlags.Pre
-        | PassFlags.Main
-        | PassFlags.PostFusingLimited,
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.ElementWise | PassFlags.Main | PassFlags.PostFusingLimited,
         # flags_to_set
         PassFlags.Npu | PassFlags.Mac | PassFlags.Main,
         # flags_to_clear
@@ -133,12 +127,7 @@ test_sequence = [
         # ops_set
         elem_wise_main_ops,
         # incompatible_pack_flags
-        PassFlags.Cpu
-        | PassFlags.MemoryOnly
-        | PassFlags.Mac
-        | PassFlags.Pre
-        | PassFlags.Main
-        | PassFlags.PostFusingLimited,
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Mac | PassFlags.Main | PassFlags.PostFusingLimited,
         # flags_to_set
         PassFlags.Npu | PassFlags.ElementWise | PassFlags.Main,
         # flags_to_clear
@@ -436,6 +425,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_op.set_output_tensor(avgpool_out)
             avgpool_op.ifm_shapes = op.ifm_shapes.copy()
             avgpool_op.ofm_shapes = op.ofm_shapes.copy()
+            avgpool_op.read_offsets = op.read_offsets.copy()
 
             op.inputs[0] = avgpool_out
             op_list.insert(0, avgpool_op)
