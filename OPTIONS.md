@@ -161,7 +161,12 @@ vela network.tflite --accelerator-config ethos-u55-64
 Selects the system configuration to use as specified in the Vela configuration
 file (see section below).  
 **Type: String**  
-**Default: Use internal default config**  
+**Default: Use `internal-default` config.  This maps to the following configs from the example `vela.ini` file**  
+
+- **Ethos-U65** - System configuration Ethos-U65 Client-Server: SRAM (16 GB/s)
+  and DRAM (12 GB/s)  
+- **Ethos-U55** - System configuration Ethos-U55 High-End Embedded: SRAM
+  (4 GB/s) and Flash (0.5 GB/s)  
 
 ```bash
 vela network.tflite --config my_vela_cfg.ini --system-config My_Sys_Cfg
@@ -172,7 +177,13 @@ vela network.tflite --config my_vela_cfg.ini --system-config My_Sys_Cfg
 Selects the memory mode to use as specified in the Vela configuration file (see
 section below).  
 **Type: String**  
-**Default: Use internal default config**  
+**Default: Use `internal-default` config.  This maps to the following configs from the example `vela.ini` file**  
+
+- **Ethos-U65** - Memory mode Dedicated SRAM: the SRAM is only for use by the
+  Ethos-U.  The non-SRAM memory is assumed to be read-writeable  
+- **Ethos-U55** - Memory mode Shared SRAM: the SRAM is shared between the
+  Ethos-U and the Cortex-M software.  The non-SRAM memory is assumed to be
+  read-only  
 
 ```bash
 vela network.tflite --config my_vela_cfg.ini --memory-mode My_Mem_Mode
