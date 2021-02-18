@@ -159,19 +159,11 @@ system configuration along with the `My_Mem_Mode` memory mode from the `vela_cfg
 vela --config vela_cfg.ini --system-config My_Sys_Config --memory-mode My_Mem_Mode my_model.tflite
 ```
 
-5) To get a list of all available options:
+5) To get a list of all available options (see CLI Options section below):
 
 ```bash
 vela --help
 ```
-
-Information about all of Vela's CLI options as well as the system configuration
-file format can be found in [Vela Options](OPTIONS.md).
-
-## External APIs
-
-Vela provides a low-level external API to enable Ethos-U code generation from
-other tools. Please see [Vela External APIs](API.md).
 
 ## Example Networks
 
@@ -179,10 +171,22 @@ Some example networks that contain quantised operators which can be compiled by
 Vela to run on the Ethos-U NPU can be found at:
 <https://tfhub.dev/s?deployment-format=lite&q=quantized>
 
+## External APIs
+
+Please see [Vela External APIs](API.md) for information about Vela's low-level
+external API that can be used to enable Ethos-U code generation from other
+tools.
+
+## CLI Options
+
+Please see [Vela CLI Options](OPTIONS.md) for detailed information about all of
+Vela's CLI options as well as a description of the system configuration file
+format.
+
 ## Supported Operators
 
-Please see [Supported Operators](SUPPORTED_OPS.md) for the list of supported
-operators in this release.
+Please see [Vela Supported Operators](SUPPORTED_OPS.md) for the list of
+operators that Vela supports in this release.
 
 ## Testing
 
