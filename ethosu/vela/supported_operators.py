@@ -252,6 +252,7 @@ class SupportedOperators:
 
         # FullyConnected specific checks:
         self.specific_constraints[Op.FullyConnected].append(SupportedOperators.constraint_fc_output_2d)
+        self.specific_constraints[Op.FullyConnected].append(SupportedOperators.constraint_keep_dim_ifm_ofm)
 
         # Pad specific checks:
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_matching_in_out_types)
@@ -1068,3 +1069,11 @@ class SupportedOperators:
         alpha = op.attrs["alpha"]
         valid = alpha >= 0
         return valid, f"Op has alpha={alpha}"
+
+    @staticmethod
+    def constraint_keep_dim_ifm_ofm(op):
+        "The IFM and OFM must have the same number of dimensions if keep_num_dims is set to true"
+        valid = True
+        if op.attrs.get("keep_num_dims"):
+            valid = len(op.ifm.shape) == len(op.ofm.shape)
+        return valid, f"Op has ifm shape={op.ifm.shape} and ofm shape={op.ofm.shape}"

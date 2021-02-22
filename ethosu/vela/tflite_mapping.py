@@ -501,7 +501,9 @@ builtin_operator_map = {
     BuiltinOperator.FLOOR: (Op.Floor, None),
     BuiltinOperator.FULLY_CONNECTED: (
         Op.FullyConnected,
-        OptionsSerializer("FullyConnectedOptions", (fused_act, "weights_format", "asymmetric_quantize_inputs")),
+        OptionsSerializer(
+            "FullyConnectedOptions", (fused_act, "weights_format", "asymmetric_quantize_inputs", "keep_num_dims")
+        ),
     ),
     BuiltinOperator.HASHTABLE_LOOKUP: (Op.HashtableLookup, None),
     BuiltinOperator.L2_NORMALIZATION: (Op.L2Norm, OptionsSerializer("L2NormOptions", (fused_act,))),
@@ -618,7 +620,7 @@ builtin_operator_map = {
     BuiltinOperator.EQUAL: (Op.Equal, OptionsSerializer("EqualOptions")),
     BuiltinOperator.NOT_EQUAL: (Op.NotEqual, OptionsSerializer("NotEqualOptions")),
     BuiltinOperator.LOG: (Op.Log, None),
-    BuiltinOperator.SUM: (Op.Sum, None),
+    BuiltinOperator.SUM: (Op.Sum, reducer_opts),
     BuiltinOperator.SQRT: (Op.Sqrt, None),
     BuiltinOperator.RSQRT: (Op.Rsqrt, None),
     BuiltinOperator.SHAPE: (
