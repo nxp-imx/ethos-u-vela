@@ -31,8 +31,8 @@ compiled model.
 
 ## Environment
 
-Vela runs on the Linux operating system and on Microsoft Windows,
-see note in Installation section below.
+Vela runs on the Linux and Microsoft Windows 10 operating systems, see note in
+Installation section below.
 
 ## Prerequisites
 
@@ -54,9 +54,9 @@ source code from
 [ML Platform](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela).
 Both methods will automatically install all the required dependencies.
 
-**Note:** For installing on Microsoft Windows you need to have a C99 capable
-toolchain installed. The recommended and tested toolchain is Microsoft Visual
-C++ 14.x Build Tools, see <https://wiki.python.org/moin/WindowsCompilers>
+**Note:** For installing on Microsoft Windows 10 you need to have a C99 capable
+toolchain installed.  The recommended and tested toolchain is Microsoft Visual
+C++ 14.2 Build Tools, see <https://wiki.python.org/moin/WindowsCompilers>
 
 ### PyPi
 
@@ -171,38 +171,39 @@ Some example networks that contain quantised operators which can be compiled by
 Vela to run on the Ethos-U NPU can be found at:
 <https://tfhub.dev/s?deployment-format=lite&q=quantized>
 
-## External APIs
+## APIs
 
-Please see [Vela External APIs](API.md) for information about Vela's low-level
-external API that can be used to enable Ethos-U code generation from other
-tools.
-
-## CLI Options
-
-Please see [Vela CLI Options](OPTIONS.md) for detailed information about all of
-Vela's CLI options as well as a description of the system configuration file
-format.
-
-## Supported Operators
-
-Please see [Vela Supported Operators](SUPPORTED_OPS.md) for the list of
-operators that Vela supports in this release.
-
-## Testing
-
-Please see [Vela Testing](TESTING.md).
+Please see [Vela External APIs](API.md).
 
 ## Contributions
 
 Please see [Vela Contributions](CONTRIBUTIONS.md).
 
-## Security
+## Debug Database
 
-Please see [Vela Security](SECURITY.md).
+Please see [Vela Debug Database](DEBUG_DB.md).
+
+## Options
+
+Please see [Vela CLI Options](OPTIONS.md).  This includes a description of the
+system configuration file format.
 
 ## Releases
 
 Please see [Vela Releases](RELEASES.md).
+
+## Security
+
+Please see [Vela Security](SECURITY.md).
+
+## Supported Operators
+
+Please see [Vela Supported Operators](SUPPORTED_OPS.md) for the list of
+operators supported in this release.
+
+## Testing
+
+Please see [Vela Testing](TESTING.md).
 
 ## Resources
 

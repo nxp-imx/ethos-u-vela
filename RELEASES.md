@@ -5,6 +5,33 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 2.1.0 - 25/02/2021
+
+**Main feature changes:**
+
+* New operator support: PAD, MEAN and HARD_SWISH
+* New HillClimb tensor allocator (default)
+* Network performance improved of shallow layers
+* Updated support to TensorFlow Lite 2.4
+* Added Microsoft Windows 10 support
+* Extended debug database to support multiple Ethos-U Custom operators
+* Added cascading support to RESIZE_BILINEAR
+* Improved performance estimations
+
+**Interface changes:**
+
+* Addition of Vela configuration (.ini) file options:
+  * `MEM_burst_length`, `MEM_read_latency`, `MEM_write_latency`
+* Change to CLI options:
+  * `--tensor-allocator` (change default to HillClimb)
+* Addition of CLI options:
+  * `--verbose-all`
+
+**Reported defect fixes:**
+
+* Bug with handling multiple custom operators (MLCE-329)
+* Bug with configuring Ethos-U55 with DRAM (MLCE-322)
+
 ## Release 2.0.1 - 03/12/2020
 
 * Fixed a broken link in the long description used by PyPi

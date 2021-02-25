@@ -58,7 +58,7 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
-        "Operating System :: Microsoft :: Windows",
+        "Operating System :: Microsoft :: Windows :: Windows 10",
         "Programming Language :: C",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
