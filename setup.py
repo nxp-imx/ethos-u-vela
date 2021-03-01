@@ -26,7 +26,7 @@ from setuptools import setup
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
-    tag = "2.0.1"
+    tag = "2.1.1"
     url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
     # Find all markdown links that match the format:  [text](link)
     for match, link in re.findall(r"(\[.+?\]\((.+?)\))", long_description):
