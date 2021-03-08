@@ -20,11 +20,12 @@ import random
 from typing import List
 from typing import Set
 
+from . import numeric_util
 from .live_range import LiveRange
 
 
 class LiveRangeInfo:
-    def __init__(self, id: int, start_time: int, end_time: int, size: int):
+    def __init__(self, id: int, start_time: int, end_time: int, size: int, min_alignment: int):
         # Index of this live range
         self.id = id
         # Start time (input to the allocator algorithm)
@@ -44,6 +45,7 @@ class LiveRangeInfo:
         # Max value of size_at_time (only used in the heuristic allocation)
         self.urgency = 0
         self.neighbours: List["LiveRangeInfo"] = []
+        self.min_alignment = min_alignment
 
     def overlaps(self, addr2: int, size2: int) -> int:
         return self.address < addr2 + size2 and addr2 < self.end_address
@@ -96,7 +98,8 @@ class HillClimbAllocator:
     def __init__(self, live_ranges: List[LiveRange]):
         # Contains the live ranges
         self.lrs: List[LiveRangeInfo] = [
-            LiveRangeInfo(id, lr.start_time, lr.end_time, lr.size) for id, lr in enumerate(live_ranges)
+            LiveRangeInfo(id, lr.start_time, lr.end_time, lr.size, lr.get_alignment())
+            for id, lr in enumerate(live_ranges)
         ]
         self.lrs_at_time = []
         # The available size (input to algorithm).
@@ -145,7 +148,7 @@ class HillClimbAllocator:
                 if lr2.overlaps(address, lr.size):
                     # Overlap found increase address
                     fits = False
-                    address = lr2.end_address
+                    address = numeric_util.round_up(lr2.end_address, lr.min_alignment)
                     predecessor = lr2.id
         lr.address = address
         lr.end_address = address + lr.size

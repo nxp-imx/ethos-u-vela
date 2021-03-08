@@ -41,9 +41,12 @@ class GreedyAllocator:
         current_offset = 0
         for start_addr, lr in self.current_allocs:
             aligned_current_offset = numeric_util.round_up(current_offset, new_lr.get_alignment())
-            if aligned_current_offset + aligned_size <= start_addr and start_addr - current_offset < best_offset_fit:
-                best_offset = current_offset
-                best_offset_fit = start_addr - current_offset
+            if (
+                aligned_current_offset + aligned_size <= start_addr
+                and start_addr - aligned_current_offset < best_offset_fit
+            ):
+                best_offset = aligned_current_offset
+                best_offset_fit = start_addr - aligned_current_offset
 
             current_offset = start_addr + lr.size
 
