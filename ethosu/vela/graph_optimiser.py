@@ -937,12 +937,13 @@ def convert_lrelu_to_mul_max(op, arch):
         scalar = 0
     else:
         quantization.scale_f32 = alpha
-        scalar = 1
+        scalar = alpha
     alpha_tens = create_const_tensor(
-        op.name + "_alpha_scalar", [], ifm.dtype, [scalar], np.int8, quantization=quantization
+        op.name + "_alpha_scalar", [], ifm.dtype, [scalar], np.float32, quantization=quantization
     )
+    alpha_tens.quant_values = np.array([1])
     mul_alpha.add_input_tensor(alpha_tens)
-    fm_alpha = ofm.clone(op.name + "_alpha")
+    fm_alpha = ofm.clone(op.name + "_alpha", set_unique=True)
     mul_alpha.set_output_tensor(fm_alpha)
     mul_alpha.set_ifm_ofm_shapes()
     DebugDatabase.add_optimised(op, mul_alpha)
