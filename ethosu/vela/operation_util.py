@@ -40,6 +40,7 @@ def create_avgpool_nop(name: str) -> Operation:
     op.attrs["ksize"] = [1, 1, 1, 1]
     op.attrs["skirt"] = [0, 0, 0, 0]
     op.attrs["explicit_padding"] = [0, 0, 0, 0]
+    op.run_on_npu = True
     return op
 
 
@@ -259,3 +260,8 @@ def create_binary_elementwise(
     op.set_output_tensor(ofm)
     op.ofm_shapes.append(ofm_shape)
     return op
+
+
+def get_pad_values_from_input(padding) -> Tuple:
+    """Returns top, left, bottom, right padding from input values in a Pad input tensor"""
+    return (padding[-3][0], padding[-2][0], padding[-3][1], padding[-2][1])

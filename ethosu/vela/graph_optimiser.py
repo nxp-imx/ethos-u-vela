@@ -41,10 +41,12 @@ from .operation import Op
 from .operation import Operation
 from .operation import Padding
 from .operation_util import create_avgpool_nop
+from .operation_util import get_pad_values_from_input
 from .shape4d import Shape4D
 from .softmax import SoftMax
 from .tensor import check_quantized_tens_scaling_equal
 from .tensor import create_const_tensor
+from .tensor import create_equivalence_id
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 from .tensor import TensorPurpose
@@ -53,6 +55,23 @@ from .tflite_mapping import optype_to_builtintype
 passthrough_nodes = (Op.Identity,)
 
 memory_only_ops = (Op.Reshape,)
+
+
+def create_avg_pool_for_concat(concat_op, name, ifm, ifm_shape: Shape4D, write_offset: Shape4D):
+    """Creates an average pool for the given concat op/input feature map"""
+    ofm = concat_op.ofm
+    avgpool_op = create_avgpool_nop(name)
+    avgpool_op.inputs = [ifm]
+    avgpool_op.outputs = [ofm]
+
+    avgpool_op.write_offset = write_offset
+    avgpool_op.write_shape = ifm_shape
+    ofm.ops.append(avgpool_op)
+    DebugDatabase.add_optimised(concat_op, avgpool_op)
+    avgpool_op.ifm_shapes.append(ifm_shape)
+    avgpool_op.ofm_shapes.append(concat_op.ofm_shapes[0])
+    avgpool_op.memory_function = Op.ConcatSliceWrite
+    return avgpool_op
 
 
 def remove_passthrough_tensor(tens, arch, nng):
@@ -64,7 +83,7 @@ def remove_passthrough_tensor(tens, arch, nng):
 
 def rewrite_concat_ops(op, arch):
     if not op.run_on_npu or not op.type.is_concat_op():
-        return op
+        return
 
     axis_4D = 0
     ofm = op.ofm
@@ -90,7 +109,6 @@ def rewrite_concat_ops(op, arch):
         op.type = Op.PackReshaped
 
     inputs, axis = op.get_concat_inputs_axis()
-
     for idx, inp in enumerate(inputs):
         if op.type != Op.PackReshaped:
             op.ifm_shapes[idx] = Shape4D(inp.shape)
@@ -98,20 +116,13 @@ def rewrite_concat_ops(op, arch):
                 axis_4D = axis + (4 - len(inp.shape))
             else:
                 axis_4D = axis
-        avgpool_op = create_avgpool_nop(op.name + str(idx) + "_avgpool")
-        avgpool_op.inputs = [inp]
-        avgpool_op.outputs = [ofm]
-        avgpool_op.attrs["concat_axis"] = axis_4D
-        avgpool_op.attrs["concat_start"] = offset
-        offset += op.ifm_shapes[idx][axis_4D]
-
-        avgpool_op.attrs["concat_end"] = offset
-        avgpool_op.run_on_npu = True
-        ofm.ops.append(avgpool_op)
-        DebugDatabase.add_optimised(op, avgpool_op)
-        avgpool_op.ifm_shapes.append(op.ifm_shapes[idx])
-        avgpool_op.ofm_shapes.append(op.ofm_shapes[0])
-        avgpool_op.memory_function = Op.ConcatSliceWrite
+        write_offset = [0, 0, 0, 0]
+        write_offset[axis_4D] = offset
+        concat_end = offset + op.ifm_shapes[idx][axis_4D]
+        create_avg_pool_for_concat(
+            op, op.name + str(idx) + "_avgpool", inp, op.ifm_shapes[idx], Shape4D.from_list(write_offset)
+        )
+        offset = concat_end
     assert ofm.shape[axis] == offset
 
     # If axis corresponds to C-dimension, NHCWB16 can only be used in the output if all the concat_start's are a
@@ -119,11 +130,7 @@ def rewrite_concat_ops(op, arch):
     # aligned. For other values of axis the address offsets will be 16 byte aligned, as they are all based on c = 0
     # and those addresses are always 16 byte aligned due to the NHCWB16 format.
     if axis == -1 or axis == (len(ofm.shape) - 1):
-        for op in ofm.ops:
-            if op.attrs["concat_start"] % 16 != 0:
-                ofm.avoid_NHCWB16 = True
-                break
-    return op
+        ofm.avoid_NHCWB16 = any(op2.write_offset.depth % 16 != 0 for op2 in ofm.ops if op2.write_offset is not None)
 
 
 def rewrite_split_ops(tens, arch, nng):
@@ -1177,20 +1184,53 @@ def fuse_activation_function_with_prev(op, arch, nng):
     return op
 
 
-def optimise_pad(op: Operation, arch, nng):
+def _leading_pad_ok(leading_pad, stride, kernel_size):
+    # If kernel size // 2 > stride, then (left, top) padding must be a multiple of stride,
+    # otherwise replacing PAD by hardware padding would iterate the wrong IFM rows/columns
+    max_size = kernel_size // 2
+    return leading_pad == max_size or max_size <= stride or leading_pad % stride == 0
+
+
+def replace_pad_by_hw_pad(op: Operation, arch, nng):
     """
+    Tries to completely remove a PAD operator by using hardware padding.
+    E.g. a PAD operation that pads 1, followed by a CONV with VALID padding and kernel size 3
+    is rewritten such that the PAD is removed, and the CONV uses SAME padding.
     Converts tens1 -> PAD -> tens2 -> CONV to tens1 -> CONV
     if both operations can be run on the NPU.
+    This is the most efficient way to implement PAD, but cannot be done for all pad sizes.
     """
     if (
-        (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op() or op.type.is_pool_op())
+        (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op() or op.type.is_avgpool_op())
         and op.run_on_npu
         and op.attrs["padding"] == Padding.VALID
     ):
         pad_op = op.ifm.ops[0]
         if pad_op.type != Op.Pad or not pad_op.run_on_npu:
             return op
+        if pad_op.ifm.dtype != pad_op.ofm.dtype or not check_quantized_tens_scaling_equal(pad_op.ofm, pad_op.ifm):
+            return op
+        top, left, bottom, right = get_pad_values_from_input(pad_op.inputs[1].values)
+        k = op.kernel
+        k_w, k_h = k.dilated_wh()
+
+        # Check if the PAD operator can be replaced by hardware padding
+        if left > k_w // 2 or right > k_w // 2 or top > k_h // 2 or bottom > k_h // 2:
+            # Too much padding, it would require hardware padding to actually insert zeros
+            return op
+        if not _leading_pad_ok(top, k.stride.y, k_h) or not _leading_pad_ok(left, k.stride.x, k_w):
+            return op
+
         if op.type.is_avgpool_op():
+            # For average pool, hardware padding can only be used if padding is 0 or kernel size / 2
+            for pad, k_size in (
+                (left, k_w),
+                (right, k_w),
+                (top, k_h),
+                (bottom, k_h),
+            ):
+                if pad not in (0, k_size // 2):
+                    return op
             # Average pool is converted to depthwise, because NPU average pool + same padding
             # has a special implementation that is different from PAD followed by average pool with
             # valid padding.
@@ -1230,11 +1270,78 @@ def optimise_pad(op: Operation, arch, nng):
         op.set_input_tensor(pad_op.ifm, 0)
         # Adjust the padding attributes of the convolution operator
         op.attrs["padding"] = Padding.EXPLICIT
-        padding = pad_op.inputs[1].values  # 4x2 tensor, first dimension is N, H, W, C
-        top, left, bottom, right = (padding[1][0], padding[2][0], padding[1][1], padding[2][1])
         op.attrs["explicit_padding"] = (top, left, bottom, right)
         op.set_ifm_ofm_shapes()
     return op
+
+
+def convert_pad(op: Operation, arch, nng):
+    """
+    Rewrites PAD operator to an average pool that copies the IFM to the OFM
+    + up to 4 average pool operators that fill the OFM with zeros at the borders.
+    This is done as fall-back for the PAD operators that remain after replace_pad_by_hw_pad
+    """
+    if op.type != Op.Pad or not op.run_on_npu:
+        return op
+    top, left, bottom, right = get_pad_values_from_input(op.inputs[1].values)
+
+    ifm = op.ifm
+    assert ifm is not None
+    ifm_shape = Shape4D(ifm.shape)
+    ofm = op.ofm
+    assert ofm is not None
+    ofm.ops = []
+    ofm_shape = op.ofm_shapes[0]
+
+    # Average pool op that copies IFM to the right place inside the OFM
+    shp0 = Shape4D(0, 0, 0, 0)
+    shp_top = shp0.with_height(top)
+    avgpool_op = create_avg_pool_for_concat(op, op.name + "_main", ifm, ifm_shape, shp_top.with_width(left))
+    avgpool_op.activation = op.activation
+    quant = ofm.quantization
+    pad_value = quant.zero_point
+    # Add operations that fill the borders of the OFM
+    if top > 0:
+        shape = Shape4D(1, top, ofm_shape.width, ofm_shape.depth)
+        zero_tens = create_const_tensor(
+            op.name + "_top", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+        )
+        # If top/bottom or left/right are equal, the const tensors can be allocated to the same address
+        zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
+        create_avg_pool_for_concat(op, op.name + "_top", zero_tens, shape, shp0)
+    if bottom > 0:
+        shape = Shape4D(1, bottom, ofm_shape.width, ofm_shape.depth)
+        zero_tens = create_const_tensor(
+            op.name + "_bottom",
+            shape.as_list(),
+            ofm.dtype,
+            shape.elements() * [pad_value],
+            np.uint8,
+            quantization=quant,
+        )
+        zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
+        create_avg_pool_for_concat(
+            op, op.name + "_bottom", zero_tens, shape, shp0.with_height(ofm_shape.height - bottom)
+        )
+    if left > 0:
+        shape = Shape4D(1, ifm_shape.height, left, ofm_shape.depth)
+        zero_tens = create_const_tensor(
+            op.name + "_left", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+        )
+        zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
+        create_avg_pool_for_concat(op, op.name + "_left", zero_tens, shape, shp_top)
+    if right > 0:
+        shape = Shape4D(1, ifm_shape.height, right, ofm_shape.depth)
+        zero_tens = create_const_tensor(
+            op.name + "_right", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+        )
+        zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
+        create_avg_pool_for_concat(
+            op, op.name + "_right", zero_tens, shape, shp_top.with_width(ofm_shape.width - right)
+        )
+    ofm.avoid_NHCWB16 = True
+    op.type = Op.ConcatTFLite
+    return avgpool_op
 
 
 def add_attrs_to_resizebilinear(op, arch, nng):
@@ -1497,6 +1604,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         convert_mul_max_to_abs_or_lrelu,
         convert_lrelu,
         convert_tanh_sigmoid_to_lut,
+        replace_pad_by_hw_pad,
     ]
 
     for idx, sg in enumerate(nng.subgraphs):
@@ -1512,7 +1620,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
             sg,
             arch,
             [remove_passthrough_tensor],
-            [fuse_activation_function_with_prev, optimise_pad, add_padding_fields],
+            [fuse_activation_function_with_prev, convert_pad, add_padding_fields],
         )
 
     # Removal of SplitSliceRead, need to be done after optimisation has been performed,

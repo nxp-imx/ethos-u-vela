@@ -79,19 +79,14 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
         elif ps.primary_op.type == Op.ResizeBilinear:
             upscaling = round_up_divide(ofm_shape.height, ifm_shape.height)
 
-    concat_axis = 0
-    concat_offset = 0
+    concat_offset = [0, 0, 0, 0]
 
     for op in ps.ops:
-        if op.attrs.get("concat_axis", None) is not None:
-            concat_axis = op.attrs["concat_axis"]
-            concat_start = op.attrs["concat_start"]
-            concat_end = op.attrs["concat_end"]
-
-            ofm_start[concat_axis] = concat_start
-            ofm_end[concat_axis] = concat_end
-            concat_offset = concat_start
-        elif op.type.is_relu_op() or op.type in (Op.Tanh, Op.Sigmoid):
+        if op.write_offset is not None:
+            concat_offset = op.write_offset.as_list()
+            ofm_start = concat_offset
+            ofm_end = (op.write_offset + op.write_shape).as_list()
+        if op.type.is_relu_op() or op.type in (Op.Tanh, Op.Sigmoid):
             ps.primary_op.activation = create_activation_function(op.type)
 
     if strat == SchedulingStrategy.WeightStream:
@@ -109,13 +104,13 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
             if ifm_shape is not None:
                 ifm_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm_shape, npu_block_type, concat_axis, concat_offset, split_offsets[0], upscaling,
+                    strides, skirt, ifm_shape, npu_block_type, concat_offset, split_offsets[0], upscaling,
                 )
             else:
                 ifm_box = Box([], [])
             if ifm2_shape is not None:
                 ifm2_box, _, _ = ofm_box.transform_with_strides_and_skirt(
-                    strides, skirt, ifm2_shape, npu_block_type, concat_axis, concat_offset, split_offsets[1], upscaling,
+                    strides, skirt, ifm2_shape, npu_block_type, concat_offset, split_offsets[1], upscaling,
                 )
             else:
                 ifm2_box = Box([], [])
@@ -132,7 +127,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                             skirt,
                             Shape4D(intermediate.shape),
                             npu_block_type,
-                            concat_axis,
                             concat_offset,
                             split_offsets[0],
                             upscaling,
@@ -143,11 +137,9 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
 
             weight_box = None
             if weight_tensor is not None:
-                weight_oc_start = start
-                weight_oc_end = end
-                if concat_axis - len(weight_tensor.shape) == -1:
-                    weight_oc_start -= concat_offset
-                    weight_oc_end -= concat_offset
+                weight_offset = concat_offset[len(weight_tensor.shape) - 1]
+                weight_oc_start = start - weight_offset
+                weight_oc_end = end - weight_offset
 
                 weight_box = Box.make_weight_box(
                     weight_tensor.shape,
@@ -172,8 +164,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                 weight_tensor,
                 weight_box,
                 scale_tensor,
-                concat_axis,
-                concat_offset,
                 ifm2_tensor=ifm2_tensor,
                 ifm2_box=ifm2_box,
             )
@@ -222,15 +212,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                     k_height = weight_tensor.shape[0]
 
             ifm_box, pad_top, pad_bottom = ofm_box.transform_with_strides_and_skirt(
-                strides,
-                skirt,
-                ifm_shape,
-                npu_block_type,
-                concat_axis,
-                concat_offset,
-                split_offsets[0],
-                k_height,
-                upscaling,
+                strides, skirt, ifm_shape, npu_block_type, concat_offset, split_offsets[0], k_height, upscaling,
             )
 
             ifm_y_needed = 1
@@ -257,7 +239,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                             skirt,
                             Shape4D(intermediate.shape),
                             npu_block_type,
-                            concat_axis,
                             concat_offset,
                             split_offsets[0],
                             upscaling,
@@ -294,8 +275,6 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
                 weight_tensor,
                 weight_box,
                 scale_tensor,
-                concat_axis,
-                concat_offset,
                 None,
                 None,
                 pad_top,

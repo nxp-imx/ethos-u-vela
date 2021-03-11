@@ -424,6 +424,8 @@ class Operation:
         "read_offsets",
         "rounding_mode",
         "low_precision_scaling",
+        "write_offset",
+        "write_shape",
     )
 
     def __init__(self, op_type: Op, name: str):
@@ -438,7 +440,7 @@ class Operation:
         # Fused activation function. If not none: operator code.
         self.activation: Optional[ActivationFunction] = None
         # Fused memory function, if not None: operator code
-        self.memory_function = None
+        self.memory_function: Optional[Op] = None
         # If not none: contains QuantizationParameters to be used as output quantization
         # (which overrides the ofm tensor's quantization), used in LUT
         self.forced_input_quantization = None
@@ -457,6 +459,12 @@ class Operation:
         # The Mean operator (implemented as a depthwise convolution) requires scaling
         # to be calculated differently in one case. In that case, this is set to True.
         self.low_precision_scaling = False
+        # Write offset, for operations that only produce a part of the OFM
+        self.write_offset: Optional[Shape4D] = None
+        # The amount of OFM that is produced by the operation (only if write_offset is not None).
+        # E.g. an operation that only fills the bottom row of an OFM of size 1x10x8x1 would have
+        # write_offset 0,9,0,0, write_shape 1,1,8,1
+        self.write_shape: Optional[Shape4D] = None
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)

@@ -17,7 +17,6 @@
 # Description:
 # Unit tests for support_operators
 import numpy as np
-import pytest
 
 from ethosu.vela.data_type import DataType
 from ethosu.vela.operation import ActivationFunction
@@ -529,14 +528,7 @@ def create_strided_slice_op(in_shape, out_shape, start_offsets, end_offsets):
 
 
 def create_pad_op(
-    in_shape,
-    out_shape,
-    padding,
-    in_dtype=DataType.int8,
-    out_dtype=DataType.int8,
-    pad_dtype=DataType.int32,
-    pad_setting=Padding.VALID,
-    kernel_size=3,
+    in_shape, out_shape, padding, in_dtype=DataType.int8, out_dtype=DataType.int8, pad_dtype=DataType.int32,
 ):
     qp = testutil.default_quant_params()
     in0 = Tensor(in_shape, in_dtype, "in")
@@ -545,17 +537,6 @@ def create_pad_op(
     out = Tensor(out_shape, out_dtype, "out")
     out.quantization = qp.clone()
     op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
-    conv_out_tens = Tensor(in_shape, in_dtype, "output")
-    conv_out_tens.quantization = qp.clone()
-    weight_tens = Tensor([kernel_size, kernel_size, in_shape[-1], out_shape[-1]], in_dtype, "weights")
-    weight_tens.values = np.zeros(weight_tens.shape)
-    weight_tens.quant_values = np.zeros(weight_tens.shape, np.int8)
-    weight_tens.quantization = qp.clone()
-    bias_tens = Tensor(out_shape, pad_dtype, "biases")
-    attrs = {"padding": pad_setting, "stride_w": 2, "stride_h": 2, "dilation_w_factor": 1, "dilation_h_factor": 1}
-    attrs["strides"] = (1, attrs["stride_h"], attrs["stride_w"], 1)
-    conv2d_op = testutil.create_op(Op.Conv2DBias, [out, weight_tens, bias_tens], conv_out_tens, attrs)
-    conv2d_op.add_input_tensor(out)
     return op
 
 
@@ -571,10 +552,16 @@ def test_constraint_padded_dimensions():
     # Incorrect padding dimensions, can only pad width and height
     op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [1, 1], [0, 0]],)
     assert not support.is_operator_supported(op)
+    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [0, 0]],)
+    assert support.is_operator_supported(op)
+    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [0, 1]],)
+    assert not support.is_operator_supported(op)
 
 
 def test_constraint_pad_shape():
-    # PAD operator must be of shape (4,2)
+    # PAD operator must be of shape (3,2) or (4,2)
+    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [0, 0]])
+    assert support.is_operator_supported(op)
     op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],)
     assert not support.is_operator_supported(op)
 
@@ -593,108 +580,6 @@ def test_constraint_pad_dtype():
         pad_dtype=DataType.int16,
     )
     assert not support.is_operator_supported(op)
-
-
-def test_constraint_pad_consumer():
-    # PAD operator must be followed by a valid consumer with Padding.VALID attribute
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[0, 0], [1, 1], [1, 1], [0, 0]],)
-    assert support.is_operator_supported(op)
-    op = create_pad_op(
-        in_shape=[1, 1, 1, 1],
-        out_shape=[1, 3, 3, 1],
-        padding=[[0, 0], [1, 1], [1, 1], [0, 0]],
-        pad_setting=Padding.SAME,
-    )
-    assert not support.is_operator_supported(op)
-    op_consumer = testutil.create_op_with_quant_tensors(Op.ConcatTFLite, [1, 1, 1, 4], [1, 1, 1, 8])
-    op.ofm.consumer_list = [op_consumer]
-    assert not support.is_operator_supported(op)
-    op_consumer = testutil.create_elemwise_op(Op.Add, "op", [1, 3, 3, 1], [1, 3, 3, 1], [1, 3, 3, 1])
-    op.ofm.consumer_list = [op_consumer]
-    assert not support.is_operator_supported(op)
-
-
-pad_invalid_size_test_data = [
-    (2, 1, 1, 1),
-    (1, 2, 1, 1),
-    (1, 1, 2, 1),
-    (1, 1, 1, 2),
-]
-
-
-@pytest.mark.parametrize("top, left, bottom, right", pad_invalid_size_test_data)
-def test_constraint_pad_size(top, left, bottom, right):
-    # Tests PAD operator with a padding that is too high to be handled by the NPU
-    out_shape = [1, 11 + left + right, 11 + top + bottom, 1]
-    padding = [[0, 0], [top, bottom], [left, right], [0, 0]]
-    op = create_pad_op(in_shape=[1, 11, 11, 1], out_shape=out_shape, padding=padding,)
-    assert not support.is_operator_supported(op)
-
-
-leading_pad_test_data = [
-    (2, 2, 11, True),
-    (1, 2, 11, False),
-    (2, 1, 11, False),
-    (5, 2, 11, True),
-]
-
-
-@pytest.mark.parametrize("top, left, kernel_size, expected", leading_pad_test_data)
-def test_constraint_leading_pad_size(top, left, kernel_size, expected):
-    # Tests PAD operator with big kernel size; top and left pad must be multiple of stride
-    out_shape = [1, 11 + left, 11 + top, 1]
-    padding = [[0, 0], [top, 0], [left, 0], [0, 0]]
-    op = create_pad_op(in_shape=[1, 11, 11, 1], out_shape=out_shape, padding=padding, kernel_size=kernel_size)
-    assert support.is_operator_supported(op) == expected
-
-
-pad_avg_pool_test_data = [
-    ((3, 3), (1, 1, 1, 1), True),
-    ((2, 4), (1, 2, 1, 2), True),
-    ((5, 3), (2, 1, 2, 1), True),
-    ((5, 3), (0, 1, 2, 1), True),
-    ((5, 3), (2, 0, 2, 1), True),
-    ((5, 3), (2, 1, 0, 1), True),
-    ((5, 3), (2, 1, 0, 1), True),
-    ((4, 4), (2, 2, 2, 2), True),
-    ((4, 4), (1, 2, 2, 2), False),
-    ((4, 4), (2, 1, 2, 2), False),
-    ((4, 4), (2, 2, 1, 2), False),
-    ((4, 4), (2, 2, 2, 1), False),
-]
-
-
-@pytest.mark.parametrize("k_size, padding, expected", pad_avg_pool_test_data)
-def test_pad_followed_by_avg_pool(k_size, padding, expected):
-    # Tests PAD followed by AvgPool
-    k_w, k_h = k_size
-    top, left, bottom, right = padding
-    pad_values = [[0, 0], [top, bottom], [left, right], [0, 0]]
-    dtype = DataType.int8
-    qp = testutil.default_quant_params()
-    in_shape = [1, 15, 17, 8]
-    out_shape = [1, in_shape[1] + top + bottom, in_shape[2] + left + right, in_shape[3]]
-    in0 = Tensor(in_shape, dtype, "in")
-    in0.quantization = qp
-    pad_tensor = create_const_tensor(
-        name="pad", shape=list(np.shape(pad_values)), values=pad_values, dtype=DataType.int32
-    )
-    out = Tensor(out_shape, dtype, "out")
-    out.quantization = qp.clone()
-    op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
-    pool_out_tens = Tensor(in_shape, dtype, "output")
-    pool_out_tens.quantization = qp.clone()
-    attrs = {
-        "padding": Padding.VALID,
-        "ksize": [1, k_w, k_h, 1],
-        "stride_w": 1,
-        "stride_h": 1,
-        "dilation_w_factor": 1,
-        "dilation_h_factor": 1,
-    }
-    pool_op = testutil.create_op(Op.AvgPool, [out], pool_out_tens, attrs)
-    pool_op.add_input_tensor(out)
-    assert support.is_operator_supported(op) == expected
 
 
 def create_strided_slice():

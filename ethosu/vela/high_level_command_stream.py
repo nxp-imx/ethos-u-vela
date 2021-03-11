@@ -39,8 +39,7 @@ class Box:
         skirt: List[int],
         ifm_shape: Shape4D,
         npu_block_type: NpuBlockType,
-        concat_axis: int = 0,
-        concat_offset: int = 0,
+        concat_offsets: List[int],
         split_offset: Shape4D = None,
         k_height: int = 1,
         upscaling_factor: int = 1,
@@ -48,8 +47,8 @@ class Box:
         new_start_coord = list(self.start_coord)
         new_end_coord = list(self.end_coord)
 
-        new_start_coord[concat_axis] -= concat_offset
-        new_end_coord[concat_axis] -= concat_offset
+        new_start_coord = np.subtract(new_start_coord, concat_offsets)
+        new_end_coord = np.subtract(new_end_coord, concat_offsets)
 
         if split_offset is not None:
             for idx in range(len(split_offset)):
@@ -170,8 +169,6 @@ class NpuStripe(Command):
         weight_tensor=None,
         weight_box=None,
         scale_tensor=None,
-        concat_axis=0,
-        concat_offset=0,
         ifm2_tensor=None,
         ifm2_box=None,
         pad_top=0,
@@ -192,8 +189,6 @@ class NpuStripe(Command):
         self.weight_tensor = weight_tensor
         self.scale_tensor = scale_tensor
         self.weight_box = weight_box
-        self.concat_axis = concat_axis
-        self.concat_offset = concat_offset
         self.pad_top = pad_top
         self.pad_bottom = pad_bottom
         for i in range(len(self.ofm_box.end_coord)):

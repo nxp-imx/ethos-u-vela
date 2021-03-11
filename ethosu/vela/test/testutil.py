@@ -19,6 +19,8 @@ import numpy as np
 
 from ethosu.vela import architecture_features
 from ethosu.vela.data_type import DataType
+from ethosu.vela.nn_graph import Graph
+from ethosu.vela.nn_graph import PassPlacement
 from ethosu.vela.nn_graph import Subgraph
 from ethosu.vela.operation import Op
 from ethosu.vela.operation import Operation
@@ -128,6 +130,7 @@ def create_op(op_type, inputs, output, attrs=None, set_ifm_ofm_shapes=True):
 def create_subgraph(op_list):
     # Creates subgraph using the given list of operations
     sg = Subgraph()
+    sg.placement = PassPlacement.Npu
     all_inputs = set(tens for op in op_list for tens in op.inputs)
     # Reversing, so that the resulting subgraph has same order as op_list
     for op in op_list[::-1]:
@@ -135,3 +138,11 @@ def create_subgraph(op_list):
             if tens not in all_inputs and tens not in sg.output_tensors:
                 sg.output_tensors.append(tens)
     return sg
+
+
+def create_graph(op_list):
+    # Creates subgraph using the given list of operations
+    nng = Graph()
+    sg = create_subgraph(op_list)
+    nng.subgraphs.append(sg)
+    return nng

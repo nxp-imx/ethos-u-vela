@@ -259,15 +259,11 @@ class SupportedOperators:
         self.specific_constraints[Op.FullyConnected].append(SupportedOperators.constraint_keep_dim_ifm_ofm)
 
         # Pad specific checks:
-        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_matching_in_out_types)
-        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_matching_quantization_parameters)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_input_count)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_shape)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_padding_dimensions)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_type)
         self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_constant)
-        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_ofm)
-        self.specific_constraints[Op.Pad].append(SupportedOperators.constraint_pad_size)
 
         # HardSwish specific checks:
         self.specific_constraints[Op.HardSwish].append(SupportedOperators.constraint_input_8bit)
@@ -830,8 +826,8 @@ class SupportedOperators:
 
     @staticmethod
     def constraint_pad_shape(op):
-        "The padding tensor must have the shape [4,2]"
-        valid = op.inputs[1].shape == [4, 2]
+        "The padding tensor must have the shape [3,2] or [4,2]"
+        valid = op.inputs[1].shape in ([3, 2], [4, 2])
         return valid, f"The pad tensor has the shape: {op.inputs[1].shape}"
 
     @classmethod
@@ -846,7 +842,10 @@ class SupportedOperators:
     def constraint_padding_dimensions(op):
         "The pad tensor can only pad width and height"
         pad_tensor = op.inputs[1].values
-        valid = sum(pad_tensor[0, :]) + sum(pad_tensor[-1, :]) == 0
+
+        valid = sum(pad_tensor[-1, :]) == 0
+        if valid and len(pad_tensor) > 3:
+            valid = sum(pad_tensor[0, :]) == 0
         return valid, f"First dimension padding: {pad_tensor[0,:]}, last dimension padding: {pad_tensor[-1,:]}"
 
     @staticmethod
@@ -855,65 +854,6 @@ class SupportedOperators:
         pad_tensor = op.inputs[1].values
         valid = pad_tensor is not None
         return valid, f"Op has non-constant padding tensor: {op.inputs[1].values}"
-
-    @classmethod
-    @docstring_format_args([_optype_formatter(supported_pad_consumers)])
-    def constraint_pad_ofm(cls, op):
-        "Must be followed by one of the following operator types: {}"
-        consumers = op.ofm.consumers()
-        unsupported_consumers = [
-            cons.type
-            for cons in consumers
-            if cons is not None
-            if cons.type not in cls.supported_pad_consumers or cons.attrs["padding"] != Padding.VALID
-        ] + [None for cons in consumers if cons is None]
-        none_string = ", ".join(["NoneType" for cons in consumers if cons is None])
-        valid = len(unsupported_consumers) == 0
-        return valid, f"PAD operator is followed by: {_optype_formatter(unsupported_consumers)+none_string}"
-
-    @staticmethod
-    def __leading_pad_ok(leading_pad, stride, kernel_size):
-        # If kernel size // 2 > stride, then (left, top) padding must be a multiple of stride,
-        # otherwise replacing PAD by hardware padding would iterate the wrong IFM rows/columns
-        max_size = kernel_size // 2
-        return leading_pad == max_size or max_size <= stride or leading_pad % stride == 0
-
-    @staticmethod
-    def constraint_pad_size(op):
-        "Padding must be at most kernel size divided by 2"
-        if SupportedOperators.constraint_pad_ofm(op)[0]:
-            padding = op.inputs[1].values  # 4x2 tensor, first dimension is N, H, W, C
-            top, left, bottom, right = (padding[1][0], padding[2][0], padding[1][1], padding[2][1])
-            for cons in op.ofm.consumers():
-                if cons is not None:
-                    # Note: pre-order graph traversal removes inputs of operators that are in traversal,
-                    # which makes it impossible to calculate kernel size, hence use cached _kernel for those operators
-                    k = cons.kernel if cons.inputs else cons._kernel
-                    k_w, k_h = k.dilated_wh()
-                    if cons.type.is_avgpool_op():
-                        # For average pool, padding works different on the NPU; more restrictions apply
-                        for name, pad, k_size in (
-                            ("Left", left, k_w),
-                            ("Right", right, k_w),
-                            ("Top", top, k_h),
-                            ("Bottom", bottom, k_h),
-                        ):
-                            if pad not in (0, k_size // 2):
-                                return False, f"{name} padding is {pad}, only 0 or {k_size // 2} are supported"
-                    else:
-                        if left > k_w // 2:
-                            return False, f"Left padding is {left}, kernel width is {k_w}"
-                        if right > k_w // 2:
-                            return False, f"Right padding is {right}, kernel width is {k_w}"
-                        if top > k_h // 2:
-                            return False, f"Top padding is {top}, kernel height is {k_h}"
-                        if bottom > k_h // 2:
-                            return False, f"Bottom padding is {bottom}, kernel height is {k_h}"
-                        if not SupportedOperators.__leading_pad_ok(top, k.stride.y, k_h):
-                            return False, f"Top padding is {top}, must be {k_h // 2} or multiple of {k.stride.y}"
-                        if not SupportedOperators.__leading_pad_ok(left, k.stride.x, k_w):
-                            return False, f"Left padding is {left}, must be {k_w // 2} or multiple of {k.stride.x}"
-        return True, "Pad size is ok"
 
     @staticmethod
     def constraint_stridedslice_inputs_const(op):
