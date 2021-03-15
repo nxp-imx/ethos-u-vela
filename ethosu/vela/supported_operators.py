@@ -270,7 +270,6 @@ class SupportedOperators:
         self.specific_constraints[Op.HardSwish].append(SupportedOperators.constraint_matching_in_out_types)
         # Mean specific checks:
         self.specific_constraints[Op.Mean].append(SupportedOperators.constraint_input_8bit)
-        self.specific_constraints[Op.Mean].append(SupportedOperators.constraint_mean_properties)
         self.specific_constraints[Op.Mean].append(SupportedOperators.constraint_mean_input_dims)
         self.specific_constraints[Op.Mean].append(SupportedOperators.constraint_mean_axis)
         self.specific_constraints[Op.Mean].append(SupportedOperators.constraint_mean_height_width_product)
@@ -1076,35 +1075,3 @@ class SupportedOperators:
         h, w = shape[hi : hi + 2]
         max_prod = cls.mean_kernel_product_int8
         return h * w <= max_prod, f"Product of height and width is {h * w}"
-
-    @staticmethod
-    def constraint_mean_properties(op):
-        """Every constraint in either one (or both) of the following sets of constraints must be fulfilled:
-        Set A:
-            IFM dimensions are 4,
-            Axis indices are 1 and 2,
-            keep_dims is set to True
-        Set B:
-            IFM zero point and OFM zero point are the same,
-            IFM scale and OFM scale are the same"""
-        seta, setb = True, True
-        extra = []
-        axis = op.inputs[1].values if op.inputs[1].shape == [] else list(op.inputs[1].values)
-        if len(op.ifm.shape) != 4:
-            seta = False
-            extra.append(f"IFM shape is {op.ifm.shape}")
-        if not any(np.array_equal(axis, ax) for ax in ([1, 2], [2, 1])):
-            seta = False
-            extra.append(f"Axis is {axis}")
-        if not op.attrs.get("keep_dims"):
-            seta = False
-            extra.append("keep_dims is False")
-        ifmq, ofmq = op.ifm.quantization, op.ofm.quantization
-        if ifmq.zero_point != ofmq.zero_point:
-            setb = False
-            extra.append("IFM zero point does not match OFM zero point")
-        if ifmq.scale_f32 != ofmq.scale_f32:
-            setb = False
-            extra.append("IFM scale does not match OFM scale")
-        extra = ", ".join(extra)
-        return seta or setb, f"The following constraints were not fulfilled: {extra}"

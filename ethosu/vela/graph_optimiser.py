@@ -1422,9 +1422,12 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
         )
         # Change op type
         op.type = Op.DepthwiseConv2DBias
+        # Add None bias tensor
+        op.inputs.append(None)
         # Set IFM/OFM shapes after changing op type
         op.set_ifm_ofm_shapes()
 
+        weight_scale, bias = 1, None
         ofmq, ifmq = op.ofm.quantization, inp.quantization
         # Set rounding mode, scaling and zero point based on which reference implementation to match
         if len(shape) == 4 and axis == [1, 2] and keep_dims:
@@ -1442,7 +1445,6 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
                 assert inp.dtype == DataType.int8
                 # Use a depthwise to calculate the sum,
                 # followed by a multiplication with 1/N to get the MEAN
-                op.type = Op.DepthwiseConv2DBias
                 weight_scale = 1
                 intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
                 intermediate.dtype = DataType.int16
@@ -1482,7 +1484,13 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
             fiq.zero_point = 0
             op.forced_input_quantization = fiq
         else:
-            raise UnsupportedFeatureError("Mean operators with these attributes are currently not supported")
+            op.rounding_mode = NpuRoundingMode.NATURAL
+            weight_scale = 1 / (h * w)
+            # Input zero point is adjusted after mean calculation, so we emulate that with a bias
+            bias = -ifmq.zero_point * h * w
+            fiq = ifmq.clone()
+            fiq.zero_point = 0
+            op.forced_input_quantization = fiq
 
         # Change dimensions to 4
         if dims < 4:
@@ -1496,10 +1504,8 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
             op.ifm_shapes[0] = Shape4D(shape)
             inp.avoid_NHCWB16 = True
 
-        # Add None bias tensor
-        op.inputs.append(None)
         # Make unit weight tensor quantization
-        weight_quant = inp.quantization.clone()
+        weight_quant = ifmq.clone()
         weight_quant.min = 0
         weight_quant.max = 255
         weight_quant.scale_f32 = weight_scale
@@ -1519,7 +1525,23 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
             ),
             1,
         )
-        op.inputs[1].quant_values = np.reshape(op.inputs[1].quant_values, weight_shape)
+        op.weights.quant_values = np.reshape(op.inputs[1].quant_values, weight_shape)
+
+        # Add bias tensor
+        if bias:
+            bias_shape = [shape[-1]]
+            op.set_input_tensor(
+                create_const_tensor(
+                    "bias",
+                    bias_shape,
+                    inp.dtype,
+                    np.ones(bias_shape) * bias,
+                    value_dtype=np.int32,
+                    quant_value_dtype=np.int32,
+                    quantization=None,
+                ),
+                2,
+            )
 
     return op
 

@@ -858,13 +858,6 @@ def test_mean_dtype():
     assert not support.is_operator_supported(op)
 
 
-def test_mean_properties():
-    op = create_mean([1, 6, 6, 256], [1, 1, 256], [1, 2], DataType.uint8, {})
-    assert support.is_operator_supported(op)
-    op.ifm.quantization.zero_point = 55
-    assert not support.is_operator_supported(op)
-
-
 def test_mean_axis():
     op = create_mean([1, 6, 6, 16], [1, 1, 1, 16], [1], DataType.int8, {"keep_dims": True})
     assert not support.is_operator_supported(op)

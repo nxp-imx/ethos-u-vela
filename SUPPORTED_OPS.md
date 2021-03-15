@@ -197,14 +197,6 @@ This is a list of constraints that the MAX_POOL_2D operator must satisfy in orde
 This is a list of constraints that the MEAN operator must satisfy in order to be scheduled on the NPU.
 
 - IFM must be int8 or uint8
-- Every constraint in either one (or both) of the following sets of constraints must be fulfilled:  
-        Set A:  
-            IFM dimensions are 4,  
-            Axis indices are 1 and 2,  
-            keep_dims is set to True  
-        Set B:  
-            IFM zero point and OFM zero point are the same,  
-            IFM scale and OFM scale are the same
 - Input tensor must be at least 2D
 - Axis indices must correspond to height and width axes
 - Product of height and width can be at most 4096

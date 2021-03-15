@@ -300,13 +300,16 @@ def create_const_tensor(
     value_dtype: np.dtype = None,
     purpose: TensorPurpose = TensorPurpose.Unknown,
     quantization: QuantizationParameters = None,
+    quant_value_dtype: np.dtype = None,
 ):
     # Tensor
     const_tensor = Tensor(shape, dtype, name + "_0")
     const_tensor.purpose = purpose
     const_tensor.quantization = quantization
     const_tensor.values = np.array(values, dtype=value_dtype)
-    const_tensor.quant_values = np.frombuffer(const_tensor.values.tobytes(), dtype=np.uint8)
+    const_tensor.quant_values = np.frombuffer(
+        const_tensor.values.tobytes(), dtype=np.uint8 if not quant_value_dtype else quant_value_dtype
+    )
     # Operator
     const_op = Operation(Op.Const, name)
     const_op.set_output_tensor(const_tensor)
