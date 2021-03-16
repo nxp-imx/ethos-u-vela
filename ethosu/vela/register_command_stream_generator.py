@@ -58,6 +58,7 @@ from .architecture_features import Block
 from .architecture_features import create_default_arch
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
+from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import acc_format
 from .ethos_u55_regs.ethos_u55_regs import activation
 from .ethos_u55_regs.ethos_u55_regs import cmd0
@@ -944,6 +945,13 @@ def generate_command_stream(
     # Fill in final part of command stream:
     emit.cmd_do_operation(cmd0.NPU_OP_STOP, param=0xFFFF)
     res = emit.to_list()
+
+    if emit.size_in_bytes() >= 1 << 24:
+        raise VelaError(
+            f"The command stream size exceeds the hardware limit of 16 MiB. "
+            f"The current stream size is {emit.size_in_bytes()/2**20:.2F} MiB."
+        )
+
     if verbose:
         emit.print_cmds()
         print("number of commands", len(emit.cmd_stream))

@@ -119,7 +119,6 @@ def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fas
                     ps.ifm2_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast)
                 ):
                     copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm2_tensor)
-
     sg.command_stream_tensor = make_memory_tensor(
         sg.name + "_command_stream", flash_area, MemType.Permanent_CPU, command_stream_size_bytes, True, arch
     )

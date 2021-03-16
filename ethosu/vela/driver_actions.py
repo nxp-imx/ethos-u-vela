@@ -24,6 +24,7 @@ from .api import NpuAccelerator
 from .architecture_features import Accelerator
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import create_default_arch
+from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import ARCH_VER
 from .ethos_u55_regs.ethos_u55_regs import config_r
 from .ethos_u55_regs.ethos_u55_regs import id_r
@@ -120,6 +121,12 @@ def create_driver_payload(register_command_stream: List[int], arch: Architecture
     da_list: List[int] = []
     emit_fourcc(da_list, "COP1")
     emit_config(da_list, 0, 1, arch)
+    if len(register_command_stream) >= 1 << 24:
+        raise VelaError(
+            "The command stream exceeds the driver size limit of 64 MiB. "
+            f"The current stream size is {4*len(register_command_stream)/2**20:.2F} MiB"
+        )
+
     emit_cmd_stream_header(da_list, len(register_command_stream))
 
     # Append command stream words
