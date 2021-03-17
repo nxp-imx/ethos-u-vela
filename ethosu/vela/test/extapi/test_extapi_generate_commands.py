@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -16,6 +16,8 @@
 #
 # Description:
 # Contains unit tests for npu_generate_register_command_stream API for an external consumer
+import pytest
+
 from ethosu.vela.api import npu_find_block_configs
 from ethosu.vela.api import npu_generate_register_command_stream
 from ethosu.vela.api import NpuAccelerator
@@ -38,9 +40,15 @@ from ethosu.vela.api import NpuPoolingOperation
 from ethosu.vela.api import NpuQuantization
 from ethosu.vela.api import NpuShape3D
 from ethosu.vela.api import NpuTileBox
+from ethosu.vela.architecture_features import Accelerator
+from ethosu.vela.architecture_features import create_default_arch
+from ethosu.vela.errors import VelaError
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd0
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd1
+from ethosu.vela.high_level_command_to_npu_op import BasePointerIndex
+from ethosu.vela.high_level_command_to_npu_op import get_mem_limits_for_regions
 from ethosu.vela.register_command_stream_generator import CmdMode
+from ethosu.vela.register_command_stream_generator import generate_command_stream
 from ethosu.vela.register_command_stream_util import get_address_ranges
 
 
@@ -355,3 +363,59 @@ def test_dma_op():
     # A DMA WAIT should have been inserted
     check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0)
     check_cmd0(cmds, cmd0.NPU_OP_POOL, 1)
+
+
+def test_check_mem_limits():
+    # Tests that no code is generated with addresses out of bounds
+    conv_op = create_fully_connected_op()
+    # bias with end address out of range
+    conv_op.biases = [NpuAddressRange(region=0, address=(1 << 32) - 16, length=1000)]
+    with pytest.raises(VelaError):
+        npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
+    # same test should pass with Ethos_U65_512
+    npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
+    # weights with end address out of range
+    conv_op = create_fully_connected_op()
+    conv_op.weights = [NpuAddressRange(region=0, address=(1 << 48) - 960, length=1000)]
+    with pytest.raises(VelaError):
+        npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_256)
+    # bias with high end address, but still within range
+    conv_op = create_fully_connected_op()
+    conv_op.biases = [NpuAddressRange(region=0, address=(1 << 48) - 1024, length=1000)]
+    npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
+    conv_op = create_fully_connected_op()
+    # weights with negative address
+    conv_op.weights = [NpuAddressRange(region=0, address=-16, length=1000)]
+    with pytest.raises(VelaError):
+        npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_32)
+    op = create_avg_pool_op()
+    # Tile 4's end address out of range
+    op.ifm.tiles = NpuTileBox(width_0=1, height_0=1, height_1=1, addresses=[0, 800, 4000, (1 << 32) - 16])
+    with pytest.raises(VelaError):
+        npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_256)
+    op = create_avg_pool_op()
+    # IFM region out of range
+    op.ifm.region = 8
+    with pytest.raises(VelaError):
+        npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_64)
+
+
+def test_check_sram_limit_spilling():
+    # Tests that no code is generated with addresses outside available sram spilling range
+    arch = create_default_arch(Accelerator.Ethos_U65_512)
+    assert arch.is_spilling_enabled()
+    op = create_avg_pool_op()
+    op.ifm.region = 0
+    # OFM in scratch fast memory
+    op.ofm.region = int(BasePointerIndex.ScratchFastTensor)
+    w, h = op.ofm.shape.width, op.ofm.shape.height
+    op.ofm.tiles = NpuTileBox(width_0=w, height_0=h, height_1=h, addresses=[32 * 1024, 0, 0, 0])
+    # 384K for spilling should fit
+    arch.sram_size = 384 * 1024
+    mem_limits = get_mem_limits_for_regions(arch)
+    generate_command_stream([op], arch, verbose=False, mem_limits=mem_limits)
+    # 32K for spilling does not fit, due to the OFM address
+    arch.sram_size = 32 * 1024
+    mem_limits = get_mem_limits_for_regions(arch)
+    with pytest.raises(VelaError):
+        generate_command_stream([op], arch, verbose=False, mem_limits=mem_limits)

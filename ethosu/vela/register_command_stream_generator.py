@@ -72,6 +72,7 @@ from .numeric_util import round_away_zero
 from .numeric_util import round_up_to_int
 from .operation import NpuBlockType
 from .range_set import MemoryAccessSet
+from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
 from .register_command_stream_util import calc_blockdep
 from .register_command_stream_util import get_dma_memory_accesses
 from .register_command_stream_util import get_op_memory_accesses
@@ -84,6 +85,7 @@ from .register_command_stream_util import Watermark
 from .shared_buffer_allocation import find_suitable_block_configs
 from .shared_buffer_allocation import shared_buffer_allocation_for_npu_op
 from .shared_buffer_allocation import SharedBufferAllocation
+from ethosu.vela.errors import VelaError
 
 
 class RegisterMachine:
@@ -263,6 +265,21 @@ rounding_mode_map = {
     NpuRoundingMode.TRUNCATE: rounding.TRUNCATE.value,
     NpuRoundingMode.NATURAL: rounding.NATURAL.value,
 }
+
+
+def check_mem_limits(memory_accesses: MemoryAccessSet, mem_limits: Dict[int, int]):
+    """Checks that an operation's memory accesses respect the boundaries imposed by mem_limits"""
+    for mem_access in memory_accesses.accesses:
+        for region, range_set in mem_access.regions.items():
+            if region not in mem_limits:
+                raise VelaError(f"Invalid region: {region}")
+            max = mem_limits[region]
+            for start, end in range_set.ranges:
+                for offset in (start, end):
+                    if offset < 0:
+                        raise VelaError(f"Negative address offset: {offset}, region: {region}")
+                    if offset > max:
+                        raise VelaError(f"Address offset out of range: {offset}, region: {region}, max: {max}")
 
 
 def quantise(value: float, quant: Optional[NpuQuantization]) -> int:
@@ -904,7 +921,12 @@ def generate_registers_for_op(emit: CommandStreamEmitter, npu_op: NpuOperation, 
 
 
 def generate_command_stream(
-    npu_op_list: List[NpuOperation], arch: ArchitectureFeatures, verbose: bool, add_to_debug_db=None, npu_op_to_cmd=None
+    npu_op_list: List[NpuOperation],
+    arch: ArchitectureFeatures,
+    verbose: bool,
+    mem_limits: Dict[int, int],
+    add_to_debug_db=None,
+    npu_op_to_cmd=None,
 ) -> List[int]:
     """
     Generates register commands for the given list of NPU operations.
@@ -922,14 +944,20 @@ def generate_command_stream(
             memory_accesses[npu_op] = get_op_memory_accesses(npu_op, arch)
         else:
             assert 0, "Invalid operation type"
+
     if arch.is_ethos_u65_system:
         emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
     dep_watermark = Watermark(0, 0)
     prev_op = None
     # Generate register commands for all operations
     for op_index, npu_op in enumerate(npu_op_list):
-        dep_watermark, cmd_waits = get_wait_dependency(arch, npu_op_list, memory_accesses, op_index, dep_watermark)
-        generate_registers_for_op(emit, npu_op, arch)
+        try:
+            check_mem_limits(memory_accesses[npu_op], mem_limits)
+            dep_watermark, cmd_waits = get_wait_dependency(arch, npu_op_list, memory_accesses, op_index, dep_watermark)
+            generate_registers_for_op(emit, npu_op, arch)
+        except VelaError as e:
+            # Add operation info and rethrow
+            raise VelaError(f"{e.error_msg}, in operation {op_index}:{npu_op.op_type.name}") from None
         if not isinstance(npu_op, NpuDmaOperation) and isinstance(npu_op, NpuBlockOperation):
             # Generate BLOCKDEP
             blockdep = calc_blockdep(arch, prev_op, npu_op)
@@ -987,4 +1015,8 @@ def generate_register_command_stream(npu_op_list: List[NpuOperation], npu_accele
     """
     accelerator = Accelerator.from_npu_accelerator(npu_accelerator)
     arch = create_default_arch(accelerator)
-    return generate_command_stream(npu_op_list, arch, verbose=False)
+    mem_limits = dict()
+    for region in range(0, 8):
+        mem_limits[region] = arch.max_address_offset
+    mem_limits[BASE_PTR_INDEX_MEM2MEM] = arch.shram_size_bytes
+    return generate_command_stream(npu_op_list, arch, verbose=False, mem_limits=mem_limits)

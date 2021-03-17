@@ -246,6 +246,8 @@ class ArchitectureFeatures:
         self.memory_bandwidths_per_cycle = self.axi_port_width * self.memory_clock_scales / 8
 
         self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.core_clock
+        # Max value in address offsets
+        self.max_address_offset = 1 << 48 if self.is_ethos_u65_system else 1 << 32
 
         # Get output/activation performance numbers
         self._generate_output_perf_tables(self.accelerator_config)
@@ -455,6 +457,13 @@ class ArchitectureFeatures:
         return (
             self._mem_port_mapping(self.cache_mem_area) == MemArea.Sram and self.cache_mem_area != self.arena_mem_area
         )
+
+    def mem_type_size(self, mem_type: MemType) -> int:
+        """Returns size in bytes available for the given memory type"""
+        if mem_type == MemType.Scratch_fast and self.is_spilling_enabled():
+            return self.sram_size
+        # Size is unknown, return max possible address offset
+        return self.max_address_offset
 
     def _mem_port_mapping(self, mem_port):
         mem_port_mapping = {MemPort.Axi0: self.axi0_port, MemPort.Axi1: self.axi1_port}

@@ -17,6 +17,7 @@
 # Description:
 # Conversion from high level command to NpuOperation
 from enum import IntEnum
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -157,7 +158,7 @@ def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
     return NpuPadding(top=top, left=left, bottom=bottom, right=right)
 
 
-def get_region(tens: Tensor, arch: ArchitectureFeatures) -> int:
+def get_region(mem_type: MemType, arch: ArchitectureFeatures) -> int:
     base_ptr_idx_map = {
         MemType.Permanent_NPU: BasePointerIndex.WeightTensor,
         MemType.Permanent_CPU: BasePointerIndex.WeightTensor,
@@ -169,7 +170,16 @@ def get_region(tens: Tensor, arch: ArchitectureFeatures) -> int:
     else:
         base_ptr_idx_map[MemType.Scratch_fast] = BasePointerIndex.ScratchTensor
 
-    return base_ptr_idx_map[tens.mem_type].value
+    return base_ptr_idx_map[mem_type].value
+
+
+def get_mem_limits_for_regions(arch: ArchitectureFeatures) -> Dict[int, int]:
+    """Returns map region -> max size of the region in bytes"""
+    mem_limits = dict()
+    for mem_type in MemType.all():
+        mem_limits[get_region(mem_type, arch)] = arch.mem_type_size(mem_type)
+    mem_limits[BASE_PTR_INDEX_MEM2MEM] = arch.shram_size_bytes
+    return mem_limits
 
 
 def get_upscale(op: Operation) -> NpuResamplingMode:
@@ -238,7 +248,7 @@ def get_ofm_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
 def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_shape4D: Shape4D) -> NpuFeatureMap:
     """Creates feature map with common fields populated"""
     fm = NpuFeatureMap()
-    fm.region = get_region(tens, arch)
+    fm.region = get_region(tens.mem_type, arch)
     fm.data_type = dtype_map[tens.dtype]
     if tens.format == TensorFormat.NHWC:
         fm.layout = NpuLayout.NHWC
@@ -270,7 +280,7 @@ def create_weights(weight_tensor: Tensor, weight_box: Box, arch: ArchitectureFea
     # Extract weight substream offsets and calculate their lengths
     assert len(weight_substream_offsets) > 1 and (weight_substream_offsets[0] == 0)
     weight_addr = weight_tensor.address_for_coordinate(weight_box.start_coord)
-    region = get_region(weight_tensor, arch)
+    region = get_region(weight_tensor.mem_type, arch)
     for core in range(substreams):
         address = weight_addr + weight_substream_offsets[core]
         length = weight_substream_offsets[core + 1] - weight_substream_offsets[core]
@@ -292,7 +302,7 @@ def create_biases(
     assert len(scale_substream_offsets) > 1 and (scale_substream_offsets[0] == 0)
     scale_addr = scale_tensor.address_for_coordinate(weight_box.start_coord[-1:])
 
-    region = get_region(scale_tensor, arch)
+    region = get_region(scale_tensor.mem_type, arch)
     for core in range(substreams):
         address = scale_addr + scale_substream_offsets[core]
         length = scale_substream_offsets[core + 1] - scale_substream_offsets[core]
@@ -447,11 +457,11 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
 
 def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
     """Converts the command to NpuDmaOperation"""
-    src_region = get_region(cmd.in_tensor, arch)
+    src_region = get_region(cmd.in_tensor.mem_type, arch)
     if cmd.out_tensor.purpose == TensorPurpose.LUT:
         dest_region = BASE_PTR_INDEX_MEM2MEM
     else:
-        dest_region = get_region(cmd.out_tensor, arch)
+        dest_region = get_region(cmd.out_tensor.mem_type, arch)
 
     start_coord = cmd.box.start_coord
     src_addr = cmd.in_tensor.address_for_coordinate(start_coord)
@@ -502,6 +512,7 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
             npu_op = convert_command_to_npu_op(cmd, arch)
             npu_op_list.append(npu_op)
             npu_op_to_cmd[npu_op] = cmd
+    mem_limits = get_mem_limits_for_regions(arch)
     # Generate register commands
     if len(sg.high_level_command_stream) > 0:
         stream_id = DebugDatabase.add_stream(sg)
@@ -513,4 +524,6 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
                 cmd = npu_op_to_cmd[npu_op]
                 DebugDatabase.add_command(stream_id, offset, cmd.ps.primary_op)
 
-        sg.register_command_stream = generate_command_stream(npu_op_list, arch, verbose, add_to_debug_db, npu_op_to_cmd)
+        sg.register_command_stream = generate_command_stream(
+            npu_op_list, arch, verbose, mem_limits, add_to_debug_db, npu_op_to_cmd
+        )

@@ -22,6 +22,7 @@ class VelaError(Exception):
 
     def __init__(self, data):
         self.data = f"Error! {data}"
+        self.error_msg = data
 
     def __str__(self):
         return repr(self.data)
