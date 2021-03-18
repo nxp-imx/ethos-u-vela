@@ -327,7 +327,7 @@ def print_performance_metrics_for_strat(
         )
         print(file=f)
 
-    if weights_compression_ratio != 0:
+    if weights_compression_ratio:
         print(
             f"Weights Compression Ratio                {weights_compression_ratio:12.2f}", file=f,
         )
