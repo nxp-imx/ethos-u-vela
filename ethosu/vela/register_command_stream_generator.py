@@ -17,6 +17,7 @@
 # Register level (low-level) command stream generation for Ethos-U. Takes a list of NPU operations and generates
 # all the register settings. Calculates dependencies between commands and inserts wait operations. And generates a bit
 # stream suitable for interpretation by the Ethos-U processor.
+import math
 from collections import defaultdict
 from enum import Enum
 from enum import IntEnum
@@ -640,12 +641,21 @@ def generate_ofm_scaling_for_pooling(emit: CommandStreamEmitter, pool_op: NpuPoo
         rescale = 0x3000 * ifm_quant.scale_f32
         if pool_op.ifm.data_type == NpuDataType.INT16:
             # Calculate scale and shift for the output scale of 1/(3*4096)
-            shift = 0
-            max_rescale = np.iinfo(np.int16).max / 2
-            while rescale <= max_rescale and shift <= 30:
-                shift += 1
-                rescale *= 2
-            scale = int(rescale)
+            x_log2 = math.log2(ifm_quant.scale_f32)
+            rounded_log2 = int(round(x_log2))
+            is_power_of_two = abs(x_log2 - rounded_log2) < 0.001
+            shift = rounded_log2 + 12
+            if is_power_of_two and shift in (0, 1):
+                # Special handling if input scale is 1/2048 or 1/4096
+                scale = 3 << shift
+                shift = 0
+            else:
+                shift = 0
+                max_rescale = np.iinfo(np.int16).max / 2
+                while rescale <= max_rescale and shift <= 30:
+                    shift += 1
+                    rescale *= 2
+                scale = int(rescale)
         else:
             rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
             scale, shift = scaling.quantise_pooling_scale(kernel.height * kernel.width, rescale_bits)
