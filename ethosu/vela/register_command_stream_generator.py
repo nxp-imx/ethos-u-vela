@@ -183,6 +183,9 @@ class CommandStreamEmitter:
         self.cmd_stream.append((command, offset))
         self.offset += CommandStreamEmitter.WORD_SIZE * 2
 
+    def cmd1_with_address(self, cmd: cmd1, offset):
+        self.cmd1_with_offset(cmd, offset, offset >> 32)
+
     def cmd_wait(self, cmd: cmd0, channel: int, outstanding_count: int):
         param = (16 * channel) + outstanding_count
         command = ((param & 0xFFFF) << 16) | cmd.value
@@ -309,10 +312,8 @@ def generate_addresses(emit: CommandStreamEmitter, ptr_cmds: List[cmd1], address
     if layout == NpuLayout.NHCWB16:
         # Check that all BasePointer addresses are aligned to 16 bytes
         assert all((int(addr) % 16) == 0 for addr in addresses)
-    emit.cmd1_with_offset(ptr_cmds[0], addresses[0])
-    emit.cmd1_with_offset(ptr_cmds[1], addresses[1])
-    emit.cmd1_with_offset(ptr_cmds[2], addresses[2])
-    emit.cmd1_with_offset(ptr_cmds[3], addresses[3])
+    for i in range(4):
+        emit.cmd1_with_address(ptr_cmds[i], addresses[i])
 
 
 def generate_tiles(emit: CommandStreamEmitter, tile_cmds: List[cmd0], tiles: NpuTileBox):
@@ -327,9 +328,9 @@ def generate_strides(
 ):
     """Generates STRIDE_C/Y/X registers"""
     strides = get_strides(fm)
-    emit.cmd1_with_offset(stride_c_cmd, strides.depth)  # stride between 16-byte channel blocks (C)
-    emit.cmd1_with_offset(stride_y_cmd, strides.height)  # stride between vertical values (H)
-    emit.cmd1_with_offset(stride_x_cmd, strides.width)  # stride between horisontal values (W)
+    emit.cmd1_with_address(stride_c_cmd, strides.depth)  # stride between 16-byte channel blocks (C)
+    emit.cmd1_with_address(stride_y_cmd, strides.height)  # stride between vertical values (H)
+    emit.cmd1_with_address(stride_x_cmd, strides.width)  # stride between horisontal values (W)
 
 
 def generate_ifm_precision(emit: CommandStreamEmitter, fm: NpuFeatureMap, op_to_scale: int, precision_cmd: cmd0):
@@ -476,10 +477,10 @@ def generate_weights(emit: CommandStreamEmitter, weights: List[NpuAddressRange],
         ]
     ):
         if core < len(weights):
-            emit.cmd1_with_offset(addr, weights[core].address)
+            emit.cmd1_with_address(addr, weights[core].address)
             emit.cmd1_with_offset(length, weights[core].length)
         elif core < arch.ncores:
-            emit.cmd1_with_offset(addr, weights[0].address)
+            emit.cmd1_with_address(addr, weights[0].address)
             emit.cmd1_with_offset(length, 0)
 
 
@@ -493,10 +494,10 @@ def generate_biases(emit: CommandStreamEmitter, biases: List[NpuAddressRange], a
         [(cmd1.NPU_SET_SCALE_BASE, cmd1.NPU_SET_SCALE_LENGTH), (cmd1.NPU_SET_SCALE1_BASE, cmd1.NPU_SET_SCALE1_LENGTH)]
     ):
         if core < len(biases):
-            emit.cmd1_with_offset(addr, biases[core].address)
+            emit.cmd1_with_address(addr, biases[core].address)
             emit.cmd1_with_offset(length, biases[core].length)
         elif core < arch.ncores:
-            emit.cmd1_with_offset(addr, biases[0].address)
+            emit.cmd1_with_address(addr, biases[0].address)
             emit.cmd1_with_offset(length, 0)
 
 
@@ -875,11 +876,11 @@ def generate_elementwise_op(emit: CommandStreamEmitter, npu_op: NpuElementWiseOp
 def generate_dma_op(emit: CommandStreamEmitter, dma_op: NpuDmaOperation):
     """Generates register commands for DMA operations"""
     emit.cmd0_with_param(cmd0.NPU_SET_DMA0_SRC_REGION, dma_op.src.region)
-    emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_SRC, dma_op.src.address)
+    emit.cmd1_with_address(cmd1.NPU_SET_DMA0_SRC, dma_op.src.address)
     emit.cmd0_with_param(cmd0.NPU_SET_DMA0_DST_REGION, dma_op.dest.region)
 
-    emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_DST, dma_op.dest.address)
-    emit.cmd1_with_offset(cmd1.NPU_SET_DMA0_LEN, dma_op.src.length)
+    emit.cmd1_with_address(cmd1.NPU_SET_DMA0_DST, dma_op.dest.address)
+    emit.cmd1_with_address(cmd1.NPU_SET_DMA0_LEN, dma_op.src.length)
 
 
 def generate_registers_for_op(emit: CommandStreamEmitter, npu_op: NpuOperation, arch: ArchitectureFeatures):
