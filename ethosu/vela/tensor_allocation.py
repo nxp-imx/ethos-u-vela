@@ -142,6 +142,17 @@ def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation):
         print()
 
 
+def calculate_allocation_efficiency(lrs):
+    lr_set = set(lrs.ranges.values())
+
+    size_at_time = [0] * (1 + max(lr.end_time for lr in lr_set))
+    for lr in lr_set:
+        for t in range(lr.start_time, lr.end_time + 1):
+            size_at_time[t] += lr.size
+
+    return max(size_at_time)
+
+
 def allocate_tensors(
     nng,
     sg,
@@ -199,6 +210,7 @@ def allocate_tensors(
         print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation)
 
         if mem_area == MemArea.Sram:
+            sg.min_mem_usage = calculate_allocation_efficiency(lrs)
             # Mark Sram usage for all subgraphs
             for sg_ in nng.subgraphs:
                 mark_sram_used_for_cascaded_passes(sg_, lrs)

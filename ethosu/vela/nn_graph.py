@@ -154,6 +154,7 @@ class Subgraph:
 
         self.memory_used = {}
         self.memory_used_per_type = {}
+        self.min_mem_usage = 0
 
     def __str__(self):
         return "<nng.Subgraph '%s',  n_passes=%d, n_cascaded_passes=%d>" % (

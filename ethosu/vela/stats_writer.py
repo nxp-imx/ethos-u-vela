@@ -223,6 +223,7 @@ def print_performance_metrics_for_strat(
     bandwidths,
     batch_size,
     memory_used,
+    min_mem_usage,
     num_passes,
     num_cascaded_passes,
     n_operations=0,
@@ -265,6 +266,11 @@ def print_performance_metrics_for_strat(
         aug_label = label + " used"
 
         print(f"Total {aug_label:25}          {memory_used[mem_area] / 1024.0:12.2f} KiB", file=f)
+        if mem_area == MemArea.Sram and min_mem_usage:
+            mem_used = memory_used[[mem_area for mem_area, _ in mem_area_labels if "SRAM" in mem_area][0]] / 1024.0
+            fraction = (mem_used - min_mem_usage / 1024.0) / (min_mem_usage / 1024.0)
+            print(f"Theoretical minimum SRAM usage{min_mem_usage/1024.0:23.2F} KiB", file=f)
+            print(f"Allocator overhead{100*fraction:35.2F} %", file=f)
 
     print(file=f)
     print(f"{num_passes:d} passes fused into {num_cascaded_passes:d}", file=f)
@@ -353,6 +359,7 @@ def print_performance_metrics(nng, arch, show_cpu_operations=False, f=sys.stdout
     n_cascaded_passes = sum(len(sg.cascaded_passes) for sg in nng.subgraphs)
     n_operations = sum(len(ps.ops) for sg in nng.subgraphs for ps in sg.passes)
     cpu_operations = sum((ps.ops for sg in nng.subgraphs for ps in sg.passes if ps.placement == PassPlacement.Cpu), [])
+    min_mem_usage = max(sg.min_mem_usage for sg in nng.subgraphs)
     return print_performance_metrics_for_strat(
         arch,
         nng.name,
@@ -361,6 +368,7 @@ def print_performance_metrics(nng, arch, show_cpu_operations=False, f=sys.stdout
         nng.bandwidths,
         nng.batch_size,
         nng.memory_used,
+        min_mem_usage,
         n_passes,
         n_cascaded_passes,
         n_operations,
