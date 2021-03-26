@@ -199,7 +199,9 @@ This is a list of constraints that the MEAN operator must satisfy in order to be
 - IFM must be int8 or uint8
 - Input tensor must be at least 2D
 - Axis indices must correspond to height and width axes
-- Product of height and width can be at most 4096
+- Product of height and width can be at most 65536
+- Product of height and width can be at most 4096 when IFM and OFM have different scale or zero point,  
+        or keep_dims is True
 - Product of IFM height and width can be at most 256 when the following are true:  
         IFM dimensions are 4,  
         Axis indices are 1 and 2,  

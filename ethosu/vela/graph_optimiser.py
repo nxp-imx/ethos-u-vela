@@ -1382,7 +1382,7 @@ def fixup_bias_tensors(op, arch, nng):
     return op
 
 
-def convert_mean_to_depthwise_conv(op, arch, nng):
+def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
     if op.type == Op.Mean and op.run_on_npu:
         keep_dims = op.attrs.get("keep_dims", False)
         inp, axis = op.inputs
@@ -1422,8 +1422,6 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
         )
         # Change op type
         op.type = Op.DepthwiseConv2DBias
-        # Add None bias tensor
-        op.inputs.append(None)
         # Set IFM/OFM shapes after changing op type
         op.set_ifm_ofm_shapes()
 
@@ -1509,14 +1507,11 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
                 op.set_output_tensor(intermediate)
                 op.set_ifm_ofm_shapes()
         elif ifmq.zero_point == ofmq.zero_point and ifmq.scale_f32 == ofmq.scale_f32:
+            # Here we can just use a simple AvgPool with truncating rounding,
+            # as we're emulating simple integer division.
             op.rounding_mode = NpuRoundingMode.TRUNCATE
-            weight_scale = 1 / (h * w)
-            foq = ofmq.clone()
-            foq.zero_point = 0
-            op.forced_output_quantization = foq
-            fiq = ifmq.clone()
-            fiq.zero_point = 0
-            op.forced_input_quantization = fiq
+            op.type = Op.AvgPool
+            op.attrs.update({"ksize": (1, h, w, 1), "filter_height": h, "filter_width": w})
         else:
             op.rounding_mode = NpuRoundingMode.NATURAL
             weight_scale = 1 / (h * w)
@@ -1537,6 +1532,12 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
             shape = [shape[0], 1, h * w, shape[3]]
             op.ifm_shapes[0] = Shape4D(shape)
             inp.avoid_NHCWB16 = True
+            if h > 256 and op.type == Op.AvgPool:
+                op.attrs.update({"ksize": (1, 1, h * w, 1), "filter_height": 1, "filter_width": h * w})
+
+        # If the AvgPool version is used, we don't need to do anything else
+        if op.type == Op.AvgPool:
+            return op
 
         # Make unit weight tensor quantization
         weight_quant = ifmq.clone()
@@ -1561,6 +1562,8 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
         )
         op.weights.quant_values = np.reshape(op.inputs[1].quant_values, weight_shape)
 
+        # Add None bias tensor
+        op.inputs.append(None)
         # Add bias tensor
         if bias:
             bias_shape = [shape[-1]]
@@ -1643,7 +1646,7 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
 
     op_rewrite_list = [
         set_tensor_equivalence,
-        convert_mean_to_depthwise_conv,
+        convert_mean_to_depthwise_conv_or_avgpool,
         convert_depthwise_to_conv,
         convert_conv_to_fc,
         convert_softmax,
