@@ -238,6 +238,8 @@ class ArchitectureFeatures:
 
         self.num_elem_wise_units = accel_config.elem_units
         self.num_macs_per_cycle = dpu_min_height * dpu_min_width * dpu_dot_product_width * dpu_min_ofm_channels
+        # Max value in address offsets
+        self.max_address_offset = 1 << 48 if self.is_ethos_u65_system else 1 << 32
 
         # Get system configuration and memory mode
         self._get_vela_config(vela_config_files, verbose_config)
@@ -246,8 +248,6 @@ class ArchitectureFeatures:
         self.memory_bandwidths_per_cycle = self.axi_port_width * self.memory_clock_scales / 8
 
         self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.core_clock
-        # Max value in address offsets
-        self.max_address_offset = 1 << 48 if self.is_ethos_u65_system else 1 << 32
 
         # Get output/activation performance numbers
         self._generate_output_perf_tables(self.accelerator_config)
@@ -601,6 +601,11 @@ class ArchitectureFeatures:
                 self._read_config(mem_mode_section, "cache_mem_area", self.cache_mem_area.name)
             ]
             self.cache_sram_size = int(self._read_config(mem_mode_section, "cache_sram_size", self.cache_sram_size))
+            if self.cache_sram_size > self.max_address_offset:
+                raise ConfigOptionError(
+                    "cache_sram_size",
+                    f"{self.cache_sram_size}. Size is out of bounds, maximum is: {self.max_address_offset}",
+                )
 
         elif self.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
             self._set_default_mem_mode()
