@@ -61,7 +61,7 @@ def check_cmd0(cmd_stream, cmd, param):
 
 def check_cmd1(cmd_stream, cmd, offset, param=0x0):
     """Checks that the command stream contains the given command + parameter"""
-    offset = int(offset) & 0xFFFFFFFFF
+    offset = int(offset) & 0xFFFFFFFF
     command = cmd.value | CmdMode.Payload32.value | (param << 16)
     for i in range(len(cmd_stream) - 1):
         if cmd_stream[i] == command and cmd_stream[i + 1] == offset:
@@ -380,9 +380,11 @@ def test_check_mem_limits():
     with pytest.raises(VelaError):
         npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_256)
     # bias with high end address, but still within range
+    addr = (1 << 48) - 1024
     conv_op = create_fully_connected_op()
-    conv_op.biases = [NpuAddressRange(region=0, address=(1 << 48) - 1024, length=1000)]
-    npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
+    conv_op.biases = [NpuAddressRange(region=0, address=addr, length=1000)]
+    cmds = npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
+    check_cmd1(cmds, cmd1.NPU_SET_SCALE_BASE, addr & ((1 << 32) - 1), (addr >> 32) & ((1 << 16) - 1))
     conv_op = create_fully_connected_op()
     # weights with negative address
     conv_op.weights = [NpuAddressRange(region=0, address=-16, length=1000)]

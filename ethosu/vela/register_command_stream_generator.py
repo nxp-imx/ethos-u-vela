@@ -176,7 +176,8 @@ class CommandStreamEmitter:
         self.offset += CommandStreamEmitter.WORD_SIZE
 
     def cmd1_with_offset(self, cmd: cmd1, offset, param=0x0):
-        offset = int(offset) & 0xFFFFFFFFF
+        offset = int(offset) & 0xFFFFFFFF
+        param = int(param) & 0xFFFF
         command = cmd.value | CmdMode.Payload32.value | (param << 16)
 
         if not self.get_reg_machine(cmd).set_register(cmd, (command, offset)):
