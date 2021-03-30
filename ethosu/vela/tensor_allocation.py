@@ -17,6 +17,7 @@
 # Wrapping function to do tensor address allocation. That is, assigning addresses to tensors based on what has been
 # worked out from the allowable overlaps that are calculated by the live range analysis.
 import math
+from typing import List
 
 import numpy as np
 
@@ -25,6 +26,7 @@ from . import live_range
 from . import numeric_util
 from .errors import AllocationError
 from .greedy_allocation import allocate_live_ranges as greedy_allocate_live_ranges
+from .live_range import LiveRange
 from .live_range import LiveRangeGraph
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
@@ -65,14 +67,10 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.Allocation
 
 def hillclimb_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularity: int) -> int:
     # Allocates using the hill climb allocator
-    lr_set = {(lr.start_time, lr.end_time, lr) for lr in live_ranges.ranges.values()}
-    lr_list = [lr for _, _, lr in lr_set]
-    lr_list.sort()
-
-    addresses = hillclimb_allocation.allocate_live_ranges(lr_list)
+    addresses = hillclimb_allocation.allocate_live_ranges(live_ranges.lrs)
     # The result is a list containing the allocated addresses
     total_sz = 0
-    for lr, address in zip(lr_list, addresses):
+    for lr, address in zip(live_ranges.lrs, addresses):
         total_sz = max(total_sz, address + lr.size)
         lr.set_address(address)
     verify_allocation(live_ranges, alloc_granularity)
@@ -80,7 +78,7 @@ def hillclimb_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularit
 
 
 def verify_alignment(live_ranges: LiveRangeGraph, alignment: int):
-    for lr in live_ranges.ranges.values():
+    for lr in live_ranges.lrs:
         for tens in lr.tensors:
             if not all(op and op.run_on_npu for op in tens.ops + tens.consumer_list):
                 # This is a CPU tensor, verify alignment
@@ -89,12 +87,16 @@ def verify_alignment(live_ranges: LiveRangeGraph, alignment: int):
 
 
 def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
-    lrs = list(live_ranges.ranges.values())
-    for n in lrs:
-        verify_alignment(live_ranges, alignment)
-
-        for m in lrs:
-            if n != m and n.overlaps_ranges(m):
+    verify_alignment(live_ranges, alignment)
+    nr_time_slots = 1 + max(lr.end_time for lr in live_ranges.lrs)
+    # Contains active live ranges at each timestamp
+    lrs_at_time = [[] for i in range(nr_time_slots)]
+    for lr in live_ranges.lrs:
+        for t in range(lr.start_time, lr.end_time + 1):
+            lrs_at_time[t].append(lr)
+    for t in range(nr_time_slots):
+        for ix, n in enumerate(lrs_at_time[t]):
+            for m in lrs_at_time[t][ix + 1 :]:
                 overlap, tens_n, tens_m = n.overlaps_address(m)
                 if overlap and not (tens_n.equivalent(tens_m) and tens_n.address == tens_m.address):
                     raise AllocationError(
@@ -142,11 +144,9 @@ def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation):
         print()
 
 
-def calculate_allocation_efficiency(lrs):
-    lr_set = set(lrs.ranges.values())
-
-    size_at_time = [0] * (1 + max(lr.end_time for lr in lr_set))
-    for lr in lr_set:
+def calculate_allocation_efficiency(lrs: List[LiveRange]):
+    size_at_time = [0] * (1 + max(lr.end_time for lr in lrs))
+    for lr in lrs:
         for t in range(lr.start_time, lr.end_time + 1):
             size_at_time[t] += lr.size
 
@@ -210,7 +210,7 @@ def allocate_tensors(
         print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation)
 
         if mem_area == MemArea.Sram:
-            sg.min_mem_usage = calculate_allocation_efficiency(lrs)
+            sg.min_mem_usage = calculate_allocation_efficiency(lrs.lrs)
             # Mark Sram usage for all subgraphs
             for sg_ in nng.subgraphs:
                 mark_sram_used_for_cascaded_passes(sg_, lrs)

@@ -86,7 +86,6 @@ from .register_command_stream_util import Watermark
 from .shared_buffer_allocation import find_suitable_block_configs
 from .shared_buffer_allocation import shared_buffer_allocation_for_npu_op
 from .shared_buffer_allocation import SharedBufferAllocation
-from ethosu.vela.errors import VelaError
 
 
 class RegisterMachine:

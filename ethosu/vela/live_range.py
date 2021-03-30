@@ -16,6 +16,8 @@
 # Description:
 # Build a live range graph for tensors in one or more subgraphs. Used for tensor allocation as well as in the scheduler.
 # Can work with either a pass packed subgraph or a scheduled subgraph.
+from typing import List
+
 from .nn_graph import PassPlacement
 from .operation import Op
 from .tensor import MemType
@@ -99,6 +101,7 @@ class LiveRange:
 
 class LiveRangeGraph:
     def __init__(self):
+        self.lrs: List[LiveRange] = []  # List of all created ranges
         self.ranges = {}  # tens -> range
         self.ignore_tensors = set()
         self.processed_subgraphs = set()
@@ -114,6 +117,7 @@ class LiveRangeGraph:
         # No live range found for the tensor, create a new one
         rng = LiveRange(tens, alignment)
         self.ranges[tens] = rng
+        self.lrs.append(rng)
         return rng
 
     def fuse_ranges(self, in_tens, out_tens):
