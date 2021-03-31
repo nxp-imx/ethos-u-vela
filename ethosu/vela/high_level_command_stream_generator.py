@@ -84,7 +84,7 @@ def generate_high_level_command_stream_for_pass(strat, passes, block_configs, id
     for op in ps.ops:
         if op.write_offset is not None:
             concat_offset = op.write_offset.as_list()
-            ofm_start = concat_offset
+            ofm_start = concat_offset[:]
             ofm_end = (op.write_offset + op.write_shape).as_list()
         if op.type.is_relu_op() or op.type in (Op.Tanh, Op.Sigmoid):
             ps.primary_op.activation = create_activation_function(op.type)
