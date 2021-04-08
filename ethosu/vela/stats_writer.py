@@ -267,7 +267,7 @@ def print_performance_metrics_for_strat(
 
         print(f"Total {aug_label:25}          {memory_used[mem_area] / 1024.0:12.2f} KiB", file=f)
         if mem_area == MemArea.Sram and min_mem_usage:
-            mem_used = memory_used[[mem_area for mem_area, _ in mem_area_labels if "SRAM" in mem_area][0]] / 1024.0
+            mem_used = memory_used[[mem_area for mem_area, label in mem_area_labels if "SRAM" in label][0]] / 1024.0
             fraction = (mem_used - min_mem_usage / 1024.0) / (min_mem_usage / 1024.0)
             print(f"Theoretical minimum SRAM usage{min_mem_usage/1024.0:23.2F} KiB", file=f)
             print(f"Allocator overhead{100*fraction:35.2F} %", file=f)
