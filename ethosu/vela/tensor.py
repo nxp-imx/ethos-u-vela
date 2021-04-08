@@ -372,7 +372,7 @@ class Tensor:
         "block_traversal",
         "equivalence_id",
         "resampling_mode",
-        "avoid_NHCWB16",
+        "needs_linear_format",
     )
     AllocationQuantum = 16
 
@@ -418,7 +418,7 @@ class Tensor:
         self.block_traversal: TensorBlockTraversal = TensorBlockTraversal.Default
         self.resampling_mode: resampling_mode = resampling_mode.NONE
 
-        self.avoid_NHCWB16: bool = False
+        self.needs_linear_format = True
 
     @property
     def address(self) -> int:

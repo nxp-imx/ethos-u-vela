@@ -41,6 +41,7 @@ def mark_purpose(tens, arch, purpose):
         tens.purpose = purpose
     elif tens.purpose not in (purpose, TensorPurpose.LUT):
         assert 0, "Cannot resolve tensor purpose {} and {} for tensor {}".format(tens.purpose, purpose, tens)
+
     fmt = get_format(purpose, arch)
     tens.set_format(fmt, arch)
     tens.mem_area = arch.tensor_storage_mem_area[tens.purpose]

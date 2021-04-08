@@ -296,7 +296,6 @@ def test_pad_followed_by_avg_pool(k_size, padding, expect_pad_removed):
         "dilation_h_factor": 1,
     }
     pool_op = testutil.create_op(Op.AvgPool, [out], pool_out_tens, attrs)
-    pool_op.add_input_tensor(out)
     pad_op.run_on_npu = True
     pool_op.run_on_npu = True
     nng = testutil.create_graph([pad_op, pool_op])

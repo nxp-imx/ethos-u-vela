@@ -671,8 +671,8 @@ class DynamicProgrammingScheduler:
         for pred_candidate in ps.dag_predecessors:
             if len(pred_candidate.outputs) == 1 and pred_candidate.outputs[0] == ifm_tensor:
                 # we found a predecessor that produces this IFM tensor
-                if not ifm_tensor.avoid_NHCWB16:
-                    # and NHCWB16 format is not to be avoided
+                if not ifm_tensor.needs_linear_format:
+                    # and NHCWB16 can be used
                     if len(pred_candidate.successors) == 1 and pred_candidate.successors[0] == ps:
                         # and it only has one successor, namely us
                         if pred_candidate.placement == PassPlacement.Npu:
@@ -965,7 +965,7 @@ class DynamicProgrammingScheduler:
                     if output.purpose != TensorPurpose.FeatureMap:
                         continue
 
-                    use_NHCWB16 = not output.avoid_NHCWB16
+                    use_NHCWB16 = not output.needs_linear_format
                     use_fast_storage = True
                     rewrites = []
                     for op in output.consumer_list:

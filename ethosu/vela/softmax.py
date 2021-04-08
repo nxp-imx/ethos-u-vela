@@ -217,9 +217,7 @@ class SoftMax:
         ifm_shape = self.op.ifm_shapes[0]
         if ifm_shape.batch > 1:
             self.op.ifm_shapes[0] = ifm_shape.with_height(ifm_shape.batch * ifm_shape.height).with_batch(1)
-            self.op.ifm.avoid_NHCWB16 = True
             self.op.ofm_shapes[0] = self.op.ifm_shapes[0]
-            self.op.ofm.avoid_NHCWB16 = True
 
         if ifm.dtype in (DataType.uint8, DataType.int8) and ofm.dtype == ifm.dtype:
             return self.get_graph_8bit(ifm, ofm)
@@ -262,7 +260,6 @@ class SoftMax:
         sub_op_quantization = one_scale_quant.clone()
         sub_op_quantization.zero_point = 127
         ifm_max_shape = Shape4D([1, ifm_shape.height, ifm_shape.width, 1])
-        ifm_max.avoid_NHCWB16 = True
         sub_op = create_sub(
             f"{self.op.name}_sub{pass_number}",
             ifm,
@@ -449,7 +446,6 @@ class SoftMax:
 
         # PASS 1 - Sub
         ifm_max_shape = Shape4D([1, ifm_shape.height, ifm_shape.width, 1])
-        ifm_max.avoid_NHCWB16 = True
         sub1_ofm = add_op_get_ofm(
             create_sub(
                 f"{self.op.name}_sub{pass_number}",

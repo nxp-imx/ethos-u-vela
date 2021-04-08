@@ -389,7 +389,8 @@ def estimate_memory_transfer_efficiency(
     elem_size = tensor.dtype.size_in_bytes()
     is_ifm = direction == BandwidthDirection.Read
     tens = tensor.clone()
-    if not tens.avoid_NHCWB16:
+
+    if not tensor.needs_linear_format:
         tens.set_format(TensorFormat.NHCWB16, arch)
     strides = tens.get_strides(shape4D=shape4D)
 

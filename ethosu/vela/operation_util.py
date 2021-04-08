@@ -70,8 +70,6 @@ def create_depthwise_maxpool(
     op.set_output_tensor(ofm)
     op.ifm_shapes.append(ifm_shape)
     op.ofm_shapes.append(Shape4D(ofm.shape))
-    op.ifm.avoid_NHCWB16 = True
-    op.ofm.avoid_NHCWB16 = True
     return op
 
 
