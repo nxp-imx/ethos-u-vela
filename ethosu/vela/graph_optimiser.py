@@ -95,12 +95,12 @@ def rewrite_concat_ops(op, arch):
     if op.type == Op.Pack:
         # Pack is also referred to as Stack
         axis = int(op.attrs["axis"])
+        if axis < 0:  # Convert to positive axis
+            axis = len(op.inputs[0].shape) + 1 + axis
+
         desired_shape = op.inputs[0].shape[:axis] + [1] + op.inputs[0].shape[axis:]
 
-        if axis >= 0:
-            axis_4D = axis + (4 - len(desired_shape))
-        else:
-            axis_4D = axis
+        axis_4D = axis + (4 - len(desired_shape))
 
         for idx, inp in enumerate(op.inputs):
             op.ifm_shapes[idx] = Shape4D(desired_shape)
@@ -651,20 +651,16 @@ def rewrite_unpack_output(op, arch, nng):
     if op.run_on_npu and op.type == Op.Unpack:
         # Unpack is also referred to as Unstack
         axis = int(op.attrs["axis"])
+        if axis < 0:  # Convert to positive axis
+            axis = len(op.inputs[0].shape) + 1 + axis
         op.type = Op.UnpackReshaped
         desired_output_shape = tens.shape[:axis] + [1] + tens.shape[axis:]
 
-        if axis >= 0:
-            axis_4D = axis + (4 - len(desired_output_shape))
-        else:
-            axis_4D = axis
+        axis_4D = axis + (4 - len(desired_output_shape))
+        op.attrs["split_axis_4D"] = [axis_4D] * len(op.outputs)
 
-        axis_4D_list = [0] * len(op.outputs)
         for idx, out_tens in enumerate(op.outputs):
             op.ofm_shapes[idx] = Shape4D(desired_output_shape)
-            axis_4D_list[idx] = axis_4D
-
-        op.attrs["split_axis_4D"] = axis_4D_list
     return op
 
 
