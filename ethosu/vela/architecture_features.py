@@ -28,6 +28,7 @@ from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
 from .numeric_util import round_up
 from .numeric_util import round_up_divide
+from .numeric_util import round_up_to_int
 from .operation import Kernel
 from .operation import NpuBlockType
 from .operation import PointXYZ
@@ -426,27 +427,18 @@ class ArchitectureFeatures:
         ifm_resampling_mode=resampling_mode.NONE,
     ):
         upscaling = 1 if ifm_resampling_mode == resampling_mode.NONE else 2
-        # Height
-        ifm_odd_2x_height_enable = 0
-        dilated_kernel_height = ((kernel.height - 1) * kernel.dilation.y) + 1
-        ifm_block_height = (
-            (ofm_block.height - 1) * kernel.stride.y
-            + min(subkernel.height, dilated_kernel_height)
-            + ifm_odd_2x_height_enable
-        ) // upscaling
 
-        ifm_block_height = round_up(ifm_block_height, self.ofm_ublock.height)
+        # Height
+        dilated_kernel_height = ((kernel.height - 1) * kernel.dilation.y) + 1
+        ifm_block_height = round_up_to_int(
+            ((ofm_block.height - 1) * kernel.stride.y + min(subkernel.height, dilated_kernel_height)) / upscaling
+        )
 
         # Width
-        ifm_odd_2x_width_enable = 0
         dilated_kernel_width = ((kernel.width - 1) * kernel.dilation.x) + 1
-        ifm_block_width = (
-            (ofm_block.width - 1) * kernel.stride.x
-            + min(subkernel.width, dilated_kernel_width)
-            + ifm_odd_2x_width_enable
-        ) // upscaling
-
-        ifm_block_width = round_up(ifm_block_width, self.ofm_ublock.width)
+        ifm_block_width = round_up_to_int(
+            ((ofm_block.width - 1) * kernel.stride.x + min(subkernel.width, dilated_kernel_width)) / upscaling
+        )
 
         return Block(ifm_block_width, ifm_block_height, ifm_block_depth)
 
