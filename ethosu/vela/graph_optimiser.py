@@ -263,9 +263,10 @@ def check_format_restrictions(tens, arch):
     ):
         return
 
-    if not any(cons.run_on_npu for cons in tens.consumer_list):
+    # Check if any of the producers/consumers is run on CPU
+    if not all(cons.run_on_npu for cons in tens.consumer_list):
         return
-    if not any(prod.run_on_npu for prod in tens.ops):
+    if not all(prod.run_on_npu for prod in tens.ops):
         return
 
     # "Concat" ofm exception:
