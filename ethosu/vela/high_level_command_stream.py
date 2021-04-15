@@ -62,7 +62,7 @@ class Box:
             new_start_coord[-1] = 0
             new_end_coord[-1] = ifm_shape.depth
 
-        if npu_block_type == NpuBlockType.ElementWise and len(new_end_coord) >= 1:
+        if npu_block_type in (NpuBlockType.ElementWise, NpuBlockType.ConvolutionMxN) and len(new_end_coord) >= 1:
             new_end_coord[-1] = min(new_end_coord[-1], ifm_shape.depth)
         if len(new_end_coord) >= 2:
             new_end_coord[-2] = min(new_end_coord[-2], ifm_shape.width * upscaling_factor)

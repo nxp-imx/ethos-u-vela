@@ -196,6 +196,10 @@ def remove_SplitSliceRead(op, arch):
                 cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[1])
                 cons_op.ifm_shapes[1] = op.ifm_shapes[0]
 
+            if "skirt" in cons_op.attrs:
+                assert cons_op.attrs["explicit_padding"] == cons_op.attrs["skirt"]
+                cons_op.attrs["skirt"] = None
+                cons_op.attrs["force_padding"] = True
             op.ofm.consumer_list.remove(cons_op)
             op.ofm.ops = []
             op.ifm.consumer_list.remove(op)
