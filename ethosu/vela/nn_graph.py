@@ -337,10 +337,13 @@ class Subgraph:
                 attrs["kshape"] = [kshape[0], kshape[1]]
             attrs["type"] = op.type.name
             attrs.pop("use_cudnn_on_gpu", None)
+            custom_options = attrs.pop("custom_options", None)
             if attrs not in unique_ops:
                 unique_ops.append(attrs)
                 # print attributes in human readable format
                 a = attrs.copy()
+                if custom_options is not None:
+                    a["custom_options"] = custom_options
                 s = a.pop("type")
                 data_format = a.pop("data_format", None)
                 if data_format and data_format != b"NHWC":
