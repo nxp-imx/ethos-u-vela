@@ -180,7 +180,7 @@ class ArchitectureFeatures:
             256, 1, Block(2, 2, 8), Block(2, 2, 8), 48, [8, 8, 8, 8, 16, 8, 16, 20], 8
         ),
         Accelerator.Ethos_U55_128: ArchitectureConfig(
-            128, 1, Block(2, 1, 8), Block(2, 2, 8), 24, [4, 4, 4, 4, 8, 4, 8, 12], 4
+            128, 1, Block(2, 1, 8), Block(2, 1, 8), 24, [4, 4, 4, 4, 8, 4, 8, 12], 4
         ),
         Accelerator.Ethos_U55_64: ArchitectureConfig(
             64, 1, Block(1, 1, 8), Block(1, 1, 8), 16, [2, 2, 2, 2, 4, 4, 4, 8], 2
@@ -434,11 +434,15 @@ class ArchitectureFeatures:
             ((ofm_block.height - 1) * kernel.stride.y + min(subkernel.height, dilated_kernel_height)) / upscaling
         )
 
+        ifm_block_height = round_up(ifm_block_height, self.ifm_ublock.height)
+
         # Width
         dilated_kernel_width = ((kernel.width - 1) * kernel.dilation.x) + 1
         ifm_block_width = round_up_to_int(
             ((ofm_block.width - 1) * kernel.stride.x + min(subkernel.width, dilated_kernel_width)) / upscaling
         )
+
+        ifm_block_width = round_up(ifm_block_width, self.ifm_ublock.width)
 
         return Block(ifm_block_width, ifm_block_height, ifm_block_depth)
 
