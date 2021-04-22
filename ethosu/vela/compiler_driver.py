@@ -292,10 +292,10 @@ def compiler_driver(nng, arch, options, scheduler_options):
             nng, sg, arch, options.verbose_register_command_stream
         )
         scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
-            nng, sg, arch, scratch_tens, scratch_fast_tens, flash_tens
+            sg, arch, scratch_tens, scratch_fast_tens, flash_tens
         )
 
-    npu_serialisation.rewrite_npu_call_ops(nng, root_sg, arch)
+    npu_serialisation.rewrite_npu_call_ops(root_sg, arch)
 
     # Set Scratch and Fast_scratch Tensor size
     if scratch_tens is not None:

@@ -57,7 +57,7 @@ def copy_ifm_values_to_memory_tensor(memory_tensor, src_tensor):
     memory_tensor.values[start_addr:end_addr] = values
 
 
-def serialise_npu_subgraph_into_tensors(nng, sg, arch, scratch_tens, scratch_fast_tens, flash_tens):
+def serialise_npu_subgraph_into_tensors(sg, arch, scratch_tens, scratch_fast_tens, flash_tens):
     if sg.placement != PassPlacement.Npu:
         return scratch_tens, scratch_fast_tens, flash_tens
 
@@ -135,7 +135,7 @@ def add_const_tens_to_startup_cascaded_pass(startup_cps, tens):
     startup_cps.outputs.insert(0, tens)
 
 
-def rewrite_npu_call_ops(nng, sg, arch):
+def rewrite_npu_call_ops(sg, arch):
     if sg.placement != PassPlacement.Cpu:
         return
 
