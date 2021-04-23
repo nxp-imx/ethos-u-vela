@@ -68,7 +68,7 @@ def encode_weights(
     :param is_depthwise: a boolean indicating these weights are used for a depthwise traversal
     :param block_traversal: indicates how these weights are traversed on sub-kernel basis
 
-    :return: a bytearray of compressed weights
+    :return: a tuple with a bytearray of encoded weights and the size of the unencoded weights
     """
     # Check arg types
     assert isinstance(accelerator, Accelerator)
@@ -104,7 +104,7 @@ def encode_weights(
         dilation=dilation_xy,
     )
     encoded_stream = encode(raw_stream)
-    return encoded_stream
+    return encoded_stream, len(raw_stream)
 
 
 def encode_bias(bias: np.int64, scale: int, shift: int):
@@ -161,15 +161,23 @@ class CompressedWeightCache:
     def __init__(self):
         self.cache = {}  # maps from WeightCompressionConfig to a tensor clone containing compressed weights
 
-    def get_tensor_with_same_compression(self, wcc):
-        return self.cache.get(wcc)
+    def has_tensor_with_same_compression(self, wcc):
+        return self.cache.get(wcc) is not None
 
-    def add(self, tens):
+    def get_tensor_with_same_compression(self, wcc):
+        cache_obj = self.cache.get(wcc)
+        return cache_obj[0] if cache_obj else None
+
+    def get_unencoded_size_with_same_compression(self, wcc):
+        cache_obj = self.cache.get(wcc)
+        return cache_obj[1] if cache_obj else None
+
+    def add(self, tens, unencoded_size):
         # Adds the compressed weights from the tensor to the cache
         wcc = tens.weight_compression_config
         # Clone the tensor to make sure that nothing related to the weight compression is modified
         tens_clone = tens.clone("_weights{}_{}".format(wcc.ofm_block_depth, wcc.ofm_depth_step))
-        self.cache[wcc] = tens_clone
+        self.cache[wcc] = (tens_clone, unencoded_size)
 
 
 def encode(weight_stream):
@@ -300,7 +308,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
         # Cache hit, copy weights from the cache
         tens.copy_compressed_weight_info(tens_cached)
         set_storage_shape(tens)
-        return
+        return nng.weight_cache.get_unencoded_size_with_same_compression(wcc)
     # No cache hit, perform the compression
     assert tens.quantization is not None
     assert tens.quantization.scale_f32 is not None
@@ -321,6 +329,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
     encoded_streams_substream_offsets = []
     offset = 0
     max_single_buffer_len = 0
+    unencoded_size = 0
 
     ifm_bitdepth = tens.consumer_list[0].inputs[0].dtype.size_in_bits()
     ifm_depth = weights.shape[-2]
@@ -371,7 +380,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
             block_depth = (ofm_block_depth + arch.ncores - 1 - core) // arch.ncores
             encoded_substream = []
             if block_depth != 0:
-                encoded_substream = encode_weights(
+                encoded_substream, raw_stream_size = encode_weights(
                     accelerator=arch.accelerator_config,
                     weights_volume=core_weights,
                     dilation_xy=dilation,
@@ -380,6 +389,7 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
                     is_depthwise=is_depthwise,
                     block_traversal=block_traversal,
                 )
+                unencoded_size += raw_stream_size
             encoded_stream.extend(encoded_substream)
             substream_offsets.append(len(encoded_stream))
 
@@ -408,7 +418,8 @@ def compress_weights(arch, nng, tens, npu_block_type, ofm_block_depth, ofm_depth
     tens.compressed_values_substream_offsets = encoded_streams_substream_offsets
     tens.brick_size = brick_size
     set_storage_shape(tens)
-    nng.weight_cache.add(tens)
+    nng.weight_cache.add(tens, unencoded_size)
+    return unencoded_size
 
 
 def calc_scales_and_pack_biases(tens, arch, ofm_depth_step, rescale_for_faf=False):
@@ -525,11 +536,11 @@ def update_pass_weight_and_scale_tensors(nng, arch):
                     ofm_depth_step = ps.block_config[-1]
                 else:
                     ofm_depth_step = tens.shape[-1]
-                compress_weights(
+                nng.total_npu_weights += compress_weights(
                     arch, nng, tens, op.type.npu_block_type, ps.block_config[-1], ofm_depth_step, op.get_dilation_h_w()
                 )
-                nng.total_compressed_weights += tens.weight_compressed_offsets[-1]
-                nng.total_original_weights += tens.elements() * tens.element_size()
+                nng.total_npu_encoded_weights += tens.weight_compressed_offsets[-1]
+                nng.total_original_weights += int(tens.elements() * tens.element_size())
 
                 # Update source tensor
                 if needs_dma:

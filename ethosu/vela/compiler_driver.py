@@ -61,6 +61,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         verbose_high_level_command_stream=False,
         verbose_register_command_stream=False,
         verbose_operators=False,
+        verbose_weights=False,
         show_cpu_operations=False,
         tensor_allocator=TensorAllocator.Greedy,
         timing=False,
@@ -77,6 +78,7 @@ Note the difference between ArchitectureFeatures and CompilerOptions
         self.verbose_high_level_command_stream = verbose_high_level_command_stream
         self.verbose_register_command_stream = verbose_register_command_stream
         self.verbose_operators = verbose_operators
+        self.verbose_weights = verbose_weights
         self.show_cpu_operations = show_cpu_operations
         self.tensor_allocator = tensor_allocator
         self.timing = timing

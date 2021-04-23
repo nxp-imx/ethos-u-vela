@@ -416,15 +416,16 @@ def npu_encode_weights(
     :param ofm_block_depth: the depth of blocks for processing
     :param is_depthwise: a boolean indicating these weights are used for a depthwise traversal
     :param block_traversal: indicates how these weights are traversed on sub-kernel basis
-    :return: a bytearray of compressed weights
+    :return: a bytearray of encoded weights
     """
     from .architecture_features import Accelerator
     from . import weight_compressor
 
     acc = Accelerator.from_npu_accelerator(accelerator)
-    return weight_compressor.encode_weights(
+    encoded_weights, _ = weight_compressor.encode_weights(
         acc, weights_volume, dilation_xy, ifm_bitdepth, ofm_block_depth, is_depthwise, block_traversal
     )
+    return encoded_weights
 
 
 def npu_encode_bias(bias: numpy.int64, scale: int, shift: int):

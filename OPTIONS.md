@@ -431,6 +431,14 @@ Verbose operator list.
 vela network.tflite --verbose-operators
 ```
 
+### Verbose Weights
+
+Verbose weights information.  
+
+```bash
+vela network.tflite --verbose-weights
+```
+
 ## Configuration File
 
 This is used to describe various properties of the Ethos-U embedded system.  The

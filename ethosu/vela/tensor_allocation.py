@@ -217,9 +217,5 @@ def allocate_tensors(
 
     if sg == nng.get_root_subgraph():
         nng.memory_used = sg.memory_used
-        try:
-            nng.weights_compression_ratio = nng.total_compressed_weights / nng.total_original_weights
-        except ZeroDivisionError:
-            nng.weights_compression_ratio = 0.0
 
     return True

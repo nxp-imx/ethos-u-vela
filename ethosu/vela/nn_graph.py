@@ -517,9 +517,9 @@ class Graph:
         self.subgraphs = []
         self.metadata = []
         self.memory_used = {}
-        self.weights_compression_ratio = 0
         self.total_original_weights = 0
-        self.total_compressed_weights = 0
+        self.total_npu_weights = 0
+        self.total_npu_encoded_weights = 0
         self.weight_cache = None  # See CompressedWeightCache
 
     def get_root_subgraph(self):

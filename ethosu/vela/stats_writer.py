@@ -58,7 +58,9 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
             "passes_after_fusing",
         ]
         labels += [area.identifier_name() + "_memory_used" for area in mem_areas]
-        labels += ["weights_compression_ratio"]
+        labels += ["total_original_weights"]
+        labels += ["total_npu_weights"]
+        labels += ["total_npu_encoded_weights"]
 
         for mem_area in mem_areas:
             labels += [
@@ -107,7 +109,9 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
 
         data_items += [midpoint_fps, nng.batch_size, midpoint_inference_time, n_passes, n_cascaded_passes]
         data_items += [nng.memory_used.get(mem_area, 0) / 1024.0 for mem_area in mem_areas]
-        data_items += [nng.weights_compression_ratio]
+        data_items += [nng.total_original_weights]
+        data_items += [nng.total_npu_weights]
+        data_items += [nng.total_npu_encoded_weights]
 
         for mem_area in mem_areas:
             bws = nng.bandwidths[mem_area]
@@ -228,8 +232,8 @@ def print_performance_metrics_for_strat(
     num_cascaded_passes,
     n_operations=0,
     cpu_operations=None,
-    weights_compression_ratio=None,
     show_cpu_operations=False,
+    weights_data=None,
     f=sys.stdout,
 ):
 
@@ -327,10 +331,11 @@ def print_performance_metrics_for_strat(
         )
         print(file=f)
 
-    if weights_compression_ratio:
-        print(
-            f"Weights Compression Ratio                {weights_compression_ratio:12.2f}", file=f,
-        )
+    if weights_data:
+        print(f"Original Weights Size                    {weights_data['original'] / 1024.0:12.2f} KiB", file=f)
+        print(f"NPU Weights Size                         {weights_data['npu'] / 1024.0:12.2f} KiB", file=f)
+        print(f"NPU Encoded Weights Size                 {weights_data['npu_encoded'] / 1024.0:12.2f} KiB", file=f)
+        print(file=f)
 
     print(
         f"Neural network macs                      {int(macs):12d} MACs/batch", file=f,
@@ -354,12 +359,21 @@ def print_performance_metrics_for_strat(
     print(file=f)
 
 
-def print_performance_metrics(nng, arch, show_cpu_operations=False, f=sys.stdout):
+def print_performance_metrics(nng, arch, show_cpu_operations=False, verbose_weights=False, f=sys.stdout):
     n_passes = sum(len(sg.passes) for sg in nng.subgraphs)
     n_cascaded_passes = sum(len(sg.cascaded_passes) for sg in nng.subgraphs)
     n_operations = sum(len(ps.ops) for sg in nng.subgraphs for ps in sg.passes)
     cpu_operations = sum((ps.ops for sg in nng.subgraphs for ps in sg.passes if ps.placement == PassPlacement.Cpu), [])
     min_mem_usage = max(sg.min_mem_usage for sg in nng.subgraphs)
+    weights_data = (
+        {
+            "original": nng.total_original_weights,
+            "npu": nng.total_npu_weights,
+            "npu_encoded": nng.total_npu_encoded_weights,
+        }
+        if verbose_weights
+        else None
+    )
     return print_performance_metrics_for_strat(
         arch,
         nng.name,
@@ -373,12 +387,7 @@ def print_performance_metrics(nng, arch, show_cpu_operations=False, f=sys.stdout
         n_cascaded_passes,
         n_operations,
         cpu_operations,
-        nng.weights_compression_ratio,
         show_cpu_operations,
+        weights_data,
         f,
     )
-
-
-def write_human_friendly_metrics(nng, arch, filename):
-    f = open(filename, "w")
-    print_performance_metrics(nng, arch, f=f)

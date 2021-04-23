@@ -77,7 +77,12 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
     summary_csv_file = "{0}_summary_{1}.csv".format(output_basename, arch.system_config)
     stats_writer.write_summary_metrics_csv(nng, summary_csv_file, arch)
 
-    stats_writer.print_performance_metrics(nng, show_cpu_operations=compiler_options.show_cpu_operations, arch=arch)
+    stats_writer.print_performance_metrics(
+        nng,
+        show_cpu_operations=compiler_options.show_cpu_operations,
+        verbose_weights=compiler_options.verbose_weights,
+        arch=arch,
+    )
 
     output_filename = output_basename + "_vela.tflite"
     if input_name.endswith(".tflite"):
@@ -284,6 +289,7 @@ def main(args=None):
             "--verbose-register-command-stream", action="store_true", help="Verbose register command stream"
         )
         parser.add_argument("--verbose-operators", action="store_true", help="Verbose operator list")
+        parser.add_argument("--verbose-weights", action="store_true", help="Verbose weights information")
         parser.add_argument(
             "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
         )
@@ -456,6 +462,7 @@ def main(args=None):
             verbose_high_level_command_stream=args.verbose_high_level_command_stream,
             verbose_register_command_stream=args.verbose_register_command_stream,
             verbose_operators=args.verbose_operators,
+            verbose_weights=args.verbose_weights,
             show_cpu_operations=args.show_cpu_operations,
             tensor_allocator=args.tensor_allocator,
             timing=args.timing,
