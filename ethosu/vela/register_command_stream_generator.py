@@ -744,8 +744,6 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
                 # the following we know that double rounding will have no effect for advanced scaling
                 # no matter the input, so we can safely use simplified scaling with double rounding disabled.
                 use_advanced_scaling = int(ofm_scale) & 0xFFF != 0
-                if not use_advanced_scaling:
-                    npu_op.rounding_mode = NpuRoundingMode.NATURAL
             else:
                 use_advanced_scaling = True
             if use_advanced_scaling:
