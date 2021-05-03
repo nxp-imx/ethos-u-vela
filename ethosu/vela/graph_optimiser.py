@@ -1476,8 +1476,8 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         dims = len(shape)
 
         # Height and width axes have different index depending on dimensions
-        if len(axis.shape) <= 1:  # single axis
-            axis = int(axis.values) if len(axis.shape) == 0 else axis.values[0]
+        if axis.shape == [] or axis.shape[0] == 1:  # single axis
+            axis = int(axis.values) if len(axis.shape) == 0 else int(axis.values[0])
             if dims in (2, 3):
                 if axis == 0:
                     h, w = shape[axis], 1
