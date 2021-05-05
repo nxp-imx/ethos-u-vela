@@ -15,7 +15,6 @@
 # limitations under the License.
 # Description:
 # Compresses and pads the weigths. It also calculates the scales and packs with the biases.
-import math
 from collections import namedtuple
 from typing import Tuple
 
@@ -93,18 +92,20 @@ def encode_weights(
 
     ifm_ublock = ArchitectureFeatures.accelerator_configs[accelerator].ifm_ublock
     ofm_ublock = ArchitectureFeatures.accelerator_configs[accelerator].ofm_ublock
-    raw_stream = generate_brick(
-        ifm_ublock=ifm_ublock,
-        ofm_ublock=ofm_ublock,
-        brick_weights=weights_volume,
-        ofm_block_depth=ofm_block_depth,
-        is_depthwise=is_depthwise,
-        is_partkernel=block_traversal == NpuBlockTraversal.PART_KERNEL_FIRST,
-        ifm_bitdepth=ifm_bitdepth,
-        dilation=dilation_xy,
+    decomp_h = ArchitectureFeatures.SubKernelMax.height // dilation_xy[0]
+    decomp_w = ArchitectureFeatures.SubKernelMax.width // dilation_xy[1]
+
+    return mlw_codec.reorder_encode(
+        ifm_ublock.depth,
+        ofm_ublock.depth,
+        weights_volume,
+        ofm_block_depth,
+        is_depthwise,
+        block_traversal == NpuBlockTraversal.PART_KERNEL_FIRST,
+        ifm_bitdepth,
+        decomp_h,
+        decomp_w,
     )
-    encoded_stream = encode(raw_stream)
-    return encoded_stream, len(raw_stream)
 
 
 def encode_bias(bias: np.int64, scale: int, shift: int):
@@ -178,111 +179,6 @@ class CompressedWeightCache:
         # Clone the tensor to make sure that nothing related to the weight compression is modified
         tens_clone = tens.clone("_weights{}_{}".format(wcc.ofm_block_depth, wcc.ofm_depth_step))
         self.cache[wcc] = (tens_clone, unencoded_size)
-
-
-def encode(weight_stream):
-    if len(weight_stream) == 0:
-        return []
-    assert np.amin(weight_stream) >= -255
-    assert np.amax(weight_stream) <= 255
-
-    # Encode flattened signed weight stream
-    compressed = mlw_codec.encode(weight_stream)
-
-    # pad with 0xFF as needed so the length of the weight stream
-    # is a multiple of 16
-
-    while (len(compressed) % 16) != 0:
-        compressed.append(0xFF)
-
-    return compressed
-
-
-def generate_brick(
-    ifm_ublock, ofm_ublock, brick_weights, ofm_block_depth, is_depthwise, is_partkernel, ifm_bitdepth, dilation
-):
-
-    decomp_h = ArchitectureFeatures.SubKernelMax.height // dilation[0]
-    decomp_w = ArchitectureFeatures.SubKernelMax.width // dilation[1]
-    # Expect weights formatted OHWI
-    ofm_depth = brick_weights.shape[-4]
-    ifm_depth = brick_weights.shape[-1]
-    kernel_width = brick_weights.shape[-2]
-    kernel_height = brick_weights.shape[-3]
-    # IFM block depth
-    if is_partkernel or (ifm_bitdepth == 16):
-        # IFM block depth is always 16 for part-kernel-first
-        ifm_block_depth = 16
-    elif ifm_bitdepth == 8:
-        ifm_block_depth = 32
-    else:
-        assert False
-
-    stream = []
-
-    # Top level striping - OFM blocks in the entire brick's depth
-    for ofm_block_z in range(0, ofm_depth, ofm_block_depth):
-        clipped_ofm_block_depth = min(ofm_block_depth, ofm_depth - ofm_block_z)
-        # IFM blocks required for the brick
-        for ifm_block_z in range(0, (1 if is_depthwise else ifm_depth), ifm_block_depth):
-            if is_depthwise:
-                clipped_ifm_block_depth = ifm_ublock.depth
-            else:
-                clipped_ifm_block_depth = (
-                    min(ifm_block_depth, ifm_depth - ifm_block_z) if is_partkernel else ifm_block_depth
-                )
-            # Weight decomposition
-            # Subkernel Splitting  (H)
-            for subkernel_y in range(0, kernel_height, decomp_h):
-                sub_height = min(kernel_height - subkernel_y, decomp_h)
-                # Subkernel splitting (W)
-                for subkernel_x in range(0, kernel_width, decomp_w):
-                    sub_width = min(kernel_width - subkernel_x, decomp_w)
-                    subkernel_elements = sub_width * sub_height
-                    # Part kernel first works across the kernel H/W and needs padding
-                    if is_partkernel:
-                        if ifm_bitdepth == 16 and subkernel_elements % 2 != 0:
-                            subkernel_elements = int(math.ceil(subkernel_elements / 2) * 2)
-                        elif ifm_bitdepth == 8 and subkernel_elements % 4 != 0:
-                            subkernel_elements = int(math.ceil(subkernel_elements / 4) * 4)
-
-                    # Depthwise Conv requires multiple of 4 kernel elements in its weight block
-                    # this is different from normal conv which is considered "weights depth-first"
-                    elif is_depthwise:
-                        subkernel_elements = int(math.ceil(subkernel_elements / 4.0) * 4)
-
-                    ifm_block_depth_outer = clipped_ifm_block_depth if is_partkernel else 1
-                    ifm_block_depth_inner = 1 if is_partkernel else clipped_ifm_block_depth
-                    # IFM Ublocks in IFM-block over depth for part-kernel-first mode
-                    # For depth-first IFM Ublocks are traversed after subkernel elements so this loop is ignored.
-                    for ifm_ublk_outer in range(0, ifm_block_depth_outer, ifm_ublock.depth):
-                        # OFM Ublocks in OFM-block over depth
-                        for ofm_ublk in range(0, clipped_ofm_block_depth, ofm_ublock.depth):
-                            # HW Kernel element traversal - cannot be a H/W loop due to element
-                            # padding requirement on depthwise/part-kernel configurations
-                            for element in range(subkernel_elements):
-                                kx = element % sub_width
-                                ky = element // sub_width
-                                # IFM Ublocks in IFM-block over depth (only 1 ublock if depthwise)
-                                # In case of part-kernel-first IFM Ublock traversal have already been handled
-                                # and this loop is ignored.
-                                for ifm_ublk_inner in range(0, ifm_block_depth_inner, ifm_ublock.depth):
-                                    # Feed OFM ublock elements
-                                    for ofm_ublock_z in range(ofm_ublock.depth):
-                                        # Source IFM ublock elements (only 1 element deep if depthwise)
-                                        for ifm_ublock_z in range(1 if is_depthwise else ifm_ublock.depth):
-                                            # Source position within the current subkernel
-                                            wx = subkernel_x + kx
-                                            wy = subkernel_y + ky
-                                            # Source IFM/OFM slices
-                                            ifm_ublk = ifm_ublk_inner + ifm_ublk_outer
-                                            ifm_z = ifm_block_z + ifm_ublk + ifm_ublock_z
-                                            ofm_z = ofm_block_z + ofm_ublk + ofm_ublock_z
-                                            if (ifm_z >= ifm_depth) or (ofm_z >= ofm_depth) or (ky >= sub_height):
-                                                stream.append(0)
-                                            else:
-                                                stream.append(brick_weights[ofm_z][wy][wx][ifm_z])
-    return stream
 
 
 def core_deinterleave(hwio, core, ncores):

@@ -18,6 +18,7 @@
 import os
 import re
 
+import numpy as np
 from setuptools import Extension
 from setuptools import find_namespace_packages
 from setuptools import setup
@@ -42,6 +43,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 mlw_module = Extension(
     "ethosu.mlw_codec",
     ["ethosu/mlw_codec/mlw_encode.c", "ethosu/mlw_codec/mlw_decode.c", "ethosu/mlw_codec/mlw_codecmodule.c"],
+    include_dirs=[np.get_include()],
 )
 
 setup(
