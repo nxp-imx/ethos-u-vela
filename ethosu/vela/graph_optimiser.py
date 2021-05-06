@@ -1680,7 +1680,7 @@ def _record_optimised(op, arch):
 
 def optimise_graph_a(nng, arch, verbose_graph=False):
     if verbose_graph:
-        nng.print_graph()
+        nng.print_graph("Before Graph Optimization")
 
     pre_process_list = [
         supported_operator_check,
@@ -1783,5 +1783,5 @@ def optimise_graph_a(nng, arch, verbose_graph=False):
         rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [check_reshapes, _record_optimised])
 
     if verbose_graph:
-        nng.print_graph()
+        nng.print_graph("After Graph Optimization")
     return nng

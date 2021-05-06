@@ -106,5 +106,5 @@ def insert_dma_commands(nng, arch, verbose_graph=False):
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(nng, sg, arch, [], [insert_dma_cmd])
     if verbose_graph:
-        nng.print_graph()
+        nng.print_graph("After DMA insertion")
     return nng

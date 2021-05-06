@@ -359,7 +359,9 @@ class Subgraph:
                     s += "->" + str(dstt)[9:-2]
                 print(s + " " + str(a))
 
-    def print_graph(self):
+    def print_graph(self, label=None):
+        if label:
+            print(f"\n[ {label} ]")
         print("print_graph()", self.name)
         all_ops = self.get_all_ops()
         for idx, op in enumerate(all_ops):
@@ -541,9 +543,9 @@ class Graph:
         for sg in self.subgraphs:
             sg.print_operators()
 
-    def print_graph(self):
+    def print_graph(self, label=None):
         for sg in self.subgraphs:
-            sg.print_graph()
+            sg.print_graph(label)
 
     def print_graph_with_tensors(self):
         for sg in self.subgraphs:
