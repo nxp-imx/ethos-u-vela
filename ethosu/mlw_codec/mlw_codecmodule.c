@@ -40,7 +40,7 @@
  *  decomp_w,
  *  verbose=0)
  *
- * output: bytearray
+ * output: (bytearray, int)
  */
 
 static PyObject *
@@ -79,7 +79,7 @@ method_reorder_encode (PyObject *self, PyObject *args)
         &verbose))
         return NULL;
 
-    PyArrayObject* input_ndarray_object = PyArray_FROM_OTF(
+    PyArrayObject* input_ndarray_object = (PyArrayObject*)PyArray_FROM_OTF(
         input_object,
         NPY_INT64,
         NPY_ARRAY_ALIGNED);
@@ -111,7 +111,7 @@ method_reorder_encode (PyObject *self, PyObject *args)
         return NULL;
     }
     uint8_t* output_buffer = NULL;
-    int padded_length;
+    int64_t padded_length;
 
     int output_length = mlw_reorder_encode(
         ifm_ublock_depth,
@@ -132,11 +132,6 @@ method_reorder_encode (PyObject *self, PyObject *args)
         &padded_length,
         verbose);
 
-    if (output_buffer == NULL)
-    {
-        return PyErr_NoMemory();
-    }
-
     PyObject *output_byte_array = PyByteArray_FromStringAndSize((char*)output_buffer, output_length);
     PyObject *padded_length_obj = Py_BuildValue("i", padded_length);
 
@@ -144,6 +139,8 @@ method_reorder_encode (PyObject *self, PyObject *args)
     mlw_free_outbuf(output_buffer);
 
     PyObject* ret = PyTuple_Pack(2, output_byte_array, padded_length_obj);
+
+    Py_DECREF(input_ndarray_object);
     Py_DECREF(output_byte_array);
     Py_DECREF(padded_length_obj);
     return ret;

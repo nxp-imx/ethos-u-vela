@@ -38,6 +38,26 @@ int mlw_encode(int16_t *inbuf, int inbuf_size, uint8_t **outbuf, int verbose);
 EXPORTED
 void mlw_free_outbuf(uint8_t *outbuf);
 
+EXPORTED
+int mlw_reorder_encode(
+    int ifm_ublock_depth,
+    int ofm_ublock_depth,
+    int ofm_depth,
+    int kernel_height,
+    int kernel_width,
+    int ifm_depth,
+    int* brick_strides,
+    void* inbuf,
+    int ofm_block_depth,
+    int is_depthwise,
+    int is_partkernel,
+    int ifm_bitdepth,
+    int decomp_h,
+    int decomp_w,
+    uint8_t **outbuf,
+    int64_t* padded_length,
+    int verbose);
+
 #if __cplusplus
 }
 #endif

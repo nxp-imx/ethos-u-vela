@@ -44,6 +44,7 @@ mlw_module = Extension(
     "ethosu.mlw_codec",
     ["ethosu/mlw_codec/mlw_encode.c", "ethosu/mlw_codec/mlw_decode.c", "ethosu/mlw_codec/mlw_codecmodule.c"],
     include_dirs=[np.get_include()],
+    define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_9_API_VERSION")],
 )
 
 setup(
