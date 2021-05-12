@@ -18,10 +18,24 @@
 import os
 import re
 
-import numpy as np
 from setuptools import Extension
 from setuptools import find_namespace_packages
 from setuptools import setup
+from setuptools.command.build_ext import build_ext
+
+
+class BuildExtension(build_ext):
+    def finalize_options(self):
+        build_ext.finalize_options(self)
+        import builtins
+
+        # tell numpy it's not in setup anymore
+        builtins.__NUMPY_SETUP__ = False
+        import numpy as np
+
+        # add the numpy headers to the mlw_codec extension
+        self.include_dirs.append(np.get_include())
+
 
 # Read the contents of README.md file
 this_directory = os.path.abspath(os.path.dirname(__file__))
@@ -43,7 +57,6 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 mlw_module = Extension(
     "ethosu.mlw_codec",
     ["ethosu/mlw_codec/mlw_encode.c", "ethosu/mlw_codec/mlw_decode.c", "ethosu/mlw_codec/mlw_codecmodule.c"],
-    include_dirs=[np.get_include()],
     define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_9_API_VERSION")],
 )
 
@@ -81,5 +94,6 @@ setup(
     ],
     entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
     ext_modules=[mlw_module],
-    setup_requires=["setuptools_scm"],
+    cmdclass={"build_ext": BuildExtension},
+    setup_requires=["numpy>=1.16.6", "setuptools_scm"],
 )
