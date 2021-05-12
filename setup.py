@@ -78,14 +78,13 @@ setup(
         "Programming Language :: C",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.6 :: Only",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Software Development :: Compilers",
     ],
     keywords=["ethos-u", "vela compiler", "tflite", "npu"],
     packages=find_namespace_packages(include=["ethosu.*"]),
-    python_requires="~=3.6",  # We support only 3.6+
+    python_requires="~=3.6",  # We only test for 3.6.*
     install_requires=[
         "flatbuffers==1.12.0",
         "numpy>=1.16.6",
