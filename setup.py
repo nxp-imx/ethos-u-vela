@@ -19,7 +19,6 @@ import os
 import re
 
 from setuptools import Extension
-from setuptools import find_namespace_packages
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
 
@@ -83,8 +82,8 @@ setup(
         "Topic :: Software Development :: Compilers",
     ],
     keywords=["ethos-u", "vela compiler", "tflite", "npu"],
-    packages=find_namespace_packages(include=["ethosu.*"]),
-    python_requires="~=3.6",  # We only test for 3.6.*
+    packages=["ethosu.vela", "ethosu.mlw_codec"],
+    python_requires="~=3.6",  # We support only 3.6+
     install_requires=[
         "flatbuffers==1.12.0",
         "numpy>=1.16.6",

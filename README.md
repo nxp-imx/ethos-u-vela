@@ -81,7 +81,6 @@ Once you have the source code, Vela can be installed using the following
 command:
 
 ```bash
-pip3 install -U setuptools>=40.1.0
 pip3 install .
 ```
 
