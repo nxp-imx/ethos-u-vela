@@ -528,7 +528,6 @@ class DynamicProgrammingScheduler:
                     strat_set.bws,
                     self.nng.batch_size,
                     memory_used,
-                    self.sg.min_mem_usage,
                     len(self.sg.passes),
                     len(strat_set.strats),
                 )

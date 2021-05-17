@@ -120,37 +120,53 @@ def mark_sram_used_for_cascaded_passes(sg, lrs):
             ps.sram_used = sram_used
 
 
-def print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation):
-    if verbose_allocation:
-        if mem_type_set == set((MemType.Permanent_NPU,)) or mem_type_set == set((MemType.Permanent_CPU,)):
-            print("allocation for", mem_area, "- constant tensors in", sg.placement.name, "subgraph(s)")
-        else:
-            print("allocation for", mem_area, "- non-constant tensors in Cpu and Npu subgraphs")
-        mem_usage = 0
-        for start_time, start, end, name, end_time in sorted(
-            (
-                lr.start_time,
-                tens.address,
-                tens.address + int(math.ceil(tens.storage_size())),
-                tens.name + " " + str(tens.purpose),
-                lr.end_time,
-            )
-            for tens, lr in lrs.ranges.items()
-        ):
-            name = name.replace("\x00", "")
-            print("%9d: %#12x - %#12x: %3d - %3d %s" % ((end - start), start, end, start_time, end_time, name))
-            mem_usage = max(mem_usage, end)
-        print("Memory usage: {} ({:#x}) bytes / {:.1f} KB".format(mem_usage, mem_usage, mem_usage / 1024))
-        print()
+def print_allocation(lrs, mem_area, mem_type_set, tensor_allocator, sg, actual_mem_usage_for_alloc):
+    print("\n" + "#" * 80)
+    sg_placement = (
+        sg.placement.name
+        if mem_type_set.intersection((MemType.Permanent_NPU, MemType.Permanent_CPU,))
+        else "Cpu and Npu"
+    )
+    print(
+        f"Tensor Allocation for mem_area {mem_area.name}, of mem_type_set ("
+        f'{", ".join(f"{mem_type.name}" for mem_type in mem_type_set)}'
+        f"), using allocator {tensor_allocator}, in {sg_placement} subgraph:"
+    )
+
+    memory_hist = memory_usage_histogram(lrs.lrs)
+    min_mem_usage_for_alloc = max(memory_hist)
+    print("Start Time -   End Time: Start Addr -   End Addr: Tensor Size: Memory Usage:  Tensor Purpose: Tensor Name")
+    for start_time, end_time, size, start_addr, end_addr, purpose, name in sorted(
+        (lr.start_time, lr.end_time, lr.size, tens.address, tens.address + lr.size, tens.purpose, tens.name,)
+        for tens, lr in lrs.ranges.items()
+    ):
+        print(
+            f"{start_time:10d} - {end_time:10d}: {start_addr:#10x} - {end_addr:#10x}: {size:11d}:"
+            f" {memory_hist[start_time]:12d}: {purpose.display_name():15s}: {name:s}"
+        )
+
+    alloc_overhead_fraction = (actual_mem_usage_for_alloc - min_mem_usage_for_alloc) / min_mem_usage_for_alloc
+    print(
+        f"Allocation Peak Tensor Size:  {min_mem_usage_for_alloc:9d} ({min_mem_usage_for_alloc:#10x})"
+        f" Bytes {min_mem_usage_for_alloc/1024.0:8.2f} KiB"
+    )
+    print(
+        f"Allocation Peak Memory Usage: {actual_mem_usage_for_alloc:9d} ({actual_mem_usage_for_alloc:#10x})"
+        f" Bytes {actual_mem_usage_for_alloc/1024.0:8.2f} KiB"
+    )
+    print(
+        f"Allocation Overhead:          {actual_mem_usage_for_alloc-min_mem_usage_for_alloc:9d}"
+        f" Bytes ({100*alloc_overhead_fraction:.2f} %)"
+    )
 
 
-def calculate_allocation_efficiency(lrs: List[LiveRange]):
-    size_at_time = [0] * (1 + max(lr.end_time for lr in lrs))
+def memory_usage_histogram(lrs: List[LiveRange]):
+    histogram = [0] * (1 + max(lr.end_time for lr in lrs))
     for lr in lrs:
         for t in range(lr.start_time, lr.end_time + 1):
-            size_at_time[t] += lr.size
+            histogram[t] += lr.size
 
-    return max(size_at_time)
+    return histogram
 
 
 def allocate_tensors(
@@ -180,7 +196,7 @@ def allocate_tensors(
     if lrs.ranges:
         tens_alloc = tensor_allocator
         if tens_alloc == TensorAllocator.Greedy:
-            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment, verbose_allocation)
+            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment)
             verify_allocation(lrs, cpu_tensor_alignment)
         elif tens_alloc == TensorAllocator.LinearAlloc:
             total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
@@ -207,10 +223,10 @@ def allocate_tensors(
             else:
                 sg.memory_used_per_type[mem_type] += total_sz
 
-        print_allocation(lrs, mem_area, mem_type_set, sg, verbose_allocation)
+        if verbose_allocation:
+            print_allocation(lrs, mem_area, mem_type_set, tensor_allocator, sg, total_sz)
 
         if mem_area == MemArea.Sram:
-            sg.min_mem_usage = calculate_allocation_efficiency(lrs.lrs)
             # Mark Sram usage for all subgraphs
             for sg_ in nng.subgraphs:
                 mark_sram_used_for_cascaded_passes(sg_, lrs)

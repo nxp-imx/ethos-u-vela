@@ -58,7 +58,7 @@ class GreedyAllocator:
     def dealloc(self, lr_to_dealloc):
         self.current_allocs = [(start_addr, lr) for start_addr, lr in self.current_allocs if lr != lr_to_dealloc]
 
-    def allocate_live_ranges(self, verbose_allocation, alignment):
+    def allocate_live_ranges(self, alignment):
         lrs = set()
         for lr in self.live_ranges.lrs:
             lrs.add((lr.start_time, -lr.end_time, lr))
@@ -75,6 +75,6 @@ class GreedyAllocator:
         return self.memory_required
 
 
-def allocate_live_ranges(nng, arch, live_ranges, mem_area, alignment, verbose_allocation=False):
+def allocate_live_ranges(nng, arch, live_ranges, mem_area, alignment):
     g = GreedyAllocator(nng, arch, live_ranges, mem_area)
-    return g.allocate_live_ranges(verbose_allocation, alignment)
+    return g.allocate_live_ranges(alignment)
