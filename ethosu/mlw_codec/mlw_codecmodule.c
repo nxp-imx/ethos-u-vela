@@ -178,7 +178,7 @@ method_encode (PyObject *self, PyObject *args)
 
   /* Unpack the length of the input integer list.  */
   Py_ssize_t input_length = PyObject_Length (input_list_object);
-  if (input_length < 0) {
+  if (input_length < 0 || input_length > INT32_MAX) {
     return NULL;
   }
 
@@ -202,14 +202,14 @@ method_encode (PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "Input value out of bounds");
         return NULL;
       }
-      input_buffer[i] = value;
+      input_buffer[i] = (int16_t)value;
     }
   if (PyErr_Occurred() != NULL) {
     PyErr_SetString(PyExc_ValueError, "Invalid input");
     return NULL;
   }
 
-  int output_length = mlw_encode(input_buffer, input_length, &output_buffer, verbose);
+  int output_length = mlw_encode(input_buffer, (int)input_length, &output_buffer, verbose);
 
   PyObject *output_byte_array = PyByteArray_FromStringAndSize ((char *) output_buffer, output_length);
 
@@ -253,6 +253,9 @@ method_decode(PyObject *self, PyObject *args)
   /* Unpack the input buffer and length from the bytearray object.  */
   uint8_t *input_buffer = (uint8_t *) PyByteArray_AsString(input_bytearray_object);
   Py_ssize_t input_length = PyByteArray_Size(input_bytearray_object);
+  if (input_length < 0 || input_length > INT32_MAX) {
+    return NULL;
+  }
 
   /* We don't know the output length required, we guess, but the guess
    * will be too small, the mlw_decode call will do a resize (upwards)
@@ -262,7 +265,7 @@ method_decode(PyObject *self, PyObject *args)
   if (output_buffer == NULL)
     return PyErr_NoMemory();
 
-  int output_length = mlw_decode (input_buffer, input_length, &output_buffer, verbose);
+  int output_length = mlw_decode (input_buffer, (int)input_length, &output_buffer, verbose);
 
   /* Construct a new integer list and marshall the output buffer
    * contents into the list.  */

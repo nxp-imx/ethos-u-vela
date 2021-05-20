@@ -1101,9 +1101,9 @@ int mlw_reorder_encode(
 
     /* Then encode */
     int output_length = 0;
-    if (*padded_length > 0)
+    if (*padded_length > 0 && *padded_length <= INT32_MAX)
     {
-        output_length = mlw_encode(weights, *padded_length, outbuf, verbose);
+        output_length = mlw_encode(weights, (int)*padded_length, outbuf, verbose);
     }
     reorder_free(weights);
 
