@@ -82,7 +82,7 @@ setup(
         "Topic :: Software Development :: Compilers",
     ],
     keywords=["ethos-u", "vela compiler", "tflite", "npu"],
-    packages=["ethosu.vela", "ethosu.mlw_codec"],
+    packages=["ethosu.vela", "ethosu.vela.ethos_u55_regs", "ethosu.vela.tflite", "ethosu.mlw_codec"],
     python_requires="~=3.6",  # We support only 3.6+
     install_requires=[
         "flatbuffers==1.12.0",
