@@ -21,7 +21,7 @@ class VelaError(Exception):
     """Base class for vela exceptions"""
 
     def __init__(self, data):
-        self.data = f"Error! {data}"
+        self.data = f"Error: {data}"
         self.error_msg = data
 
     def __str__(self):

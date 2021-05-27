@@ -32,13 +32,12 @@ class PassFlags(enum.Flag):
     Main = 1
     Post = 2
     Mac = 4
-    Dma = 8
-    ElementWise = 16
-    Npu = 32
-    Cpu = 64
-    StartupInit = 128
-    MemoryOnly = 256
-    PostFusingLimited = 512
+    ElementWise = 8
+    Npu = 16
+    Cpu = 32
+    StartupInit = 64
+    MemoryOnly = 128
+    PostFusingLimited = 256
 
 
 mac_main_ops = set(
@@ -87,7 +86,6 @@ elem_wise_ops = elem_wise_main_ops | activation_ops | set((Op.Sigmoid, Op.Tanh))
 quantization_ops = set((Op.Dequantize, Op.Max, Op.Min))
 cpu_ops = set((Op.Softmax, Op.LRN, Op.Shape, Op.Pad, Op.AddN)) | quantization_ops
 
-npu_dma_ops = set((Op.DMA,))
 startup_init_ops = set((Op.Const, Op.Placeholder, Op.SubgraphInput))
 memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape, Op.ExpandDims,))
 
@@ -130,16 +128,6 @@ test_sequence = [
         PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Mac | PassFlags.Main | PassFlags.PostFusingLimited,
         # flags_to_set
         PassFlags.Npu | PassFlags.ElementWise | PassFlags.Main,
-        # flags_to_clear
-        PassFlags.Empty,
-    ),
-    (
-        # ops_set
-        npu_dma_ops,
-        # incompatible_pack_flags
-        PassFlags.Cpu | PassFlags.MemoryOnly,
-        # flags_to_set
-        PassFlags.Npu | PassFlags.Dma,
         # flags_to_clear
         PassFlags.Empty,
     ),
@@ -261,12 +249,6 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                                 assert ifm_tensor is not None, "IFM missing in {}".format(curr_op)
                                 assert ifm_tensor.purpose == TensorPurpose.FeatureMap
 
-                        if flags_to_set & PassFlags.Dma:
-                            # DMAs are special - Output buffers need to be preserved as intermediates,
-                            # if the pass consumes the results
-                            if tens is not None:
-                                reverse_intermediates.append(tens)
-
                         if operation_set is None:
                             print("Warning:", curr_op.type, "operation is unknown or unsupported, placing on CPU")
 
@@ -292,7 +274,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
 
         is_element_wise = True
         for op in reverse_ops_list:
-            if op.type not in elem_wise_ops and op.type not in npu_dma_ops:
+            if op.type not in elem_wise_ops and op.type:
                 is_element_wise = False
                 break
 
@@ -335,11 +317,6 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             for inp in primary_op.inputs:
                 if inp is None:
                     continue
-                if len(inp.ops) == 1 and inp.ops[0].type == Op.DMA and inp.purpose == TensorPurpose.FeatureMap:
-                    src_op = inp.ops[0]
-                    if src_op in input_ops_list:
-                        inp = src_op.inputs[0]
-                        input_ops_list.remove(src_op)
                 add_input_list(inp, input_set, input_refcounts, lut_list, ordered_input_list)
             input_ops_list.remove(primary_op)
 
@@ -349,9 +326,6 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 add_input_list(inp, input_set, input_refcounts, lut_list, ordered_input_list)
 
         name = ops_list[0].name
-        non_dma_ops = [op for op in ops_list if op.type != Op.DMA]
-        if non_dma_ops:
-            name = non_dma_ops[0].name
         ps = Pass(name, placement, is_element_wise, npu_block_type)
         ps.ops = ops_list
         ps.primary_op = primary_op

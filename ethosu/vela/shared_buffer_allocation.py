@@ -26,7 +26,6 @@ from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
-from .errors import AllocationError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .operation import Kernel
 from .operation import NpuBlockType
@@ -262,11 +261,6 @@ def shared_buffer_allocation_for_npu_op(
 
 def find_suitable_block_configs(arch, alloc: SharedBufferAllocation) -> List[Tuple]:
     """Returns list of block configs that would fit with the given shared buffer allocation"""
-    if arch.override_block_config:
-        config = alloc.try_block(arch.override_block_config)
-        if config is None:
-            raise AllocationError(f"Block config override '{arch.override_block_config}' cannot be allocated")
-        return [config]
 
     # Constrain the search space if the OFM is smaller than the max block size
     # - Add other block search constraints here if required

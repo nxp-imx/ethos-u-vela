@@ -53,13 +53,23 @@ class Kernel:
     Kernel information for NPU operations
     """
 
-    def __init__(self, w: int, h: int, stride_x: int = 1, stride_y: int = 1, dilation_x: int = 1, dilation_y: int = 1):
+    def __init__(
+        self,
+        w: int,
+        h: int,
+        stride_x: int = 1,
+        stride_y: int = 1,
+        dilation_x: int = 1,
+        dilation_y: int = 1,
+        valid_padding=False,
+    ):
         assert stride_x > 0 and stride_y > 0
         assert dilation_x > 0 and dilation_y > 0
         self.width = w
         self.height = h
         self.stride = PointXY(stride_x, stride_y)
         self.dilation = PointXY(dilation_x, dilation_y)
+        self.valid_padding = valid_padding
 
     def elements_wh(self) -> int:
         return self.width * self.height
@@ -69,6 +79,9 @@ class Kernel:
 
     def area_height(self) -> int:
         return (self.height - 1) * self.dilation.y + 1
+
+    def dilation(self) -> PointXY:
+        return self.dilation
 
     def dilated_wh(self) -> Tuple[int, int]:
         """Returns the dilated kernel width/height"""
@@ -149,7 +162,6 @@ class Op(Enum):
     Cumsum = OperatorInfo()
     Custom = OperatorInfo()  # Custom 3rd party operator, only used in CPU subgraphs
     CustomNpuOp = OperatorInfo()  # NPU custom operator, only used in CPU subgraphs
-    DMA = OperatorInfo()
     Delegate = OperatorInfo()
     Densify = OperatorInfo()
     DepthToSpace = OperatorInfo()
@@ -422,6 +434,7 @@ class Operation:
         "ofm_shapes",
         "rescale",
         "read_offsets",
+        "read_shapes",
         "rounding_mode",
         "low_precision_scaling",
         "write_offset",
@@ -455,6 +468,7 @@ class Operation:
         # (which overrides the ofm tensor's scale)
         self.rescale = None
         self.read_offsets: List[Shape4D] = [None, None]  # offset for [ifm, ifm2]
+        self.read_shapes: List[Shape4D] = [None, None]  # read shape for [ifm, ifm2]
         self.rounding_mode: Optional[NpuRoundingMode] = None
         # The Mean operator (implemented as a depthwise convolution) requires scaling
         # to be calculated differently in one case. In that case, this is set to True.
@@ -482,6 +496,7 @@ class Operation:
         res.scheduled_pass = self.scheduled_pass
         res.op_index = None  # not relevant as not part of input network
         res.read_offsets = list(self.read_offsets)
+        res.read_shapes = list(self.read_shapes)
         res.rounding_mode = self.rounding_mode
         res.low_precision_scaling = self.low_precision_scaling
 
@@ -788,3 +803,13 @@ class Operation:
                 self.ifm_shapes.append(Shape4D(full_shape(4, ifm2_tensor.shape, 1)))
             if ofm_tensor is not None:
                 self.ofm_shapes.append(Shape4D(full_shape(4, ofm_tensor.shape, 1)))
+
+    def has_scaling(self):
+        scaled = True
+        for tensor in [self.ifm, self.ifm2, self.ofm]:
+            if tensor is not None:
+                if tensor.quantization is None:
+                    scaled = False
+                    break
+
+        return scaled

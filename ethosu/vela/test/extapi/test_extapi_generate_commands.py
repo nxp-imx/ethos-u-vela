@@ -167,11 +167,13 @@ def test_conv2d():
     check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, 15)
     check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1, 3)
     check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_DEPTH_M1, 15)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END, 14)
-    check_cmd0(cmds, cmd0.NPU_SET_AB_START, 14)
     check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0)
     check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0)
     check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    ib_end = find_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END)
+    ab_start = find_cmd0(cmds, cmd0.NPU_SET_AB_START)
+    assert ib_end > 0
+    assert ib_end <= ab_start
 
 
 def create_fully_connected_op() -> NpuConv2DOperation:
@@ -296,11 +298,13 @@ def test_mul_with_broadcast_and_relu():
     check_cmd0(cmds, cmd0.NPU_SET_IFM2_PRECISION, 0)
     check_cmd0(cmds, cmd0.NPU_SET_IFM2_BROADCAST, 5)
     check_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END, 16)
-    check_cmd0(cmds, cmd0.NPU_SET_AB_START, 16)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_IB_START, 9)
     check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0)
     check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0)
     check_cmd0(cmds, cmd0.NPU_OP_ELEMENTWISE, 0)
+    ab_start = find_cmd0(cmds, cmd0.NPU_SET_AB_START)
+    assert ab_start > 0
+    ifm2_ib_start = find_cmd0(cmds, cmd0.NPU_SET_IFM2_IB_START)
+    assert 0 < ifm2_ib_start < ab_start
     # Check that block width/height were generated that fit
     blk_height = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1)
     blk_width = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1)
@@ -413,11 +417,11 @@ def test_check_sram_limit_spilling():
     w, h = op.ofm.shape.width, op.ofm.shape.height
     op.ofm.tiles = NpuTileBox(width_0=w, height_0=h, height_1=h, addresses=[32 * 1024, 0, 0, 0])
     # 384K for spilling should fit
-    arch.sram_size = 384 * 1024
+    arch.arena_cache_size = 384 * 1024
     mem_limits = get_mem_limits_for_regions(arch)
     generate_command_stream([op], arch, verbose=False, mem_limits=mem_limits)
     # 32K for spilling does not fit, due to the OFM address
-    arch.sram_size = 32 * 1024
+    arch.arena_cache_size = 32 * 1024
     mem_limits = get_mem_limits_for_regions(arch)
     with pytest.raises(VelaError):
         generate_command_stream([op], arch, verbose=False, mem_limits=mem_limits)

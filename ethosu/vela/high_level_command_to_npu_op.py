@@ -51,6 +51,7 @@ from .high_level_command_stream import Box
 from .high_level_command_stream import Command
 from .high_level_command_stream import DMA
 from .high_level_command_stream import NpuStripe
+from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
@@ -61,9 +62,10 @@ from .register_command_stream_util import UNARY_ELEMWISE_OPS
 from .shape4d import Shape4D
 from .tensor import MemType
 from .tensor import Tensor
-from .tensor import TensorBlockTraversal
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
+from .tensor import TensorSubPurpose
+from .weight_compressor import WeightKey
 
 
 class BasePointerIndex(IntEnum):
@@ -78,12 +80,6 @@ dtype_map = {
     DataType.uint16: NpuDataType.UINT16,
     DataType.int16: NpuDataType.INT16,
     DataType.int32: NpuDataType.INT32,
-}
-
-
-block_traversal_map = {
-    TensorBlockTraversal.DepthFirst: NpuBlockTraversal.DEPTH_FIRST,
-    TensorBlockTraversal.PartKernelFirst: NpuBlockTraversal.PART_KERNEL_FIRST,
 }
 
 
@@ -272,44 +268,46 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_sh
 
 
 def create_weights(weight_tensor: Tensor, weight_box: Box, arch: ArchitectureFeatures) -> List[NpuAddressRange]:
-    """Returns address ranges for weights"""
+    """Returns address ranges for weights and scales"""
     weights = []
-    stream_index = weight_tensor.compressed_stream_index_from_coord(weight_box.start_coord)
-    weight_substream_offsets = weight_tensor.compressed_values_substream_offsets[stream_index]
-    substreams = len(weight_substream_offsets) - 1  # Offset list must terminate with full stream length
-
-    # Extract weight substream offsets and calculate their lengths
-    assert len(weight_substream_offsets) > 1 and (weight_substream_offsets[0] == 0)
-    weight_addr = weight_tensor.address_for_coordinate(weight_box.start_coord)
-    region = get_region(weight_tensor.mem_type, arch)
-    for core in range(substreams):
-        address = weight_addr + weight_substream_offsets[core]
-        length = weight_substream_offsets[core + 1] - weight_substream_offsets[core]
-        addr_range = NpuAddressRange(region, int(address), int(length))
-        weights.append(addr_range)
-    return weights
-
-
-def create_biases(
-    weight_tensor: Tensor, scale_tensor: Tensor, weight_box: Box, arch: ArchitectureFeatures
-) -> List[NpuAddressRange]:
-    """Returns address ranges for biases"""
     biases = []
-    stream_index = weight_tensor.compressed_stream_index_from_coord(weight_box.start_coord)
-    scale_substream_offsets = scale_tensor.compressed_values_substream_offsets[stream_index]
-    substreams = len(scale_substream_offsets) - 1  # Offset list must terminate with full stream length
+    region = get_region(weight_tensor.mem_type, arch)
 
-    # Extract scale substream offsets and calculate their lengths
-    assert len(scale_substream_offsets) > 1 and (scale_substream_offsets[0] == 0)
-    scale_addr = scale_tensor.address_for_coordinate(weight_box.start_coord[-1:])
+    w_tensor_src = weight_tensor
+    if weight_tensor.src_tensor:
+        w_tensor_src = weight_tensor.src_tensor
 
-    region = get_region(scale_tensor.mem_type, arch)
-    for core in range(substreams):
-        address = scale_addr + scale_substream_offsets[core]
-        length = scale_substream_offsets[core + 1] - scale_substream_offsets[core]
-        addr_range = NpuAddressRange(region, int(address), int(length))
-        biases.append(addr_range)
-    return biases
+    core_offset = 0
+    for core in range(0, arch.ncores):
+        # Get weight range per core
+        key = WeightKey(core, weight_box.start_coord[-1])
+        if key in w_tensor_src.encoded_ranges:
+            weight_range = w_tensor_src.encoded_ranges[key]
+            if weight_tensor.sub_purpose == TensorSubPurpose.DoubleBuffer:
+                assert weight_tensor != w_tensor_src
+                # Double buffered inside weight_tensor
+                address = weight_tensor.address + w_tensor_src.max_range_bytes * ((weight_range.index - core) % 2)
+                address += core_offset
+                core_offset += round_up(weight_range.total_bytes, 16)
+            else:
+                if weight_tensor == w_tensor_src:
+                    # Straight from source tensor
+                    address = weight_tensor.address + weight_range.offset
+                else:
+                    # Single buffered inside weight tensor
+                    address = weight_tensor.address + core_offset
+                    core_offset += round_up(weight_range.total_bytes, 16)
+
+            # Location of weights in tensor
+            addr_range = NpuAddressRange(
+                region, int(address + weight_range.weight_offset), round_up(int(weight_range.weight_bytes), 16)
+            )
+            weights.append(addr_range)
+            # Location of biases in tensor
+            addr_range = NpuAddressRange(region, int(address), round_up(int(weight_range.scale_bytes), 16))
+            biases.append(addr_range)
+
+    return weights, biases
 
 
 def create_npu_activation(op: Operation) -> NpuActivation:
@@ -353,9 +351,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     npu_op.ofm.quantization = get_ofm_quantization(ps, cmd.ofm_tensor)
 
     if cmd.weight_tensor is not None:
-        npu_op.weights = create_weights(cmd.weight_tensor, cmd.weight_box, arch)
-        if cmd.scale_tensor is not None:
-            npu_op.biases = create_biases(cmd.weight_tensor, cmd.scale_tensor, cmd.weight_box, arch)
+        npu_op.weights, npu_op.biases = create_weights(cmd.weight_tensor, cmd.weight_box, arch)
     npu_op.activation = create_npu_activation(op)
     npu_op.fused_quantize = any(op.type == Op.Quantize for op in ps.ops)
     npu_op.rounding_mode = get_rounding_mode(op, npu_op.fused_quantize)
@@ -375,7 +371,10 @@ def create_npu_conv2d_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> NpuConv2
     if cmd.ps.primary_op.type.npu_block_type == NpuBlockType.VectorProduct:
         npu_op.block_traversal = NpuBlockTraversal.DEPTH_FIRST
     else:
-        npu_op.block_traversal = block_traversal_map[cmd.weight_tensor.block_traversal]
+        if cmd.weight_tensor.src_tensor:
+            npu_op.block_traversal = cmd.weight_tensor.src_tensor.hw_traversal
+        else:
+            npu_op.block_traversal = cmd.weight_tensor.hw_traversal
     return npu_op
 
 
@@ -464,17 +463,29 @@ def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
     else:
         dest_region = get_region(cmd.out_tensor.mem_type, arch)
 
-    start_coord = cmd.box.start_coord
-    src_addr = cmd.in_tensor.address_for_coordinate(start_coord)
-    dest_addr = cmd.out_tensor.address_for_coordinate(start_coord)
+    if cmd.in_tensor.purpose == TensorPurpose.Weights:
+        # Get weight range per core
+        sz = 0
+        for core in range(0, arch.ncores):
+            key = WeightKey(core, cmd.box.start_coord[-1])
+            if key in cmd.in_tensor.encoded_ranges:
+                weight_range = cmd.in_tensor.encoded_ranges[key]
+                sz += round_up(weight_range.total_bytes, 16)
 
-    if cmd.in_tensor.compressed_values is not None:
-        if cmd.out_tensor.purpose == TensorPurpose.FSBias:
-            sz = cmd.in_tensor.storage_size()
-        else:
-            stream_index = cmd.in_tensor.compressed_stream_index_from_coord(start_coord)
-            sz = cmd.in_tensor.size_of_compressed_stream(stream_index)
+                if core == 0:
+                    weight_range = cmd.in_tensor.encoded_ranges[key]
+                    src_addr = cmd.in_tensor.address + weight_range.offset
+
+                    if cmd.out_tensor.sub_purpose == TensorSubPurpose.DoubleBuffer:
+                        dest_addr = cmd.out_tensor.address + cmd.in_tensor.max_range_bytes * (
+                            (weight_range.index - core) % 2
+                        )
+                    else:
+                        dest_addr = cmd.out_tensor.address
     else:
+        start_coord = cmd.box.start_coord
+        src_addr = cmd.in_tensor.address_for_coordinate(start_coord)
+        dest_addr = cmd.out_tensor.address_for_coordinate(start_coord)
         sz = cmd.in_tensor.address_for_coordinate(cmd.box.end_coord, is_top_box=True) - src_addr
     src = NpuAddressRange(src_region, int(src_addr), int(sz))
     dest = NpuAddressRange(dest_region, int(dest_addr), int(sz))

@@ -19,7 +19,6 @@ import random
 
 import numpy as np
 
-from ethosu.vela import insert_dma
 from ethosu.vela import lut
 from ethosu.vela import mark_tensors
 from ethosu.vela import pass_packing
@@ -27,37 +26,41 @@ from ethosu.vela.data_type import DataType
 from ethosu.vela.high_level_command_stream import DMA
 from ethosu.vela.nn_graph import Graph
 from ethosu.vela.operation import Op
+from ethosu.vela.rewrite_graph import rewrite_graph_pre_order
 from ethosu.vela.rewrite_graph import verify_graph_health
 from ethosu.vela.tensor import create_const_tensor
 from ethosu.vela.tensor import TensorPurpose
 from ethosu.vela.test import testutil
 
 
-def set_256_lut(op, key):
+def set_256_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
     lut_tensor = create_const_tensor(
         op.name + "_lut", [1, 1, 1, 256], DataType.int8, values, np.uint8, TensorPurpose.LUT
     )
-    op.set_activation_lut(lut_tensor)
+    scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
+    op.set_activation_lut(scratch_lut_tensor)
 
 
-def set_1K_lut(op, key):
+def set_1K_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
     lut_tensor = create_const_tensor(
         op.name + "_lut", [1, 1, 1, 256], DataType.int32, values, np.uint32, TensorPurpose.LUT
     )
-    op.set_activation_lut(lut_tensor)
+    scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
+    op.set_activation_lut(scratch_lut_tensor)
 
 
-def set_2K_lut(op, key):
+def set_2K_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(512), k=512)
     lut_tensor = create_const_tensor(
         op.name + "_lut", [1, 1, 1, 512], DataType.int32, values, np.uint32, TensorPurpose.LUT
     )
-    op.set_activation_lut(lut_tensor)
+    scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
+    op.set_activation_lut(scratch_lut_tensor)
 
 
 def process(arch, op_list):
@@ -68,16 +71,16 @@ def process(arch, op_list):
     assert verify_graph_health(nng)
     nng = mark_tensors.mark_tensor_purpose(nng, arch, False)
     assert verify_graph_health(nng)
-    nng = insert_dma.insert_dma_commands(nng, arch, False)
-    assert verify_graph_health(nng)
+    rewrite_graph_pre_order(nng, sg, arch, [], [])
     pass_packing.pack_into_passes(nng, arch, False)
     assert verify_graph_health(nng)
     # Create a DMA instruction for every op
     cmd_list = []
     for ps in sg.passes:
-        for intermediate in ps.intermediates:
-            if intermediate.needs_dma():
-                cmd_list.append(DMA(ps, intermediate.get_dma_src_tensor(), intermediate, None))
+        for input_tens in ps.inputs:
+            if input_tens.src_tensor:
+                cmd_list.append(DMA(ps, input_tens.src_tensor, input_tens, None))
+
     sg.high_level_command_stream = cmd_list
     return sg
 
@@ -96,28 +99,28 @@ def test_optimize_high_level_cmd_stream_2K():
     shape = [1, 1, 1, 1]
     # u8 LUT op, should lead to DMA
     op0 = testutil.create_elemwise_op(Op.Add, "op0", shape, shape, shape)
-    set_256_lut(op0, "lut0")
+    set_256_lut(op0, "lut0", arch)
     # u8 LUT op, should lead to DMA
     op1 = testutil.create_elemwise_op(Op.Add, "op1", shape, shape, shape)
-    set_256_lut(op1, "lut1")
+    set_256_lut(op1, "lut1", arch)
     # u8 LUT op with different LUT, should lead to DMA
     op2 = testutil.create_elemwise_op(Op.Add, "op2", shape, shape, shape)
-    set_256_lut(op2, "lut2")
+    set_256_lut(op2, "lut2", arch)
     # u8 LUT op with same LUT as in op1, should not lead to DMA
     op3 = testutil.create_elemwise_op(Op.Add, "op3", shape, shape, shape)
-    set_256_lut(op3, "lut1")
+    set_256_lut(op3, "lut1", arch)
     # u8 LUT op with same LUT as in op2, should not lead to DMA
     op4 = testutil.create_elemwise_op(Op.Add, "op4", shape, shape, shape)
-    set_256_lut(op4, "lut2")
+    set_256_lut(op4, "lut2", arch)
     # 2K LUT op, should lead to DMA, and will overwrite all previous LUTs in SHRAM
     op5_2K = testutil.create_elemwise_op(Op.Add, "op5", shape, shape, shape)
-    set_2K_lut(op5_2K, "lut5")
+    set_2K_lut(op5_2K, "lut5", arch)
     # Another 2K LUT op, should lead to DMA, and will overwrite the previous LUT in SHRAM
     op6_2K = testutil.create_elemwise_op(Op.Add, "op6", shape, shape, shape)
-    set_2K_lut(op6_2K, "lut6")
+    set_2K_lut(op6_2K, "lut6", arch)
     # u8 LUT op with same LUT as in op1, should lead to DMA
     op7 = testutil.create_elemwise_op(Op.Add, "op7", shape, shape, shape)
-    set_256_lut(op7, "lut1")
+    set_256_lut(op7, "lut1", arch)
 
     op_list = [op0, op1, op2, op3, op4, op5_2K, op6_2K, op7]
     sg = process(arch, op_list)
@@ -132,7 +135,7 @@ def test_optimize_high_level_cmd_stream_2K():
     orig_cmd_list = filter_lut_cmds(orig_cmd_list)
 
     for (cmd, op) in zip(cmd_list, expected_dma_ops):
-        assert cmd.in_tensor == op.activation_lut
+        assert cmd.in_tensor == op.activation_lut.src_tensor
     # Check that lut0, lut1 and lut2 in op0, op1, op2 are stored on different addresses
     assert orig_cmd_list[0].out_tensor.address != orig_cmd_list[1].out_tensor.address
     assert orig_cmd_list[0].out_tensor.address != orig_cmd_list[2].out_tensor.address
@@ -151,28 +154,28 @@ def test_optimize_high_level_cmd_stream_1K():
     shape = [1, 1, 1, 1]
     # u8 LUT op, should lead to DMA
     op0 = testutil.create_elemwise_op(Op.Add, "op0", shape, shape, shape)
-    set_256_lut(op0, "lut0")
+    set_256_lut(op0, "lut0", arch)
     # u8 LUT op, should lead to DMA
     op1 = testutil.create_elemwise_op(Op.Add, "op1", shape, shape, shape)
-    set_256_lut(op1, "lut1")
+    set_256_lut(op1, "lut1", arch)
     # 1K LUT op with different LUT, should lead to DMA
     op2_1K = testutil.create_elemwise_op(Op.Add, "op2", shape, shape, shape)
-    set_1K_lut(op2_1K, "lut2")
+    set_1K_lut(op2_1K, "lut2", arch)
     # u8 LUT op with same LUT as in op1, should not lead to DMA
     op3 = testutil.create_elemwise_op(Op.Add, "op3", shape, shape, shape)
-    set_256_lut(op3, "lut1")
+    set_256_lut(op3, "lut1", arch)
     # 1K LUT op with same LUT as in op2, should not lead to DMA
     op4_1K = testutil.create_elemwise_op(Op.Add, "op4", shape, shape, shape)
-    set_1K_lut(op4_1K, "lut2")
+    set_1K_lut(op4_1K, "lut2", arch)
     # 1K LUT op, should lead to DMA, and will overwrite lut2
     op5_2K = testutil.create_elemwise_op(Op.Add, "op5", shape, shape, shape)
-    set_1K_lut(op5_2K, "lut5")
+    set_1K_lut(op5_2K, "lut5", arch)
     # u8 LUT op, lut0 should still be present, should not lead to DMA
     op6 = testutil.create_elemwise_op(Op.Add, "op6", shape, shape, shape)
-    set_256_lut(op6, "lut0")
+    set_256_lut(op6, "lut0", arch)
     # 1K LUT op with same LUT as in op2, should lead to DMA
     op7 = testutil.create_elemwise_op(Op.Add, "op7", shape, shape, shape)
-    set_1K_lut(op7, "lut2")
+    set_1K_lut(op7, "lut2", arch)
 
     op_list = [op0, op1, op2_1K, op3, op4_1K, op5_2K, op6, op7]
     sg = process(arch, op_list)
@@ -187,7 +190,7 @@ def test_optimize_high_level_cmd_stream_1K():
     # Check that only the needed DMA commands are left
     expected_dma_ops = [op0, op1, op2_1K, op5_2K, op7]
     for (cmd, op) in zip(cmd_list, expected_dma_ops):
-        assert cmd.in_tensor == op.activation_lut
+        assert cmd.in_tensor == op.activation_lut.src_tensor
     # Check that lut0, lut1 and lut2 in op0, op1, op2 are stored on different addresses
     assert orig_cmd_list[0].out_tensor.address != orig_cmd_list[1].out_tensor.address
     assert orig_cmd_list[0].out_tensor.address != orig_cmd_list[2].out_tensor.address

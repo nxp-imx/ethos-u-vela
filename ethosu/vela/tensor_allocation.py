@@ -106,6 +106,8 @@ def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
 
 
 def mark_sram_used_for_cascaded_passes(sg, lrs):
+    if len(sg.cascaded_passes) < 1:
+        return
     end_pos = max(ps.time for ps in sg.cascaded_passes) + 2
     mem_usage = np.zeros(end_pos, dtype=np.int64)
 
@@ -169,6 +171,40 @@ def memory_usage_histogram(lrs: List[LiveRange]):
     return histogram
 
 
+def allocate(
+    sg,
+    arch,
+    mem_area,
+    mem_type_set,
+    tensor_allocator=TensorAllocator.Greedy,
+    lr_graph=None,
+    cpu_tensor_alignment=Tensor.AllocationQuantum,
+):
+    # Allocates addresses to tensors, returns False if tensors could not be fit within max_size
+    ignore_subgraph_input_output_tensors = False
+    lrs = live_range.extract_live_ranges_from_cascaded_passes(
+        sg,
+        mem_area,
+        mem_type_set,
+        ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
+        lr_graph=lr_graph,
+        cpu_tensor_alignment=cpu_tensor_alignment,
+    )
+    total_sz = 0
+    if lrs.ranges:
+        tens_alloc = tensor_allocator
+        if tens_alloc == TensorAllocator.Greedy:
+            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment)
+            verify_allocation(lrs, cpu_tensor_alignment)
+        elif tens_alloc == TensorAllocator.LinearAlloc:
+            total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
+        elif tens_alloc == TensorAllocator.HillClimb:
+            total_sz = hillclimb_allocate_live_ranges(lrs, cpu_tensor_alignment)
+        else:
+            assert 0
+    return lrs, total_sz
+
+
 def allocate_tensors(
     nng,
     sg,
@@ -183,27 +219,17 @@ def allocate_tensors(
     dry_test=False,
 ):
     # Allocates addresses to tensors, returns False if tensors could not be fit within max_size
-    ignore_subgraph_input_output_tensors = False
-    lrs = live_range.extract_live_ranges_from_cascaded_passes(
+    lrs, total_sz = allocate(
         sg,
+        arch,
         mem_area,
         mem_type_set,
-        ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
+        tensor_allocator=tensor_allocator,
         lr_graph=lr_graph,
         cpu_tensor_alignment=cpu_tensor_alignment,
     )
 
     if lrs.ranges:
-        tens_alloc = tensor_allocator
-        if tens_alloc == TensorAllocator.Greedy:
-            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment)
-            verify_allocation(lrs, cpu_tensor_alignment)
-        elif tens_alloc == TensorAllocator.LinearAlloc:
-            total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
-        elif tens_alloc == TensorAllocator.HillClimb:
-            total_sz = hillclimb_allocate_live_ranges(lrs, cpu_tensor_alignment)
-        else:
-            assert 0
         alloc_ok = max_size is None or total_sz <= max_size
         if dry_test or not alloc_ok:
             # Dry test or allocation failed; undo allocation
@@ -233,5 +259,4 @@ def allocate_tensors(
 
     if sg == nng.get_root_subgraph():
         nng.memory_used = sg.memory_used
-
     return True

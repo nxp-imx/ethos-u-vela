@@ -21,7 +21,6 @@ from . import extract_npu_subgraphs
 from . import graph_optimiser
 from . import high_level_command_stream_generator
 from . import high_level_command_to_npu_op
-from . import insert_dma
 from . import live_range
 from . import lut
 from . import mark_tensors
@@ -30,14 +29,14 @@ from . import npu_serialisation
 from . import pass_packing
 from . import scheduler
 from . import tensor_allocation
-from . import weight_compressor
 from .debug_database import DebugDatabase
-from .errors import VelaError
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
 from .operation import Op
 from .rewrite_graph import verify_graph_health
 from .rewrite_graph import visit_graph_post_order
+from .scheduler import OptimizationStrategy
+from .tensor import MemArea
 from .tensor import MemType
 from .tensor import Tensor
 
@@ -135,6 +134,18 @@ def _record_operator(op, arch):
         DebugDatabase.add_source(op)
 
 
+def _check_schedule(nng, arch, scheduler_options):
+    # check sram usage for optimisation strategy
+    sram_usage = nng.get_root_subgraph().memory_used.get(MemArea.Sram)
+    if sram_usage is not None and scheduler_options.optimization_strategy == OptimizationStrategy.Performance:
+        if sram_usage > scheduler_options.optimization_sram_limit:
+            print(
+                f"Warning: SRAM target for arena memory area exceeded."
+                f" Target = {scheduler_options.optimization_sram_limit} Bytes,"
+                f" Actual = {sram_usage} Bytes"
+            )
+
+
 def compiler_driver(nng, arch, options, scheduler_options):
     assert verify_graph_health(nng)
 
@@ -150,8 +161,6 @@ def compiler_driver(nng, arch, options, scheduler_options):
 
     nng = mark_tensors.mark_tensor_purpose(nng, arch, options.verbose_tensor_purpose)
     assert verify_graph_health(nng)
-    nng = insert_dma.insert_dma_commands(nng, arch, options.verbose_graph)
-    assert verify_graph_health(nng)
     pass_packing.pack_into_passes(nng, arch, options.verbose_packing)
     assert verify_graph_health(nng)
 
@@ -162,19 +171,13 @@ def compiler_driver(nng, arch, options, scheduler_options):
         start = time.time()
 
     # Run the scheduler
-    scheduler.schedule_passes(nng, arch, scheduler_options)
+    scheduler.schedule_passes(nng, arch, options, scheduler_options)
+    _check_schedule(nng, arch, scheduler_options)
 
     if options.timing:
         stop = time.time()
         print("Scheduling took %f s" % (stop - start))
         start = time.time()
-
-    # Update the compressed weights now that we have determined the
-    # block config, and calc and pack the scales and biases
-    weight_compressor.update_pass_weight_and_scale_tensors(nng, arch)
-
-    if scheduler_options.cache_bias_scale_tensor:
-        scheduler.move_scales_to_fast_storage(nng, arch)
 
     # LiveRanges for constant tensors for all Npu subgraphs
     permanent_storage = arch.permanent_storage_mem_area
@@ -188,12 +191,8 @@ def compiler_driver(nng, arch, options, scheduler_options):
     # Calculate live ranges for all constant Npu tensors, in permanent storage
     for sg in nng.subgraphs:
         if sg.placement == PassPlacement.Npu:
-            lr_graph_flash = live_range.extract_live_ranges_from_cascaded_passes(
-                sg,
-                permanent_storage,
-                MemType.Permanent_NPU,
-                ignore_subgraph_input_output_tensors=True,
-                lr_graph=lr_graph_flash,
+            lr_graph_flash = live_range.create_linear_live_range_graph(
+                sg, permanent_storage, MemType.Permanent_NPU, lr_graph=lr_graph_flash,
             )
 
     if len(nng.subgraphs) > 1:
@@ -212,88 +211,21 @@ def compiler_driver(nng, arch, options, scheduler_options):
             lr_graph=lr_graph_flash,
         )
 
-    # Allocate all non-constant tensors to the root, i.e. Cpu, subgraph. This step
-    # will start at the root subgraph's input and traverse from top to bottom. When
-    # it comes across an Npu-op it will extract live ranges for it's corresponding
-    # Npu subgraph and add them to the root's live range graph.
-    # The non-constant tensors are stored either in arch.feature_map_storage_mem_area or
-    # arch.fast_storage_mem_area.
-    # When these memory areas are the same, all non-constant tensors are allocated together.
-    # Otherwise they are allocated separately.
-
     root_sg = nng.get_root_subgraph()
-
-    alloc_list = []
-    if arch.is_spilling_enabled():
-        mem_alloc_scratch_fast = (arch.fast_storage_mem_area, set((MemType.Scratch_fast,)))
-        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch,)))
-        # Order is important
-        alloc_list.append(mem_alloc_scratch_fast)
-        alloc_list.append(mem_alloc_scratch)
-    else:
-        mem_alloc_scratch = (arch.feature_map_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))
-        alloc_list.append(mem_alloc_scratch)
-
-    for mem_area, mem_type_set in alloc_list:
-        if arch.is_spilling_enabled() and mem_area == arch.fast_storage_mem_area:
-            # For the case where scratch_fast != scratch: attempt to place feature maps used between
-            # cascaded passes in fast storage. Bisection is used to find the max possible usage of SRAM.
-            alloc_results = []
-            while True:
-                assert len(alloc_results) < 10, "Infinite allocator loop"
-                sram_factor, dry_test = next_sram_factor(alloc_results)
-                if sram_factor is None:
-                    break
-                # Try to move as many feature maps as possible to SRAM before allocating
-                sram_limit = sram_factor * arch.sram_size
-                for sg in nng.subgraphs:
-                    scheduler.use_fast_storage_for_feature_maps(sg, sram_limit, arch)
-                alloc_success = tensor_allocation.allocate_tensors(
-                    nng,
-                    root_sg,
-                    arch,
-                    mem_area,
-                    mem_type_set,
-                    max_size=arch.sram_size,
-                    dry_test=dry_test,
-                    tensor_allocator=options.tensor_allocator,
-                    verbose_allocation=options.verbose_allocation,
-                    cpu_tensor_alignment=options.cpu_tensor_alignment,
-                )
-                if dry_test or not alloc_success:
-                    for sg in nng.subgraphs:
-                        scheduler.undo_use_fast_storage(sg, arch)
-                alloc_results.append(alloc_success)
-            if not alloc_results[-1]:
-                raise VelaError(
-                    f"Sram limit {arch.sram_size} bytes, has been exceeded by the scratch fast tensor. "
-                    "Increasing the value of --weight-estimation-scaling may help to resolve the issue. "
-                    "See OPTIONS.md for more information"
-                )
-        else:
-            tensor_allocation.allocate_tensors(
-                nng,
-                root_sg,
-                arch,
-                mem_area,
-                mem_type_set,
-                tensor_allocator=options.tensor_allocator,
-                verbose_allocation=options.verbose_allocation,
-                cpu_tensor_alignment=options.cpu_tensor_alignment,
-            )
 
     # Generate command streams and serialise Npu-ops into tensors
     for sg in nng.subgraphs:
-        high_level_command_stream_generator.generate_high_level_command_stream(
-            nng, sg, arch, options.verbose_high_level_command_stream
-        )
-        lut.optimize_high_level_cmd_stream(sg, arch)
-        high_level_command_to_npu_op.generate_register_command_stream_for_sg(
-            nng, sg, arch, options.verbose_register_command_stream
-        )
-        scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
-            sg, arch, scratch_tens, scratch_fast_tens, flash_tens
-        )
+        if sg.placement == PassPlacement.Npu:
+            high_level_command_stream_generator.generate_high_level_command_stream_for_schedule(
+                nng, sg, arch, options.verbose_high_level_command_stream
+            )
+            lut.optimize_high_level_cmd_stream(sg, arch)
+            high_level_command_to_npu_op.generate_register_command_stream_for_sg(
+                nng, sg, arch, options.verbose_register_command_stream
+            )
+            scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
+                sg, arch, scratch_tens, scratch_fast_tens, flash_tens
+            )
 
     npu_serialisation.rewrite_npu_call_ops(root_sg, arch)
 
@@ -316,4 +248,4 @@ def compiler_driver(nng, arch, options, scheduler_options):
         cpu_tensor_alignment=options.cpu_tensor_alignment,
     )
 
-    npu_performance.calc_performance_for_network(nng, arch)
+    npu_performance.calc_new_performance_for_network(nng, arch)

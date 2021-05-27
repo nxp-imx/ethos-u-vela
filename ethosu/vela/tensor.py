@@ -345,6 +345,7 @@ class Tensor:
         "dtype",
         "name",
         "is_variable",
+        "pre_buffer",
         "ops",
         "consumer_list",
         "values",
@@ -372,6 +373,7 @@ class Tensor:
         "block_traversal",
         "equivalence_id",
         "resampling_mode",
+        "src_tensor",
         "needs_linear_format",
     )
     AllocationQuantum = 16
@@ -383,6 +385,7 @@ class Tensor:
         self.dtype = dtype
         self.name = name
         self.is_variable = False
+        self.pre_buffer = False
         self.equivalence_id: UUID = uuid.uuid4()
 
         self.ops: List[Operation] = []
@@ -419,6 +422,9 @@ class Tensor:
         self.resampling_mode: resampling_mode = resampling_mode.NONE
 
         self.needs_linear_format = True
+
+        # Reference to parent-tensor if this tensor is a clone
+        self.src_tensor = None
 
     @property
     def address(self) -> int:
@@ -460,6 +466,7 @@ class Tensor:
         res = self.clone(suffix="_fast_storage")
         res.mem_area = arch.fast_storage_mem_area
         res.mem_type = MemType.Scratch_fast
+        res.src_tensor = self
         return res
 
     def copy_compressed_weight_info(self, src_tens: "Tensor"):
@@ -533,31 +540,6 @@ class Tensor:
         raw_size = elems * self.element_size()
         if raw_size == 0:
             raw_size = 1  # force it to take up space
-        rounded_size = numeric_util.round_up(numeric_util.round_up_to_int(raw_size), self.alignment)
-        return rounded_size
-
-    def storage_size_for_sub_purpose(
-        self, arch, sub_purpose: TensorSubPurpose, param_a: Optional[int] = None, param_b: Optional[int] = None
-    ) -> int:
-        alt_shape = self.storage_shape_for_sub_purpose(sub_purpose, param_a, param_b)
-        elems = shape_num_elements(alt_shape)
-        if elems is None:
-            return 0
-        if sub_purpose == TensorSubPurpose.DoubleBuffer:
-            raw_size = (
-                elems
-                * self.element_size()
-                * self.compression_scale_for_worst_weight_stream
-                * arch.weight_estimation_scaling
-            )
-        else:
-            # Rolling buffers are used for intermediate data in ifm streaming
-            # These will all use the NHCWB16 format, and need to be aligned to 16 in the C-dimension
-            if alt_shape[-1] % 16 != 0:
-                nhcwb16_shape = alt_shape[0:-1] + [numeric_util.round_up(alt_shape[-1], 16)]
-                elems = shape_num_elements(nhcwb16_shape)
-
-            raw_size = elems * self.element_size() * self.storage_compression_scale
         rounded_size = numeric_util.round_up(numeric_util.round_up_to_int(raw_size), self.alignment)
         return rounded_size
 
@@ -724,19 +706,9 @@ class Tensor:
         assert strides is not None
         return strides
 
-    def needs_dma(self) -> bool:
-        return len(self.ops) == 1 and self.ops[0].type == Op.DMA
-
-    def get_dma_src_tensor(self) -> "Optional[Tensor]":
-        # For weight tensors that need DMA: returns the source tensor in Flash, else None
-        # Note: for DMA ops, Pass.weight_tensor is referring to the SRAM weight tensor
-        return self.ops[0].inputs[0] if self.needs_dma() else None
-
     def find_npu_op(self) -> Optional[Operation]:
-        # Returns the NPU operator that uses this tensor, excluding DMA operators.
+        # Returns the NPU operator that uses this tensor
         for op in self.consumers():
-            if op.type == Op.DMA:
-                return op.outputs[0].find_npu_op()
             if op.run_on_npu:
                 return op
         return None
@@ -779,6 +751,7 @@ class Tensor:
         self, orig_coord: Shape, op_shape4D: Optional[Shape4D] = None, is_top_box: bool = False
     ) -> Optional[int]:
         address_offset = 0
+        assert self.purpose != TensorPurpose.Weights
 
         if self.sub_purpose == TensorSubPurpose.Standard:
             shape = op_shape4D.as_list() if op_shape4D else self.shape
@@ -787,63 +760,29 @@ class Tensor:
                     assert c > 0 and c <= shape[idx]
                 else:
                     assert c >= 0 and c < shape[idx]
-
-        if self.format == TensorFormat.WeightsCompressed:
-            storage_size = self.storage_size()
-            if len(self.weight_compressed_offsets) == 0:
-                return 0
-
-            if self.needs_dma() and self.sub_purpose == TensorSubPurpose.DoubleBuffer:
-                depth = orig_coord[-1]
-                brick_depth = self.brick_size[-1]
-                # Clamp position at final element index
-                if depth > self.shape[-1]:
-                    depth = self.shape[-1]
-
-                # Always round up to next boundary
-                index = numeric_util.round_up_divide(depth, brick_depth)
-                index = index % 2
-                assert self.compressed_values is not None
-
-                if len(self.compressed_values) <= 2:
-                    if is_top_box and index == 0:
-                        for cv in self.compressed_values:
-                            address_offset += len(cv)
-                    else:
-                        address_offset = index * len(self.compressed_values[0])
-                else:
-                    if is_top_box and index == 0:
-                        address_offset = self.storage_shape[-1]
-                    else:
-                        address_offset = index * (self.storage_shape[-1] // 2)
-            else:
-                index = self.compressed_stream_index_from_coord(orig_coord)
-                assert index < len(self.weight_compressed_offsets)
-                address_offset = self.weight_compressed_offsets[index]
+        coord = orig_coord
+        if op_shape4D and self.is_standard_fm:
+            storage_shape = self.get_4D_storage_shape_for_shape(op_shape4D).as_list()
+            storage_size = self.storage_size_for_shape(storage_shape)
         else:
-            coord = orig_coord
-            if op_shape4D and self.is_standard_fm:
-                storage_shape = self.get_4D_storage_shape_for_shape(op_shape4D).as_list()
-                storage_size = self.storage_size_for_shape(storage_shape)
-            else:
-                storage_shape = self.storage_shape
-                coord = coord[-len(storage_shape) :]
-                storage_size = self.storage_size()
+            storage_shape = self.storage_shape
+            coord = coord[-len(storage_shape) :]
+            storage_size = self.storage_size()
 
-            if is_top_box:
-                coord = [c - 1 for c in coord]
+        if is_top_box:
+            coord = [c - 1 for c in coord]
 
-            # handle wraparound for partial buffers. make sure to do this after subtracting top box:
-            coord = [c % storage_shape[idx] for idx, c in enumerate(coord)]
+        # handle wraparound for partial buffers. make sure to do this after subtracting top box:
+        coord = [c % storage_shape[idx] for idx, c in enumerate(coord)]
 
-            strides, augmented_coord = self.get_strides_and_coord(coord, op_shape4D)
-            if strides is None:
-                return None
+        strides, augmented_coord = self.get_strides_and_coord(coord, op_shape4D)
+        if strides is None:
+            return None
 
-            if is_top_box:
-                address_offset += 1 * strides[-1]  # one element
+        if is_top_box:
+            address_offset += 1 * strides[-1]  # one element
 
-            address_offset += np.dot(augmented_coord, strides)
+        address_offset += np.dot(augmented_coord, strides)
 
         assert address_offset >= 0
         assert address_offset <= storage_size

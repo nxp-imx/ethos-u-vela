@@ -76,6 +76,10 @@ def shape3d_to_rect(shape: NpuShape3D) -> Rect:
     return Rect(0, 0, 0, shape.width - 1, shape.height - 1, shape.depth - 1)
 
 
+def shape3d_to_block(shape: NpuShape3D) -> Block:
+    return Block(shape.width, shape.height, shape.depth)
+
+
 # -------------------------------------------------------------------
 # ADDRESSING/STRIDES (helper functions)
 # -------------------------------------------------------------------

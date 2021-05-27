@@ -41,10 +41,22 @@ from .tensor import TensorPurpose
 
 
 class Block:
-    def __init__(self, w, h, d):
+    def __init__(self, w=0, h=0, d=0):
         self.width = w
         self.height = h
         self.depth = d
+
+    def elements(self):
+        return self.width * self.height * self.depth
+
+    def elements_wh(self):
+        return self.width * self.height
+
+    def clone(self):
+        return Block(self.width, self.height, self.depth)
+
+    def as_list(self):
+        return [self.height, self.width, self.depth]
 
     def __eq__(self, other):
         if self.width == other.width and self.height == other.height and self.depth == other.depth:
@@ -54,6 +66,9 @@ class Block:
 
     def __repr__(self):
         return "<Block: {0},{1},{2}>".format(self.width, self.height, self.depth)
+
+    def to_hwc(self):
+        return [self.height, self.width, self.depth]
 
     @classmethod
     def from_string(cls, s):
@@ -66,6 +81,24 @@ class Block:
         shp = full_shape(3, shape, 1)
         # Note: index from end, as len(shp) may be > 3
         return Block(shp[-2], shp[-3], shp[-1])
+
+    @classmethod
+    def min(cls, a, b):
+        return cls(min(a.width, b.width), min(a.height, b.height), min(a.depth, b.depth))
+
+    @classmethod
+    def max(cls, a, b):
+        return cls(max(a.width, b.width), max(a.height, b.height), max(a.depth, b.depth))
+
+    @classmethod
+    def round(cls, a, b):
+        return cls(round_up(a.width, b.width), round_up(a.height, b.height), round_up(a.depth, b.depth))
+
+    @classmethod
+    def div_round_up(cls, a, b):
+        return cls(
+            round_up_divide(a.width, b.width), round_up_divide(a.height, b.height), round_up_divide(a.depth, b.depth)
+        )
 
 
 class Rect:
@@ -155,6 +188,11 @@ class MemPort(enum.Enum):
     Axi1 = enum.auto()
 
 
+SHRAMConfig = namedtuple(
+    "SHRAMConfig", ["reserved_output_banks", "bank_size_bytes", "total_banks", "reserved_end_banks"]
+)
+
+
 class ArchitectureFeatures:
     """This class is a container for various parameters of the Ethos-U core
     and system configuration that can be tuned, either by command line
@@ -202,11 +240,9 @@ class ArchitectureFeatures:
         accelerator_config,
         system_config,
         memory_mode,
-        override_block_config,
-        block_config_limit,
         max_blockdep,
-        weight_estimation_scaling,
         verbose_config,
+        arena_cache_size,
     ):
         accelerator_config = accelerator_config.lower()
         if accelerator_config not in Accelerator.member_list():
@@ -214,6 +250,26 @@ class ArchitectureFeatures:
         self.accelerator_config = Accelerator(accelerator_config)
         accel_config = ArchitectureFeatures.accelerator_configs[self.accelerator_config]
         self.config = accel_config
+
+        self.accumulator_granules = {
+            SHRAMElements.Acc16: accel_config.shram_granules[SHRAMElements.Acc16],
+            SHRAMElements.Acc32: accel_config.shram_granules[SHRAMElements.Acc32],
+            SHRAMElements.Acc40: accel_config.shram_granules[SHRAMElements.Acc40],
+        }
+
+        self.ifm_bank_granules = {
+            8: accel_config.shram_granules[SHRAMElements.IFM8],
+            16: accel_config.shram_granules[SHRAMElements.IFM16],
+            32: accel_config.shram_granules[SHRAMElements.IFM32],
+        }
+
+        self.ifm_ew_bank_granules = {
+            8: accel_config.shram_granules[SHRAMElements.IFM8_Elementwise],
+            16: accel_config.shram_granules[SHRAMElements.IFM16_Elementwise],
+            32: accel_config.shram_granules[SHRAMElements.IFM32],
+        }
+
+        self.shram = SHRAMConfig(2, 1024, accel_config.shram_banks, 2 if accel_config.shram_banks > 16 else 0)
 
         self.system_config = system_config
         self.memory_mode = memory_mode
@@ -226,11 +282,8 @@ class ArchitectureFeatures:
         self.ofm_ublock = accel_config.ofm_ublock
         self.ifm_ublock = accel_config.ifm_ublock
         self.ofm_block_max = Block(64, 32, 128)
-        self.override_block_config = override_block_config
-        self.block_config_limit = block_config_limit
 
         self.max_blockdep = max_blockdep
-        self.weight_estimation_scaling = weight_estimation_scaling
 
         dpu_min_height = accel_config.ofm_ublock.height
         dpu_min_width = accel_config.ofm_ublock.width
@@ -243,7 +296,7 @@ class ArchitectureFeatures:
         self.max_address_offset = 1 << 48 if self.is_ethos_u65_system else 1 << 32
 
         # Get system configuration and memory mode
-        self._get_vela_config(vela_config_files, verbose_config)
+        self._get_vela_config(vela_config_files, verbose_config, arena_cache_size)
 
         self.axi_port_width = 128 if self.is_ethos_u65_system else 64
         self.memory_bandwidths_per_cycle = self.axi_port_width * self.memory_clock_scales / 8
@@ -341,7 +394,7 @@ class ArchitectureFeatures:
         # IFM/OFM block size.
         ifm_block_max = self.get_ifm_block_size(32, self.ofm_block_max, Kernel(8, 8))
         self.block_config_map = dict()
-        self.generate_block_config_map(Block(ifm_block_max.width, ifm_block_max.height, 128))
+        self.generate_block_config_map(Block(ifm_block_max.width * 2, ifm_block_max.height, 128))
 
         # Setup supported operators and restriction checkers class
         self.supported_operators = SupportedOperators()
@@ -457,7 +510,7 @@ class ArchitectureFeatures:
     def mem_type_size(self, mem_type: MemType) -> int:
         """Returns size in bytes available for the given memory type"""
         if mem_type == MemType.Scratch_fast and self.is_spilling_enabled():
-            return self.sram_size
+            return self.arena_cache_size
         # Size is unknown, return max possible address offset
         return self.max_address_offset
 
@@ -505,7 +558,7 @@ class ArchitectureFeatures:
             self.const_mem_area = MemPort.Axi1
             self.arena_mem_area = MemPort.Axi1
             self.cache_mem_area = MemPort.Axi0
-            self.cache_sram_size = 384 * 1024
+            self.arena_cache_size = 384 * 1024
         else:
             # Default Ethos-U55 memory mode
             # Shared SRAM: the SRAM is shared between the Ethos-U and the Cortex-M software
@@ -513,8 +566,9 @@ class ArchitectureFeatures:
             self.const_mem_area = MemPort.Axi1
             self.arena_mem_area = MemPort.Axi0
             self.cache_mem_area = MemPort.Axi0
+            self.arena_cache_size = self.max_address_offset
 
-    def _get_vela_config(self, vela_config_files, verbose_config):
+    def _get_vela_config(self, vela_config_files, verbose_config, arena_cache_size_from_cli):
         """
         Gets the system configuration and memory modes from one or more Vela configuration file(s) or uses some
         defaults.
@@ -530,7 +584,8 @@ class ArchitectureFeatures:
         self.const_mem_area = MemPort(1)
         self.arena_mem_area = MemPort(1)
         self.cache_mem_area = MemPort(1)
-        self.cache_sram_size = 1
+        self.arena_cache_size = self.max_address_offset
+        arena_cache_size_loc_text = "Default"
 
         # read configuration file(s)
         self.vela_config = None
@@ -596,12 +651,12 @@ class ArchitectureFeatures:
             self.cache_mem_area = MemPort[
                 self._read_config(mem_mode_section, "cache_mem_area", self.cache_mem_area.name)
             ]
-            self.cache_sram_size = int(self._read_config(mem_mode_section, "cache_sram_size", self.cache_sram_size))
-            if self.cache_sram_size > self.max_address_offset:
-                raise ConfigOptionError(
-                    "cache_sram_size",
-                    f"{self.cache_sram_size}. Size is out of bounds, maximum is: {self.max_address_offset}",
-                )
+            found = []
+            self.arena_cache_size = int(
+                self._read_config(mem_mode_section, "arena_cache_size", self.arena_cache_size, found)
+            )
+            if found[-1]:
+                arena_cache_size_loc_text = "Configuration file"
 
         elif self.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
             self._set_default_mem_mode()
@@ -631,6 +686,11 @@ class ArchitectureFeatures:
                 self.memory_burst_length[MemArea.OnChipFlash] = self.memory_burst_length[MemArea.Sram]
                 self.memory_latency[MemArea.OnChipFlash] = self.memory_latency[MemArea.Sram]
 
+        # override sram usage
+        if arena_cache_size_from_cli is not None:
+            self.arena_cache_size = arena_cache_size_from_cli
+            arena_cache_size_loc_text = "CLI option"
+
         # check configuration
         if self._mem_port_mapping(self.const_mem_area) not in (
             MemArea.Dram,
@@ -649,12 +709,18 @@ class ArchitectureFeatures:
         if self._mem_port_mapping(self.cache_mem_area) != MemArea.Sram:
             raise ConfigOptionError("cache_mem_area", self._mem_port_mapping(self.cache_mem_area).name, "Sram")
 
+        if self.arena_cache_size < 0:
+            raise ConfigOptionError("arena_cache_size", self.arena_cache_size, ">= 0")
+        if self.arena_cache_size > self.max_address_offset:
+            raise ConfigOptionError(
+                "arena_cache_size",
+                f"{self.arena_cache_size}. Size is out of bounds, maximum is: {self.max_address_offset}",
+            )
+
         # assign existing memory areas
         self.permanent_storage_mem_area = self._mem_port_mapping(self.const_mem_area)
         self.feature_map_storage_mem_area = self._mem_port_mapping(self.arena_mem_area)
         self.fast_storage_mem_area = self._mem_port_mapping(self.cache_mem_area)
-
-        self.sram_size = self.cache_sram_size if self.is_spilling_enabled() else 9999 * 1024 * 1024
 
         # display the system configuration and memory mode
         if verbose_config:
@@ -672,24 +738,28 @@ class ArchitectureFeatures:
             print(f"   const_mem_area = {self.const_mem_area.name}")
             print(f"   arena_mem_area = {self.arena_mem_area.name}")
             print(f"   cache_mem_area = {self.cache_mem_area.name}")
-            print(f"   cache_sram_size = {self.cache_sram_size}")
+            print(f"   arena_cache_size = {self.arena_cache_size} from {arena_cache_size_loc_text}")
 
             print("Architecture Settings:")
             print(f"   permanent_storage_mem_area = {self.permanent_storage_mem_area.name}")
             print(f"   feature_map_storage_mem_area = {self.feature_map_storage_mem_area.name}")
             print(f"   fast_storage_mem_area = {self.fast_storage_mem_area.name}")
-            print(f"   sram_size = {self.sram_size}")
 
-    def _read_config(self, section, key, current_value):
+    def _read_config(self, section, key, current_value, found=None):
         """
         Reads a given key from a particular section in the Vela config file. If the section contains the 'inherit'
         option then we recurse into the section specified. If inherited sections result in multiple keys for a
-        particular option then the key from the parent section is used, regardless of the parsing order
+        particular option then the key from the parent section is used, regardless of the parsing order. if specified
+        found should be an empty list that this function will append a True or False to the end of the list indicating
+        whether the key was found or not.
         """
         if not self.vela_config.has_section(section):
             raise ConfigOptionError("section", f"{section}. The section was not found in the Vela config file(s)")
 
-        result = str(current_value)
+        result = str(current_value) if current_value is not None else None
+        if found is not None:
+            found.append(False)
+
         if self.vela_config.has_option(section, "inherit"):
             inheritance_section = self.vela_config.get(section, "inherit")
             # check for recursion loop
@@ -697,10 +767,12 @@ class ArchitectureFeatures:
                 raise ConfigOptionError(
                     "inherit", f"{inheritance_section}. This references its own section and recursion is not allowed",
                 )
-            result = self._read_config(inheritance_section, key, result)
+            result = self._read_config(inheritance_section, key, result, found)
 
         if self.vela_config.has_option(section, key):
             result = self.vela_config.get(section, key)
+            if found is not None:
+                found.append(True)
 
         return result
 
@@ -717,10 +789,8 @@ def create_default_arch(accelerator: Accelerator) -> ArchitectureFeatures:
             accelerator_config=accelerator.value,
             system_config=ArchitectureFeatures.DEFAULT_CONFIG,
             memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
-            override_block_config=None,
-            block_config_limit=None,
             max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
-            weight_estimation_scaling=1.0,
             verbose_config=False,
+            arena_cache_size=None,
         )
     return default_arch_cache[accelerator]

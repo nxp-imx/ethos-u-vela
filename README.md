@@ -113,9 +113,11 @@ recommended to install Vela along with the pre-commit tools (see
 ## Running
 
 Vela is run with an input `.tflite` file passed on the command line.  This file
-contains the neural network to be compiled.  The tool then outputs an optimised
+contains the neural network to be compiled. The tool then outputs an optimised
 version with a `_vela.tflite` file prefix, along with the performance estimate
-(EXPERIMENTAL) CSV files, all to the output directory.
+(EXPERIMENTAL) CSV files, all to the output directory. It also prints a
+performance estimation summary back to the console, see
+[Vela Performance Estimation Summary](PERFORMANCE.md).
 
 If you use the `pipenv` virtual environment tool then first start by spawning a
 shell in the virtual environment:
@@ -164,6 +166,12 @@ vela --config vela_cfg.ini --system-config My_Sys_Config --memory-mode My_Mem_Mo
 vela --help
 ```
 
+## Warnings
+
+When running the Vela compiler it may report a number of warning messages to the
+console. These should all be thoroughly reviewed as they will indicate decisions
+that the compiler has made in order to create the optimised network.
+
 ## Example Networks
 
 Some example networks that contain quantised operators which can be compiled by
@@ -186,6 +194,10 @@ Please see [Vela Debug Database](DEBUG_DB.md).
 
 Please see [Vela CLI Options](OPTIONS.md).  This includes a description of the
 system configuration file format.
+
+## Performance
+
+Please see [Vela Performance Estimation Summary](PERFORMANCE.md).
 
 ## Releases
 

@@ -41,6 +41,7 @@ class Box:
         npu_block_type: NpuBlockType,
         concat_offsets: List[int],
         split_offset: Shape4D = None,
+        split_shape: Shape4D = None,
         k_height: int = 1,
         upscaling_factor: int = 1,
     ):
@@ -55,12 +56,14 @@ class Box:
                 new_start_coord[idx] += split_offset[idx]
                 new_end_coord[idx] += split_offset[idx]
 
-        if (split_offset is None) and (
-            npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum)
-        ):
+        if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
             # these types of operations do a "dot product" or sum over the entire IFM
-            new_start_coord[-1] = 0
-            new_end_coord[-1] = ifm_shape.depth
+            if split_offset is None:
+                new_start_coord[-1] = 0
+                new_end_coord[-1] = ifm_shape.depth
+            else:
+                new_start_coord[-1] = split_offset[-1]
+                new_end_coord[-1] = new_start_coord[-1] + split_shape[-1]
 
         if len(new_end_coord) >= 1:
             new_end_coord[-1] = min(new_end_coord[-1], ifm_shape.depth)
@@ -126,6 +129,14 @@ class Box:
 
         return Box(start, end)
 
+    def is_subbox_of(self, other):
+        if self.start_coord and self.end_coord:
+            assert len(self.start_coord) == len(other.start_coord)
+            assert len(self.end_coord) == len(other.end_coord)
+            return all(a >= b for (a, b) in zip(self.start_coord, other.start_coord)) and all(
+                a <= b for (a, b) in zip(self.end_coord, other.end_coord)
+            )
+
     def get_size_shape(self):
         return [int(self.end_coord[i] - self.start_coord[i]) for i in range(len(self.end_coord))]
 
@@ -142,9 +153,6 @@ class Box:
 
 
 class Command:
-    def get_ofm_y_range_for_pass(self, ps_requested):
-        return None
-
     def is_npu_pass_command(self):
         return False
 
@@ -158,8 +166,6 @@ class NpuStripe(Command):
         self,
         ps,
         block_config,
-        is_first,
-        is_last,
         is_first_h_stripe,
         is_last_h_stripe,
         ifm_tensor,
@@ -168,7 +174,6 @@ class NpuStripe(Command):
         ofm_box,
         weight_tensor=None,
         weight_box=None,
-        scale_tensor=None,
         ifm2_tensor=None,
         ifm2_box=None,
         pad_top=0,
@@ -176,8 +181,6 @@ class NpuStripe(Command):
     ):
         self.ps = ps
         self.block_config = block_config
-        self.is_first = is_first
-        self.is_last = is_last
         self.is_first_h_stripe = is_first_h_stripe
         self.is_last_h_stripe = is_last_h_stripe
         self.ifm_tensor = ifm_tensor
@@ -187,7 +190,6 @@ class NpuStripe(Command):
         self.ofm_tensor = ofm_tensor
         self.ofm_box = ofm_box
         self.weight_tensor = weight_tensor
-        self.scale_tensor = scale_tensor
         self.weight_box = weight_box
         self.pad_top = pad_top
         self.pad_bottom = pad_bottom
@@ -208,13 +210,6 @@ class NpuStripe(Command):
         )
 
     __repr__ = __str__
-
-    def get_ofm_y_range_for_pass(self, ps_requested):
-        if ps_requested != self.ps:
-            return None
-        if len(self.ofm_box.start_coord) >= 3:
-            return (self.ofm_box.start_coord[-3], self.ofm_box.end_coord[-3])
-        return None
 
     def get_block_dimensions(self):
         ofm_box = self.ofm_box

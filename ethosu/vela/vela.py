@@ -18,7 +18,6 @@
 #
 # Provides command line interface, options parsing, and network loading. Before calling the compiler driver.
 import argparse
-import ast
 import os
 import sys
 import time
@@ -38,7 +37,6 @@ from .errors import InputFileError
 from .errors import VelaError
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
-from .scheduler import ParetoMetric
 from .supported_operators import SupportedOperators
 from .tensor import MemArea
 from .tensor import Tensor
@@ -70,9 +68,6 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         start = time.time()
 
     compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options)
-
-    passes_csv_file = "{0}_pass-breakdown_{1}.csv".format(output_basename, arch.system_config)
-    stats_writer.write_pass_metrics_csv(nng, passes_csv_file)
 
     summary_csv_file = "{0}_summary_{1}.csv".format(output_basename, arch.system_config)
     stats_writer.write_summary_metrics_csv(nng, summary_csv_file, arch)
@@ -276,11 +271,6 @@ def main(args=None):
         parser.add_argument("--verbose-tensor-purpose", action="store_true", help="Verbose tensor purpose")
         parser.add_argument("--verbose-tensor-format", action="store_true", help="Verbose tensor format")
         parser.add_argument("--verbose-schedule", action="store_true", help="Verbose schedule")
-        parser.add_argument(
-            "--verbose-pareto-frontier-schedules",
-            action="store_true",
-            help="Show all schedules along the pareto frontier of optimisation criteria",
-        )
         parser.add_argument("--verbose-allocation", action="store_true", help="Verbose tensor allocation")
         parser.add_argument(
             "--verbose-high-level-command-stream", action="store_true", help="Verbose high level command stream"
@@ -292,23 +282,6 @@ def main(args=None):
         parser.add_argument("--verbose-weights", action="store_true", help="Verbose weights information")
         parser.add_argument(
             "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
-        )
-        parser.add_argument(
-            "--cache-bias-scale-tensor",
-            type=ast.literal_eval,
-            default=True,
-            choices=[True, False],
-            help="Controls the caching of the bias & scale tensors in SRAM (default: %(default)s)",
-        )
-        parser.add_argument(
-            "--cascading",
-            type=ast.literal_eval,
-            default=True,
-            choices=[True, False],
-            help="Controls the packing of multiple passes into a cascade (default: %(default)s)",
-        )
-        parser.add_argument(
-            "--force-block-config", type=str, default="", help="Force a specific block configuration WxHxC"
         )
         parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
         parser.add_argument(
@@ -343,32 +316,6 @@ def main(args=None):
             help="Shows a summary of all the subgraphs and their inputs and outputs",
         )
         parser.add_argument(
-            "--ifm-streaming",
-            type=ast.literal_eval,
-            default=True,
-            choices=[True, False],
-            help="Controls scheduler IFM streaming search (default: %(default)s)",
-        )
-        parser.add_argument(
-            "--block-config-limit",
-            type=int,
-            default=16,
-            help="Limit block config search space, use zero for unlimited (default: %(default)s)",
-        )
-        parser.add_argument(
-            "--pareto-metric",
-            default=ParetoMetric.BwCycMem,
-            type=lambda s: ParetoMetric[s],
-            choices=list(ParetoMetric),
-            help="Controls the calculation of the pareto metric (default: %(default)s)",
-        )
-        parser.add_argument(
-            "--recursion-limit",
-            type=int,
-            default=10000,
-            help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
-        )
-        parser.add_argument(
             "--max-block-dependency",
             type=int,
             default=architecture_features.ArchitectureFeatures.MAX_BLOCKDEP,
@@ -379,17 +326,23 @@ def main(args=None):
             ),
         )
         parser.add_argument(
-            "--nhcwb16-between-cascaded-passes",
-            type=ast.literal_eval,
-            default=True,
-            choices=[True, False],
-            help="Control if NHCWB16 or NHWC should be used in between cascaded passes (default: %(default)s)",
+            "--optimise",
+            type=lambda s: scheduler.OptimizationStrategy[s],
+            default=scheduler.OptimizationStrategy.Performance,
+            choices=list(scheduler.OptimizationStrategy),
+            help=(
+                "Set the optimisation strategy. The Size strategy results in minimal SRAM usage (does not use"
+                " arena-cache-size). The Performance strategy results in maximal performance (uses the arena-cache-size"
+                " if specified) (default: %(default)s)"
+            ),
         )
         parser.add_argument(
-            "--weight-estimation-scaling",
-            type=float,
-            default=1.0,
-            help=("Performs an additional scaling of weight compression scale estimate (default: %(default)s)"),
+            "--arena-cache-size",
+            type=int,
+            help=(
+                "Set the size of the arena cache memory area, in bytes. If specified, this option overrides the memory"
+                " mode attribute with the same name in a Vela configuration file"
+            ),
         )
         parser.add_argument(
             "--cpu-tensor-alignment",
@@ -416,13 +369,6 @@ def main(args=None):
                 if not os.access(filename, os.R_OK):
                     raise InputFileError(filename, "File not found or is not readable")
 
-        sys.setrecursionlimit(args.recursion_limit)
-
-        if args.force_block_config:
-            force_block_config = architecture_features.Block.from_string(args.force_block_config)
-        else:
-            force_block_config = None
-
         if args.cpu_tensor_alignment < 16 or args.cpu_tensor_alignment & (args.cpu_tensor_alignment - 1) != 0:
             parser.error(
                 "Invalid argument to --cpu-tensor-alignment = {} (must be greater than or equal to 16 and a power of 2)"
@@ -445,11 +391,9 @@ def main(args=None):
             system_config=args.system_config,
             memory_mode=args.memory_mode,
             accelerator_config=args.accelerator_config,
-            override_block_config=force_block_config,
-            block_config_limit=args.block_config_limit,
             max_blockdep=args.max_block_dependency,
-            weight_estimation_scaling=args.weight_estimation_scaling,
             verbose_config=args.verbose_config,
+            arena_cache_size=args.arena_cache_size,
         )
 
         compiler_options = compiler_driver.CompilerOptions(
@@ -471,13 +415,9 @@ def main(args=None):
         )
 
         scheduler_options = scheduler.SchedulerOptions(
-            use_cascading=args.cascading,
+            optimization_strategy=args.optimise,
+            sram_target=arch.arena_cache_size,
             verbose_schedule=args.verbose_schedule,
-            verbose_pareto_frontier_schedules=args.verbose_pareto_frontier_schedules,
-            use_ifm_streaming=args.ifm_streaming,
-            pareto_metric=args.pareto_metric,
-            use_nhcwb16_between_cascaded_passes=args.nhcwb16_between_cascaded_passes,
-            cache_bias_scale_tensor=args.cache_bias_scale_tensor,
         )
 
         model_reader_options = model_reader.ModelReaderOptions()

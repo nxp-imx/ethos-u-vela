@@ -98,42 +98,6 @@ mode.  More details can be found in the Configuration File section below.
 vela network.tflite --config my_vela_cfg1.ini --config my_vela_cfg2.ini --system-config My_Sys_Cfg --memory-mode My_Mem_Mode
 ```
 
-### Cache Bias Scale Tensor
-
-Controls whether the scheduler caches the bias & scale tensors in SRAM or if it
-leaves them in Flash.  This only affects IFM streamed passes.  
-**Type: Boolean**  
-**Default: True**  
-
-```bash
-vela network.tflite --cache-bias-scale-tensor False
-```
-
-### Cascading
-
-Controls the packing of multiple passes into cascades.  This allows for lower
-memory usage.  If the network's intermediate feature maps are too large for the
-system's SRAM this optimisation is required.  
-**Type: Boolean**  
-**Default: True**  
-
-```bash
-vela network.tflite --cascading False
-```
-
-### Force Block Config
-
-Force a specific block configuration in the format WxHxC, where W, H and C are
-positive integers specifying width, height and channels (depth), respectively.
-The default behaviour is Vela searching for an optimal block configuration.  An
-exception will be raised if the chosen block configuration is incompatible.  
-**Type: String**  
-**Default: N/A**  
-
-```bash
-vela network.tflite --force-block-config 2x2x8
-```
-
 ### Timing
 
 Measure time taken for different compiler steps, e.g. model reading and
@@ -201,57 +165,6 @@ allocation.
 vela network.tflite --tensor-allocator=LinearAlloc
 ```
 
-### Ifm Streaming
-
-Controls scheduler IFM streaming search.  Vela's scheduler will choose between
-IFM Streaming and Weight Streaming for optimal memory usage.  Disabling this
-will cause Vela to always choose Weight Streaming.  
-**Type: Boolean**  
-**Default: True**  
-
-```bash
-vela network.tflite --ifm-streaming False
-```
-
-### Block Config Limit
-
-Limit the block config search space.  This will result in faster compilation
-times but may impact the performance of the output network.  Use 0 for unlimited
-search.  
-**Type: Integer**  
-**Default: 16**  
-**Choices: >= 0**  
-
-```bash
-vela network.tflite --block-config-limit 0
-```
-
-### Pareto Metric
-
-Controls the calculation of the pareto metric.  Use 'BwCycMemBlkH' to consider
-Block Height in addition to Bandwidth, Cycle count and Memory.  This can reduce
-SRAM usage in some circumstances.  
-**Type: String**  
-**Default: BwCycMem**  
-**Choices: [BwCycMem, BwCycMemBlkH]**  
-
-```bash
-vela network.tflite --pareto-metric BwCycMemBlkH
-```
-
-### Recursion Limit
-
-Some of Vela's algorithms use recursion and the required depth can be network
-dependant.  This option allows the limit to be increased if needed.  The maximum
-limit is platform dependent.  If limit is set too low then compilation will
-raise a RecursionError exception.  
-**Type: Integer**  
-**Default: 10000**  
-
-```bash
-vela network.tflite --recursion-limit 50000
-```
-
 ### Max Block Dependency
 
 Set the maximum value that can be used for the block dependency delay between
@@ -264,29 +177,32 @@ NPU kernel operations.  A lower value may result in longer execution time.
 vela network.tflite --max-block-dependency 0
 ```
 
-### Tensor Format Between Cascaded Passes
+### Optimise
 
-Controls if NHCWB16 or NHWC Tensor format should be used in between cascaded
-passes.  NHWCB16 means FeatureMaps are laid out in 1x1x16B bricks in row-major
-order.  This enables more efficient FeatureMap reading from external memory.  
-**Type: Boolean**  
-**Default: True**  
+Set the optimisation strategy. The Size strategy results in minimal SRAM usage
+(it does not use arena cache memory area size).  The Performance strategy
+results in maximal performance (it uses the arena cache memory area size if
+specified either via the CLI option of Vela configuration file).
+**Type: String**  
+**Default: Performance**  
+**Choices: [Size, Performance]**  
 
 ```bash
-vela network.tflite --nhcwb16-between-cascaded-passes False
+vela network.tflite --optimise Size
 ```
 
-### Scaling of weight estimates
+### Arena Cache Size
 
-Performs an additional scaling of weight compression estimate used by Vela to
-estimate SRAM usage.  Increasing this scaling factor will make the estimates
-more conservative (lower) and this can result in optimisations that use less
-SRAM, albeit at the cost of performance (inference speed).  
-**Type: Float**  
-**Default: 1.0**  
+Set the size of the arena cache memory area, in bytes.  If specified, this
+option overrides the memory mode attribute with the same name in a Vela
+configuration file.  If neither this nor the memory mode attribute are specified
+then a size equal to the maximum address supported by the Ethos-U is used.  This
+option is intended to be used with the `--optimise Performance` option.  
+**Type: Integer**  
+**Choices: [ >= 0]**  
 
 ```bash
-vela network.tflite --weight-estimation-scaling=1.2
+vela network.tflite --optimise Performance --arena-cache-size 2097152
 ```
 
 ### CPU Tensor Alignment
@@ -389,14 +305,6 @@ Verbose schedule.
 
 ```bash
 vela network.tflite --verbose-schedule
-```
-
-### Verbose Pareto Frontier Schedules
-
-Show all schedules along the pareto frontier of optimisation criteria.  
-
-```bash
-vela network.tflite --verbose-pareto-frontier-schedules
 ```
 
 ### Verbose Allocation
@@ -514,13 +422,64 @@ OffChipFlash_write_latency=??? ---> Write latency in OffChipFlash. Only required
 
 ; My_Mem_Mode_Parent
 [Memory_Mode.My_Mem_Mode_Parent]
-const_mem_area=???          ---> AXI port used by the read-only data (e.g. weight tensors, scale & bias tensors).  ??? = {Axi0, Axi1}
-arena_mem_area=???          ---> AXI port used by the read-write data (e.g. feature map tensors, internal buffers).  ??? = {Axi0, Axi1}
-cache_mem_area=???          ---> AXI port used by the dedicated SRAM read-write (e.g. feature map part-tensors, internal buffers).  ??? = {Axi0, Axi1}
-cache_sram_size=???         ---> Size of the dedicated cache SRAM.  Only required when cache_mem_area != arena_mem_area.  ??? = {int in Bytes}
+const_mem_area=???     ---> AXI port used by the read-only data (e.g. weight tensors, scale & bias tensors).  ??? = {Axi0, Axi1}
+arena_mem_area=???     ---> AXI port used by the read-write data (e.g. feature map tensors, internal buffers).  ??? = {Axi0, Axi1}
+cache_mem_area=???     ---> AXI port used by the dedicated SRAM read-write (e.g. feature map part-tensors, internal buffers).  ??? = {Axi0, Axi1}
+arena_cache_size=???   ---> Size of the arena/cache memory area.  ??? = {int in Bytes}
 
 ; My_Mem_Mode_Child
 [Memory_Mode.My_Mem_Mode_Child]
-inherit=???                 ---> Parent section to inherit from.  An option in the child overwrites an identical option in the parent.  ??? = {[Part.Name]}
-cache_sram_size=???         ---> Size of the dedicated cache SRAM.  Only required when cache_mem_area != arena_mem_area.  ??? = {int in Bytes}
+inherit=???            ---> Parent section to inherit from.  An option in the child overwrites an identical option in the parent.  ??? = {[Part.Name]}
+arena_cache_size=???   ---> Size of the arena/cache memory area.  ??? = {int in Bytes}
 ```
+
+## Memory Modes
+
+The Vela configuration file defines three potential memory modes although other configurations are possible.  Each
+memory mode is defined with respect to four attributes.  If any of those attributes are not specified then an internal
+default value will be used.  Note that this value may not be valid for the target embedded system.  Therefore, the user
+is recommended to explicitly specify all settings.
+
+1. `const_mem_area` this is the memory area in which the compiler will store all constant data such as weights,
+scales & biases, and constant value tensors.
+1. `arena_mem_area` this is the memory area in which the compiler will look to access the TensorFlow Lite for
+Microcontrollers Tensor Arena.
+1. `cache_mem_area` this is the memory area in which the compiler uses as a cache memory if required by the selected
+memory mode
+1. `arena_cache_size` this is the size of the memory area available to the compiler for use by either the arena or cache
+depending upon the memory mode
+
+Please note that all of the above attributes must have values that correspond to the settings used by the Ethos-U Driver
+and the TensorFlow Lite for Microcontrollers Application.  This is because the compiler does not have any direct control
+over these other components.
+
+### Sram Only Mode
+
+In this mode, the Embedded NPU only has access to SRAM memory.  The compiler will make use of two regions in the SRAM,
+which may be separate or contiguous.  One region is used for the `const_mem_area` and the other region is used for the
+`arena_mem_area`.  It is assumed that SRAM outside of these regions will be used by other software in the system (e.g.
+TensorFlow Lite for Microcontrollers or an RTOS running on the Cortex-M CPU).  The `cache_mem_area` is not used.  The
+`arena_cache_size` refers to the size of the `arena_mem_area`. The TensorFlow Lite for Microcontrollers Tensor Arena
+will contain all of the network input, output, and intermediate tensors, including the Ethos-U scratch tensor which
+contains the NPU's internal working buffers.
+
+### Shared Sram Mode
+
+In this mode, the Embedded NPU has access to SRAM which is used for the `arena_mem_area`.  It also has access to some
+other type of memory (e.g. Flash or DRAM) that is used for the `const_mem_area`.  The `cache_mem_area` is not used.  The
+`arena_cache_size` refers to the size of the `arena_mem_area`.  It is assumed that SRAM outside of the `arena_mem_area`
+will be used by other software in the system (e.g. TensorFlow Lite for Microcontrollers or an RTOS running on the
+Cortex-M CPU).  The TensorFlow Lite for Microcontrollers Tensor Arena will contain all of the network input, output, and
+intermediate tensors, including the Ethos-U scratch tensor which contains the NPU's internal working buffers.
+
+### Dedicated Sram Mode
+
+In this mode, the Embedded NPU has access to SRAM which is used for the `cache_mem_area`.  It is assumed that use of
+this memory is entirely dedicated to the Embedded NPU, as no support is provided for allocating parts of this at
+run-time.  It also has access to some other type of memory (e.g. DRAM).  The compiler will make use of two regions in
+this other type of memory, which may be separate or contiguous.  One region is used for the `const_mem_area` and
+the other region is used for the `arena_mem_area`.  The `arena_cache_size` refers to the size of the `cache_mem_area`.
+It is assumed that memory outside of those regions will be used by other software in the system (e.g. TensorFlow Lite
+for Microcontrollers or an RTOS running on the Cortex-M CPU).  The TensorFlow Lite for Microcontrollers Tensor Arena
+will contain all of the network input, output, and intermediate tensors, including the Ethos-U scratch tensor which
+contains the NPU's internal working buffers.

@@ -69,6 +69,7 @@ class Pass:
         self.npu_block_type = npu_block_type
         self.block_config = None  # will be filled in by scheduler
         self.shared_buffer = None  # will be filled in by scheduler
+        self.scheduling_info = None  # will be filled in by scheduler
 
         self.predecessors = []
         self.successors = []
@@ -123,6 +124,7 @@ class CascadedPass:
 
         self.predecessors = []
         self.successors = []
+        self.sram_used = 0
 
     def __str__(self):
         return "<nng.CascadedPass strategy=%s x %s '%s',  passes=%s, block_configs=%s>" % (
@@ -149,7 +151,9 @@ class Subgraph:
         self.command_stream_tensor = None
         self.flash_tensor = None
         # Scratch information locally used in the scheduler
-        self.scheduling_info = {}
+        self.schedule = None
+        self.sched_ops = []
+
         self.generated_stream_id = None
 
         self.memory_used = {}

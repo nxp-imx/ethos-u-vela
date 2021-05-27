@@ -5,6 +5,37 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.0.0 - 28/05/2021
+
+**Main feature changes:**
+
+* Improved user control over Vela
+  * Allowing user to specify an arena cache size target
+  * Allowing user to optimise for inference time or memory footprint
+* Extended operator support for PAD and MEAN
+* Multiple improvements to reduce compilation time
+
+**Interface changes:**
+
+* Addition of CLI options:
+  * `--optimise`, `--arena-cache-size`
+* Removal of CLI options:
+  * `--cascading`, `--cache-bias-scale-tensor`, `--ifm-streaming`,
+  * `--force-block-config`, `--block-config-limit`, `--recursion-limit`
+  * `--nhcwb16-between-cascaded-passes`, `--weight-estimation-scaling`
+  * `--pareto-metric`, `--verbose-pareto-frontier-schedules`
+
+**Reported defect fixes:**
+
+* Regression in FullyConnected between v2.0.1 and v2.1.0 (MLCE-484)
+* Output mismatch for 16-bit TANH and SIGMOID (MLCE-362)
+* Improved `--verbose-graph` CLI option output (MLCE-482)
+* Bug with `--verbose-operators` CLI option (MLCE-444)
+* Bug with incorrect tensor format chosen for SPLIT (MLCE-331)
+* Bug with STRIDED_SLICE padding (MLCE-425)
+* Bug with RESHAPE at the edge of Ethos-U custom operator (MLCE-443)
+* Document Vela memory configuration and options (MLCE-410 & MLCE-498)
+
 ## Release 2.1.0 - 25/02/2021
 
 **Main feature changes:**

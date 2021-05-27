@@ -53,11 +53,11 @@ from .api import NpuResamplingMode
 from .api import NpuRoundingMode
 from .api import NpuShape3D
 from .api import NpuTileBox
+from .architecture_allocator import ArchitectureBlockConfig
+from .architecture_allocator import try_block_config
 from .architecture_features import Accelerator
 from .architecture_features import ArchitectureFeatures
-from .architecture_features import Block
 from .architecture_features import create_default_arch
-from .architecture_features import SharedBufferArea
 from .architecture_features import SHRAMElements
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import acc_format
@@ -80,12 +80,10 @@ from .register_command_stream_util import get_op_memory_accesses
 from .register_command_stream_util import get_strides
 from .register_command_stream_util import get_wait_dependency
 from .register_command_stream_util import has_ifm2
+from .register_command_stream_util import shape3d_to_block
 from .register_command_stream_util import to_kernel
 from .register_command_stream_util import UNARY_ELEMWISE_OPS
 from .register_command_stream_util import Watermark
-from .shared_buffer_allocation import find_suitable_block_configs
-from .shared_buffer_allocation import shared_buffer_allocation_for_npu_op
-from .shared_buffer_allocation import SharedBufferAllocation
 
 
 class RegisterMachine:
@@ -521,56 +519,40 @@ def generate_biases(emit: CommandStreamEmitter, biases: List[NpuAddressRange], a
 
 
 def generate_block_config(
-    emit: CommandStreamEmitter,
-    npu_op: NpuBlockOperation,
-    arch: ArchitectureFeatures,
-    shared_buffer: SharedBufferAllocation,
+    emit: CommandStreamEmitter, block_config: NpuShape3D,
 ):
     """Generates OFM_BLK_HEIGHT/WIDTH/DEPTH registers"""
-    block_config = npu_op.block_config
-    assert block_config is not None, "block_config has not been set"
-    alloc = shared_buffer.try_block(Block(block_config.width, block_config.height, block_config.depth))
-    assert alloc is not None, f"Block config {block_config} does not fit, op: {npu_op.op_type}"
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, block_config.height - 1)
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_WIDTH_M1, block_config.width - 1)
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_DEPTH_M1, block_config.depth - 1)
 
 
-def generate_shram_registers_elementwise(
-    emit: CommandStreamEmitter,
-    npu_op: NpuElementWiseOperation,
-    arch: ArchitectureFeatures,
-    shared_buffer: SharedBufferAllocation,
+def generate_shram_registers(
+    emit: CommandStreamEmitter, npu_op: NpuBlockOperation, arch_block_config: ArchitectureBlockConfig,
 ):
-    """Generates IB_END/IB_START/AB_START registers for elementwise operations"""
-    # For elementwise set the required SHRAM to be equal to the total size of available SHRAM
-    uses_lut = npu_op.activation is not None and npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP
-    shram_required = arch.available_shram_banks(uses_lut)
-
-    # Acc buffers not needed so set AB_START to size of SHRAM
-    emit.cmd0_with_param(cmd0.NPU_SET_IFM_IB_END, shram_required)
-    emit.cmd0_with_param(cmd0.NPU_SET_AB_START, shram_required)
+    """Generates IB_END/IB_START/AB_START/ACC_FORMAT registers"""
+    emit.cmd0_with_param(cmd0.NPU_SET_IFM_IB_END, arch_block_config.layout.ib_end)
+    emit.cmd0_with_param(cmd0.NPU_SET_AB_START, arch_block_config.layout.ab_start)
     if has_ifm2(npu_op):
-        # Set IFM2_IB_START to the latter half of the IB space
-        ifm_ib_start = shared_buffer.bank_locations[SharedBufferArea.IFM]
-        emit.cmd0_with_param(
-            cmd0.NPU_SET_IFM2_IB_START, (shram_required - ifm_ib_start) // shared_buffer.ifm_count + ifm_ib_start,
-        )
-    emit.cmd0_with_param(cmd0.NPU_SET_ACC_FORMAT, acc_format_map[shared_buffer.use_accumulator_element])
+        emit.cmd0_with_param(cmd0.NPU_SET_IFM2_IB_START, arch_block_config.layout.ib_start2)
+    emit.cmd0_with_param(cmd0.NPU_SET_ACC_FORMAT, acc_format_map[arch_block_config.acc_type])
 
 
-def generate_shram_registers_non_elementwise(emit: CommandStreamEmitter, shared_buffer: SharedBufferAllocation):
-    """Generates IB_END/IB_START/AB_START registers for non-elementwise operations"""
-    emit.cmd0_with_param(
-        cmd0.NPU_SET_IFM_IB_END,
-        shared_buffer.bank_locations[SharedBufferArea.IFM] + shared_buffer.banks_required[SharedBufferArea.IFM],
-    )
-    emit.cmd0_with_param(cmd0.NPU_SET_AB_START, shared_buffer.bank_locations[SharedBufferArea.Accumulators])
-    emit.cmd0_with_param(cmd0.NPU_SET_ACC_FORMAT, acc_format_map[shared_buffer.use_accumulator_element])
+def get_block_config_for_npu_op(
+    arch, npu_op: NpuBlockOperation, npu_block_type: NpuBlockType, is_partkernel: bool, ifm_resampling: resampling_mode
+) -> Optional[ArchitectureBlockConfig]:
+    """
+    Given npu_op.block_config, returns a corresponding ArchitectureBlockConfig.
+    Returns None if the block_config does not fit.
+    """
 
 
-def create_shared_buffer(npu_op: NpuBlockOperation, arch: ArchitectureFeatures) -> SharedBufferAllocation:
+def get_arch_block_config(
+    npu_op: NpuBlockOperation, block_traversal: NpuBlockTraversal, arch: ArchitectureFeatures
+) -> ArchitectureBlockConfig:
     """Creates shared buffer allocation for the given operation"""
+    assert npu_op.block_config is not None, "block_config has not been set"
+    block_type = NpuBlockType.Default
     if isinstance(npu_op, NpuConv2DOperation):
         block_type = NpuBlockType.ConvolutionMxN
     elif isinstance(npu_op, NpuConvDepthWiseOperation):
@@ -582,7 +564,37 @@ def create_shared_buffer(npu_op: NpuBlockOperation, arch: ArchitectureFeatures) 
     else:
         assert 0, "Unsupported operation"
     ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
-    return shared_buffer_allocation_for_npu_op(arch, npu_op, block_type, ifm_resampling_mode)
+    is_partkernel = block_traversal == NpuBlockTraversal.PART_KERNEL_FIRST
+    uses_lut = npu_op.activation is not None and npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP
+    lut_banks = 2 if uses_lut else 0
+    fms = [npu_op.ifm, npu_op.ofm]
+    if npu_op.ifm2 is not None:
+        fms.append(npu_op.ifm2)
+    all_fms_have_quant = not any(fm.quantization is None or fm.quantization.scale_f32 is None for fm in fms)
+    ifm_bits = npu_op.ifm.data_type.size_in_bits()
+    ifm_shape = shape3d_to_block(npu_op.ifm.shape)
+    if has_ifm2(npu_op):
+        ifm2_shape = shape3d_to_block(npu_op.ifm2.shape)
+    else:
+        ifm2_shape = None
+    uses_scalar = npu_op.ifm2_scalar is not None
+    block_config = shape3d_to_block(npu_op.block_config)
+    arch_block_config = try_block_config(
+        block_config,
+        arch,
+        block_type,
+        ifm_shape,
+        ifm2_shape,
+        uses_scalar,
+        ifm_bits,
+        is_partkernel=is_partkernel,
+        kernel=to_kernel(npu_op.kernel),
+        lut_banks=lut_banks,
+        scaled=all_fms_have_quant,
+        ifm_resampling=ifm_resampling_mode,
+    )
+    assert arch_block_config is not None, f"block_config {npu_op.block_config} does not fit"
+    return arch_block_config
 
 
 def generate_cmd_waits(emit: CommandStreamEmitter, cmd_waits: Watermark):
@@ -617,12 +629,9 @@ def generate_common(
     generate_weights(emit, npu_op.weights, arch)
     generate_biases(emit, npu_op.biases, arch)
     generate_activation(emit, npu_op.activation, npu_op.ofm)
-    shared_buffer = create_shared_buffer(npu_op, arch)
-    generate_block_config(emit, npu_op, arch, shared_buffer)
-    if isinstance(npu_op, NpuElementWiseOperation):
-        generate_shram_registers_elementwise(emit, npu_op, arch, shared_buffer)
-    else:
-        generate_shram_registers_non_elementwise(emit, shared_buffer)
+    arch_block_config = get_arch_block_config(npu_op, block_traversal, arch)
+    generate_block_config(emit, npu_op.block_config)
+    generate_shram_registers(emit, npu_op, arch_block_config)
 
 
 # -------------------------------------------------------------------
@@ -1025,10 +1034,10 @@ def find_block_configs(npu_op: NpuOperation, npu_accelerator: NpuAccelerator) ->
     Internal implementation of the public facing API for finding block configs.
     """
     if isinstance(npu_op, NpuBlockOperation):
+        # TODO: implement this function
         arch = create_default_arch(Accelerator.from_npu_accelerator(npu_accelerator))
-        shared_buffer = create_shared_buffer(npu_op, arch)
-        blocks = find_suitable_block_configs(arch, shared_buffer)
-        return [NpuShape3D(height=block[0], width=block[1], depth=block[3]) for block in blocks]
+        block = arch.ofm_ublock
+        return [NpuShape3D(height=block.height, width=block.width, depth=block.depth)]
     return []
 
 

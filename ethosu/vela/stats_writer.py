@@ -45,7 +45,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
         ]
 
         labels += (
-            ["accelerator_configuration", "system_config", "memory_mode", "core_clock", "sram_size"]
+            ["accelerator_configuration", "system_config", "memory_mode", "core_clock", "arena_cache_size"]
             + [area.identifier_name() + "_bandwidth" for area in mem_areas]
             + ["weights_storage_area", "feature_map_storage_area"]
         )
@@ -89,7 +89,7 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
                     arch.system_config,
                     arch.memory_mode,
                     arch.core_clock,
-                    arch.sram_size / 1024,
+                    arch.arena_cache_size / 1024,
                 ]
                 + [arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000 for mem_area in mem_areas]
                 + [

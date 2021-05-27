@@ -24,6 +24,10 @@ def round_up(a, b):
     return ((a + b - 1) // b) * b
 
 
+def round_down(a, b):
+    return (a // b) * b
+
+
 def round_up_divide(a, b):
     return (a + b - 1) // b
 

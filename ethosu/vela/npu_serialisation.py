@@ -42,10 +42,8 @@ def make_memory_tensor(name, mem_area, mem_type, sz, want_values, arch):
 
 def copy_compressed_values_to_memory_tensor(memory_tensor, src_tensor):
     start_addr = src_tensor.address
-    for compressed_values in src_tensor.compressed_values:
-        end_addr = start_addr + len(compressed_values)
-        memory_tensor.values[start_addr:end_addr] = compressed_values
-        start_addr = end_addr
+    end_addr = src_tensor.address + src_tensor.storage_size()
+    memory_tensor.values[start_addr:end_addr] = src_tensor.buffer.copy()
 
 
 def copy_ifm_values_to_memory_tensor(memory_tensor, src_tensor):
@@ -94,31 +92,21 @@ def serialise_npu_subgraph_into_tensors(sg, arch, scratch_tens, scratch_fast_ten
         sg.scratch_fast_tensor = scratch_fast_tens
         sg.scratch_fast_tensor.shape[0] = 0
 
-    for cps in sg.cascaded_passes:
-        for ps in cps.passes:
-            if ps.placement == PassPlacement.Npu:
-                if ps.weight_tensor is not None:
-                    # For DMA ops, ps.weight_tensor is referring to the SRAM weight tensor and therefore the address
-                    # is pointing at the destination address of where the weights should be placed in SRAM.
-                    # This ensures that the Flash weight tensor is used instead and thus gets the correct address.
-                    if ps.weight_tensor.ops[0].type == Op.DMA:
-                        copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.weight_tensor.ops[0].inputs[0])
-                    else:
-                        copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.weight_tensor)
+    for sched_op in sg.sched_ops:
+        ifm_tensor, ifm2_tensor, _, _, _ = sched_op.parent_op.get_ifm_ifm2_weights_biases_ofm()
 
-                    if ps.scale_tensor.ops[0].type == Op.DMA:
-                        copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor.ops[0].inputs[0])
-                    else:
-                        copy_compressed_values_to_memory_tensor(sg.flash_tensor, ps.scale_tensor)
+        op_info = sg.schedule.cost_map[sched_op]
+        if op_info.npu_weights_tensor:
+            copy_compressed_values_to_memory_tensor(sg.flash_tensor, op_info.npu_weights_tensor)
 
-                if ps.lut_tensor is not None:
-                    copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.lut_tensor)
-                if ps.ifm_tensor is not None and ps.ifm_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
-                    copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm_tensor)
-                if ps.ifm2_tensor is not None and (
-                    ps.ifm2_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast)
-                ):
-                    copy_ifm_values_to_memory_tensor(sg.flash_tensor, ps.ifm2_tensor)
+        if ifm_tensor and ifm_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
+            copy_ifm_values_to_memory_tensor(sg.flash_tensor, ifm_tensor)
+        if ifm2_tensor and (ifm2_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast)):
+            copy_ifm_values_to_memory_tensor(sg.flash_tensor, ifm2_tensor)
+
+        if sched_op.parent_op.activation_lut:
+            copy_ifm_values_to_memory_tensor(sg.flash_tensor, sched_op.parent_ps.lut_tensor)
+
     sg.command_stream_tensor = make_memory_tensor(
         sg.name + "_command_stream", flash_area, MemType.Permanent_CPU, command_stream_size_bytes, True, arch
     )
