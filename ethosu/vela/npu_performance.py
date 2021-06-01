@@ -708,10 +708,16 @@ def estimate_full_op_performance(
         bw = access.const_read[0] * bandwidth_compression_scale_approx
         bws[query.const_memory_area][TensorPurpose.Weights][BandwidthDirection.Read] += bw
 
+        if not cost.buffered_weight_tensor:
+            scaled_bws[query.const_memory_area][TensorPurpose.Weights][BandwidthDirection.Read] += bw
+
     if access.const_read[1] > 0:
         # Scales & biases
         bw = access.const_read[1] * op.parent_op.bias.element_size()
         bws[query.const_memory_area][TensorPurpose.FSBias][BandwidthDirection.Read] += bw
+
+        if not cost.buffered_weight_tensor:
+            scaled_bws[query.const_memory_area][TensorPurpose.FSBias][BandwidthDirection.Read] += bw
 
     update_summary_cycles(arch, scaled_bws, cycles_a)
 
