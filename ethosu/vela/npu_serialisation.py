@@ -98,6 +98,8 @@ def serialise_npu_subgraph_into_tensors(sg, arch, scratch_tens, scratch_fast_ten
         op_info = sg.schedule.cost_map[sched_op]
         if op_info.npu_weights_tensor:
             copy_compressed_values_to_memory_tensor(sg.flash_tensor, op_info.npu_weights_tensor)
+        if op_info.npu_scales_tensor:
+            copy_compressed_values_to_memory_tensor(sg.flash_tensor, op_info.npu_scales_tensor)
 
         if ifm_tensor and ifm_tensor.mem_type not in (MemType.Scratch, MemType.Scratch_fast):
             copy_ifm_values_to_memory_tensor(sg.flash_tensor, ifm_tensor)

@@ -186,6 +186,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
 
                 # Calculate the weight box - i.e. the subshape of weights needed for this NpuStripe command
                 weight_tensor = op_info.npu_weights_tensor
+                scale_tensor = op_info.npu_scales_tensor
                 if op_info.npu_weights_tensor:
                     weight_box = Box([0, 0, 0, start_channel], [1, 1, 1, end_channel])
 
@@ -211,6 +212,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                     ofm_box,
                     weight_tensor,
                     weight_box,
+                    scale_tensor,
                     ifm2_tensor=ifm2_tensor,
                     ifm2_box=ifm2_box,
                     pad_top=pad_top,

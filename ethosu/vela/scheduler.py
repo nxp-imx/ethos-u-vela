@@ -94,6 +94,7 @@ class SchedulerOpInfo:
         self.time_index = None  # Set by update_op_memory_snapshot
         self.ofm_depth_slices: List[int] = [0, stripe.depth]
         self.npu_weights_tensor = None
+        self.npu_scales_tensor = None
         self.buffered_weight_tensor = None
         self.cycles = None
         self.slack_buffering_cycles = 0
@@ -248,7 +249,10 @@ class SchedulerOperation:
         scheduler_op_info = SchedulerOpInfo(block_config, 0, ifm_shape, ifm2_shape, ofm_shape)
         if self.parent_op.weights:
             # Default full-depth weight encoding with no buffering
-            scheduler_op_info.npu_weights_tensor = weight_compressor.encode_weight_and_scale_tensor(
+            (
+                scheduler_op_info.npu_weights_tensor,
+                scheduler_op_info.npu_scales_tensor,
+            ) = weight_compressor.encode_weight_and_scale_tensor(
                 self.arch,
                 self.parent_op,
                 self.parent_op.weights,
@@ -537,7 +541,7 @@ class Scheduler:
         ofm_full_depth_slices = [0, ref_cost.stripe.depth]
 
         # Encode weights for the full depth
-        full_weights = weight_compressor.encode_weight_and_scale_tensor(
+        full_weights, full_scales = weight_compressor.encode_weight_and_scale_tensor(
             self.arch,
             sched_op.parent_op,
             weight_tensor,
@@ -552,9 +556,11 @@ class Scheduler:
         # No buffering required - take all the weights from permanent storage
         if sched_op.op_type == Op.FullyConnected or not needs_dma:
             cost.npu_weights_tensor = full_weights
+            cost.npu_scales_tensor = full_scales
             return
 
         encoded_weights = full_weights
+        encoded_scales = full_scales
 
         # How many NPU cycles are available under the previously executing
         # operator and SRAM unused for performing buffered DMA transfers
@@ -609,7 +615,7 @@ class Scheduler:
 
                     # Encode weights based depth slices
                     cost.ofm_depth_slices = depth_slices
-                    encoded_weights = weight_compressor.encode_weight_and_scale_tensor(
+                    encoded_weights, encoded_scales = weight_compressor.encode_weight_and_scale_tensor(
                         self.arch,
                         sched_op.parent_op,
                         weight_tensor,
@@ -665,8 +671,10 @@ class Scheduler:
             # Don't slice or buffer - use the whole depth from persistent storage
             cost.ofm_depth_slices = ofm_full_depth_slices
             encoded_weights = full_weights
+            encoded_scales = full_scales
 
         cost.npu_weights_tensor = encoded_weights
+        cost.npu_scales_tensor = encoded_scales
 
     def propose_minimal_schedule(self) -> Schedule:
         """Proposes scheduling parameters where every operator is subdivided into the smallest stripe that satisfies the

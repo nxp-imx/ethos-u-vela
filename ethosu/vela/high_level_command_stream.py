@@ -174,6 +174,7 @@ class NpuStripe(Command):
         ofm_box,
         weight_tensor=None,
         weight_box=None,
+        scale_tensor=None,
         ifm2_tensor=None,
         ifm2_box=None,
         pad_top=0,
@@ -190,6 +191,7 @@ class NpuStripe(Command):
         self.ofm_tensor = ofm_tensor
         self.ofm_box = ofm_box
         self.weight_tensor = weight_tensor
+        self.scale_tensor = scale_tensor
         self.weight_box = weight_box
         self.pad_top = pad_top
         self.pad_bottom = pad_bottom

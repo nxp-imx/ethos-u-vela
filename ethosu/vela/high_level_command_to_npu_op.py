@@ -267,11 +267,14 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_sh
     return fm
 
 
-def create_weights(weight_tensor: Tensor, weight_box: Box, arch: ArchitectureFeatures) -> List[NpuAddressRange]:
+def create_weights(
+    weight_tensor: Tensor, weight_box: Box, scale_tensor: Tensor, arch: ArchitectureFeatures
+) -> List[NpuAddressRange]:
     """Returns address ranges for weights and scales"""
     weights = []
     biases = []
-    region = get_region(weight_tensor.mem_type, arch)
+    shared_region = get_region(weight_tensor.mem_type, arch)
+    scale_region = scale_tensor and get_region(scale_tensor.mem_type, arch)
 
     w_tensor_src = weight_tensor
     if weight_tensor.src_tensor:
@@ -300,11 +303,19 @@ def create_weights(weight_tensor: Tensor, weight_box: Box, arch: ArchitectureFea
 
             # Location of weights in tensor
             addr_range = NpuAddressRange(
-                region, int(address + weight_range.weight_offset), round_up(int(weight_range.weight_bytes), 16)
+                shared_region, int(address + weight_range.weight_offset), round_up(int(weight_range.weight_bytes), 16)
             )
             weights.append(addr_range)
-            # Location of biases in tensor
-            addr_range = NpuAddressRange(region, int(address), round_up(int(weight_range.scale_bytes), 16))
+
+            # Location of standalone scales or combined weights tensor scales
+            if scale_tensor:
+                assert scale_tensor.src_tensor is None  # Must be standalone
+                scale_range = scale_tensor.encoded_ranges[key]
+                address = scale_tensor.address + scale_range.offset
+                addr_range = NpuAddressRange(scale_region, int(address), round_up(int(scale_range.scale_bytes), 16))
+            else:
+                addr_range = NpuAddressRange(shared_region, int(address), round_up(int(weight_range.scale_bytes), 16))
+
             biases.append(addr_range)
 
     return weights, biases
@@ -351,7 +362,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     npu_op.ofm.quantization = get_ofm_quantization(ps, cmd.ofm_tensor)
 
     if cmd.weight_tensor is not None:
-        npu_op.weights, npu_op.biases = create_weights(cmd.weight_tensor, cmd.weight_box, arch)
+        npu_op.weights, npu_op.biases = create_weights(cmd.weight_tensor, cmd.weight_box, cmd.scale_tensor, arch)
     npu_op.activation = create_npu_activation(op)
     npu_op.fused_quantize = any(op.type == Op.Quantize for op in ps.ops)
     npu_op.rounding_mode = get_rounding_mode(op, npu_op.fused_quantize)

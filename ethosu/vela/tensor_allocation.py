@@ -49,6 +49,7 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.Allocation
         if tens.weight_compression_config is not None:
             for allocated_tens in allocated_tensors:
                 if allocated_tens.weight_compression_config == tens.weight_compression_config:
+                    assert allocated_tens.scale_compression_config == tens.scale_compression_config
                     address = allocated_tens.address
                     break
         if tens.purpose == TensorPurpose.LUT:

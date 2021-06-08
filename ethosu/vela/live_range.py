@@ -344,16 +344,14 @@ def create_linear_live_range_graph(sg, target_mem_area, target_mem_type_set, lr_
                 lr_graph, tens, target_mem_area, target_mem_type_set
             ):
                 continue
-
             rng = lr_graph.get_or_create_range(tens)
             rng.mark_usage(sg_time)
 
     for sched_op, op_info in sg.schedule.cost_map.items():
-        if op_info.npu_weights_tensor and not (
-            tensor_should_be_ignored(lr_graph, op_info.npu_weights_tensor, target_mem_area, target_mem_type_set)
-        ):
-            rng = lr_graph.get_or_create_range(op_info.npu_weights_tensor)
-            rng.mark_usage(sg_time)
+        for tensor in [op_info.npu_weights_tensor, op_info.npu_scales_tensor]:
+            if tensor and not (tensor_should_be_ignored(lr_graph, tensor, target_mem_area, target_mem_type_set)):
+                rng = lr_graph.get_or_create_range(tensor)
+                rng.mark_usage(sg_time)
 
     lr_graph.current_time += 1
     return lr_graph
