@@ -314,8 +314,8 @@ def encode_weight_and_scale_tensor(
         assert weight_tens.quantization.zero_point is not None
 
         # Early zero-point correction
-        quant_buf = weight_tens.quant_values.astype(np.int64)
-        weights = quant_buf - weight_tens.quantization.zero_point
+        quant_buf = weight_tens.quant_values.astype(np.int16)
+        weights = quant_buf - weight_tens.quantization.zero_point.astype(np.int16)
 
         if len(weights.shape) == 2:
             weights = np.expand_dims(np.expand_dims(weights, axis=0), axis=0)

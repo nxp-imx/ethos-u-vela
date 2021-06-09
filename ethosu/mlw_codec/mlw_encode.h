@@ -47,7 +47,7 @@ int mlw_reorder_encode(
     int kernel_width,
     int ifm_depth,
     int* brick_strides,
-    void* inbuf,
+    int16_t* inbuf,
     int ofm_block_depth,
     int is_depthwise,
     int is_partkernel,

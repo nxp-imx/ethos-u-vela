@@ -81,7 +81,7 @@ method_reorder_encode (PyObject *self, PyObject *args)
 
     PyArrayObject* input_ndarray_object = (PyArrayObject*)PyArray_FROM_OTF(
         input_object,
-        NPY_INT64,
+        NPY_INT16,
         NPY_ARRAY_ALIGNED);
     if (input_ndarray_object == NULL)
     {
@@ -99,13 +99,19 @@ method_reorder_encode (PyObject *self, PyObject *args)
     int kernel_width = (int)PyArray_DIM(input_ndarray_object, 2);
     int ifm_depth = (int)PyArray_DIM(input_ndarray_object, 3);
 
-    int64_t* brick_weights = (int64_t*)PyArray_DATA(input_ndarray_object);
+    int16_t* brick_weights = (int16_t*)PyArray_DATA(input_ndarray_object);
     int brick_strides[4];
     for (int i = 0; i < 4; i++)
     {
-        brick_strides[i] = (int)PyArray_STRIDE(input_ndarray_object, i);
+        int stride = (int)PyArray_STRIDE(input_ndarray_object, i);
+        if (stride % sizeof(int16_t))
+        {
+            PyErr_SetString(PyExc_ValueError, "Invalid stride");
+            return NULL;
+        }
+        brick_strides[i] = stride / sizeof(int16_t);
     }
-    if ((unsigned)PyArray_ITEMSIZE(input_ndarray_object) != sizeof(int64_t))
+    if ((unsigned)PyArray_ITEMSIZE(input_ndarray_object) != sizeof(int16_t))
     {
         PyErr_SetString(PyExc_ValueError, "Invalid input type");
         return NULL;

@@ -898,21 +898,21 @@ static int round_up(int num, int den)
 
 struct brick_buf_s
 {
-    uint8_t* buf;
+    int16_t* buf;
     int* strides;
 };
 typedef struct brick_buf_s brick_buf_t;
 
 static int16_t get_brick_weight(brick_buf_t* buf, int ofm_z, int wy, int wx, int ifm_z)
 {
-    uint8_t* p = buf->buf;
+    int16_t* p = buf->buf;
 
     p += ofm_z * buf->strides[0];
     p += wy * buf->strides[1];
     p += wx * buf->strides[2];
     p += ifm_z * buf->strides[3];
 
-    return *(int16_t*)p;
+    return *p;
 }
 
 static void reorder_free(int16_t* buf)
@@ -931,7 +931,7 @@ static int16_t* reorder(
     int kernel_width,
     int ifm_depth,
     int* strides,
-    void* inbuf,
+    int16_t* inbuf,
     int ofm_block_depth,
     int is_depthwise,
     int is_partkernel,
@@ -1070,7 +1070,7 @@ int mlw_reorder_encode(
     int kernel_width,
     int ifm_depth,
     int* brick_strides,
-    void* inbuf,
+    int16_t* inbuf,
     int ofm_block_depth,
     int is_depthwise,
     int is_partkernel,
