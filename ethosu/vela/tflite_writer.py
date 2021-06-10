@@ -25,6 +25,7 @@ from .errors import VelaError
 from .nn_graph import PassPlacement
 from .operation import Op
 from .tensor import MemType
+from .tensor import TensorPurpose
 from .tflite import Buffer
 from .tflite import Metadata
 from .tflite import Model
@@ -36,6 +37,7 @@ from .tflite import Tensor
 from .tflite_mapping import builtin_operator_inv_map
 from .tflite_mapping import BuiltinOperator
 from .tflite_mapping import datatype_inv_map
+
 
 # ugh, the python flatbuffer interface is missing a method to add in file identifier. patching it in here:
 
@@ -345,7 +347,7 @@ class TFLiteSerialiser:
 
         all_tensors = [tens for nm, idx, tens in sorted((tens.name, idx, tens) for idx, tens in enumerate(tensor_set))]
 
-        scratch_tensors = [tens for tens in all_tensors if tens.name.endswith("scratch")]
+        scratch_tensors = [tens for tens in all_tensors if tens.purpose is TensorPurpose.Scratch]
 
         if len(scratch_tensors) == 0:
             scratch_tensor = None

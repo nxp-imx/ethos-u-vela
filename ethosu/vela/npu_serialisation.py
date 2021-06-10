@@ -82,7 +82,7 @@ def serialise_npu_subgraph_into_tensors(sg, arch, scratch_tens, scratch_fast_ten
         sg.scratch_fast_tensor = make_memory_tensor(
             sg.name + "_scratch_fast", scratch_fast_area, MemType.Scratch_fast, 0, False, arch
         )
-        sg.scratch_fast_tensor.purpose = TensorPurpose.Scratch
+        sg.scratch_fast_tensor.purpose = TensorPurpose.ScratchFast
     else:
         sg.scratch_tensor = scratch_tens
         sg.scratch_tensor.shape[0] += scratch_size
