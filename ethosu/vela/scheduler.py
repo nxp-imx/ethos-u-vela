@@ -351,7 +351,7 @@ class Scheduler:
             if ps.primary_op:
                 # Set tensor format to NHCWB16 for output FeatureMaps, if possible
                 for output in ps.outputs:
-                    if output.purpose != TensorPurpose.FeatureMap:
+                    if output in self.sg.output_tensors or output.purpose != TensorPurpose.FeatureMap:
                         continue
                     if not output.needs_linear_format:
                         output.set_format(TensorFormat.NHCWB16, arch)
