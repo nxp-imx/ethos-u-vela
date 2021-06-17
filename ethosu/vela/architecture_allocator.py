@@ -279,25 +279,21 @@ def find_block_config(
                 )
 
                 if layout:
-                    # Calculate cost in terms of OFM pixels per IFM+Weights fetch
-                    ifm_fetch = ifm_block.elements_wh() * ifm_shape.depth
-                    weight_fetch = weight_fetch_wh * ifm_shape.depth * (1 if is_depthwise else ofm_block.depth)
-                    relative_fetch = (ifm_fetch * ifm_repeats + weight_fetch) / ofm_block.elements()
+                    full_blocks = Shape4D.div_round_up(ofm_shape, ofm_block)
+                    blocks = ofm_shape / ofm_block
 
-                    # Bias by the number of blocks we'd need to fill the OFM area (fewer, larger, blocks are better)
-                    block_bias = round_up_divide(ofm_shape.height, ofm_block.height)
-                    block_bias *= round_up_divide(ofm_shape.width, ofm_block.width)
-                    # Check waste on all axes (prefer depth, width then height)
-                    waste_ratio = 1 + (1.2 * ((ofm_shape.depth % ofm_block.depth) / ofm_block.depth))
-                    waste_ratio *= 1 + (1.1 * ((ofm_shape.width % ofm_block.width) / ofm_block.width))
-                    waste_ratio *= 1 + (1.0 * ((ofm_shape.height % ofm_block.height) / ofm_block.height))
+                    # Weights fetching
+                    weight_fetch = weight_fetch_wh * ifm_shape.depth * full_blocks.elements_wh()
+                    if not is_depthwise:
+                        weight_fetch *= ofm_block.depth * blocks.depth
 
-                    # Bias for larger area coverage (or volume if not depthwise)
-                    area_bias = 1 / (ofm_block.height * ofm_block.width)
-                    if not (is_depthwise or is_pooling):
-                        area_bias = area_bias / ofm_block.depth
+                    # IFM fetching
+                    ifm_fetch = ifm_block.elements_wh() * ifm_shape.depth * ifm_repeats * blocks.elements_wh()
+                    if not is_equal_depth_op:
+                        ifm_fetch *= full_blocks.depth
 
-                    relative_cost = relative_fetch * block_bias * waste_ratio * area_bias
+                    # Scale relative to every output OFM element
+                    relative_cost = (ifm_fetch + weight_fetch) / ofm_shape.elements()
 
                     # If the entire IFM can be encompassed by both buffers, bias to prefer this configuration
                     if ifm_shape.elements() < ifm_block.elements() * 2:

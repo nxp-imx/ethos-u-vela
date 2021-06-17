@@ -410,6 +410,7 @@ def _estimate_conv_cycles(arch, op_type: Op, faf_type: Op, query: PerformanceQue
 
 def measure_mem2mem_cycles(arch, from_mem_area, to_mem_area, to_transfer):
     from_cycles = to_transfer // arch.memory_bandwidths_per_cycle[from_mem_area]
+    from_cycles += arch.memory_latency[from_mem_area][BandwidthDirection.Read]
     to_cycles = to_transfer // arch.memory_bandwidths_per_cycle[to_mem_area]
     return max(from_cycles, to_cycles)
 
