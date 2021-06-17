@@ -106,6 +106,7 @@ def test_allocate(test_data):
         Block.from_shape(config.ofm_block.as_list()),
         arch,
         block_type,
+        ofm_shape,
         ifm_shape,
         ifm2_shape,
         is_partkernel=config.is_partkernel,

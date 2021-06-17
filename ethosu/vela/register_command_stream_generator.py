@@ -583,6 +583,7 @@ def get_arch_block_config(
         block_config,
         arch,
         block_type,
+        npu_op.ofm.shape,
         ifm_shape,
         ifm2_shape,
         uses_scalar,

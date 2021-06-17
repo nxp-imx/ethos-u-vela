@@ -196,6 +196,15 @@ def _get_ifm_blocksize(
     return Shape4D(1, height, width, ofm_block.depth)
 
 
+def fit_block_for_ofm(arch: ArchitectureFeatures, ofm_shape: Shape4D, kernel: Kernel, block: Shape4D):
+    # 256/512 Conv1D optimisation (ratio of IFM:Accumulators changes) This is a specific
+    # interpretation of a more general constraint that can't be applied because the
+    # find_block_config function must return block configs that can be applied to any OFM shape.
+    if (ofm_shape.height == 1) and (kernel.height == 1) and (arch.ofm_ublock.height == 2):
+        return Shape4D(1, min(block.height, ofm_shape.height), block.width, block.depth)
+    return block
+
+
 def find_block_config(
     arch: ArchitectureFeatures,
     npu_op_type: NpuBlockType,
@@ -274,6 +283,7 @@ def find_block_config(
                     ifm_block = ifm_block.with_depth(ifm_blockdepth)
 
                 # Test if the IFM/OFM blocks fit into SHRAM
+                ofm_block = fit_block_for_ofm(arch, ofm_shape, kernel, ofm_block)
                 layout = _try_block_config(
                     arch.shram, ew_usage, ofm_block, ifm_block, ifm_bits, ifm_granule, acc_bits, acc_granule, lut_banks
                 )
@@ -304,7 +314,7 @@ def find_block_config(
                         config.layout = layout
                         config.bank_size = arch.shram_bank_size
                         config.ifm_block = ifm_block
-                        config.ofm_block = ofm_block
+                        config.ofm_block = Shape4D(1, height, width, depth)
                 else:
                     wont_fit[(width, height)] = True
 
@@ -322,6 +332,7 @@ def try_block_config(
     block_config: Block,
     arch: ArchitectureFeatures,
     npu_op_type: NpuBlockType,
+    ofm_shape: Block,
     ifm_shape: Block,
     ifm2_shape: Optional[Block],
     uses_scalar: bool,
@@ -373,6 +384,9 @@ def try_block_config(
     ifm_block = _get_ifm_blocksize(block_config, kernel, arch.ofm_ublock, arch.SubKernelMax, upscale)
     if not is_equal_depth_op:
         ifm_block = ifm_block.with_depth(ifm_blockdepth)
+
+    # 256/512 Conv1D optimisation (ratio of IFM:Accumulators changes)
+    block_config = fit_block_for_ofm(arch, ofm_shape, kernel, block_config)
 
     layout = _try_block_config(
         arch.shram, ew_usage, block_config, ifm_block, ifm_bits, ifm_granule, acc_bits, acc_granule, lut_banks
