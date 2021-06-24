@@ -315,7 +315,12 @@ def encode_weight_and_scale_tensor(
 
         # Early zero-point correction
         quant_buf = weight_tens.quant_values.astype(np.int16)
-        weights = quant_buf - weight_tens.quantization.zero_point.astype(np.int16)
+        # the zero point can be either a native or numpy type
+        if isinstance(weight_tens.quantization.zero_point, (int, float)):
+            zero_point = np.int16(weight_tens.quantization.zero_point)
+        else:
+            zero_point = weight_tens.quantization.zero_point.astype(np.int16)
+        weights = quant_buf - zero_point
 
         if len(weights.shape) == 2:
             weights = np.expand_dims(np.expand_dims(weights, axis=0), axis=0)
