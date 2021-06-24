@@ -348,8 +348,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                         ps.ifm_shapes.append(op.ifm_shapes[0])
                     elif ps.ifm_tensor == op.ifm2:
                         ps.ifm_shapes.append(op.ifm_shapes[1])
-            for op in input_ops_list + [primary_op]:
-                if op.run_on_npu:
+
                     if ps.ifm2_tensor == op.ifm:
                         ps.ifm_shapes.append(op.ifm_shapes[0])
                     elif ps.ifm2_tensor == op.ifm2:

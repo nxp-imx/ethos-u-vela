@@ -39,7 +39,7 @@ from .tflite_mapping import builtin_operator_inv_map
 from .tflite_mapping import BuiltinOperator
 from .tflite_mapping import datatype_inv_map
 
-# ugh, the python flatbuffer interface is missing a method to add in file identifier. patching it in here:
+# the python flatbuffer interface is missing a method to add in file identifier. patching it in here:
 
 tflite_version = 3
 tflite_file_identifier = "TFL" + str(tflite_version)

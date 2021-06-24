@@ -16,6 +16,7 @@
 # Description:
 # Build a live range graph for tensors in one or more subgraphs. Used for tensor allocation as well as in the scheduler.
 # Can work with either a pass packed subgraph or a scheduled subgraph.
+from collections import namedtuple
 from typing import List
 
 import numpy as np
@@ -159,47 +160,45 @@ def tensor_should_be_ignored(lr_graph, tens, target_mem_area, target_mem_type_se
         return True
     if tens in lr_graph.ignore_tensors:
         return True
-    if tens.name.endswith("reshape_shape_npu"):
-        # Reshape tensor, no need to allocate
-        lr_graph.ignore_tensors.add(tens)
-        return True
     return False
 
 
 def merge_elementwise_op_ranges(sched_op, lr_graph, target_mem_area, target_mem_type_set):
+    def _tensor_should_be_ignored(tens):
+        return tensor_should_be_ignored(lr_graph, tens, target_mem_area, target_mem_type_set)
+
     # Tries to merge ifm/ofm live ranges of elementwise op
     if sched_op.op_type.is_elementwise_op():
         elem_op = sched_op.parent_op
-        if not tensor_should_be_ignored(lr_graph, elem_op.ofm, target_mem_area, target_mem_type_set):
+        if not _tensor_should_be_ignored(elem_op.ofm):
             # Check if overwriting the inputs can be allowed
-            if elem_op.type not in (Op.SHL, Op.SHR):
-                inps = []
-                if (
-                    elem_op.ifm is not None
-                    and elem_op.ifm.shape != []
-                    and elem_op.ifm.mem_area == target_mem_area
-                    and elem_op.ifm.mem_type in target_mem_type_set
-                ):
-                    inps.append(elem_op.ifm)
-                if (
-                    elem_op.ifm2 is not None
-                    and elem_op.ifm2.shape != []
-                    and elem_op.ifm2.mem_area == target_mem_area
-                    and elem_op.ifm.mem_type in target_mem_type_set
-                ):
-                    inps.append(elem_op.ifm2)
+            OpShapeTens = namedtuple("OpShapeTens", ["op_shape", "tens"])
+            outp = OpShapeTens(elem_op.ofm_shapes[0], elem_op.ofm)
+            inps = []
+            if elem_op.ifm is not None:
+                inps.append(OpShapeTens(elem_op.ifm_shapes[0], elem_op.ifm))
+            if elem_op.ifm2 is not None:
+                inps.append(OpShapeTens(elem_op.ifm_shapes[1], elem_op.ifm2))
 
-                if len(inps) > 0:
-                    for i, inp in enumerate(inps):
-                        # check input format, dtype, broadcasting or if there are more input consumers
-                        if (
-                            inp.format == elem_op.ofm.format
-                            and inp.dtype == elem_op.ofm.dtype
-                            and elem_op.ifm_shapes[i] == elem_op.ofm_shapes[0]
-                            and (len(inp.consumer_list) == 1 and len(inp.ops) == 1)
-                        ):
-                            lr_graph.fuse_ranges(inp, elem_op.ofm)
-                            break
+            # find an input tensor that can be overwritten by the output
+            for inp in inps:
+                if (
+                    # check op input and output shapes allow overlapping
+                    inp.op_shape == outp.op_shape
+                    # check input tensor is valid
+                    and inp.tens is not None
+                    and inp.tens.shape != []
+                    and not _tensor_should_be_ignored(inp.tens)
+                    # check input and output tensors are compatible
+                    and inp.tens.format == outp.tens.format
+                    and inp.tens.dtype == outp.tens.dtype
+                    # check input tensor only has one consumer
+                    and len(inp.tens.consumer_list) == 1
+                    # check output tensor only has one producer
+                    and len(outp.tens.ops) == 1
+                ):
+                    lr_graph.fuse_ranges(inp.tens, outp.tens)
+                    break
 
 
 def extract_live_ranges_from_cascaded_passes(
