@@ -44,6 +44,11 @@ class TensorAllocator(enum.Enum):
         return self.name
 
 
+class NetworkType(enum.Enum):
+    TFLite = 1
+    TOSA = 2
+
+
 class Pass:
     def __init__(self, name, placement, is_element_wise, npu_block_type):
         self.inputs = []

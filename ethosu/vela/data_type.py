@@ -44,9 +44,11 @@ class DataType:
 
     __slots__ = "type", "bits"
 
+    int4: Any
     int8: Any
     int16: Any
     int32: Any
+    int48: Any
     int64: Any
     uint8: Any
     uint16: Any
@@ -113,9 +115,11 @@ class DataType:
 
 
 # generate the standard set of data types
+DataType.int4 = DataType(BaseType.SignedInt, 4)
 DataType.int8 = DataType(BaseType.SignedInt, 8)
 DataType.int16 = DataType(BaseType.SignedInt, 16)
 DataType.int32 = DataType(BaseType.SignedInt, 32)
+DataType.int48 = DataType(BaseType.SignedInt, 48)
 DataType.int64 = DataType(BaseType.SignedInt, 64)
 
 DataType.uint8 = DataType(BaseType.UnsignedInt, 8)

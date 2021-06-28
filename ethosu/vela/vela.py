@@ -54,7 +54,7 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
     output_basename = os.path.join(compiler_options.output_dir, os.path.splitext(os.path.basename(input_name))[0])
     DebugDatabase.show_warnings = enable_debug_db
 
-    nng = model_reader.read_model(input_name, model_reader_options)
+    nng, network_type = model_reader.read_model(input_name, model_reader_options)
 
     if not nng:
         raise InputFileError(input_name, "Input file could not be read")
@@ -67,7 +67,7 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         print("Model reading took %f s" % (stop - start))
         start = time.time()
 
-    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options)
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type)
 
     summary_csv_file = "{0}_summary_{1}.csv".format(output_basename, arch.system_config)
     stats_writer.write_summary_metrics_csv(nng, summary_csv_file, arch)

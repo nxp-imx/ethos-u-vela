@@ -27,6 +27,9 @@ from .nn_graph import Subgraph
 from .operation import create_activation_function
 from .operation import Op
 from .operation import Operation
+from .reader_util import clone_and_reshape_tensor
+from .reader_util import decode_str
+from .reader_util import fixup_tensors
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 from .tflite.BuiltinOperator import BuiltinOperator
@@ -35,29 +38,6 @@ from .tflite_mapping import builtin_operator_map
 from .tflite_mapping import DataType
 from .tflite_mapping import datatype_map
 from .tflite_mapping import datatype_map_numpy
-
-
-def decode_str(s):
-    if s is None:
-        return ""
-    return s.decode("utf-8")
-
-
-def clone_and_reshape_tensor(src_tens, reorder, set_unique):
-    tens = src_tens.clone("_reshape", set_unique)
-    tens.shape = [src_tens.shape[idx] for idx in reorder]
-    tens.bandwidth_shape = tens.shape
-    tens.storage_shape = tens.shape
-
-    if tens.values is not None:
-        tens.values = tens.values.transpose(reorder)
-
-    if tens.quant_values is not None:
-        tens.quant_values = tens.quant_values.transpose(reorder)
-
-    op = Operation(Op.Const, tens.name)
-    op.set_output_tensor(tens)
-    return tens
 
 
 class TFLiteSubgraph:
@@ -74,19 +54,7 @@ class TFLiteSubgraph:
 
         self.outputs = self.get_tensors_from_indices_remove_duplicates(subgraph.OutputsAsNumpy(), "output")
         self.inputs = self.get_tensors_from_indices_remove_duplicates(subgraph.InputsAsNumpy(), "input")
-
-        # Fix up tensors without operations. Generate either Placeholder or Constant ops
-        for tens in self.inputs:
-            if tens.ops != []:
-                tens.error("This subgraph input tensor has unexpected driving operators.")
-
-            op = Operation(Op.Placeholder, tens.name)
-            op.set_output_tensor(tens)
-
-        for tens in self.tensors:
-            if not tens.ops:
-                op = Operation(Op.Const, tens.name)
-                op.set_output_tensor(tens)
+        fixup_tensors(self.inputs, self.tensors)
 
     def get_tensors_from_indices_remove_duplicates(self, indices, warning_str):
         tensors = []

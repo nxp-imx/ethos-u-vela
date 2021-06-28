@@ -15,17 +15,14 @@
 # limitations under the License.
 #
 # Description:
-# Unit tests for graph_optimiser
+# Unit tests for tflite_graph_optimiser
 import numpy as np
 import pytest
 
 from ethosu.vela.data_type import DataType
-from ethosu.vela.graph_optimiser import calc_explicit_padding
-from ethosu.vela.graph_optimiser import convert_batched_fc_shape
-from ethosu.vela.graph_optimiser import optimise_graph_a
-from ethosu.vela.graph_optimiser import replace_pad_by_hw_pad
-from ethosu.vela.graph_optimiser import rewrite_fully_connected_input
+from ethosu.vela.graph_optimiser import optimise_graph
 from ethosu.vela.nn_graph import Graph
+from ethosu.vela.nn_graph import NetworkType
 from ethosu.vela.operation import Op
 from ethosu.vela.operation import Padding
 from ethosu.vela.rewrite_graph import verify_graph_health
@@ -33,6 +30,10 @@ from ethosu.vela.tensor import create_const_tensor
 from ethosu.vela.tensor import Shape4D
 from ethosu.vela.tensor import Tensor
 from ethosu.vela.test import testutil
+from ethosu.vela.tflite_graph_optimiser import calc_explicit_padding
+from ethosu.vela.tflite_graph_optimiser import convert_batched_fc_shape
+from ethosu.vela.tflite_graph_optimiser import replace_pad_by_hw_pad
+from ethosu.vela.tflite_graph_optimiser import rewrite_fully_connected_input
 
 
 def test_convert_batched_fc():
@@ -300,7 +301,7 @@ def test_pad_followed_by_avg_pool(k_size, padding, expect_pad_removed):
     pool_op.run_on_npu = True
     nng = testutil.create_graph([pad_op, pool_op])
     arch = testutil.create_arch()
-    nng = optimise_graph_a(nng, arch)
+    nng = optimise_graph(nng, arch, NetworkType.TFLite)
     sg = nng.subgraphs[0]
     all_ops = sg.get_all_ops()
     print("all_ops: ", all_ops)
@@ -382,7 +383,7 @@ def test_remove_reshape():
     nng, reshape1_op, conv2d_op, reshape2_op = setup_network()
     arch = testutil.create_arch()
     assert verify_graph_health(nng)
-    nng = optimise_graph_a(nng, arch)
+    nng = optimise_graph(nng, arch, NetworkType.TFLite)
     assert verify_graph_health(nng)
 
     # Test2 reshape1 with different quantisation, this Reshape op is expected to remain
@@ -393,5 +394,5 @@ def test_remove_reshape():
     quant_zp32.zero_point = 32
     reshape1_op.ofm.quantization = quant_zp32
     assert verify_graph_health(nng)
-    nng = optimise_graph_a(nng, arch)
+    nng = optimise_graph(nng, arch, NetworkType.TFLite)
     assert verify_graph_health(nng)

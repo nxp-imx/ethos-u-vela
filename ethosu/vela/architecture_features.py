@@ -38,6 +38,7 @@ from .tensor import MemArea
 from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
+from .tosa_supported_operators import TosaSupportedOperators
 
 
 class Block:
@@ -398,6 +399,7 @@ class ArchitectureFeatures:
 
         # Setup supported operators and restriction checkers class
         self.supported_operators = SupportedOperators()
+        self.tosa_supported_operators = TosaSupportedOperators()
 
     # Returns available number of SHRAM banks depending on activation lookup table
     # being used or not

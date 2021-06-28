@@ -238,6 +238,8 @@ class Op(Enum):
     Relu = OperatorInfo(indices=IFM_INDICES)
     Relu6 = OperatorInfo(indices=IFM_INDICES)
     ReluN1To1 = OperatorInfo(indices=IFM_INDICES)
+    ReluN = OperatorInfo(indices=IFM_INDICES)  # TOSA specific
+    Rescale = OperatorInfo(indices=IFM_INDICES)  # TOSA specific
     RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
     Reshape = OperatorInfo(indices=IFM_INDICES)
     ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
@@ -321,7 +323,7 @@ class Op(Enum):
         return self.info.block_type == NpuBlockType.ElementWise and not self.info.is_unary
 
     def is_relu_op(self):
-        return self in (Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Clip)
+        return self in (Op.Relu, Op.Relu6, Op.ReluN1To1, Op.ReluN, Op.Clip)
 
     def is_activation_op(self):
         return self.is_relu_op() or self in (Op.Tanh, Op.Sigmoid, Op.Softmax, Op.LUT, Op.HardSwish)
@@ -374,7 +376,20 @@ class ActivationFunction:
         return res
 
 
-def create_activation_function(op_type: Op) -> ActivationFunction:
+class ExplicitScaling:
+    """Explicit scaling parameters"""
+
+    def __init__(self, per_channel, shift, multiplier):
+        self.per_channel = per_channel
+        self.shift = shift
+        self.multiplier = multiplier
+
+    def clone(self):
+        res = copy.copy(self)
+        return res
+
+
+def create_activation_function(op_type: Op, min=None, max=None) -> ActivationFunction:
     """Creates activation function with min/max depending on op_type"""
     act = ActivationFunction(op_type)
     if op_type == Op.Relu:
@@ -393,6 +408,15 @@ def create_activation_function(op_type: Op) -> ActivationFunction:
         act.max = 1.0
     elif op_type == Op.HardSwish:
         act.min = 0.0
+    if op_type == Op.Clip:
+        assert min is not None and max is not None
+        act.min = min
+        act.max = max
+    elif op_type == Op.ReluN:
+        assert max is not None
+        act.min = 0.0
+        act.max = max
+
     return act
 
 
@@ -436,6 +460,7 @@ class Operation:
         "read_offsets",
         "read_shapes",
         "rounding_mode",
+        "explicit_scaling",
         "low_precision_scaling",
         "write_offset",
         "write_shape",
@@ -470,6 +495,8 @@ class Operation:
         self.read_offsets: List[Shape4D] = [None, None]  # offset for [ifm, ifm2]
         self.read_shapes: List[Shape4D] = [None, None]  # read shape for [ifm, ifm2]
         self.rounding_mode: Optional[NpuRoundingMode] = None
+        # Rescale op in TOSA supplies explicit multiplier and shift values
+        self.explicit_scaling: Optional[ExplicitScaling] = None
         # The Mean operator (implemented as a depthwise convolution) requires scaling
         # to be calculated differently in one case. In that case, this is set to True.
         self.low_precision_scaling = False
@@ -498,6 +525,7 @@ class Operation:
         res.read_offsets = list(self.read_offsets)
         res.read_shapes = list(self.read_shapes)
         res.rounding_mode = self.rounding_mode
+        res.explicit_scaling = self.explicit_scaling
         res.low_precision_scaling = self.low_precision_scaling
 
         return res

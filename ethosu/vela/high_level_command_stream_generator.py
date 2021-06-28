@@ -109,7 +109,9 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
     # Create activation function if needed
     for op in ps.ops:
         if op.type.is_relu_op() or op.type in (Op.Tanh, Op.Sigmoid):
-            ps.primary_op.activation = create_activation_function(op.type)
+            ps.primary_op.activation = create_activation_function(
+                op.type, min=op.attrs.get("min", None), max=op.attrs.get("max", None)
+            )
 
     # Generate commands for the Op that produces this Op's IFM, if applicable
     if cascade_info is None or cascade_info.start == sched_op.index:

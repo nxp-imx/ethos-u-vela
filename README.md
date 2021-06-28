@@ -23,6 +23,10 @@ embedded system.
 The tool will also generate performance estimates (EXPERIMENTAL) for the
 compiled model.
 
+The tool has limited functionality for compiling a 
+[TOSA](https://git.mlplatform.org/tosa/specification.git/) neural network
+(EXPERIMENTAL).
+
 ## TensorFlow Support
 
 * Vela 2.1.0 to current supports TensorFlow 2.4

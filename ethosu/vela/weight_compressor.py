@@ -203,7 +203,7 @@ def core_deinterleave(hwio, core, ncores):
     return ohwi[core : ohwi.shape[0] : ncores]
 
 
-def _prepare_scale_and_bias(arch, tens, rescale_for_faf):
+def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
     assert tens.purpose in [TensorPurpose.FeatureMap, TensorPurpose.FSBias]
     assert tens.format == TensorFormat.NHWC
     # the connected operator should expect a bias input unless it is a FullyConnected
@@ -260,11 +260,15 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf):
         else:
             raise UnsupportedFeatureError(f"Compression of {ifm_dtype} is not implemented; Tensor: '{tens.name}'")
 
-    # quantise all of the weight scales into (scale_factor, shift)
-    if ifm_dtype == DataType.int16:
-        quantised_scales = [reduced_quantise_scale(scale) for scale in scales]
+    if explicit_scaling:
+        assert len(explicit_scaling.shift) == len(explicit_scaling.multiplier)
+        quantised_scales = [(int(m), int(s)) for s, m in zip(explicit_scaling.shift, explicit_scaling.multiplier)]
     else:
-        quantised_scales = [quantise_scale(scale) for scale in scales]
+        # quantise all of the weight scales into (scale_factor, shift)
+        if ifm_dtype == DataType.int16:
+            quantised_scales = [reduced_quantise_scale(scale) for scale in scales]
+        else:
+            quantised_scales = [quantise_scale(scale) for scale in scales]
 
     # If only 1 quantised scale is used, repeat that value for the length of the biases
     if len(quantised_scales) == 1:
@@ -355,7 +359,7 @@ def encode_weight_and_scale_tensor(
 
     # Bias & scale
     if do_scales:
-        quantised_scales, biases = _prepare_scale_and_bias(arch, scale_tens, rescale_for_faf)
+        quantised_scales, biases = _prepare_scale_and_bias(arch, scale_tens, rescale_for_faf, op.explicit_scaling)
         scale_tens.element_size_bytes = 10
 
     # Slice the weight stream up depth-ways into bricks and compress
