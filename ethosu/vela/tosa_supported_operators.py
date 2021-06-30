@@ -32,7 +32,7 @@ class TosaSupportedOperators:
     mac_main_ops = convolution_like_ops
 
     type_conversion_ops = set((Op.Rescale,))
-    relu_ops = set((Op.Clip, Op.ReluN,))
+    relu_ops = set((Op.Clamp, Op.ReluN,))
     activation_ops = relu_ops
 
     npu_post_ops = activation_ops

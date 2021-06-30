@@ -100,16 +100,16 @@ class CustomType(Enum):
 
 TensorIndices = namedtuple("TensorIndices", ["ifms", "weights", "biases"])
 
-NO_INDICES = TensorIndices([], [], [])
-IFM_INDICES = TensorIndices([0], [], [])
-IFM_WEIGHTS_INDICES = TensorIndices([0], [1], [])
-IFM_WEIGHTS_BIAS_INDICES = TensorIndices([0], [1], [2])
-IFM_IFM2_INDICES = TensorIndices([0, 1], [], [])
-CONV2D_BACKPROP_INDICES = TensorIndices([2], [1], [3])
-TRANSPOSE_CONV_INDICES = TensorIndices([0], [1], [3])
-CONCAT_INDICES = TensorIndices([1, 2], [], [])
-SPLIT_IFM_INDICES = TensorIndices([1], [], [])
-BLOCK_LSTM_INDICES = TensorIndices([3], [4], [])
+NNG_NO_INDICES = TensorIndices([], [], [])
+NNG_IFM_INDICES = TensorIndices([0], [], [])
+NNG_IFM_WEIGHTS_INDICES = TensorIndices([0], [1], [])
+NNG_IFM_WEIGHTS_BIAS_INDICES = TensorIndices([0], [1], [2])
+NNG_IFM_IFM2_INDICES = TensorIndices([0, 1], [], [])
+NNG_CONV2D_BACKPROP_INDICES = TensorIndices([2], [1], [3])
+NNG_TRANSPOSE_CONV_INDICES = TensorIndices([0], [1], [3])
+NNG_CONCAT_INDICES = TensorIndices([1, 2], [], [])
+NNG_SPLIT_IFM_INDICES = TensorIndices([1], [], [])
+NNG_BLOCK_LSTM_INDICES = TensorIndices([3], [4], [])
 
 
 # Static information related to operation codes
@@ -117,7 +117,7 @@ class OperatorInfo:
     __slots__ = ("id", "block_type", "indices", "is_unary")
     _id = 0
 
-    def __init__(self, block_type=NpuBlockType.Default, indices=NO_INDICES, is_unary=False):
+    def __init__(self, block_type=NpuBlockType.Default, indices=NNG_NO_INDICES, is_unary=False):
         OperatorInfo._id += 1
         self.id = OperatorInfo._id
         self.block_type = block_type
@@ -127,37 +127,38 @@ class OperatorInfo:
 
 # Internally used operation codes
 class Op(Enum):
-    Abs = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_INDICES, is_unary=True)
-    Add = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
+    Abs = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
+    Add = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     AddN = OperatorInfo()
     Any = OperatorInfo()
     ArgMax = OperatorInfo()
     ArgMin = OperatorInfo()
-    AvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
+    AvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
     BatchMatMul = OperatorInfo()
     BatchToSpaceND = OperatorInfo()
-    BidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
-    BidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
-    BlockLSTM = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=BLOCK_LSTM_INDICES)
+    BidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    BidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    BlockLSTM = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_BLOCK_LSTM_INDICES)
 
     CLZ = OperatorInfo(
-        block_type=NpuBlockType.ElementWise, indices=IFM_INDICES, is_unary=True
+        block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True
     )  # NPU specific operation
     Call = OperatorInfo()
     Cast = OperatorInfo()
     Ceil = OperatorInfo()
+    Clamp = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
     Clip = OperatorInfo()  # NPU specific fused activation function for clipping between activation.min/max
-    Concat = OperatorInfo(indices=CONCAT_INDICES)
+    Concat = OperatorInfo(indices=NNG_CONCAT_INDICES)
     ConcatEmbeddings = OperatorInfo()
-    ConcatSliceWrite = OperatorInfo(indices=IFM_INDICES)
-    ConcatTFLite = OperatorInfo(indices=CONCAT_INDICES)
+    ConcatSliceWrite = OperatorInfo(indices=NNG_IFM_INDICES)
+    ConcatTFLite = OperatorInfo(indices=NNG_CONCAT_INDICES)
     Const = OperatorInfo()  # Constant tensor, only used in CPU subgraphs
-    Conv2D = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=IFM_WEIGHTS_INDICES)
-    Conv2DBackpropInput = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=CONV2D_BACKPROP_INDICES)
+    Conv2D = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=NNG_IFM_WEIGHTS_INDICES)
+    Conv2DBackpropInput = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=NNG_CONV2D_BACKPROP_INDICES)
     Conv2DBackpropInputSwitchedBias = OperatorInfo(
-        block_type=NpuBlockType.ConvolutionMxN, indices=TRANSPOSE_CONV_INDICES
+        block_type=NpuBlockType.ConvolutionMxN, indices=NNG_TRANSPOSE_CONV_INDICES
     )
-    Conv2DBias = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=IFM_WEIGHTS_BIAS_INDICES)
+    Conv2DBias = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=NNG_IFM_WEIGHTS_BIAS_INDICES)
     Cos = OperatorInfo()
     Cumsum = OperatorInfo()
     Custom = OperatorInfo()  # Custom 3rd party operator, only used in CPU subgraphs
@@ -165,26 +166,28 @@ class Op(Enum):
     Delegate = OperatorInfo()
     Densify = OperatorInfo()
     DepthToSpace = OperatorInfo()
-    DepthwiseConv2DBias = OperatorInfo(block_type=NpuBlockType.ConvolutionDepthWise, indices=IFM_WEIGHTS_BIAS_INDICES)
-    Dequantize = OperatorInfo(indices=IFM_INDICES)
+    DepthwiseConv2DBias = OperatorInfo(
+        block_type=NpuBlockType.ConvolutionDepthWise, indices=NNG_IFM_WEIGHTS_BIAS_INDICES
+    )
+    Dequantize = OperatorInfo(indices=NNG_IFM_INDICES)
     Div = OperatorInfo()
     Elu = OperatorInfo()
     EmbeddingLookup = OperatorInfo()
     EmbeddingLookupSparse = OperatorInfo()
     Equal = OperatorInfo()
     Exp = OperatorInfo()
-    ExpandDims = OperatorInfo(indices=IFM_INDICES)
+    ExpandDims = OperatorInfo(indices=NNG_IFM_INDICES)
     FakeQuantWithMinMaxArgs = OperatorInfo()
     Fill = OperatorInfo()
     Floor = OperatorInfo()
     FloorDiv = OperatorInfo()
     FloorMod = OperatorInfo()
-    FullyConnected = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_BIAS_INDICES)
+    FullyConnected = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_BIAS_INDICES)
     GatherNd = OperatorInfo()
     GatherV2 = OperatorInfo()
     Greater = OperatorInfo()
     GreaterEqual = OperatorInfo()
-    HardSwish = OperatorInfo(indices=IFM_INDICES)
+    HardSwish = OperatorInfo(indices=NNG_IFM_INDICES)
     HashtableLookup = OperatorInfo()
     Identity = OperatorInfo()
     If = OperatorInfo()
@@ -192,7 +195,7 @@ class Op(Enum):
     L2Pool2D = OperatorInfo()
     LRN = OperatorInfo()
     LSHProjection = OperatorInfo()
-    LeakyRelu = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_INDICES, is_unary=True)
+    LeakyRelu = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
     Less = OperatorInfo()
     LessEqual = OperatorInfo()
     Log = OperatorInfo()
@@ -200,92 +203,92 @@ class Op(Enum):
     LogicalAnd = OperatorInfo()
     LogicalNot = OperatorInfo()
     LogicalOr = OperatorInfo()
-    Lstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
+    Lstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     LUT = OperatorInfo()  # NPU specific, operator has LUT, only used in fused activation functions
-    MatMul = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
+    MatMul = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     MatrixDiag = OperatorInfo()
     MatrixSetDiag = OperatorInfo()
     Max = OperatorInfo()
-    MaxPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
-    Maximum = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
-    Mean = OperatorInfo(indices=IFM_INDICES)
+    MaxPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
+    Maximum = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
+    Mean = OperatorInfo(indices=NNG_IFM_INDICES)
     Min = OperatorInfo()
-    Minimum = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
+    Minimum = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     MirrorPad = OperatorInfo()
-    Mul = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
+    Mul = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     Neg = OperatorInfo()
     NonMaxSuppressionV4 = OperatorInfo()
     NonMaxSuppressionV5 = OperatorInfo()
     NotEqual = OperatorInfo()
     OneHot = OperatorInfo()
-    Pack = OperatorInfo(indices=IFM_INDICES)
-    PackReshaped = OperatorInfo(indices=IFM_INDICES)
-    Pad = OperatorInfo(indices=IFM_INDICES)
+    Pack = OperatorInfo(indices=NNG_IFM_INDICES)
+    PackReshaped = OperatorInfo(indices=NNG_IFM_INDICES)
+    Pad = OperatorInfo(indices=NNG_IFM_INDICES)
     PadV2 = OperatorInfo()
     Placeholder = OperatorInfo()  # Only used in CPU subgraphs
     Pow = OperatorInfo()
     Prelu = OperatorInfo()
     Prod = OperatorInfo()
-    Quantize = OperatorInfo(indices=IFM_INDICES)
-    QuantizedAvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
-    QuantizedConv2D = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=IFM_WEIGHTS_INDICES)
-    QuantizedMatMul = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
-    QuantizedMaxPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
-    QuantizedReshape = OperatorInfo(indices=IFM_INDICES)
+    Quantize = OperatorInfo(indices=NNG_IFM_INDICES)
+    QuantizedAvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
+    QuantizedConv2D = OperatorInfo(block_type=NpuBlockType.ConvolutionMxN, indices=NNG_IFM_WEIGHTS_INDICES)
+    QuantizedMatMul = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    QuantizedMaxPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
+    QuantizedReshape = OperatorInfo(indices=NNG_IFM_INDICES)
     Range = OperatorInfo()
     Rank = OperatorInfo()
-    ReduceSum = OperatorInfo(block_type=NpuBlockType.ReduceSum, indices=IFM_INDICES)
-    Relu = OperatorInfo(indices=IFM_INDICES)
-    Relu6 = OperatorInfo(indices=IFM_INDICES)
-    ReluN1To1 = OperatorInfo(indices=IFM_INDICES)
-    ReluN = OperatorInfo(indices=IFM_INDICES)  # TOSA specific
-    Rescale = OperatorInfo(indices=IFM_INDICES)  # TOSA specific
-    RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
-    Reshape = OperatorInfo(indices=IFM_INDICES)
-    ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=IFM_INDICES)
+    ReduceSum = OperatorInfo(block_type=NpuBlockType.ReduceSum, indices=NNG_IFM_INDICES)
+    Relu = OperatorInfo(indices=NNG_IFM_INDICES)
+    Relu6 = OperatorInfo(indices=NNG_IFM_INDICES)
+    ReluN1To1 = OperatorInfo(indices=NNG_IFM_INDICES)
+    ReluN = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
+    Rescale = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
+    RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
+    Reshape = OperatorInfo(indices=NNG_IFM_INDICES)
+    ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
     ResizeNearestNeighbor = OperatorInfo()
     ReverseSequence = OperatorInfo()
     ReverseV2 = OperatorInfo()
-    Rnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
+    Rnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     Round = OperatorInfo()
     Rsqrt = OperatorInfo()
-    SHL = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)  # NPU specific operation
-    SHR = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)  # NPU specific operation
+    SHL = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)  # NPU specific operation
+    SHR = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)  # NPU specific operation
     ScatterNd = OperatorInfo()
     SegmentSum = OperatorInfo()
     Select = OperatorInfo()
     SelectV2 = OperatorInfo()
     Shape = OperatorInfo()
-    Sigmoid = OperatorInfo(indices=IFM_INDICES)
+    Sigmoid = OperatorInfo(indices=NNG_IFM_INDICES)
     SignBit = OperatorInfo()
     Sin = OperatorInfo()
     SkipGram = OperatorInfo()
-    Slice = OperatorInfo(indices=IFM_INDICES)
-    Softmax = OperatorInfo(indices=IFM_INDICES)
+    Slice = OperatorInfo(indices=NNG_IFM_INDICES)
+    Softmax = OperatorInfo(indices=NNG_IFM_INDICES)
     SpaceToBatchND = OperatorInfo()
     SpaceToDepth = OperatorInfo()
     SparseToDense = OperatorInfo()
-    Split = OperatorInfo(indices=SPLIT_IFM_INDICES)
-    SplitSliceRead = OperatorInfo(indices=IFM_INDICES)
-    SplitV = OperatorInfo(indices=IFM_INDICES)
+    Split = OperatorInfo(indices=NNG_SPLIT_IFM_INDICES)
+    SplitSliceRead = OperatorInfo(indices=NNG_IFM_INDICES)
+    SplitV = OperatorInfo(indices=NNG_IFM_INDICES)
     Sqrt = OperatorInfo()
     Square = OperatorInfo()
     SquaredDifference = OperatorInfo()
-    Squeeze = OperatorInfo(indices=IFM_INDICES)
-    StridedSlice = OperatorInfo(indices=IFM_INDICES)
-    Sub = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=IFM_IFM2_INDICES)
+    Squeeze = OperatorInfo(indices=NNG_IFM_INDICES)
+    StridedSlice = OperatorInfo(indices=NNG_IFM_INDICES)
+    Sub = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     SubgraphInput = OperatorInfo()  # Only used in CPU subgraphs
     Sum = OperatorInfo()
     Svdf = OperatorInfo()
-    Tanh = OperatorInfo(indices=IFM_INDICES)
+    Tanh = OperatorInfo(indices=NNG_IFM_INDICES)
     Tile = OperatorInfo()
     TopKV2 = OperatorInfo()
     Transpose = OperatorInfo()
-    UnidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
-    UnidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=IFM_WEIGHTS_INDICES)
+    UnidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    UnidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     Unique = OperatorInfo()
-    Unpack = OperatorInfo(indices=IFM_INDICES)
-    UnpackReshaped = OperatorInfo(indices=IFM_INDICES)
+    Unpack = OperatorInfo(indices=NNG_IFM_INDICES)
+    UnpackReshaped = OperatorInfo(indices=NNG_IFM_INDICES)
     Where = OperatorInfo()
     While = OperatorInfo()
     ZerosLike = OperatorInfo()
@@ -323,7 +326,7 @@ class Op(Enum):
         return self.info.block_type == NpuBlockType.ElementWise and not self.info.is_unary
 
     def is_relu_op(self):
-        return self in (Op.Relu, Op.Relu6, Op.ReluN1To1, Op.ReluN, Op.Clip)
+        return self in (Op.Relu, Op.Relu6, Op.ReluN1To1, Op.ReluN, Op.Clip, Op.Clamp)
 
     def is_activation_op(self):
         return self.is_relu_op() or self in (Op.Tanh, Op.Sigmoid, Op.Softmax, Op.LUT, Op.HardSwish)
@@ -408,7 +411,7 @@ def create_activation_function(op_type: Op, min=None, max=None) -> ActivationFun
         act.max = 1.0
     elif op_type == Op.HardSwish:
         act.min = 0.0
-    if op_type == Op.Clip:
+    if op_type == Op.Clamp:
         assert min is not None and max is not None
         act.min = min
         act.max = max

@@ -24,6 +24,7 @@ from flatbuffers.builder import UOffsetTFlags
 from .errors import VelaError
 from .nn_graph import PassPlacement
 from .operation import Op
+from .reader_util import align_inputs_indices
 from .tensor import MemType
 from .tensor import TensorPurpose
 from .tflite import Buffer
@@ -37,7 +38,6 @@ from .tflite import Tensor
 from .tflite_mapping import builtin_operator_inv_map
 from .tflite_mapping import BuiltinOperator
 from .tflite_mapping import datatype_inv_map
-
 
 # ugh, the python flatbuffer interface is missing a method to add in file identifier. patching it in here:
 
@@ -90,6 +90,8 @@ class TFLiteSerialiser:
             for ps in sg.passes:
                 for op in ps.ops:
                     if op.type not in self.ops_to_ignore:
+                        # swap from nng input indexing to TensorFlow Lite input indexing
+                        self.align_nng_inputs_to_tflite(op)
                         all_ops.append(op)
                     if op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op():
                         # If values are None op has non-constant weights
@@ -103,6 +105,11 @@ class TFLiteSerialiser:
         # list of tuple(Op, string); the custom code is only used for 3rd party custom operators
         self.operator_codes = sorted(set((op.type, op.attrs.get("custom_code", "")) for op in all_ops))
         self.operator_code_map = {}
+
+    def align_nng_inputs_to_tflite(self, op):
+        from_indices = op.type.info.indices
+        _, _, to_indices = builtin_operator_inv_map[op.type]
+        op.inputs = align_inputs_indices(from_indices, to_indices, op.inputs)
 
     def write_byte_vector(self, v, alignment=1):
         builder = self.builder
@@ -170,13 +177,13 @@ class TFLiteSerialiser:
         builder = self.builder
         custom_code_offset = None
         if op_type == Op.Custom:
-            tf_code, opt_serializer = builtin_operator_inv_map[op_type]
+            tf_code, opt_serializer, _ = builtin_operator_inv_map[op_type]
             custom_code_offset = builder.CreateString(custom_code)
         else:
             assert (
                 op_type in builtin_operator_inv_map
             ), "Vela does not contain a mapping to serialise {} operator to a TensorFlow Lite operator".format(op_type)
-            tf_code, opt_serializer = builtin_operator_inv_map[op_type]
+            tf_code, opt_serializer, _ = builtin_operator_inv_map[op_type]
 
             if op_type == Op.CustomNpuOp:
                 assert (

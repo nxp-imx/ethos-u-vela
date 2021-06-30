@@ -60,7 +60,7 @@ def add_padding_fields(op, arch, nng):
 
 
 def rewrite_activation(op, arch, nng):
-    if not op.type.is_relu_op():
+    if op.type not in (Op.ReluN, Op.Clamp):
         return op
 
     ifm = op.ifm
@@ -82,7 +82,7 @@ def rewrite_activation(op, arch, nng):
     if op.ofm.quantization.zero_point is None:
         op.ofm.quantization.zero_point = zp
 
-    if op.type == Op.Clip:
+    if op.type == Op.Clamp:
         op.attrs["min"] = op.attrs["min_int"] - zp
         op.attrs["max"] = op.attrs["max_int"] - zp
     elif op.type == Op.ReluN:

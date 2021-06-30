@@ -23,6 +23,8 @@ import pytest
 
 from ethosu.vela.operation import Op
 from ethosu.vela.tflite.TensorType import TensorType
+from ethosu.vela.tflite_mapping import TFLITE_CONV2D_BACKPROP_INDICES
+from ethosu.vela.tflite_mapping import TFLITE_IFM_WEIGHTS_BIAS_INDICES
 from ethosu.vela.tflite_reader import TFLiteSubgraph
 
 
@@ -43,23 +45,25 @@ class TestTFLiteSubgraph:
         assert output == expected
 
     parse_op_testdata = [
-        # op_type, opt_serializer, inputs, output, expected
-        (Op.FullyConnected, None, [0, 1, 2], 3, 3),  # FC
-        (Op.FullyConnected, None, [0, 1, -1], 3, 3),  # FC disabled Bias
-        (Op.FullyConnected, None, [0, 1], 3, 3),  # FC no Bias
-        (Op.Conv2D, None, [2, 1, 3], 0, 3),  # Conv2D
-        (Op.Conv2DBackpropInput, None, [0, 1, 2, 3], 4, 4),  # TransposeConv
-        (Op.Conv2DBackpropInput, None, [0, 1, 2], 4, 4),  # TransposeConv no Bias
-        pytest.param(Op.Conv2D, None, [0, -1, 1], 3, 3, marks=pytest.mark.xfail),  # Conv2D no Weights
+        # op_type, opt_serializer, indices, inputs, output, expected
+        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, 1, 2], 3, 3),  # FC
+        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, 1, -1], 3, 3),  # FC disabled Bias
+        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, 1], 3, 3),  # FC no Bias
+        (Op.Conv2DBias, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [2, 1, 3], 0, 3),  # Conv2D
+        (Op.Conv2DBackpropInput, None, TFLITE_CONV2D_BACKPROP_INDICES, [0, 1, 2, 3], 4, 4),  # TransposeConv
+        (Op.Conv2DBackpropInput, None, TFLITE_CONV2D_BACKPROP_INDICES, [0, 1, 2], 4, 4),  # TransposeConv no Bias
+        pytest.param(
+            Op.Conv2DBias, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, -1, 1], 3, 3, marks=pytest.mark.xfail
+        ),  # Conv2D no Weights
     ]
 
-    @pytest.mark.parametrize("op_type, opt_serializer, inputs, output, expected", parse_op_testdata)
-    def test_parse_operator(self, op_type, opt_serializer, inputs, output, expected):
+    @pytest.mark.parametrize("op_type, opt_serializer, indices, inputs, output, expected", parse_op_testdata)
+    def test_parse_operator(self, op_type, opt_serializer, indices, inputs, output, expected):
         with patch.object(TFLiteSubgraph, "__init__", lambda self, graph, subraph: None):
             # Mock a TFLiteSubGraph
             sg = TFLiteSubgraph(None, None)
             sg.graph = MagicMock()
-            sg.graph.operator_codes = [(op_type, opt_serializer, "")]
+            sg.graph.operator_codes = [(op_type, opt_serializer, "", indices)]
 
             # Mock a couple of tensors
             sg.tensors = [MagicMock() for _ in range(5)]

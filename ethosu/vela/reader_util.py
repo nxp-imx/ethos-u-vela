@@ -58,3 +58,30 @@ def fixup_tensors(input_tensors, tensors):
         if not tens.ops:
             op = Operation(Op.Const, tens.name)
             op.set_output_tensor(tens)
+
+
+def align_inputs_indices(from_indices, to_indices, inputs):
+    to_list = to_indices.ifms + to_indices.weights + to_indices.biases
+    from_list = from_indices.ifms + from_indices.weights + from_indices.biases
+
+    assert len(to_list) == len(from_list)
+    if to_list != from_list:
+        for idx, t_idx in enumerate(to_list):
+            if t_idx >= len(inputs):
+                # Biases are allowed to be left out
+                assert t_idx in from_indices.biases and t_idx in to_indices.biases
+                continue
+            if to_list[idx] != from_list[idx]:
+                # find t_idx in from list and swap.
+                for jdx in from_list[idx:]:
+                    if from_list[jdx] == t_idx:
+                        inputs[idx], inputs[jdx] = inputs[jdx], inputs[idx]
+                        from_list[idx], from_list[jdx] = from_list[jdx], from_list[idx]
+                        break
+    assert from_list == to_list
+    return inputs
+
+
+def align_tensor_indices_to_nng(op_type, indices, inputs):
+    nng_op = Op(op_type)
+    return align_inputs_indices(indices, nng_op.info.indices, inputs)

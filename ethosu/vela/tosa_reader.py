@@ -25,6 +25,7 @@ from .nn_graph import Graph
 from .nn_graph import Subgraph
 from .operation import Op
 from .operation import Operation
+from .reader_util import align_tensor_indices_to_nng
 from .reader_util import clone_and_reshape_tensor
 from .reader_util import decode_str
 from .reader_util import fixup_tensors
@@ -104,8 +105,8 @@ class TosaSubgraph:
         name = "unknown_op_name"
         if len(outputs):
             name = outputs[0].name
+        inputs = align_tensor_indices_to_nng(op_type, indices, inputs)
         op = Operation(op_type, name)
-        op.type.info.indices = indices
         op.op_index = op_index
         op.inputs = inputs
         op.outputs = outputs

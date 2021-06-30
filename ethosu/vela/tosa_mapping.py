@@ -249,7 +249,7 @@ tosa_operator_map = {
     # TODO TosaOp.MATMUL:
     TosaOp.MAX_POOL2D: (Op.MaxPool, pool2d_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.TRANSPOSE_CONV2D: (Op.Conv2DBackpropInput, transpose_conv2d_attrs, conv_quant_info)
-    TosaOp.CLAMP: (Op.Clip, clamp_attrs, None, TOSA_IFM_INDICES),
+    TosaOp.CLAMP: (Op.Clamp, clamp_attrs, None, TOSA_IFM_INDICES),
     TosaOp.RELUN: (Op.ReluN, relun_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.SIGMOID
     # TODO TosaOp.TANH

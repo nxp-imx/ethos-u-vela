@@ -27,6 +27,7 @@ from .nn_graph import Subgraph
 from .operation import create_activation_function
 from .operation import Op
 from .operation import Operation
+from .reader_util import align_tensor_indices_to_nng
 from .reader_util import clone_and_reshape_tensor
 from .reader_util import decode_str
 from .reader_util import fixup_tensors
@@ -112,7 +113,7 @@ class TFLiteSubgraph:
         return tens
 
     def parse_operator(self, op_index, op_data):
-        op_type, opt_serializer, custom_code = self.graph.operator_codes[op_data.OpcodeIndex()]
+        op_type, opt_serializer, custom_code, indices = self.graph.operator_codes[op_data.OpcodeIndex()]
         inputs = [self.tensors[idx] if idx != -1 else None for idx in op_data.InputsAsNumpy()]
         outputs = [self.tensors[idx] if idx != -1 else None for idx in op_data.OutputsAsNumpy()]
         intermediates = []
@@ -122,6 +123,7 @@ class TFLiteSubgraph:
         name = "unknown_op_name"
         if len(outputs):
             name = outputs[0].name
+        inputs = align_tensor_indices_to_nng(op_type, indices, inputs)
         op = Operation(op_type, name)
         op.op_index = op_index
         op.inputs = inputs
@@ -263,11 +265,11 @@ class TFLiteGraph:
             raise InputFileError(
                 self.name, f"The input file contains operator code '{c}' which is currently not supported"
             )
-        op_type, ser = builtin_operator_map[c]
+        op_type, ser, indices = builtin_operator_map[c]
         custom_code = None
         if c == BuiltinOperator.CUSTOM:
             custom_code = decode_str(code.CustomCode())
-        return op_type, ser, custom_code
+        return op_type, ser, custom_code, indices
 
 
 def read_tflite(filename, batch_size, feed_dict, output_node_names, initialisation_nodes):
