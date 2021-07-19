@@ -18,6 +18,8 @@
 import enum
 from typing import Any
 
+import numpy as np
+
 from .numeric_util import round_up_divide
 
 
@@ -98,6 +100,16 @@ class DataType:
             return stem % (self.bits,)
 
     __repr__ = __str__
+
+    def as_numpy_type(self):
+        numpy_dtype_code = {
+            BaseType.UnsignedInt: "u",
+            BaseType.SignedInt: "i",
+            BaseType.Float: "f",
+            BaseType.Complex: "c",
+        }
+        assert self.type in numpy_dtype_code, f"Failed to interpret {self} as a numpy dtype"
+        return np.dtype(numpy_dtype_code[self.type] + str(self.size_in_bytes()))
 
     stem_name = {
         BaseType.UnsignedInt: ("uint%s", True),

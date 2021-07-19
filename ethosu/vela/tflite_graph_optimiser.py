@@ -354,8 +354,7 @@ def convert_resizebilinear_1x1_to_add(op):
     # Create an input tensor filled with zeros
     shape = op.ofm_shapes[0].as_list()
     tens = Tensor(shape, op.inputs[0].dtype, op.inputs[1].name + "_add")
-    tens.values = np.zeros(shape)
-    tens.quant_values = np.zeros(shape, np.uint8)
+    tens.values = np.zeros(shape, tens.dtype.as_numpy_type())
     tens.quantization = QuantizationParameters(0.0, 255.0)
     tens.quantization.scale_f32 = 1.0
     tens.quantization.zero_point = 0
@@ -470,8 +469,8 @@ def convert_batched_fc_shape(op, arch, nng):
 
             # Reshape Weights to be 4D. IO becomes HWIO
             weight_tensor = op.inputs[1]
-            weight_tensor.quant_values = np.expand_dims(np.expand_dims(weight_tensor.quant_values, axis=0), axis=0)
-            weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
+            weight_tensor.values = np.expand_dims(np.expand_dims(weight_tensor.values, axis=0), axis=0)
+            weight_tensor.set_all_shapes(list(weight_tensor.values.shape))
 
             n = op.ofm_shapes[0].batch
             h, w = batching_split.get(n, (1, n))
@@ -608,8 +607,8 @@ def convert_depthwise_to_conv(op, arch, nng):
             del op.attrs["channel_multiplier"]
             del op.attrs["depth_multiplier"]
 
-            weight_tensor.quant_values = np.transpose(weight_tensor.quant_values, (0, 1, 3, 2))
-            weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
+            weight_tensor.values = np.transpose(weight_tensor.values, (0, 1, 3, 2))
+            weight_tensor.set_all_shapes(list(weight_tensor.values.shape))
         else:
             raise UnsupportedFeatureError(
                 f"Unsupported 'DEPTHWISE_CONV_2D' with depth_multiplier = {op.attrs['depth_multiplier']},",
@@ -622,8 +621,8 @@ def convert_depthwise_to_conv(op, arch, nng):
 def reorder_depthwise_weights(op, arch, nng):
     if op.type.is_depthwise_conv2d_op():
         weight_tensor = op.inputs[1]
-        weight_tensor.quant_values = np.transpose(weight_tensor.quant_values, (0, 1, 3, 2))
-        weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
+        weight_tensor.values = np.transpose(weight_tensor.values, (0, 1, 3, 2))
+        weight_tensor.set_all_shapes(list(weight_tensor.values.shape))
         weight_tensor.weight_transpose_depthwise = True
 
     return op
@@ -654,14 +653,14 @@ def optimise_strided_conv(op, arch, nng):
             for i in range(weight_shape[0]):
                 padded_array[i] = np.vstack(
                     [
-                        weight_tensor.quant_values[i],
+                        weight_tensor.values[i],
                         np.full((1, weight_shape[2], weight_shape[3]), weight_tensor.quantization.zero_point),
                     ]
                 )
-            weight_tensor.quant_values = padded_array
+            weight_tensor.values = padded_array
         weight_shape[1] //= 2
         weight_shape[2] *= 2
-        weight_tensor.quant_values = np.reshape(weight_tensor.quant_values, weight_shape)
+        weight_tensor.values = np.reshape(weight_tensor.values, weight_shape)
         weight_tensor.set_all_shapes(weight_shape)
         # If multiple copies of the weights are used, we could avoid
         # them having the same address by changing the value_id
@@ -692,8 +691,8 @@ def convert_conv_to_fc(op, arch, nng):
             }
             # Reshape Weights to be 2D. HWIO becomes just IO (as H and W are 1, they can just be dropped)
             weight_tensor = op.inputs[1]
-            weight_tensor.quant_values = weight_tensor.quant_values.squeeze(axis=(0, 1))
-            weight_tensor.set_all_shapes(list(weight_tensor.quant_values.shape))
+            weight_tensor.values = weight_tensor.values.squeeze(axis=(0, 1))
+            weight_tensor.set_all_shapes(list(weight_tensor.values.shape))
 
             DebugDatabase.add_optimised(op, op)
     return op
@@ -729,11 +728,11 @@ def fixup_elementwise_with_scalars(op, arch, nng):
                 ifm2_tensor.shape = full_shape(len(ifm_tensor.shape), ifm2_tensor.shape, 1)
             elif diff < 0:
                 ifm_tensor.shape = full_shape(len(ifm2_tensor.shape), ifm_tensor.shape, 1)
-        elif ifm_tensor.shape == [] and ifm_tensor.quant_values is None:
+        elif ifm_tensor.shape == [] and ifm_tensor.values is None:
             # IFM is marked as a scalar, but is a result of an operation; change it to a shape of size 1
             ifm_tensor.shape = len(ifm2_tensor.shape) * [1]
             ifm_tensor.storage_shape = ifm_tensor.shape
-        elif ifm2_tensor.shape == [] and ifm2_tensor.quant_values is None:
+        elif ifm2_tensor.shape == [] and ifm2_tensor.values is None:
             # IFM2 is marked as a scalar, but is a result of an operation; change it to a shape of size 1
             ifm2_tensor.shape = len(ifm_tensor.shape) * [1]
             ifm2_tensor.storage_shape = ifm2_tensor.shape
@@ -811,7 +810,7 @@ def convert_mul_max_to_abs_or_lrelu(op, arch, nng):
             # to produce bit exact results, the alpha is not enough;
             # save additional scaling info in attr "alpha_scale", to be used as input
             # to the LUT construction
-            alpha_scalar = const_tens.quant_values - const_tens.quantization.zero_point
+            alpha_scalar = const_tens.values - const_tens.quantization.zero_point
             mul_ifm_scale = np.double(ifm.quantization.scale_f32)
             mul_ifm2_scale = np.double(const_tens.quantization.scale_f32)
             mul_ofm_scale = np.double(mul_ofm.quantization.scale_f32)
@@ -912,7 +911,7 @@ def convert_lrelu_to_mul_max(op, arch):
     alpha_tens = create_const_tensor(
         op.name + "_alpha_scalar", [], ifm.dtype, [scalar], np.float32, quantization=quantization
     )
-    alpha_tens.quant_values = np.array([1])
+    alpha_tens.values = np.array([1])
     mul_alpha.add_input_tensor(alpha_tens)
     fm_alpha = ofm.clone(op.name + "_alpha", set_unique=True)
     mul_alpha.set_output_tensor(fm_alpha)
@@ -1209,7 +1208,7 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
                 purpose=TensorPurpose.Weights,
                 quantization=quantization,
             )
-            weight_tens.quant_values = weights
+            weight_tens.values = weights
             op.type = Op.DepthwiseConv2DBias
             op.inputs = []
             op.add_input_tensor(ifm)
@@ -1331,7 +1330,6 @@ def fixup_bias_tensors(op, arch, nng):
         nr_biases = op.inputs[1].shape[-1]
         bias_values = [0] * nr_biases
         bias_tensor = create_const_tensor(op.name + "_bias", [nr_biases], DataType.int32, bias_values)
-        bias_tensor.quant_values = bias_tensor.values
         op.set_input_tensor(bias_tensor, op.type.info.indices.biases[0])
 
     return op
@@ -1409,13 +1407,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                     quant = QuantizationParameters()
                     quant.zero_point = 0
                     bias_term_tens = create_const_tensor(
-                        op.name + "_bias",
-                        [1, 1, 1, 1],
-                        DataType.int16,
-                        [bias_term],
-                        np.int16,
-                        quantization=quant,
-                        quant_value_dtype=np.int16,
+                        op.name + "_bias", [1, 1, 1, 1], DataType.int16, [bias_term], np.int16, quantization=quant,
                     )
                     add_op.add_input_tensor(bias_term_tens)
                     add_op.set_output_tensor(op.ofm)
@@ -1514,7 +1506,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
             ),
             1,
         )
-        op.weights.quant_values = np.reshape(op.inputs[1].quant_values, weight_shape)
+        op.weights.values = np.reshape(op.inputs[1].values, weight_shape)
 
         # Add None bias tensor
         op.inputs.append(None)

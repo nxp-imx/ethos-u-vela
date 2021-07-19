@@ -243,9 +243,7 @@ class TFLiteSerialiser:
     def serialise_tensor(self, tens):
         builder = self.builder
         tens_shape = tens.shape
-        values = tens.quant_values
-        if values is None:
-            values = tens.values
+        values = tens.values
 
         if values is None:
             values = np.empty(shape=(0), dtype=np.uint8)

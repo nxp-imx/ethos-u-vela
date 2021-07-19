@@ -246,7 +246,7 @@ def test_constraint_bias_40bit():
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 1, 1, 1], [1, 1, 1, 1], weights_shape=[1, 1, 1, 1])
     op.attrs = {"stride_w": 1, "stride_h": 1}
     bias = Tensor([1, 1, 1, 1], DataType.int64, "bias")
-    bias.quant_values = np.array([0x01FF_FFFF_FFFF])
+    bias.values = np.array([0x01FF_FFFF_FFFF])
     op.add_input_tensor(bias)
     assert not support.is_operator_supported(op)
 

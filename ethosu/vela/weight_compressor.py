@@ -100,7 +100,7 @@ class CompressedWeightCache:
 def create_weight_compression_config(weight_tens, npu_block_type, ofm_block_depth, ofm_depth_step, dilation):
     # Note: for an ofm block only its depth is used in weight compression.
     # And block depth > ofm depth gives same result as block depth == ofm depth
-    block_depth = min(ofm_block_depth, weight_tens.quant_values.shape[-1])
+    block_depth = min(ofm_block_depth, weight_tens.values.shape[-1])
     return WeightCompressionConfig(npu_block_type, block_depth, ofm_depth_step, dilation, weight_tens.value_id)
 
 
@@ -214,7 +214,7 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
 
     # the operator should only have a single output
     assert len(tens.consumer_list[0].outputs) == 1
-    biases = tens.quant_values
+    biases = tens.values
 
     first_consumer_op = tens.consumer_list[0]
     ifm_dtype = first_consumer_op.inputs[0].dtype
@@ -318,7 +318,7 @@ def encode_weight_and_scale_tensor(
         assert weight_tens.quantization.zero_point is not None
 
         # Early zero-point correction
-        quant_buf = weight_tens.quant_values.astype(np.int16)
+        quant_buf = weight_tens.values.astype(np.int16)
         # the zero point can be either a native or numpy type
         if isinstance(weight_tens.quantization.zero_point, (int, float)):
             zero_point = np.int16(weight_tens.quantization.zero_point)
@@ -363,7 +363,7 @@ def encode_weight_and_scale_tensor(
         scale_tens.element_size_bytes = 10
 
     # Slice the weight stream up depth-ways into bricks and compress
-    full_ofm_depth = weight_tens.quant_values.shape[-1]
+    full_ofm_depth = weight_tens.values.shape[-1]
     ofm_block_depth = block_config.ofm_block.depth
 
     weight_range_index = 0

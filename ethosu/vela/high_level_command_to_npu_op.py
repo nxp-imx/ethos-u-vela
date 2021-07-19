@@ -437,8 +437,7 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
         npu_op.ifm2.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm2_tensor)
         if cmd.ifm2_tensor.shape == []:
             # scalar
-            assert cmd.ifm2_tensor.quant_values.size == 1
-            npu_op.ifm2_scalar = cmd.ifm2_tensor.values.item(0)
+            npu_op.ifm2_scalar = cmd.ifm2_tensor.get_scalar()
             npu_op.ifm2.shape = NpuShape3D(height=0, width=0, depth=0)
         else:
             ifm2_blk = cmd.ifm2_box.get_block()

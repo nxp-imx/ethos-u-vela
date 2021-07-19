@@ -107,9 +107,6 @@ class TFLiteSubgraph:
                 tens.values = np.array(buf.view(np_dtype))
             else:
                 tens.values = np.array(buf.view(np_dtype).reshape(shape))
-                if tens.quantization is not None:
-                    tens.quant_values = tens.values
-                    tens.values = tens.quantization.dequantize(tens.quant_values)
         return tens
 
     def parse_operator(self, op_index, op_data):

@@ -48,7 +48,7 @@ def copy_compressed_values_to_memory_tensor(memory_tensor, src_tensor):
 
 def copy_ifm_values_to_memory_tensor(memory_tensor, src_tensor):
     start_addr = src_tensor.address
-    values = src_tensor.quant_values.flatten() if src_tensor.quant_values is not None else src_tensor.values.flatten()
+    values = src_tensor.values.flatten()
     if src_tensor.dtype.size_in_bytes() > 1:
         values = np.frombuffer(values.tobytes(), dtype=np.uint8)
     end_addr = start_addr + values.size

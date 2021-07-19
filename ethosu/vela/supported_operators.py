@@ -532,7 +532,7 @@ class SupportedOperators:
     def constraint_weights_limit(cls, op):
         "The sum of the weights cannot exceed {}"
         weights = op.weights
-        values = weights.quant_values.astype(np.int64) - weights.quantization.zero_point
+        values = weights.values.astype(np.int64) - weights.quantization.zero_point
         limit = np.amax(np.sum(np.absolute(values), axis=(0, 1, 2)))
         valid = limit <= cls.weights_limit
         return valid, f"Tensor '{weights.name}' has the sum of weights: {limit}"
@@ -551,8 +551,8 @@ class SupportedOperators:
     def constraint_bias_40bit(op):
         "Optional Bias tensor values must fit within 40-bits"
         bias = op.bias
-        if bias and bias.dtype == DataType.int64 and bias.quant_values is not None:
-            valid = all(len(bin(quant_value)[2:]) <= 40 for quant_value in bias.quant_values)
+        if bias and bias.dtype == DataType.int64 and bias.values is not None:
+            valid = all(len(bin(quant_value)[2:]) <= 40 for quant_value in bias.values)
             return valid, f"Tensor '{bias.name}' has values larger than 40-bits"
         return True, "Op has no bias tensor, or it fits in 40-bit"
 

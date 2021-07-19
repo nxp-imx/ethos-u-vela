@@ -34,9 +34,6 @@ def clone_and_reshape_tensor(src_tens, reorder, set_unique):
     if tens.values is not None:
         tens.values = tens.values.transpose(reorder)
 
-    if tens.quant_values is not None:
-        tens.quant_values = tens.quant_values.transpose(reorder)
-
     op = Operation(Op.Const, tens.name)
     op.set_output_tensor(tens)
     return tens

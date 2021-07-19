@@ -192,7 +192,6 @@ class TosaSubgraph:
                 fname = decode_str(tens_data.NpyFilename())
                 tens.values = np.load(os.path.join(file_path, fname))
                 assert list(tens.values.shape) == tens.shape
-                tens.quant_values = tens.values
             except (struct.error, TypeError, RuntimeError) as e:
                 print(f'Error: Invalid npy file. Got "{e}" ')
                 sys.exit(1)
