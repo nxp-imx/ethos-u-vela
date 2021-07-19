@@ -263,6 +263,7 @@ def find_block_config(
 
     # Block WHC search, loops across the search space looking for best efficiency
     best_cost = math.inf
+    best_coverage = math.inf
     depth = max(arch.ofm_ublock.depth, min(search_space.depth, SplitDepth))
     if depth < ofm_shape.depth:
         depth = round_up(depth, SplitDepth)
@@ -309,12 +310,27 @@ def find_block_config(
                     if ifm_shape.elements() < ifm_block.elements() * 2:
                         relative_cost = relative_cost / 2
 
-                    if relative_cost < best_cost:
-                        best_cost = relative_cost
-                        config.layout = layout
-                        config.bank_size = arch.shram_bank_size
-                        config.ifm_block = ifm_block
-                        config.ofm_block = Shape4D(1, height, width, depth)
+                    # Choose based on relative minimum cost or larger IFM area (if equal cost)
+                    if relative_cost <= best_cost:
+                        choose_this = False
+                        # Check IFM coverage only when it's equal best_cost and small OFM
+                        if relative_cost == best_cost:
+                            coverage_shape = Shape4D.min(ifm_shape, ifm_block)
+                            coverage = ifm_shape.elements_wh() / coverage_shape.elements_wh()
+                            # Small 4x4 IFM constraint found through analysis of networks
+                            if coverage <= best_coverage and (height <= 4 and width <= 4):
+                                best_coverage = coverage
+                                choose_this = True
+                        else:
+                            best_coverage = math.inf
+                            choose_this = True
+
+                        if choose_this:
+                            best_cost = relative_cost
+                            config.layout = layout
+                            config.bank_size = arch.shram_bank_size
+                            config.ifm_block = ifm_block
+                            config.ofm_block = Shape4D(1, height, width, depth)
                 else:
                     wont_fit[(width, height)] = True
 
