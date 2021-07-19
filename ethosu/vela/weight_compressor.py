@@ -149,8 +149,8 @@ def encode_weights(
 
     ifm_ublock = ArchitectureFeatures.accelerator_configs[accelerator].ifm_ublock
     ofm_ublock = ArchitectureFeatures.accelerator_configs[accelerator].ofm_ublock
-    decomp_h = ArchitectureFeatures.SubKernelMax.height // dilation_xy[0]
-    decomp_w = ArchitectureFeatures.SubKernelMax.width // dilation_xy[1]
+    decomp_h = ArchitectureFeatures.SubKernelMax.height // dilation_xy[1]
+    decomp_w = ArchitectureFeatures.SubKernelMax.width // dilation_xy[0]
 
     return mlw_codec.reorder_encode(
         ifm_ublock.depth,
