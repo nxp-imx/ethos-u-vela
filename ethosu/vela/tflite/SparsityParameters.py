@@ -3,6 +3,8 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class SparsityParameters(object):
     __slots__ = ['_tab']
@@ -13,6 +15,10 @@ class SparsityParameters(object):
         x = SparsityParameters()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def SparsityParametersBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
     # SparsityParameters
     def Init(self, buf, pos):
@@ -41,6 +47,11 @@ class SparsityParameters(object):
         return 0
 
     # SparsityParameters
+    def TraversalOrderIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
+
+    # SparsityParameters
     def BlockMap(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
@@ -63,6 +74,11 @@ class SparsityParameters(object):
         return 0
 
     # SparsityParameters
+    def BlockMapIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
+    # SparsityParameters
     def DimMetadata(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
@@ -81,6 +97,11 @@ class SparsityParameters(object):
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+    # SparsityParameters
+    def DimMetadataIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
 
 def SparsityParametersStart(builder): builder.StartObject(3)
 def SparsityParametersAddTraversalOrder(builder, traversalOrder): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(traversalOrder), 0)

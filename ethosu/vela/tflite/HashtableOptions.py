@@ -3,50 +3,48 @@
 # namespace: tflite
 
 import flatbuffers
-from flatbuffers.compat import import_numpy
-np = import_numpy()
 
-class SVDFOptions(object):
+class HashtableOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSVDFOptions(cls, buf, offset):
+    def GetRootAsHashtableOptions(cls, buf, offset):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = SVDFOptions()
+        x = HashtableOptions()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def SVDFOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+    def HashtableOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
-    # SVDFOptions
+    # HashtableOptions
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # SVDFOptions
-    def Rank(self):
+    # HashtableOptions
+    def TableId(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-    # SVDFOptions
-    def FusedActivationFunction(self):
+    # HashtableOptions
+    def KeyDtype(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-    # SVDFOptions
-    def AsymmetricQuantizeInputs(self):
+    # HashtableOptions
+    def ValueDtype(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
-            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
-        return False
+            return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
+        return 0
 
-def SVDFOptionsStart(builder): builder.StartObject(3)
-def SVDFOptionsAddRank(builder, rank): builder.PrependInt32Slot(0, rank, 0)
-def SVDFOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(1, fusedActivationFunction, 0)
-def SVDFOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(2, asymmetricQuantizeInputs, 0)
-def SVDFOptionsEnd(builder): return builder.EndObject()
+def HashtableOptionsStart(builder): builder.StartObject(3)
+def HashtableOptionsAddTableId(builder, tableId): builder.PrependInt32Slot(0, tableId, 0)
+def HashtableOptionsAddKeyDtype(builder, keyDtype): builder.PrependInt8Slot(1, keyDtype, 0)
+def HashtableOptionsAddValueDtype(builder, valueDtype): builder.PrependInt8Slot(2, valueDtype, 0)
+def HashtableOptionsEnd(builder): return builder.EndObject()

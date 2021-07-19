@@ -14,6 +14,10 @@ class Int32Vector(object):
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def Int32VectorBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
+
     # Int32Vector
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -39,6 +43,11 @@ class Int32Vector(object):
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+    # Int32Vector
+    def ValuesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
 
 def Int32VectorStart(builder): builder.StartObject(1)
 def Int32VectorAddValues(builder, values): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(values), 0)

@@ -35,11 +35,14 @@ from .tflite import BatchMatMulOptions
 from .tflite import BatchToSpaceNDOptions
 from .tflite import BidirectionalSequenceLSTMOptions
 from .tflite import BidirectionalSequenceRNNOptions
+from .tflite import BroadcastToOptions
+from .tflite import CallOnceOptions
 from .tflite import CallOptions
 from .tflite import CastOptions
 from .tflite import ConcatEmbeddingsOptions
 from .tflite import ConcatenationOptions
 from .tflite import Conv2DOptions
+from .tflite import Conv3DOptions
 from .tflite import CosOptions
 from .tflite import CumsumOptions
 from .tflite import DensifyOptions
@@ -61,6 +64,10 @@ from .tflite import GatherOptions
 from .tflite import GreaterEqualOptions
 from .tflite import GreaterOptions
 from .tflite import HardSwishOptions
+from .tflite import HashtableFindOptions
+from .tflite import HashtableImportOptions
+from .tflite import HashtableOptions
+from .tflite import HashtableSizeOptions
 from .tflite import IfOptions
 from .tflite import L2NormOptions
 from .tflite import LeakyReluOptions
@@ -97,6 +104,7 @@ from .tflite import ResizeBilinearOptions
 from .tflite import ResizeNearestNeighborOptions
 from .tflite import ReverseSequenceOptions
 from .tflite import ReverseV2Options
+from .tflite import Rfft2dOptions
 from .tflite import RNNOptions
 from .tflite import ScatterNdOptions
 from .tflite import SegmentSumOptions
@@ -281,6 +289,14 @@ builtin_options_map = {
     BuiltinOptions.WhileOptions: WhileOptions.WhileOptions,
     BuiltinOptions.BatchMatMulOptions: BatchMatMulOptions.BatchMatMulOptions,
     BuiltinOptions.CumsumOptions: CumsumOptions.CumsumOptions,
+    BuiltinOptions.CallOnceOptions: CallOnceOptions.CallOnceOptions,
+    BuiltinOptions.BroadcastToOptions: BroadcastToOptions.BroadcastToOptions,
+    BuiltinOptions.Rfft2dOptions: Rfft2dOptions.Rfft2dOptions,
+    BuiltinOptions.Conv3DOptions: Conv3DOptions.Conv3DOptions,
+    BuiltinOptions.HashtableOptions: HashtableOptions.HashtableOptions,
+    BuiltinOptions.HashtableFindOptions: HashtableFindOptions.HashtableFindOptions,
+    BuiltinOptions.HashtableImportOptions: HashtableImportOptions.HashtableImportOptions,
+    BuiltinOptions.HashtableSizeOptions: HashtableSizeOptions.HashtableSizeOptions,
 }
 
 builtin_options_inv_map = inverse_map(builtin_options_map)
@@ -450,44 +466,6 @@ activation_function_inv_map = inverse_map(activation_function_map)
 fused_act = ("fused_activation_function", activation_deserialize, activation_serialize)
 padding = ("padding", padding_deserialize, padding_serialize)
 
-pool2d_opts = OptionsSerializer(
-    "Pool2DOptions", (padding, "stride_w", "stride_h", "filter_width", "filter_height", fused_act,)
-)
-
-depthwise_opts = OptionsSerializer(
-    "DepthwiseConv2DOptions",
-    (padding, "stride_w", "stride_h", "depth_multiplier", fused_act, "dilation_w_factor", "dilation_h_factor",),
-)
-
-conv2d_opts = OptionsSerializer(
-    "Conv2DOptions", (padding, "stride_w", "stride_h", fused_act, "dilation_w_factor", "dilation_h_factor",)
-)
-
-lstm_opts = OptionsSerializer(
-    "LSTMOptions", (fused_act, "cell_clip", "proj_clip", "kernel_type", "asymmetric_quantize_inputs")
-)
-
-unidir_seq_lstm_opts = OptionsSerializer(
-    "UnidirectionalSequenceLSTMOptions",
-    (fused_act, "cell_clip", "proj_clip", "time_major", "asymmetric_quantize_inputs",),
-)
-
-bidir_seq_lstm_opts = OptionsSerializer(
-    "BidirectionalSequenceLSTMOptions",
-    (fused_act, "cell_clip", "proj_clip", "merge_outputs", "time_major", "asymmetric_quantize_inputs"),
-)
-
-rnn_opts = OptionsSerializer("RNNOptions", (fused_act, "asymmetric_quantize_inputs"))
-
-seq_rnn_opts = OptionsSerializer("SequenceRNNOptions", ("time_major", fused_act, "asymmetric_quantize_inputs",))
-
-bidir_seq_rnn_opts = OptionsSerializer(
-    "BidirectionalSequenceRNNOptions", ("time_major", fused_act, "merge_outputs", "asymmetric_quantize_inputs")
-)
-
-
-reducer_opts = OptionsSerializer("ReducerOptions", ("keep_dims",))
-
 is_int_vec = True
 
 TFLITE_NO_INDICES = TensorIndices([], [], [])
@@ -507,14 +485,33 @@ builtin_operator_map = {
         OptionsSerializer("AddOptions", (fused_act, "pot_scale_int16")),
         TFLITE_IFM_IFM2_INDICES,
     ),
-    BuiltinOperator.AVERAGE_POOL_2D: (Op.AvgPool, pool2d_opts, TFLITE_IFM_INDICES),
+    BuiltinOperator.AVERAGE_POOL_2D: (
+        Op.AvgPool,
+        OptionsSerializer(
+            "Pool2DOptions", ("filter_height", "filter_width", fused_act, padding, "stride_h", "stride_w")
+        ),
+        TFLITE_IFM_INDICES,
+    ),
     BuiltinOperator.CONCATENATION: (
         Op.ConcatTFLite,
         OptionsSerializer("ConcatenationOptions", ("axis", fused_act)),
         TFLITE_CONCAT_INDICES,
     ),
-    BuiltinOperator.CONV_2D: (Op.Conv2DBias, conv2d_opts, TFLITE_IFM_WEIGHTS_BIAS_INDICES),
-    BuiltinOperator.DEPTHWISE_CONV_2D: (Op.DepthwiseConv2DBias, depthwise_opts, TFLITE_IFM_WEIGHTS_BIAS_INDICES),
+    BuiltinOperator.CONV_2D: (
+        Op.Conv2DBias,
+        OptionsSerializer(
+            "Conv2DOptions", ("dilation_h_factor", "dilation_w_factor", fused_act, padding, "stride_h", "stride_w")
+        ),
+        TFLITE_IFM_WEIGHTS_BIAS_INDICES,
+    ),
+    BuiltinOperator.DEPTHWISE_CONV_2D: (
+        Op.DepthwiseConv2DBias,
+        OptionsSerializer(
+            "DepthwiseConv2DOptions",
+            ("depth_multiplier", "dilation_h_factor", "dilation_w_factor", fused_act, padding, "stride_h", "stride_w"),
+        ),
+        TFLITE_IFM_WEIGHTS_BIAS_INDICES,
+    ),
     BuiltinOperator.DEPTH_TO_SPACE: (
         Op.DepthToSpace,
         OptionsSerializer("DepthToSpaceOptions", ("block_size",)),
@@ -526,16 +523,22 @@ builtin_operator_map = {
     BuiltinOperator.FULLY_CONNECTED: (
         Op.FullyConnected,
         OptionsSerializer(
-            "FullyConnectedOptions", (fused_act, "weights_format", "asymmetric_quantize_inputs", "keep_num_dims")
+            "FullyConnectedOptions", ("asymmetric_quantize_inputs", fused_act, "keep_num_dims", "weights_format")
         ),
         TFLITE_IFM_WEIGHTS_BIAS_INDICES,
     ),
     BuiltinOperator.HASHTABLE_LOOKUP: (Op.HashtableLookup, None, TFLITE_NO_INDICES),
     BuiltinOperator.L2_NORMALIZATION: (Op.L2Norm, OptionsSerializer("L2NormOptions", (fused_act,)), TFLITE_NO_INDICES),
-    BuiltinOperator.L2_POOL_2D: (Op.L2Pool2D, pool2d_opts, TFLITE_NO_INDICES),
+    BuiltinOperator.L2_POOL_2D: (
+        Op.L2Pool2D,
+        OptionsSerializer(
+            "Pool2DOptions", ("filter_height", "filter_width", fused_act, padding, "stride_h", "stride_w")
+        ),
+        TFLITE_NO_INDICES,
+    ),
     BuiltinOperator.LOCAL_RESPONSE_NORMALIZATION: (
         Op.LRN,
-        OptionsSerializer("LocalResponseNormalizationOptions", ("radius", "bias", "alpha", "beta")),
+        OptionsSerializer("LocalResponseNormalizationOptions", ("alpha", "beta", "bias", "radius")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.LOGISTIC: (Op.Sigmoid, None, TFLITE_IFM_INDICES),
@@ -544,15 +547,29 @@ builtin_operator_map = {
         OptionsSerializer("LSHProjectionOptions", ("type",)),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.LSTM: (Op.Lstm, lstm_opts, TFLITE_IFM_WEIGHTS_INDICES),
-    BuiltinOperator.MAX_POOL_2D: (Op.MaxPool, pool2d_opts, TFLITE_IFM_INDICES),
+    BuiltinOperator.LSTM: (
+        Op.Lstm,
+        OptionsSerializer(
+            "LSTMOptions", ("asymmetric_quantize_inputs", "cell_clip", fused_act, "kernel_type", "proj_clip")
+        ),
+        TFLITE_IFM_WEIGHTS_INDICES,
+    ),
+    BuiltinOperator.MAX_POOL_2D: (
+        Op.MaxPool,
+        OptionsSerializer(
+            "Pool2DOptions", ("filter_height", "filter_width", fused_act, padding, "stride_h", "stride_w")
+        ),
+        TFLITE_IFM_INDICES,
+    ),
     BuiltinOperator.MUL: (Op.Mul, OptionsSerializer("MulOptions", (fused_act,)), TFLITE_IFM_IFM2_INDICES),
     BuiltinOperator.RELU: (Op.Relu, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RELU_N1_TO_1: (Op.ReluN1To1, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RELU6: (Op.Relu6, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RESHAPE: (
         Op.Reshape,
-        OptionsSerializer("ReshapeOptions", (("new_shape", is_int_vec),)),
+        OptionsSerializer(
+            "ReshapeOptions", (("new_shape", is_int_vec), "new_shape_as_numpy", "new_shape_is_none", "new_shape_length")
+        ),
         TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.RESIZE_BILINEAR: (
@@ -560,7 +577,11 @@ builtin_operator_map = {
         OptionsSerializer("ResizeBilinearOptions", ("align_corners", "half_pixel_centers")),
         TFLITE_IFM_INDICES,
     ),
-    BuiltinOperator.RNN: (Op.Rnn, rnn_opts, TFLITE_IFM_WEIGHTS_INDICES),
+    BuiltinOperator.RNN: (
+        Op.Rnn,
+        OptionsSerializer("RNNOptions", ("asymmetric_quantize_inputs", fused_act)),
+        TFLITE_IFM_WEIGHTS_INDICES,
+    ),
     BuiltinOperator.SOFTMAX: (Op.Softmax, OptionsSerializer("SoftmaxOptions", ("beta",)), TFLITE_IFM_INDICES),
     BuiltinOperator.SPACE_TO_DEPTH: (
         Op.SpaceToDepth,
@@ -569,7 +590,7 @@ builtin_operator_map = {
     ),
     BuiltinOperator.SVDF: (
         Op.Svdf,
-        OptionsSerializer("SVDFOptions", ("rank", fused_act, "asymmetric_quantize_inputs")),
+        OptionsSerializer("SVDFOptions", ("asymmetric_quantize_inputs", fused_act, "rank")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.TANH: (Op.Tanh, None, TFLITE_IFM_INDICES),
@@ -578,20 +599,22 @@ builtin_operator_map = {
         OptionsSerializer(
             "ConcatEmbeddingsOptions",
             (
+                "embedding_dim_per_channel",
+                "embedding_dim_per_channel_as_numpy",
+                "embedding_dim_per_channel_is_none",
+                "embedding_dim_per_channel_length",
                 "num_channels",
                 "num_columns_per_channel",
                 "num_columns_per_channel_as_numpy",
-                "num_columns_per_channel_as_length",
-                "embedding_dim_per_channel",
-                "embedding_dim_per_channel_as_numpy",
-                "embedding_dim_per_channel_as_length",
+                "num_columns_per_channel_is_none",
+                "num_columns_per_channel_length",
             ),
         ),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.SKIP_GRAM: (
         Op.SkipGram,
-        OptionsSerializer("SkipGramOptions", ("ngram_size", "max_skip_size", "include_all_ngrams")),
+        OptionsSerializer("SkipGramOptions", ("include_all_ngrams", "max_skip_size", "ngram_size")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CALL: (Op.Call, OptionsSerializer("CallOptions", ("subgraph",)), TFLITE_NO_INDICES),
@@ -603,10 +626,14 @@ builtin_operator_map = {
     BuiltinOperator.PAD: (Op.Pad, OptionsSerializer("PadOptions"), TFLITE_IFM_INDICES),
     BuiltinOperator.UNIDIRECTIONAL_SEQUENCE_RNN: (
         Op.UnidirectionalSequenceRnn,
-        seq_rnn_opts,
+        OptionsSerializer("SequenceRNNOptions", ("asymmetric_quantize_inputs", fused_act, "time_major")),
         TFLITE_IFM_WEIGHTS_INDICES,
     ),
-    BuiltinOperator.GATHER: (Op.GatherV2, OptionsSerializer("GatherOptions", ("axis",)), TFLITE_NO_INDICES),
+    BuiltinOperator.GATHER: (
+        Op.GatherV2,
+        OptionsSerializer("GatherOptions", ("axis", "batch_dims")),
+        TFLITE_NO_INDICES,
+    ),
     BuiltinOperator.BATCH_TO_SPACE_ND: (
         Op.BatchToSpaceND,
         OptionsSerializer("BatchToSpaceNDOptions"),
@@ -618,33 +645,41 @@ builtin_operator_map = {
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.TRANSPOSE: (Op.Transpose, OptionsSerializer("TransposeOptions"), TFLITE_NO_INDICES),
-    BuiltinOperator.MEAN: (Op.Mean, reducer_opts, TFLITE_IFM_INDICES),
+    BuiltinOperator.MEAN: (Op.Mean, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_IFM_INDICES),
     BuiltinOperator.SUB: (
         Op.Sub,
-        OptionsSerializer("SubOptions", (fused_act, "pot_scale_int16",)),
+        OptionsSerializer("SubOptions", (fused_act, "pot_scale_int16")),
         TFLITE_IFM_IFM2_INDICES,
     ),
     BuiltinOperator.DIV: (Op.Div, OptionsSerializer("DivOptions", (fused_act,)), TFLITE_NO_INDICES),
     BuiltinOperator.SQUEEZE: (
         Op.Squeeze,
-        OptionsSerializer("SqueezeOptions", (("squeeze_dims", is_int_vec),)),
+        OptionsSerializer(
+            "SqueezeOptions",
+            (("squeeze_dims", is_int_vec), "squeeze_dims_as_numpy", "squeeze_dims_is_none", "squeeze_dims_length"),
+        ),
         TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.UNIDIRECTIONAL_SEQUENCE_LSTM: (
         Op.UnidirectionalSequenceLstm,
-        unidir_seq_lstm_opts,
+        OptionsSerializer(
+            "UnidirectionalSequenceLSTMOptions",
+            ("asymmetric_quantize_inputs", "cell_clip", fused_act, "proj_clip", "time_major"),
+        ),
         TFLITE_IFM_WEIGHTS_INDICES,
     ),
     BuiltinOperator.STRIDED_SLICE: (
         Op.StridedSlice,
         OptionsSerializer(
-            "StridedSliceOptions", ("begin_mask", "end_mask", "ellipsis_mask", "new_axis_mask", "shrink_axis_mask"),
+            "StridedSliceOptions", ("begin_mask", "ellipsis_mask", "end_mask", "new_axis_mask", "shrink_axis_mask")
         ),
         TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.BIDIRECTIONAL_SEQUENCE_RNN: (
         Op.BidirectionalSequenceRnn,
-        bidir_seq_rnn_opts,
+        OptionsSerializer(
+            "BidirectionalSequenceRNNOptions", ("asymmetric_quantize_inputs", fused_act, "merge_outputs", "time_major")
+        ),
         TFLITE_IFM_WEIGHTS_INDICES,
     ),
     BuiltinOperator.EXP: (Op.Exp, OptionsSerializer("ExpOptions"), TFLITE_IFM_INDICES),
@@ -654,7 +689,10 @@ builtin_operator_map = {
     BuiltinOperator.DELEGATE: (Op.Delegate, None, TFLITE_NO_INDICES),
     BuiltinOperator.BIDIRECTIONAL_SEQUENCE_LSTM: (
         Op.BidirectionalSequenceLstm,
-        bidir_seq_lstm_opts,
+        OptionsSerializer(
+            "BidirectionalSequenceLSTMOptions",
+            ("asymmetric_quantize_inputs", "cell_clip", fused_act, "merge_outputs", "proj_clip", "time_major"),
+        ),
         TFLITE_IFM_WEIGHTS_INDICES,
     ),
     BuiltinOperator.CAST: (
@@ -687,7 +725,7 @@ builtin_operator_map = {
     BuiltinOperator.SIN: (Op.Sin, None, TFLITE_NO_INDICES),
     BuiltinOperator.TRANSPOSE_CONV: (
         Op.Conv2DBackpropInput,
-        OptionsSerializer("TransposeConvOptions", (padding, "stride_w", "stride_h")),
+        OptionsSerializer("TransposeConvOptions", (padding, "stride_h", "stride_w")),
         TFLITE_CONV2D_BACKPROP_INDICES,
     ),
     BuiltinOperator.SPARSE_TO_DENSE: (
@@ -700,7 +738,7 @@ builtin_operator_map = {
     BuiltinOperator.EQUAL: (Op.Equal, OptionsSerializer("EqualOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.NOT_EQUAL: (Op.NotEqual, OptionsSerializer("NotEqualOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.LOG: (Op.Log, None, TFLITE_NO_INDICES),
-    BuiltinOperator.SUM: (Op.Sum, reducer_opts, TFLITE_NO_INDICES),
+    BuiltinOperator.SUM: (Op.Sum, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
     BuiltinOperator.SQRT: (Op.Sqrt, None, TFLITE_NO_INDICES),
     BuiltinOperator.RSQRT: (Op.Rsqrt, None, TFLITE_NO_INDICES),
     BuiltinOperator.SHAPE: (
@@ -716,20 +754,20 @@ builtin_operator_map = {
     ),
     BuiltinOperator.FAKE_QUANT: (
         Op.FakeQuantWithMinMaxArgs,
-        OptionsSerializer("FakeQuantOptions", ("min", "max", "num_bits", "narrow_range")),
+        OptionsSerializer("FakeQuantOptions", ("max", "min", "narrow_range", "num_bits")),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.REDUCE_PROD: (Op.Prod, reducer_opts, TFLITE_NO_INDICES),
-    BuiltinOperator.REDUCE_MAX: (Op.Max, reducer_opts, TFLITE_NO_INDICES),
-    BuiltinOperator.PACK: (Op.Pack, OptionsSerializer("PackOptions", ("values_count", "axis")), TFLITE_IFM_INDICES),
+    BuiltinOperator.REDUCE_PROD: (Op.Prod, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
+    BuiltinOperator.REDUCE_MAX: (Op.Max, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
+    BuiltinOperator.PACK: (Op.Pack, OptionsSerializer("PackOptions", ("axis", "values_count")), TFLITE_IFM_INDICES),
     BuiltinOperator.LOGICAL_OR: (Op.LogicalOr, OptionsSerializer("LogicalOrOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.ONE_HOT: (Op.OneHot, OptionsSerializer("OneHotOptions", ("axis",)), TFLITE_NO_INDICES),
     BuiltinOperator.LOGICAL_AND: (Op.LogicalAnd, OptionsSerializer("LogicalAndOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.LOGICAL_NOT: (Op.LogicalNot, OptionsSerializer("LogicalNotOptions"), TFLITE_NO_INDICES),
-    BuiltinOperator.UNPACK: (Op.Unpack, OptionsSerializer("UnpackOptions", ("num", "axis")), TFLITE_IFM_INDICES),
-    BuiltinOperator.REDUCE_MIN: (Op.Min, reducer_opts, TFLITE_NO_INDICES),
+    BuiltinOperator.UNPACK: (Op.Unpack, OptionsSerializer("UnpackOptions", ("axis", "num")), TFLITE_IFM_INDICES),
+    BuiltinOperator.REDUCE_MIN: (Op.Min, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
     BuiltinOperator.FLOOR_DIV: (Op.FloorDiv, OptionsSerializer("FloorDivOptions"), TFLITE_NO_INDICES),
-    BuiltinOperator.REDUCE_ANY: (Op.Any, reducer_opts, TFLITE_NO_INDICES),
+    BuiltinOperator.REDUCE_ANY: (Op.Any, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
     BuiltinOperator.SQUARE: (Op.Square, OptionsSerializer("SquareOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.ZEROS_LIKE: (Op.ZerosLike, OptionsSerializer("ZerosLikeOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.FILL: (Op.Fill, OptionsSerializer("FillOptions"), TFLITE_NO_INDICES),
@@ -764,7 +802,7 @@ builtin_operator_map = {
     BuiltinOperator.ELU: (Op.Elu, None, TFLITE_NO_INDICES),
     BuiltinOperator.REVERSE_SEQUENCE: (
         Op.ReverseSequence,
-        OptionsSerializer("ReverseSequenceOptions", ("seq_dim", "batch_dim")),
+        OptionsSerializer("ReverseSequenceOptions", ("batch_dim", "seq_dim")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.MATRIX_DIAG: (Op.MatrixDiag, OptionsSerializer("MatrixDiagOptions"), TFLITE_NO_INDICES),
@@ -774,12 +812,12 @@ builtin_operator_map = {
     BuiltinOperator.HARD_SWISH: (Op.HardSwish, OptionsSerializer("HardSwishOptions"), TFLITE_IFM_INDICES),
     BuiltinOperator.IF: (
         Op.If,
-        OptionsSerializer("IfOptions", ("then_subgraph_index", "else_subgraph_index")),
+        OptionsSerializer("IfOptions", ("else_subgraph_index", "then_subgraph_index")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.WHILE: (
         Op.While,
-        OptionsSerializer("WhileOptions", ("cond_subgraph_index", "body_subgraph_index")),
+        OptionsSerializer("WhileOptions", ("body_subgraph_index", "cond_subgraph_index")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.NON_MAX_SUPPRESSION_V4: (
@@ -798,7 +836,7 @@ builtin_operator_map = {
     BuiltinOperator.SEGMENT_SUM: (Op.SegmentSum, OptionsSerializer("SegmentSumOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.BATCH_MATMUL: (
         Op.BatchMatMul,
-        OptionsSerializer("BatchMatMulOptions", ("adj_x", "adj_y")),
+        OptionsSerializer("BatchMatMulOptions", ("adj_x", "adj_y", "asymmetric_quantize_inputs")),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUMSUM: (
@@ -806,7 +844,64 @@ builtin_operator_map = {
         OptionsSerializer("CumsumOptions", ("exclusive", "reverse")),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),
+    BuiltinOperator.CALL_ONCE: (
+        Op.CallOnce,
+        OptionsSerializer("CallOnceOptions", ("init_subgraph_index",)),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.BROADCAST_TO: (Op.BroadcastTo, OptionsSerializer("BroadcastToOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.RFFT2D: (Op.Rfft2D, OptionsSerializer("Rfft2dOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.CONV_3D: (
+        Op.Conv3D,
+        OptionsSerializer(
+            "Conv3DOptions",
+            (
+                "dilation_d_factor",
+                "dilation_h_factor",
+                "dilation_w_factor",
+                fused_act,
+                padding,
+                "stride_d",
+                "stride_h",
+                "stride_w",
+            ),
+        ),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.IMAG: (Op.Imag, None, TFLITE_NO_INDICES),
+    BuiltinOperator.REAL: (Op.Real, None, TFLITE_NO_INDICES),
+    BuiltinOperator.COMPLEX_ABS: (Op.ComplexAbs, None, TFLITE_NO_INDICES),
+    BuiltinOperator.HASHTABLE: (
+        Op.Hashtable,
+        OptionsSerializer("HashtableOptions", ("key_dtype", "table_id", "value_dtype")),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.HASHTABLE_FIND: (Op.HashtableFind, OptionsSerializer("HashtableFindOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.HASHTABLE_IMPORT: (
+        Op.HashtableImport,
+        OptionsSerializer("HashtableImportOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.HASHTABLE_SIZE: (Op.HashtableSize, OptionsSerializer("HashtableSizeOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.REDUCE_ALL: (Op.ReduceAll, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
+    BuiltinOperator.CONV_3D_TRANSPOSE: (
+        Op.Conv3DTranspose,
+        OptionsSerializer(
+            "Conv3DOptions",
+            (
+                "dilation_d_factor",
+                "dilation_h_factor",
+                "dilation_w_factor",
+                fused_act,
+                padding,
+                "stride_d",
+                "stride_h",
+                "stride_w",
+            ),
+        ),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.CUSTOM: (Op.Custom, None, TFLITE_NO_INDICES),
 }
 
 builtin_operator_inv_map = {v[0]: (k, v[1], v[2]) for k, v in builtin_operator_map.items()}

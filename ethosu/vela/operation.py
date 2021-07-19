@@ -292,6 +292,19 @@ class Op(Enum):
     Where = OperatorInfo()
     While = OperatorInfo()
     ZerosLike = OperatorInfo()
+    CallOnce = OperatorInfo()
+    BroadcastTo = OperatorInfo()
+    Rfft2D = OperatorInfo()
+    Conv3D = OperatorInfo()
+    Imag = OperatorInfo()
+    Real = OperatorInfo()
+    ComplexAbs = OperatorInfo()
+    Hashtable = OperatorInfo()
+    HashtableFind = OperatorInfo()
+    HashtableImport = OperatorInfo()
+    HashtableSize = OperatorInfo()
+    ReduceAll = OperatorInfo()
+    Conv3DTranspose = OperatorInfo()
 
     @property
     def info(self):

@@ -14,6 +14,10 @@ class Model(object):
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def ModelBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
+
     # Model
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
@@ -46,6 +50,11 @@ class Model(object):
         return 0
 
     # Model
+    def OperatorCodesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
+    # Model
     def Subgraphs(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
@@ -64,6 +73,11 @@ class Model(object):
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+    # Model
+    def SubgraphsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
 
     # Model
     def Description(self):
@@ -93,6 +107,11 @@ class Model(object):
         return 0
 
     # Model
+    def BuffersIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
+
+    # Model
     def MetadataBuffer(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
@@ -115,6 +134,11 @@ class Model(object):
         return 0
 
     # Model
+    def MetadataBufferIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        return o == 0
+
+    # Model
     def Metadata(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
@@ -135,6 +159,11 @@ class Model(object):
         return 0
 
     # Model
+    def MetadataIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        return o == 0
+
+    # Model
     def SignatureDefs(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         if o != 0:
@@ -153,6 +182,11 @@ class Model(object):
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+    # Model
+    def SignatureDefsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        return o == 0
 
 def ModelStart(builder): builder.StartObject(8)
 def ModelAddVersion(builder, version): builder.PrependUint32Slot(0, version, 0)
