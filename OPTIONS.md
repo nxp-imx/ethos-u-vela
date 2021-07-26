@@ -51,11 +51,14 @@ vela --api-version
 
 ### Supported Operator Report
 
-Generate the SUPPORTED_OPS.md file in the current working directory.
-Contains a summary table of all TFLite operators that can be placed on the NPU,
-and what the constraints are for that operator to be scheduled on the NPU.
-If the constraints are not met, then it will be scheduled on the CPU instead.
-Can be used without the required Network argument.  
+Generate the SUPPORTED_OPS.md file in the current working directory. Contains
+a summary table for each supported network model format (TFLite/TOSA). The
+tables shows all the operators that can be placed on the NPU, and what the
+constraints are for that operator to be scheduled on the NPU. If the constraints
+are not met for a TFLite operator, then it will be scheduled on the CPU instead.
+For TOSA operators there are no fallback to the CPU. Note: There is limited
+support for compiling a TOSA neural network (EXPERIMENTAL). Can be used without
+the required Network argument.  
 **Type: N/A**  
 **Default: N/A**  
 

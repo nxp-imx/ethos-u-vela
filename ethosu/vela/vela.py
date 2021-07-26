@@ -35,14 +35,18 @@ from .api import API_VERSION
 from .debug_database import DebugDatabase
 from .errors import InputFileError
 from .errors import VelaError
+from .nn_graph import NetworkType
 from .nn_graph import PassPlacement
 from .nn_graph import TensorAllocator
-from .supported_operators import SupportedOperators
 from .tensor import MemArea
 from .tensor import Tensor
 from .tflite.Model import Model
 from .tflite_mapping import builtin_operator_map
 from .tflite_mapping import builtin_type_name
+from .tflite_model_semantic import TFLiteSemantic
+from .tflite_supported_operators import TFLiteSupportedOperators
+from .tosa_model_semantic import TosaSemantic
+from .tosa_supported_operators import TosaSupportedOperators
 from ethosu.vela.architecture_features import ArchitectureFeatures
 
 
@@ -169,50 +173,91 @@ def generate_supported_ops():
         "This file complies with",
         "[**Gitiles Markdown syntax**](https://github.com/google/gitiles/blob/master/Documentation/markdown.md)",
         "",
-        "## Summary Table",
-        "",
-        "The table below contains TFLite operators that can be placed on the Ethos-U NPU.  ",
-        "If the constraints are not met, then that operator will be scheduled on the CPU instead.  ",
-        "For any other TFLite operator not listed, will be left untouched and scheduled on the CPU.  ",
-        "Please check the supported operator list for your chosen runtime for further information.",
-        "",
-        "| Operator | Constraints |",
-        "| --- | --- |",
+        "Summary table of constraints for:",
     ]
-    supported = SupportedOperators()
-    op_constraint_links = []
-    op_list = sorted(((op, builtin_type_name(op)) for op in builtin_operator_map), key=lambda x: x[1])
-    for op, name in op_list:
-        internal_op = builtin_operator_map[op][0]
-        if internal_op in SupportedOperators.supported_operators:
-            links = "[Generic](#generic-constraints)"
-            if internal_op in supported.specific_constraints:
-                links += f", [Specific](#{name.lower()}-constraints)"
-                op_constraint_links.append((internal_op, name))
-            lines.append(f"| {name} | {links} |")
-    lines += [
-        "",
-        "## Generic Constraints",
-        "",
-        "This is a list of constraints that all NPU operators must satisfy in order to be scheduled on the NPU.",
-        "",
-    ]
-    for constraint in supported.generic_constraints:
-        # Markdown needs two spaces at the end of a line to render it as a separate line
-        reason = constraint.__doc__.replace("\n", "  \n")
-        lines.append(f"- {reason}")
-    for op, name in op_constraint_links:
+
+    for network_type in NetworkType:
+        lines += [
+            f"- [{network_type.name}](#{network_type.name.lower()}-summary-table)",
+        ]
+
+    for network_type in NetworkType:
         lines += [
             "",
-            f"## {name} Constraints",
-            "",
-            f"This is a list of constraints that the {name} operator must satisfy in order to be scheduled on the NPU.",
+            f"## {network_type.name} Summary Table",
             "",
         ]
-        for constraint in supported.specific_constraints[op]:
+        if network_type == NetworkType.TFLite:
+            lines += [
+                "The table below contains TFLite operators that can be placed on the Ethos-U NPU.  ",
+                "If the constraints are not met, then that operator will be scheduled on the CPU instead.  ",
+                "For any other TFLite operator not listed, will be left untouched and scheduled on the CPU.  ",
+                "Please check the supported operator list for your chosen runtime for further information.",
+                "",
+                "| Operator | TFLite Constraints |",
+                "| --- | --- |",
+            ]
+            semantic_checker = TFLiteSemantic()
+            supported = TFLiteSupportedOperators()
+        elif network_type == NetworkType.TOSA:
+            lines += [
+                "The table below contains TOSA operators that can be placed on the Ethos-U NPU.  ",
+                "Note: There is limited support for compiling a TOSA neural network (EXPERIMENTAL).  ",
+                "The related constraints have not yet been populated in the list.",
+                "",
+                "| Operator | TOSA Constraints |",
+                "| --- | --- |",
+            ]
+            semantic_checker = TosaSemantic()
+            supported = TosaSupportedOperators()
+        else:
+            raise ValueError
+
+        op_constraint_links = []
+        op_list = sorted(((op, builtin_type_name(op)) for op in builtin_operator_map), key=lambda x: x[1])
+        for op, name in op_list:
+            internal_op = builtin_operator_map[op][0]
+            if internal_op in TFLiteSupportedOperators.supported_operators:
+                links = f"[Generic](#{network_type.name.lower()}-generic-constraints)"
+                if (
+                    internal_op in supported.specific_constraints
+                    or internal_op in semantic_checker.specific_constraints
+                ):
+                    links += f", [Specific](#{network_type.name.lower()}-{name.lower()}-constraints)"
+                    op_constraint_links.append((internal_op, name))
+                lines.append(f"| {name} | {links} |")
+        lines += [
+            "",
+            f"### {network_type.name} Generic Constraints",
+            "",
+            "This is a list of constraints that all NPU operators must satisfy in order to be scheduled on the NPU.",
+            "",
+        ]
+        for constraint in semantic_checker.generic_constraints:
             # Markdown needs two spaces at the end of a line to render it as a separate line
             reason = constraint.__doc__.replace("\n", "  \n")
             lines.append(f"- {reason}")
+        for constraint in supported.generic_constraints:
+            # Markdown needs two spaces at the end of a line to render it as a separate line
+            reason = constraint.__doc__.replace("\n", "  \n")
+            lines.append(f"- {reason}")
+        for op, name in op_constraint_links:
+            lines += [
+                "",
+                f"### {network_type.name} {name} Constraints",
+                "",
+                f"This is a list of constraints that the {name} operator must satisfy in order to be scheduled on the"
+                " NPU.",
+                "",
+            ]
+            for constraint in semantic_checker.specific_constraints[op]:
+                # Markdown needs two spaces at the end of a line to render it as a separate line
+                reason = constraint.__doc__.replace("\n", "  \n")
+                lines.append(f"- {reason}")
+            for constraint in supported.specific_constraints[op]:
+                # Markdown needs two spaces at the end of a line to render it as a separate line
+                reason = constraint.__doc__.replace("\n", "  \n")
+                lines.append(f"- {reason}")
 
     # Note. this will generate the file in the CWD
     filepath = os.path.join(os.getcwd(), "SUPPORTED_OPS.md")

@@ -32,12 +32,12 @@ from .numeric_util import round_up_to_int
 from .operation import Kernel
 from .operation import NpuBlockType
 from .operation import PointXYZ
-from .supported_operators import SupportedOperators
 from .tensor import BandwidthDirection
 from .tensor import MemArea
 from .tensor import MemType
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
+from .tflite_supported_operators import TFLiteSupportedOperators
 from .tosa_supported_operators import TosaSupportedOperators
 
 
@@ -398,7 +398,7 @@ class ArchitectureFeatures:
         self.generate_block_config_map(Block(ifm_block_max.width * 2, ifm_block_max.height, 128))
 
         # Setup supported operators and restriction checkers class
-        self.supported_operators = SupportedOperators()
+        self.tflite_supported_operators = TFLiteSupportedOperators()
         self.tosa_supported_operators = TosaSupportedOperators()
 
     # Returns available number of SHRAM banks depending on activation lookup table

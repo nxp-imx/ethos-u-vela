@@ -1530,7 +1530,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
 
 
 def supported_operator_check(op, arch, nng):
-    op.run_on_npu = arch.supported_operators.is_operator_supported(op)
+    op.run_on_npu = arch.tflite_supported_operators.is_operator_supported(op)
     return op
 
 
