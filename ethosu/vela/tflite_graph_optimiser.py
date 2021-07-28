@@ -1515,13 +1515,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
             bias_shape = [shape[-1]]
             op.set_input_tensor(
                 create_const_tensor(
-                    "bias",
-                    bias_shape,
-                    inp.dtype,
-                    np.ones(bias_shape) * bias,
-                    value_dtype=np.int32,
-                    quant_value_dtype=np.int32,
-                    quantization=None,
+                    "bias", bias_shape, inp.dtype, np.ones(bias_shape) * bias, value_dtype=np.int32, quantization=None,
                 ),
                 2,
             )

@@ -386,7 +386,7 @@ class TFLiteSupportedOperators:
         "Optional Bias tensor values must fit within 40-bits"
         bias = op.bias
         if bias and bias.dtype == DataType.int64 and bias.values is not None:
-            valid = all(len(bin(quant_value)[2:]) <= 40 for quant_value in bias.values)
+            valid = all(len(bin(value)[2:]) <= 40 for value in bias.values)
             return valid, f"Tensor '{bias.name}' has values larger than 40-bits"
         return True, "Op has no bias tensor, or it fits in 40-bit"
 
