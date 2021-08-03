@@ -4,15 +4,20 @@ Contributions to Vela are very much welcomed!
 
 ## Coding Standard
 
-Vela requires Python 3.6 to run. However, it is written using only version 3.5
-language constructs with the addition of Enums (hence requiring 3.6 to run).
-The aim is to maintain this in order to aid compatibility with other tools.
+Vela is written using Python 3.6 language constructs in order to aid
+compatibility with other tools.  All code must also be run through the
+formatting and linting tools described in [Vela Testing](TESTING.md)
 
 ## Submitting
 
-In order to submit a contribution please submit a Change Request (CR) to the
-[Vela Gerrit Server](https://review.mlplatform.org/q/project:ml%252Fethos-u%252Fethos-u-vela).
-To do this you will need to sign-in to the platform using a GitHub account.
+In order to submit a contribution push your patch to the
+[Vela Gerrit Server](https://review.mlplatform.org/q/project:ml%252Fethos-u%252Fethos-u-vela)
+using the address `ssh://<GITHUB_USER_ID>@review.mlplatform.org:29418/ml/ethos-u/ethos-u-vela`.
+To do this you will need to sign-in to the platform using a GitHub account and
+add your SSH key under your settings.  
+In the commit message please include a Change-Id and a Signed-off-by (described
+below).
+
 
 ## Contribution Guidelines
 
@@ -22,7 +27,7 @@ Contributions are only accepted under the following conditions:
 [Developer Certificate of Origin (DCO) V1.1](https://developercertificate.org/)
 * You give permission according to the [Apache License 2.0](LICENSE.txt).
 
-To indicate that you agree to the contribution guidelines you must add an
+To indicate that you agree to these contribution guidelines you must add an
 appropriate 'Signed-off-by: Real Name username@example.org' line with your real
 name and e-mail address to every commit message.  This can be done automatically
 by adding the `-s` option to your `git commit` command.
