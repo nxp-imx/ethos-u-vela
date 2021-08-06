@@ -276,7 +276,15 @@ class ArchitectureFeatures:
         self.memory_mode = memory_mode
         self.is_ethos_u65_system = self.accelerator_config in (Accelerator.Ethos_U65_256, Accelerator.Ethos_U65_512)
 
-        self.max_outstanding_dma = 2 if self.is_ethos_u65_system else 1
+        if self.is_ethos_u65_system:
+            self.max_outstanding_dma = 2
+            axi_port_address_width = 40
+            axi_port_data_width = 128
+        else:
+            self.max_outstanding_dma = 1
+            axi_port_address_width = 32
+            axi_port_data_width = 64
+
         self.max_outstanding_kernels = 3
 
         self.ncores = accel_config.cores
@@ -294,13 +302,12 @@ class ArchitectureFeatures:
         self.num_elem_wise_units = accel_config.elem_units
         self.num_macs_per_cycle = dpu_min_height * dpu_min_width * dpu_dot_product_width * dpu_min_ofm_channels
         # Max value in address offsets
-        self.max_address_offset = 1 << 48 if self.is_ethos_u65_system else 1 << 32
+        self.max_address_offset = 1 << axi_port_address_width
 
         # Get system configuration and memory mode
         self._get_vela_config(vela_config_files, verbose_config, arena_cache_size)
 
-        self.axi_port_width = 128 if self.is_ethos_u65_system else 64
-        self.memory_bandwidths_per_cycle = self.axi_port_width * self.memory_clock_scales / 8
+        self.memory_bandwidths_per_cycle = axi_port_data_width * self.memory_clock_scales / 8
 
         self.memory_bandwidths_per_second = self.memory_bandwidths_per_cycle * self.core_clock
 
@@ -511,10 +518,14 @@ class ArchitectureFeatures:
 
     def mem_type_size(self, mem_type: MemType) -> int:
         """Returns size in bytes available for the given memory type"""
-        if mem_type == MemType.Scratch_fast and self.is_spilling_enabled():
+        if mem_type == MemType.Scratch_fast or (mem_type == MemType.Scratch and not self.is_spilling_enabled()):
+            # the arena cache memory area always contains the scratch fast memory type. it also contains the scratch
+            # memory type when memory spilling is not being used
             return self.arena_cache_size
-        # Size is unknown, return max possible address offset
-        return self.max_address_offset
+        else:
+            # the compiler is not aware of the memory limits for these memory types and so all it can do is return the
+            # maximum address size
+            return self.max_address_offset
 
     def _mem_port_mapping(self, mem_port):
         mem_port_mapping = {MemPort.Axi0: self.axi0_port, MemPort.Axi1: self.axi1_port}

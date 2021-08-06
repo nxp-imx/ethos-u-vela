@@ -380,11 +380,11 @@ def test_check_mem_limits():
     npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
     # weights with end address out of range
     conv_op = create_fully_connected_op()
-    conv_op.weights = [NpuAddressRange(region=0, address=(1 << 48) - 960, length=1000)]
+    conv_op.weights = [NpuAddressRange(region=0, address=(1 << 40) - 960, length=1000)]
     with pytest.raises(VelaError):
         npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_256)
     # bias with high end address, but still within range
-    addr = (1 << 48) - 1024
+    addr = (1 << 40) - 1024
     conv_op = create_fully_connected_op()
     conv_op.biases = [NpuAddressRange(region=0, address=addr, length=1000)]
     cmds = npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
