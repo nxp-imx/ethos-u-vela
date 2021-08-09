@@ -412,4 +412,5 @@ def try_block_config(
     config.layout = layout
     config.bank_size = arch.shram_bank_size
     config.ifm_block = ifm_block
+    config.ofm_block = block_config
     return config

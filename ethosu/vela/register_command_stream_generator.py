@@ -1025,23 +1025,6 @@ def generate_command_stream(
     return res
 
 
-# -------------------------------------------------------------------
-# EXTERNAL API
-# -------------------------------------------------------------------
-
-
-def find_block_configs(npu_op: NpuOperation, npu_accelerator: NpuAccelerator) -> List[NpuShape3D]:
-    """
-    Internal implementation of the public facing API for finding block configs.
-    """
-    if isinstance(npu_op, NpuBlockOperation):
-        # TODO: implement this function
-        arch = create_default_arch(Accelerator.from_npu_accelerator(npu_accelerator))
-        block = arch.ofm_ublock
-        return [NpuShape3D(height=block.height, width=block.width, depth=block.depth)]
-    return []
-
-
 def generate_register_command_stream(npu_op_list: List[NpuOperation], npu_accelerator: NpuAccelerator) -> List[int]:
     """
     Internal implementation of the public facing API for generating an Ethos-U register command stream.

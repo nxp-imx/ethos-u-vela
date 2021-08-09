@@ -447,9 +447,87 @@ def npu_find_block_configs(npu_op: NpuOperation, accelerator: NpuAccelerator) ->
     This function can be used to find a valid value for npu_op.block_config.
     The block config is the unit of work in which the NPU generates the OFM.
     """
-    from . import register_command_stream_generator
+    from .architecture_features import Accelerator
+    from .architecture_features import ArchitectureFeatures
+    from .architecture_features import Block
+    from .architecture_features import create_default_arch
+    from .architecture_allocator import try_block_config
+    from .register_command_stream_generator import resampling_mode_map
+    from .register_command_stream_util import to_kernel
+    from .operation import NpuBlockType
 
-    return register_command_stream_generator.find_block_configs(npu_op, accelerator)
+    is_partkernel = False
+    if isinstance(npu_op, NpuConv2DOperation):
+        block_type = NpuBlockType.ConvolutionMxN
+        is_partkernel = npu_op.block_traversal == NpuBlockTraversal.PART_KERNEL_FIRST
+    elif isinstance(npu_op, NpuConvDepthWiseOperation):
+        block_type = NpuBlockType.ConvolutionDepthWise
+    elif isinstance(npu_op, NpuPoolingOperation):
+        block_type = NpuBlockType.ReduceSum if npu_op.sub_op_type == NpuPoolingOp.REDUCE_SUM else NpuBlockType.Pooling
+    elif isinstance(npu_op, NpuElementWiseOperation):
+        block_type = NpuBlockType.ElementWise
+    else:
+        assert 0, "Unsupported operation"
+
+    ifm_shape = Block(npu_op.ifm.shape.width, npu_op.ifm.shape.height, npu_op.ifm.shape.depth)
+    ifm2_shape = None
+    if npu_op.ifm2:
+        ifm2_shape = Block(npu_op.ifm2.shape.width, npu_op.ifm2.shape.height, npu_op.ifm2.shape.depth)
+    ofm_shape = Block(npu_op.ofm.shape.width, npu_op.ofm.shape.height, npu_op.ofm.shape.depth)
+
+    ifm_resampling_mode = resampling_mode_map[npu_op.ifm_upscale]
+    ifm_bits = npu_op.ifm.data_type.size_in_bits()
+    kernel = to_kernel(npu_op.kernel)
+    lut_banks = 0
+    if npu_op.activation:
+        lut_banks = 2 if npu_op.activation.op_type == NpuActivationOp.TABLE_LOOKUP else 0
+
+    has_scaling = True
+    for tensor in [npu_op.ifm, npu_op.ifm2, npu_op.ofm]:
+        if tensor and tensor.quantization is None:
+            has_scaling = False
+            break
+
+    arch = create_default_arch(Accelerator.from_npu_accelerator(accelerator))
+
+    max_block_width = min(arch.ofm_block_max.width, ofm_shape.width)
+    max_block_height = min(arch.ofm_block_max.height, ofm_shape.height)
+    max_block_depth = min(arch.ofm_block_max.depth, ofm_shape.depth)
+
+    min_block_height = max(arch.ofm_ublock.height, 2 if ifm_resampling_mode != NpuResamplingMode.NONE else 1)
+    min_block_width = max(arch.ofm_ublock.width, 2 if ifm_resampling_mode != NpuResamplingMode.NONE else 1)
+
+    valid_block_configs = []
+    for w in range(min_block_width, max_block_width + min_block_width, min_block_width):
+        for h in range(min_block_height, max_block_height + min_block_height, min_block_height):
+            # Try valid OFM block depths
+            for c in range(arch.ofm_ublock.depth, max_block_depth + arch.ofm_ublock.depth, arch.ofm_ublock.depth):
+                # OFM block depth has the constraint that if it causes the OFM to be
+                # split, it must be a multiple of the OFM split size
+                if (c >= max_block_depth) or (c < max_block_depth and (c % ArchitectureFeatures.OFMSplitDepth) == 0):
+                    block = Block(w, h, c)
+                    config = try_block_config(
+                        block,
+                        arch,
+                        block_type,
+                        ofm_shape,
+                        ifm_shape,
+                        ifm2_shape,
+                        npu_op.ifm2_scalar is not None,
+                        ifm_bits,
+                        is_partkernel,
+                        kernel,
+                        lut_banks,
+                        has_scaling,
+                        ifm_resampling_mode,
+                    )
+
+                    if config:
+                        ofm_block = config.ofm_block
+                        valid_block_configs.append(NpuShape3D(ofm_block.height, ofm_block.width, ofm_block.depth))
+
+    assert len(valid_block_configs) > 0
+    return valid_block_configs
 
 
 def npu_generate_register_command_stream(npu_op_list: List[NpuOperation], accelerator: NpuAccelerator) -> List[int]:
