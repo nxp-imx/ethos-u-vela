@@ -55,16 +55,32 @@ class TosaTensor(object):
         return 0
 
     # TosaTensor
-    def NpyFilename(self):
+    def Data(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
-            return self._tab.String(o + self._tab.Pos)
-        return None
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # TosaTensor
+    def DataAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint8Flags, o)
+        return 0
+
+    # TosaTensor
+    def DataLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
 
 def TosaTensorStart(builder): builder.StartObject(4)
 def TosaTensorAddName(builder, name): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
 def TosaTensorAddShape(builder, shape): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(shape), 0)
 def TosaTensorStartShapeVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def TosaTensorAddType(builder, type): builder.PrependUint32Slot(2, type, 0)
-def TosaTensorAddNpyFilename(builder, npyFilename): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(npyFilename), 0)
+def TosaTensorAddData(builder, data): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(data), 0)
+def TosaTensorStartDataVector(builder, numElems): return builder.StartVector(1, numElems, 1)
 def TosaTensorEnd(builder): return builder.EndObject()

@@ -34,18 +34,19 @@ from .tensor import Tensor
 from .tflite_mapping import DataType
 from .tosa.TosaGraph import TosaGraph as TG
 from .tosa_mapping import datatype_map
+from .tosa_mapping import datatype_map_numpy
 from .tosa_mapping import tosa_operator_map
 from .tosa_mapping import unsupported_tosa_operators
 
 
 class TosaSubgraph:
-    def __init__(self, file_path, graph, block):
+    def __init__(self, graph, block):
         self.graph = graph
         self.name = decode_str(block.Name())
 
         self.tensors = []
         for idx in range(block.TensorsLength()):
-            self.tensors.append(self.parse_tensor(block.Tensors(idx), file_path))
+            self.tensors.append(self.parse_tensor(block.Tensors(idx)))
 
         for idx in range(block.OperatorsLength()):
             self.parse_operator(idx, block.Operators(idx))
@@ -166,7 +167,7 @@ class TosaSubgraph:
             if "b_zp" in quant_info:
                 self.set_tensor_zp(op.ifm2, quant_info["b_zp"])
 
-    def parse_tensor(self, tens_data, file_path):
+    def parse_tensor(self, tens_data):
         name = decode_str(tens_data.Name())
         np_shape = tens_data.ShapeAsNumpy()
         shape = list(np_shape) if type(np_shape) is np.ndarray else []
@@ -182,19 +183,22 @@ class TosaSubgraph:
         if dtype == DataType.uint8:
             tens.quantization.quant_min = 0
             tens.quantization.quant_max = (1 << dtype.bits) - 1
-        elif dtype in (DataType.int8, DataType.int16, DataType.int32, DataType.int64):
+        elif dtype in (DataType.int8, DataType.int16, DataType.int32, DataType.int48):
             tens.quantization.quant_min = -(1 << (dtype.bits - 1))
             tens.quantization.quant_max = (1 << (dtype.bits - 1)) - 1
 
         tens.values = None
-        if tens_data.NpyFilename() is not None:
-            try:
-                fname = decode_str(tens_data.NpyFilename())
-                tens.values = np.load(os.path.join(file_path, fname))
-                assert list(tens.values.shape) == tens.shape
-            except (struct.error, TypeError, RuntimeError) as e:
-                print(f'Error: Invalid npy file. Got "{e}" ')
-                sys.exit(1)
+
+        data_length = tens_data.DataLength()
+        if data_length != 0:
+            data_as_numpy = tens_data.DataAsNumpy()
+            if tens_dtype in datatype_map_numpy:
+                np_dtype = datatype_map_numpy[tens_dtype]
+                tens.values = np.array(data_as_numpy.view(np_dtype).reshape(shape))
+            else:
+                # int48 is only expected as an accumulated data/output format, int4 not supported
+                print(f"Error: unsupported/unexpected Tensor type {dtype}, with data")
+                assert False
 
         return tens
 
@@ -227,11 +231,10 @@ class TosaGraph:
             self.check_version(tosa_graph)
 
             parsing_step = "parsing blocks length"
-            file_path = os.path.dirname(filename)
             self.subgraphs = []
             for b_idx in range(tosa_graph.BlocksLength()):
                 parsing_step = f"parsing block {b_idx}"
-                self.subgraphs.append(TosaSubgraph(file_path, self, tosa_graph.Blocks(b_idx)))
+                self.subgraphs.append(TosaSubgraph(self, tosa_graph.Blocks(b_idx)))
 
             self.nng = Graph(self.name, self.batch_size)
             for tosa_sg in self.subgraphs:
