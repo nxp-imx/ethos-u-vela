@@ -117,7 +117,7 @@ def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
     """Specifies type of rounding to be used"""
     rounding_mode = NpuRoundingMode.TFL
     if op.type == Op.ResizeBilinear:
-        rounding_mode = NpuRoundingMode.TRUNCATE
+        rounding_mode = NpuRoundingMode.NATURAL
     elif (
         op.type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)
         and op.ifm.dtype == DataType.int16
