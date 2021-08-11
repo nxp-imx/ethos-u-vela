@@ -567,9 +567,7 @@ builtin_operator_map = {
     BuiltinOperator.RELU6: (Op.Relu6, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RESHAPE: (
         Op.Reshape,
-        OptionsSerializer(
-            "ReshapeOptions", (("new_shape", is_int_vec), "new_shape_as_numpy", "new_shape_is_none", "new_shape_length")
-        ),
+        OptionsSerializer("ReshapeOptions", (("new_shape", is_int_vec),)),
         TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.RESIZE_BILINEAR: (
@@ -654,10 +652,7 @@ builtin_operator_map = {
     BuiltinOperator.DIV: (Op.Div, OptionsSerializer("DivOptions", (fused_act,)), TFLITE_NO_INDICES),
     BuiltinOperator.SQUEEZE: (
         Op.Squeeze,
-        OptionsSerializer(
-            "SqueezeOptions",
-            (("squeeze_dims", is_int_vec), "squeeze_dims_as_numpy", "squeeze_dims_is_none", "squeeze_dims_length"),
-        ),
+        OptionsSerializer("SqueezeOptions", (("squeeze_dims", is_int_vec),),),
         TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.UNIDIRECTIONAL_SEQUENCE_LSTM: (
