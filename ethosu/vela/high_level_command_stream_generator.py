@@ -130,11 +130,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
         for start_width in range(ofm_start.width, ofm_end.width, ofm_step.width):
             end_width = min(start_width + ofm_step.width, ofm_end.width)
 
-            if parent_op.activation_lut:
-                lut_tensor = [tens for tens in parent_op.inputs if tens.purpose == TensorPurpose.LUT][0]
-                lut_box = Box([0] * len(lut_tensor.shape), list(lut_tensor.shape))
-                yield from dma_if_necessary(sched_op.parent_ps, lut_box, lut_tensor)
-
+            lut_dma_done = False
             for depth_idx, start_channel in enumerate(ofm_depth_slices[:-1]):
                 start_channel = max(start_channel, ofm_start.depth)
                 end_channel = min(ofm_depth_slices[depth_idx + 1], ofm_end.depth)
@@ -202,6 +198,13 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         weight_tensor = op_info.buffered_weight_tensor
                 else:
                     weight_box = None
+
+                # Should only be done once per loop but not before weights above
+                if parent_op.activation_lut and not lut_dma_done:
+                    lut_tensor = [tens for tens in parent_op.inputs if tens.purpose == TensorPurpose.LUT][0]
+                    lut_box = Box([0] * len(lut_tensor.shape), list(lut_tensor.shape))
+                    lut_dma_done = True
+                    yield from dma_if_necessary(sched_op.parent_ps, lut_box, lut_tensor)
 
                 yield NpuStripe(
                     sched_op.parent_ps,
