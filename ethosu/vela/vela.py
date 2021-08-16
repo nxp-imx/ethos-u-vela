@@ -27,6 +27,7 @@ import flatbuffers
 from . import architecture_features
 from . import compiler_driver
 from . import model_reader
+from . import rawdata_writer
 from . import scheduler
 from . import stats_writer
 from . import tflite_writer
@@ -83,18 +84,20 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         arch=arch,
     )
 
-    output_filename = output_basename + "_vela.tflite"
+    output_tfl_filename = output_basename + "_vela.tflite"
     if input_name.endswith(".tflite"):
-        tflite_writer.write_tflite(nng, output_filename)
+        tflite_writer.write_tflite(nng, output_tfl_filename)
+    elif input_name.endswith(".tosa"):
+        rawdata_writer.write_rawdata_output(nng, arch, output_basename)
 
     if enable_debug_db:
-        file_offsets = calculate_operator_file_offsets(output_filename)
+        file_offsets = calculate_operator_file_offsets(output_tfl_filename)
         for idx, offset in enumerate(sorted(file_offsets)):
             sg = find_subgraph_with_command_stream_order(nng, idx)
             if sg is not None:
                 DebugDatabase.set_stream_offset(sg, offset)
         debug_filename = output_basename + "_debug.xml"
-        DebugDatabase.write(debug_filename, input_name, output_filename)
+        DebugDatabase.write(debug_filename, input_name, output_tfl_filename)
 
     if compiler_options.timing:
         stop = time.time()
