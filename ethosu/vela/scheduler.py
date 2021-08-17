@@ -667,14 +667,9 @@ class Scheduler:
             else:
                 weight_tensor_purpose = TensorSubPurpose.Standard
 
-            cost.buffered_weight_tensor = Tensor(
-                [1, 1, 1, weight_buffer_size], DataType.uint8, weight_tensor.name + "_buffer"
+            cost.buffered_weight_tensor = self.buffer_tensor(
+                encoded_weights, weight_tensor_purpose, weight_buffer_size, weight_tensor.name
             )
-            cost.buffered_weight_tensor.src_tensor = encoded_weights
-            cost.buffered_weight_tensor.mem_area = self.arch.fast_storage_mem_area
-            cost.buffered_weight_tensor.mem_type = MemType.Scratch_fast
-            cost.buffered_weight_tensor.purpose = TensorPurpose.Weights
-            cost.buffered_weight_tensor.sub_purpose = weight_tensor_purpose
             if ref_cost.cascade == 0:
                 # Determine if the lifetime can be extended and pre-buffer weights under the previous operation
                 cost.buffered_weight_tensor.pre_buffer = weight_buffer_size < slack_memory
@@ -688,6 +683,15 @@ class Scheduler:
 
         cost.npu_weights_tensor = encoded_weights
         cost.npu_scales_tensor = encoded_scales
+
+    def buffer_tensor(self, src_tensor: Tensor, sub_purpose: TensorSubPurpose, buffer_size: int, name: str) -> Tensor:
+        buffered_weight_tensor = Tensor([1, 1, 1, buffer_size], DataType.uint8, name + "_buffer")
+        buffered_weight_tensor.src_tensor = src_tensor
+        buffered_weight_tensor.mem_area = self.arch.fast_storage_mem_area
+        buffered_weight_tensor.mem_type = MemType.Scratch_fast
+        buffered_weight_tensor.purpose = TensorPurpose.Weights
+        buffered_weight_tensor.sub_purpose = sub_purpose
+        return buffered_weight_tensor
 
     def propose_minimal_schedule(self) -> Schedule:
         """Proposes scheduling parameters where every operator is subdivided into the smallest stripe that satisfies the
@@ -723,8 +727,12 @@ class Scheduler:
             # Create a cost entry with the new stripe
             cost = sched_op.create_scheduler_info(self.nng, stripe)
 
-            # Copy the weight buffering from the reference schedule
-            cost.buffered_weight_tensor = ref_cost[sched_op].buffered_weight_tensor
+            if ref_cost[sched_op].buffered_weight_tensor:
+                # If the weights are buffered in the reference schedule they should be in the new proposal
+                weight_tensor = cost.npu_weights_tensor
+                cost.buffered_weight_tensor = self.buffer_tensor(
+                    weight_tensor, TensorSubPurpose.Standard, len(weight_tensor.buffer), weight_tensor.name
+                )
 
             # Estimate performance
             cost.cycles = self.estimate_op_performance(sched_op, cost.block_config, sched_op.ofm.shape.depth)
