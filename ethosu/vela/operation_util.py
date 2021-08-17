@@ -39,7 +39,7 @@ def create_avgpool_nop(name: str) -> Operation:
     op.attrs["strides"] = [1, 1, 1, 1]
     op.attrs["ksize"] = [1, 1, 1, 1]
     op.attrs["skirt"] = [0, 0, 0, 0]
-    op.attrs["explicit_padding"] = [0, 0, 0, 0]
+    op.attrs["explicit_padding"] = [0, 0, 0, 0]  # [top, left, bottom, right]
     op.run_on_npu = True
     return op
 

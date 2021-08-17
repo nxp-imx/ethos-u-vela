@@ -204,6 +204,8 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
         return True
     if ps.primary_op.type not in (Op.AvgPool, Op.ResizeBilinear, Op.CLZ, Op.SHL):
         return False
+    if ps.primary_op.type == Op.AvgPool and ps.primary_op.explicit_scaling:
+        return False
     fused_quantize = any(op.type == Op.Quantize for op in ps.ops)
     forced_ofm_quantization = ps.primary_op.forced_output_quantization
     use_0 = (
@@ -413,6 +415,10 @@ def create_npu_pool_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> NpuPooling
     set_common_op_fields(npu_op, cmd, arch)
     # Pooling specific info
     npu_op.rescale = op.rescale
+    if op.explicit_scaling:
+        # Note: reuse of rescale for explicit scaling to not expose this in the external API
+        assert npu_op.rescale is None
+        npu_op.rescale = op.explicit_scaling
     return npu_op
 
 

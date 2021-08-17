@@ -15,6 +15,8 @@
 # limitations under the License.
 # Description:
 # Common functions and definitions used during the graph optimization.
+from typing import Tuple
+
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import VelaError
@@ -130,6 +132,21 @@ def check_format_restrictions(tens, arch):
                 return
 
     tens.needs_linear_format = False
+
+
+def calc_explicit_padding(input_size, stride, filter_size, pad_before, pad_after) -> Tuple[int, int]:
+    """
+    Based on explicit padding provided in a PAD operation, returns the corresponding hardware padding
+    that provides equivalent results.
+    """
+    total_padding = needed_total_padding(input_size, stride, filter_size)
+
+    # The bottom/right padding might need downward adjustment depending on stride/input size
+    total_minus_before = total_padding - pad_before
+    output_pad_after = pad_after
+    while output_pad_after > 0 and output_pad_after % stride != total_minus_before % stride:
+        output_pad_after -= 1
+    return pad_before, output_pad_after
 
 
 def needed_total_padding(input_size, stride, filter_size):

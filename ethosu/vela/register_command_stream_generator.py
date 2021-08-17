@@ -71,6 +71,7 @@ from .ethos_u55_regs.ethos_u55_regs import rounding
 from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
 from .numeric_util import round_up_to_int
+from .operation import ExplicitScaling
 from .operation import NpuBlockType
 from .range_set import MemoryAccessSet
 from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
@@ -676,11 +677,18 @@ def generate_ofm_scaling_for_pooling(emit: CommandStreamEmitter, pool_op: NpuPoo
         ofm_scale_f64 = np.double(ofm_quant.scale_f32)
         scale, shift = scaling.quantise_scale(ifm_scale_f64 / ofm_scale_f64)
     elif pool_op.rescale is not None:
-        # for ResizeBilinear operations with rescale
-        rescale = pool_op.rescale
-        rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
-        scale, shift = scaling.quantise_pooling_scale(kernel.height * kernel.width, rescale_bits)
-        scale = int(round_away_zero(scale * rescale))
+        if type(pool_op.rescale) == ExplicitScaling:
+            # Note: reuse of rescale for explicit scaling to not expose this in the external API
+            explicit_scaling = pool_op.rescale
+            assert explicit_scaling.per_channel is False
+            scale = explicit_scaling.multiplier[0]
+            shift = explicit_scaling.shift[0]
+        else:
+            # for ResizeBilinear operations with rescale
+            rescale = pool_op.rescale
+            rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
+            scale, shift = scaling.quantise_pooling_scale(kernel.height * kernel.width, rescale_bits)
+            scale = int(round_away_zero(scale * rescale))
     else:
         # In case avg pool fused with concat or other memory operation, rescaling might be needed.
         # kernel height == kernel width == 1 is always true in this case
@@ -896,6 +904,9 @@ def generate_pooling_op(emit: CommandStreamEmitter, npu_op: NpuPoolingOperation,
     use_global_scale = (
         npu_op.sub_op_type in (NpuPoolingOp.AVERAGE, NpuPoolingOp.REDUCE_SUM) and sum(npu_op.padding) == 0
     )
+    # Note: reuse of rescale for explicit scaling to not expose this in the external API
+    if npu_op.rescale is not None and type(npu_op.rescale) == ExplicitScaling:
+        use_global_scale = not npu_op.rescale.per_channel
     generate_common(emit, npu_op, NpuBlockTraversal.DEPTH_FIRST, arch, use_global_scale=use_global_scale)
     # Pooling op specific
     if use_global_scale:

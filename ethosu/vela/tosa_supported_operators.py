@@ -29,7 +29,11 @@ class TosaSupportedOperators:
     # Categorised lists of supported operators
     convolution_ops = set((Op.Conv2DBias,))
     convolution_like_ops = convolution_ops
-    mac_main_ops = convolution_like_ops
+    max_pooling_ops = Op.op_set(Op.is_maxpool_op)
+    avg_pooling_ops = Op.op_set(Op.is_avgpool_op)
+    pooling_ops = set((Op.ReduceSum,)) | max_pooling_ops | avg_pooling_ops
+
+    mac_main_ops = convolution_like_ops | pooling_ops
 
     type_conversion_ops = set((Op.Rescale,))
     relu_ops = set((Op.Clamp, Op.ReluN,))

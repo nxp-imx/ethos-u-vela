@@ -18,7 +18,6 @@
 # to do the traversal of the graph.
 import math
 import uuid
-from typing import Tuple
 
 import numpy as np
 
@@ -31,6 +30,7 @@ from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
+from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
@@ -268,21 +268,6 @@ def fix_sg_input_output(op, arch, nng):
         insert_copy_op_after_tens(op.ifm)
 
     return op
-
-
-def calc_explicit_padding(input_size, stride, filter_size, pad_before, pad_after) -> Tuple[int, int]:
-    """
-    Based on explicit padding provided in a PAD operation, returns the corresponding hardware padding
-    that provides equivalent results.
-    """
-    total_padding = needed_total_padding(input_size, stride, filter_size)
-    # The top/left padding can be taken as is from the PAD
-    output_pad_before = pad_before
-    # The bottom/right padding might need downward adjustment depending on stride/input size
-    output_pad_after = pad_after
-    while output_pad_after > 0 and output_pad_after % stride != (total_padding - pad_before) % stride:
-        output_pad_after -= 1
-    return output_pad_before, output_pad_after
 
 
 def calc_padding_and_skirt(padding_type, kernel, input_shape, explicit_padding):
