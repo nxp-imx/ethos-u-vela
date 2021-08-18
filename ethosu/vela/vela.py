@@ -398,6 +398,12 @@ def main(args=None):
                 " operator inputs and outputs (default: %(default)s)"
             ),
         )
+        parser.add_argument(
+            "--recursion-limit",
+            type=int,
+            default=1000,
+            help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
+        )
         args = parser.parse_args(args=args)
 
         # Generate the supported ops report and exit
@@ -430,6 +436,8 @@ def main(args=None):
             for v in vars(args):
                 if v.startswith("verbose") and v != "verbose_all":
                     setattr(args, v, True)
+
+        sys.setrecursionlimit(args.recursion_limit)
 
         arch = architecture_features.ArchitectureFeatures(
             vela_config_files=args.config,

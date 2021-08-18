@@ -223,6 +223,22 @@ be a power of two and greater or equal to 16.
 vela network.tflite --allocation-alignment 128
 ```
 
+### Recursion Limit
+
+Sets the Python internal limit to depth of recursion. It may be
+necessary to increase this from the default for very large networks
+due to the recursive nature of the graph traversal algorithm.
+If Vela fails with a `RecursionError`, try increasing the limit using
+this option to see if it resolves the issue.  
+Please note that this option may not work as intended on Microsoft Windows
+systems, as there is a hard limit on thread stack size.  
+**Type: Integer**  
+**Default: 1000**
+
+```bash
+vela network.tflite --recursion-limit 2000
+```
+
 ## Verbose Print Options
 
 All of the options below are disabled by default and enabling them will add
