@@ -174,6 +174,8 @@ class CascadeBuilder:
                     or current_op not in ref_cost
                     or not self._is_cascadable(current_op, ref_cost[current_op])
                     or producer.ofm.shape != current_op.ifm.shape
+                    or current_op.requires_full_ifm
+                    or producer.requires_full_ofm
                 ):
                     # Current op has already been processed or cannot be cascaded
                     break

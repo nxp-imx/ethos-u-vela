@@ -478,6 +478,7 @@ class Tensor:
 
         if shape_len > 4:
             return
+        assert not (self.needs_linear_format and fmt == TensorFormat.NHCWB16)
         self.storage_rounding_quantum = arch.storage_rounding_quantums[self.format]
         self.storage_rounding_quantum = tuple(self.storage_rounding_quantum[-shape_len:])
         self.brick_size = arch.brick_sizes[self.format]
