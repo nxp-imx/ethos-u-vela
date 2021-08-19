@@ -861,10 +861,12 @@ class Scheduler:
             return max_sched
 
         # Extract the cascades
-        cascades = [cascade for cascade in schedule.cascades.values()]
-        for cascade_info in cascades:
-            # Remove existing cascade from schedule
-            del schedule.cascades[cascade_info.end]
+        cascades = schedule.cascades
+        # Remove existing cascade from schedule
+        schedule.cascades = {}
+        for cost in schedule.cost_map.values():
+            cost.cascade = 0
+        for cascade_info in cascades.values():
             # Optimize the sub-schedule in this cascade
             opt_sub_schedule = self.optimize_sub_schedule(cascade_info, schedule, max_template, sram_limit)
             # Update the sub-schedule Op and cascade costs to the full schedule

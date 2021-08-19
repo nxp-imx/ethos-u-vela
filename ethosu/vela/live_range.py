@@ -138,15 +138,11 @@ class LiveRangeGraph:
         return live_range
 
     def update_endtime(self):
-        self.end_time = 0
-        for rng in self.ranges.values():
-            self.end_time = max(self.end_time, rng.end_time)
+        self.end_time = self.current_time
         return self.end_time + 1
 
     def get_temporal_memory_usage(self, target_mem_area):
-        if not self.end_time:
-            self.update_endtime()
-        usage = np.zeros(self.end_time, dtype=np.int32)
+        usage = np.zeros(self.update_endtime(), dtype=np.int32)
         for rng in self.ranges.values():
             if rng.mem_area == target_mem_area:
                 # End time is inclusive
