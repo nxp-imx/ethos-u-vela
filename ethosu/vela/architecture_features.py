@@ -517,14 +517,13 @@ class ArchitectureFeatures:
         )
 
     def mem_type_size(self, mem_type: MemType) -> int:
-        """Returns size in bytes available for the given memory type"""
-        if mem_type == MemType.Scratch_fast or (mem_type == MemType.Scratch and not self.is_spilling_enabled()):
-            # the arena cache memory area always contains the scratch fast memory type. it also contains the scratch
-            # memory type when memory spilling is not being used
+        """Returns size in bytes available for the given memory type. This is a hard limit."""
+        if mem_type == MemType.Scratch_fast and self.is_spilling_enabled():
+            # when accessing the scratch fast memory type with memory spilling enabled the arena_cache_size refers to
+            # the cache memory area which is a hard limit
             return self.arena_cache_size
         else:
-            # the compiler is not aware of the memory limits for these memory types and so all it can do is return the
-            # maximum address size
+            # for all other memory types and modes the hard limit is the maximum possible address offset
             return self.max_address_offset
 
     def _mem_port_mapping(self, mem_port):
