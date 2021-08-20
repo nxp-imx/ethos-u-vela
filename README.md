@@ -155,8 +155,29 @@ selects an Ethos-U65 NPU accelerator configured with 512 MAC units.
 ```bash
 vela --accelerator-config ethos-u65-512 my_model.tflite
 ```
+4) Compile a network while minimizing peak SRAM usage,
+therefore prioritising a lower SRAM usage over runtime performance.
 
-4) Compile a network using a particular embedded system configuration defined in
+```bash
+vela --optimise Size my_model.tflite
+```
+
+5) Compile a network to have maximum performance, i.e. the fastest inference time.
+This prioritises a higher runtime performance over a lower peak SRAM usage.
+
+```bash
+vela --optimise Performance my_model.tflite
+```
+
+6) Compile a network while optimising for the fastest inference time possible,
+with an upper bound for the SRAM usage. The memory limit is set in bytes, i.e. 
+run the following example if one requires a limit of 300KB.
+
+```bash
+vela --optimise Performance --arena-cache-size 300000 my_model.tflite
+```
+
+7) Compile a network using a particular embedded system configuration defined in
 Vela's configuration file.  The following command selects the `My_Sys_Config`
 system configuration along with the `My_Mem_Mode` memory mode from the `vela_cfg.ini` configuration file.
 
@@ -164,7 +185,7 @@ system configuration along with the `My_Mem_Mode` memory mode from the `vela_cfg
 vela --config vela_cfg.ini --system-config My_Sys_Config --memory-mode My_Mem_Mode my_model.tflite
 ```
 
-5) To get a list of all available options (see CLI Options section below):
+8) To get a list of all available options (see CLI Options section below):
 
 ```bash
 vela --help
