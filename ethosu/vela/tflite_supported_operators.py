@@ -86,7 +86,7 @@ class TFLiteSupportedOperators:
     )
     split_ops = set((Op.Split, Op.SplitV, Op.StridedSlice, Op.Slice, Op.UnpackReshaped, Op.Unpack,))
     concat_ops = set((Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack,))
-    memory_only_ops = set((Op.Reshape, Op.QuantizedReshape,)) | concat_ops | split_ops
+    memory_only_ops = set((Op.Reshape, Op.QuantizedReshape, Op.Squeeze,)) | concat_ops | split_ops
     per_axis_quant_ops = convolution_like_ops  # per-axis/channel quantization only currently supported for conv ops
     supported_fused_activations = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.LUT,))
     supported_operators = npu_pre_ops | mac_main_ops | elem_wise_main_ops | pad_ops | npu_post_ops | memory_only_ops

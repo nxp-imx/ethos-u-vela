@@ -23,7 +23,10 @@ from .shape4d import Shape4D
 from .tensor import check_quantized_tens_scaling_equal
 
 
-memory_only_ops = (Op.Reshape,)
+memory_only_ops = (
+    Op.Reshape,
+    Op.Squeeze,
+)
 
 
 def _avoid_nhcwb16_for_concat(tens):
