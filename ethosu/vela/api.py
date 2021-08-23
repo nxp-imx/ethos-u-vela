@@ -26,7 +26,7 @@ from typing import Tuple
 import numpy
 
 API_VERSION_MAJOR = 1
-API_VERSION_MINOR = 0
+API_VERSION_MINOR = 1
 API_VERSION = f"{API_VERSION_MAJOR}.{API_VERSION_MINOR}"
 
 
