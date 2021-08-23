@@ -85,7 +85,7 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
     )
 
     output_tfl_filename = output_basename + "_vela.tflite"
-    if input_name.endswith(".tflite"):
+    if input_name.endswith(".tflite") or input_name.endswith(".tosa"):
         tflite_writer.write_tflite(nng, output_tfl_filename)
     if input_name.endswith(".tosa"):
         rawdata_writer.write_rawdata_output(nng, arch, output_basename)

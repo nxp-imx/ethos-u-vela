@@ -221,11 +221,9 @@ unsupported_tosa_operators = {
     TosaOp.REDUCE_SUM,
     TosaOp.CONCAT,
     TosaOp.PAD,
-    TosaOp.RESHAPE,
     TosaOp.REVERSE,
     TosaOp.SLICE,
     TosaOp.TILE,
-    TosaOp.TRANSPOSE,
     TosaOp.GATHER,
     TosaOp.SCATTER,
     TosaOp.RESIZE,
@@ -304,11 +302,11 @@ tosa_operator_map = {
     # TODO TosaOp.REDUCE_SUM
     # TODO TosaOp.CONCAT
     # TODO TosaOp.PAD
-    # TODO TosaOp.RESHAPE
+    TosaOp.RESHAPE: (Op.Reshape, reshape_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.REVERSE
     # TODO TosaOp.SLICE
     # TODO TosaOp.TILE
-    # TODO TosaOp.TRANSPOSE
+    TosaOp.TRANSPOSE: (Op.Transpose, None, None, TOSA_IFM_IFM2_INDICES),
     # TODO TosaOp.GATHER
     # TODO TosaOp.SCATTER
     # TODO TosaOp.RESIZE

@@ -17,13 +17,16 @@
 # Common functions and definitions used during the graph optimization.
 from typing import Tuple
 
+import numpy as np
+
 from .data_type import DataType
 from .debug_database import DebugDatabase
+from .errors import UnsupportedFeatureError
 from .errors import VelaError
 from .operation import Op
+from .operation_util import create_avgpool_nop
 from .shape4d import Shape4D
 from .tensor import check_quantized_tens_scaling_equal
-
 
 memory_only_ops = (
     Op.Reshape,
@@ -174,6 +177,41 @@ def set_ifm_ofm_op_shapes(op, arch, nng):
     return op
 
 
+def bypass_reshape_and_squeeze_ops(op):
+    assert op.type in (Op.Reshape, Op.Squeeze)
+    ofm = op.ofm
+    ifm = op.ifm
+    # Check if ifm/ofm are network ifm/ofm
+    ifm_is_sg_ifm = ifm.ops[0].type in (Op.Placeholder, Op.SubgraphInput, Op.Const)
+    ifm_is_sg_ofm = any(ifm_cons is None for ifm_cons in ifm.consumer_list)
+    ofm_is_sg_ofm = any(ofm_cons is None for ofm_cons in ofm.consumer_list)
+    # Check if ifm/ofm is produced respectively consumed by CPU
+    ifm_is_cpu_produced = any(ifm_prod is not None and not ifm_prod.run_on_npu for ifm_prod in op.ifm.ops)
+    ofm_is_cpu_consumed = any(ofm_cons is not None and not ofm_cons.run_on_npu for ofm_cons in op.ofm.consumer_list)
+
+    # This case should be handled prior to this function
+    assert not ((ifm_is_sg_ifm or ifm_is_sg_ofm or ifm_is_cpu_produced) and (ofm_is_sg_ofm or ofm_is_cpu_consumed))
+
+    if ofm_is_sg_ofm or ofm_is_cpu_consumed:
+        # Bypassed by replacing ifm with ofm
+        ofm.ops = []
+        for prev_op in ifm.ops:
+            prev_op.outputs = [ofm]
+            ofm.ops.append(prev_op)
+
+        # All ifm consumers need to use ofm as input
+        for ifm_cons in ifm.consumer_list:
+            for ifm_idx, cons_ifm in enumerate(ifm_cons.inputs):
+                if cons_ifm == ifm:
+                    ifm_cons.set_input_tensor(ofm, ifm_idx)
+    else:
+        # Bypassed by replacing ofm with ifm
+        for cons in ofm.consumer_list:
+            for ifm_idx, cons_ifm in enumerate(cons.inputs):
+                if cons_ifm == ofm:
+                    cons.set_input_tensor(ifm, ifm_idx)
+
+
 def check_reshapes(op, arch):
     if op.run_on_npu and op.type == Op.Reshape:
         ofm = op.ofm
@@ -186,3 +224,77 @@ def check_reshapes(op, arch):
 def record_optimised(op, arch):
     if op.type != Op.Const:
         DebugDatabase.add_optimised(op, op)
+
+
+def insert_copy_op_after_tens(tens):
+    tens_cons_list_copy = tens.consumer_list.copy()
+
+    # Create a avg_pool nop op with ifm as input
+    copy_tens = tens.clone()
+    copy_op = create_avgpool_nop(tens.name + "_avgpool")
+    copy_op.add_input_tensor(tens)
+    copy_op.set_output_tensor(copy_tens)
+    copy_op.set_ifm_ofm_shapes()
+    copy_op.run_on_npu = True
+
+    # Set copy_ifm consumers
+    for tens_cons in tens_cons_list_copy:
+        if tens_cons is not None:
+            for ifm_idx, cons_inp in enumerate(tens_cons.inputs):
+                if cons_inp == tens:
+                    tens_cons.set_input_tensor(copy_tens, ifm_idx)
+
+    DebugDatabase.add_optimised(tens.ops[0], copy_op)
+
+
+def fix_sg_input_output(op, arch, nng):
+    if not op.run_on_npu or op.type not in (Op.Reshape, Op.Squeeze):
+        return op
+
+    # For the Reshape/Squeeze operators we want to remove, tensors are removed.
+    # But in order to to do this, they cannot be outputs of the sg,
+    # this need to be fixed prior to the removal.
+    # Solution is to add a avgpool NOP, to maintain the original tensor.
+    # This is also valid when reshape ifm/ofm is produced respectively
+    # consumed by CPU
+
+    # Check if operator ifm/ofm are sg ifm/ofm
+    ifm_is_sg_ifm = op.ifm.ops[0].type in (Op.Placeholder, Op.SubgraphInput, Op.Const)
+    ifm_is_sg_ofm = any(ifm_cons is None for ifm_cons in op.ifm.consumer_list)
+    ofm_is_sg_ofm = any(ofm_cons is None for ofm_cons in op.ofm.consumer_list)
+    # Check if ifm/ofm is produced respectively consumed by CPU
+    ifm_is_cpu_produced = any(ifm_prod is not None and not ifm_prod.run_on_npu for ifm_prod in op.ifm.ops)
+    ofm_is_cpu_consumed = any(ofm_cons is not None and not ofm_cons.run_on_npu for ofm_cons in op.ofm.consumer_list)
+
+    if (ifm_is_sg_ofm or ifm_is_sg_ifm or ifm_is_cpu_produced) and (ofm_is_sg_ofm or ofm_is_cpu_consumed):
+        # Both ifm and ofm need to persist, but only ifm need a copy, in order to remove the Reshape/Squeeze
+        insert_copy_op_after_tens(op.ifm)
+
+    return op
+
+
+def convert_depthwise_to_conv(op, arch, nng):
+    # Depthwise is equivalent to a single conv2d if the ifm depth is 1 and
+    # the ofm depth equals the depth multipler.
+    # If those conditions are true, then we can perform a simple
+    # switch of the operator type (and weight order)
+
+    if op.type == Op.DepthwiseConv2DBias and (op.attrs["depth_multiplier"] != 1):
+        ifm_shape = op.ifm_shapes[0]
+        weight_tensor = op.inputs[1]
+        ofm_shape = op.ofm_shapes[0]
+        if (ifm_shape.depth == 1) and (ofm_shape.depth == op.attrs["depth_multiplier"]):
+            # Change op type to Conv2d
+            op.type = Op.Conv2DBias
+            del op.attrs["channel_multiplier"]
+            del op.attrs["depth_multiplier"]
+
+            weight_tensor.values = np.transpose(weight_tensor.values, (0, 1, 3, 2))
+            weight_tensor.set_all_shapes(list(weight_tensor.values.shape))
+        else:
+            raise UnsupportedFeatureError(
+                f"Unsupported 'DEPTHWISE_CONV_2D' with depth_multiplier = {op.attrs['depth_multiplier']},",
+                f" ifm channels = {ifm_shape.depth}, ofm channels = {ofm_shape.depth}",
+            )
+        DebugDatabase.add_optimised(op, op)
+    return op
