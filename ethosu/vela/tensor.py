@@ -535,7 +535,7 @@ class Tensor:
             assert param_a is not None
             shp[-1] = min(shp[-1], param_a * 2)
         else:
-            shp = list(self.storage_shape)
+            shp = full_shape(4, self.storage_shape, 1)
             if sub_purpose == TensorSubPurpose.RollingBufferX:
                 assert len(shp) == 4
                 assert param_a is not None

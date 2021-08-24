@@ -824,7 +824,7 @@ class Scheduler:
         ]
 
         # Propose different striping - the possible stripes are proposed similarly to a binary search
-        best_schedule = buffered_sub_schedule
+        best_schedule = None
         iteration = 0
         while len(possible_stripes) > 1:
             proposed_stripe = possible_stripes[len(possible_stripes) // 2]
@@ -860,18 +860,16 @@ class Scheduler:
             # Maximum performance schedule fits within the SRAM target
             return max_sched
 
-        # Extract the cascades
-        cascades = schedule.cascades
-        # Remove existing cascade from schedule
-        schedule.cascades = {}
-        for cost in schedule.cost_map.values():
-            cost.cascade = 0
-        for cascade_info in cascades.values():
+        # Iterate over a copy of the cascades since they may change during the loop
+        for cascade_info in list(schedule.cascades.values()):
             # Optimize the sub-schedule in this cascade
             opt_sub_schedule = self.optimize_sub_schedule(cascade_info, schedule, max_template, sram_limit)
-            # Update the sub-schedule Op and cascade costs to the full schedule
-            schedule.cost_map.update(opt_sub_schedule.cost_map)
-            schedule.cascades.update(opt_sub_schedule.cascades)
+            if opt_sub_schedule:
+                # Remove the existing cascade
+                del schedule.cascades[cascade_info.end]
+                # Update the sub-schedule Op and cascade costs to the full schedule
+                schedule.cost_map.update(opt_sub_schedule.cost_map)
+                schedule.cascades.update(opt_sub_schedule.cascades)
 
         # Update memory snapshot
         self.sg.schedule = schedule
