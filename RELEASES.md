@@ -5,6 +5,27 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.1.0 - 30/08/2021
+
+**Main feature changes:**
+
+* New operator support: SQUEEZE
+* Updated support for TensorFlow 2.5
+* Experimental limited support for reading TOSA files
+
+**Interface changes:**
+
+* Re-addition of CLI option:
+  * `--recursion-limit`
+* External API v1.1
+  * Re-instated functionality of `find_block_configs()` from Vela 2.1.0
+
+**Reported defect fixes:**
+
+* Bug with IFM box depth for convolutions fused with SPLIT (MLCE-490)
+* Bug with missing attribute from integer type (MLCE-534)
+* Bug with incorrect options in TensorFlow Lite mapping (MLCE-427) 
+
 ## Release 3.0.0 - 28/05/2021
 
 **Main feature changes:**
