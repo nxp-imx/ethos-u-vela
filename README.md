@@ -23,7 +23,7 @@ embedded system.
 The tool will also generate performance estimates (EXPERIMENTAL) for the
 compiled model.
 
-The tool has limited functionality for compiling a 
+The tool has limited functionality for compiling a
 [TOSA](https://git.mlplatform.org/tosa/specification.git/) neural network
 (EXPERIMENTAL).
 
@@ -171,7 +171,7 @@ vela --optimise Performance my_model.tflite
 ```
 
 6) Compile a network while optimising for the fastest inference time possible,
-with an upper bound for the SRAM usage. The memory limit is set in bytes, i.e. 
+with an upper bound for the SRAM usage. The memory limit is set in bytes, i.e.
 run the following example if one requires a limit of 300KB.
 
 ```bash
@@ -241,6 +241,11 @@ operators supported in this release.
 ## Testing
 
 Please see [Vela Testing](TESTING.md).
+
+## Bug Reporting
+
+Please see [Vela Community Bug Reporting](BUGS.md) for a description of how to
+report bugs.
 
 ## Resources
 
