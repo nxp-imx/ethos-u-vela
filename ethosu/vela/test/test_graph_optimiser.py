@@ -323,62 +323,71 @@ def test_pad_followed_by_avg_pool(k_size, padding, expect_pad_removed):
         assert pool_op.attrs["padding"] == Padding.VALID
 
 
+# Setup network to test removal of op with op_type Op.Reshape or Op.Squeeze
+# op_type should be Op.Reshape or Op.Squeeze
+def setup_network(op_type):
+    assert op_type == Op.Reshape or op_type == Op.Squeeze
+    if op_type == Op.Reshape:
+        op_str = "reshape"
+    elif op_type == Op.Squeeze:
+        op_str = "squeeze"
+
+    quant = testutil.default_quant_params()
+    # create reshape1 op
+    ifm_shape = [64, 16]
+    reshape1_ofm_shape = [1, 4, 16, 16]
+    reshape1_ifm = create_const_tensor(f"{op_str}1_in", ifm_shape, DataType.uint8, np.zeros(ifm_shape))
+    reshape1_ifm.quantization = quant
+    reshape1_ofm = create_const_tensor(
+        f"{op_str}1_out", reshape1_ofm_shape, DataType.uint8, np.zeros(reshape1_ofm_shape)
+    )
+    reshape1_ofm.quantization = quant
+    shape_tens = create_const_tensor(f"{op_str}1_shape", [1], DataType.int32, reshape1_ofm_shape)
+    reshape1_op = testutil.create_op(op_type, [reshape1_ifm, shape_tens], reshape1_ofm, set_ifm_ofm_shapes=False)
+    reshape1_op.attrs["new_shape"] = reshape1_ofm_shape
+    reshape1_op.run_on_npu = True
+
+    # create conv op
+    conv_ofm = Tensor([1, 8, 8, 16], DataType.uint8, "output")
+    conv_ofm.quantization = quant.clone()
+    weight_tens = Tensor([1, 1, 16, 16], DataType.uint8, "weights")
+    weight_tens.values = np.zeros(weight_tens.shape, np.uint8)
+    weight_tens.quantization = quant.clone()
+    bias_tens = Tensor([16], DataType.int32, "biases")
+
+    attrs = {"padding": Padding.SAME, "stride_w": 1, "stride_h": 1, "dilation_w_factor": 1, "dilation_h_factor": 1}
+    attrs["strides"] = (1, attrs["stride_h"], attrs["stride_w"], 1)
+
+    conv2d_op = testutil.create_op(
+        Op.Conv2D, [reshape1_ofm, weight_tens, bias_tens], conv_ofm, attrs=attrs, set_ifm_ofm_shapes=False
+    )
+    conv2d_op.run_on_npu = True
+
+    # create reshape2 op
+    ofm_shape = [8, 8, 16]
+    reshape2_ofm = create_const_tensor(f"{op_str}2_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
+    reshape2_ofm.quantization = quant
+    shape_tens = create_const_tensor(f"{op_str}2_shape", [1], DataType.int32, ofm_shape)
+    reshape2_op = testutil.create_op(op_type, [conv_ofm, shape_tens], reshape2_ofm, set_ifm_ofm_shapes=False)
+    reshape2_op.attrs["new_shape"] = ofm_shape
+    reshape2_op.run_on_npu = True
+    nng = Graph()
+    sg = testutil.create_subgraph([reshape1_op, conv2d_op, reshape2_op])
+    nng.subgraphs.append(sg)
+
+    return nng, reshape1_op, conv2d_op, reshape2_op
+
+
 def test_remove_reshape():
     """
     Tests that the expected reshape are removed in graph_optimisation
     """
 
-    def setup_network():
-        quant = testutil.default_quant_params()
-        # create reshape1 op
-        ifm_shape = [64, 16]
-        reshape1_ofm_shape = [1, 4, 16, 16]
-        reshape1_ifm = create_const_tensor("reshape1_in", ifm_shape, DataType.uint8, np.zeros(ifm_shape))
-        reshape1_ifm.quantization = quant
-        reshape1_ofm = create_const_tensor(
-            "reshape1_out", reshape1_ofm_shape, DataType.uint8, np.zeros(reshape1_ofm_shape)
-        )
-        reshape1_ofm.quantization = quant
-        shape_tens = create_const_tensor("reshape1_shape", [1], DataType.int32, reshape1_ofm_shape)
-        reshape1_op = testutil.create_op(Op.Reshape, [reshape1_ifm, shape_tens], reshape1_ofm, set_ifm_ofm_shapes=False)
-        reshape1_op.attrs["new_shape"] = reshape1_ofm_shape
-        reshape1_op.run_on_npu = True
-
-        # create conv op
-        conv_ofm = Tensor([1, 8, 8, 16], DataType.uint8, "output")
-        conv_ofm.quantization = quant.clone()
-        weight_tens = Tensor([1, 1, 16, 16], DataType.uint8, "weights")
-        weight_tens.values = np.zeros(weight_tens.shape, np.uint8)
-        weight_tens.quantization = quant.clone()
-        bias_tens = Tensor([16], DataType.int32, "biases")
-
-        attrs = {"padding": Padding.SAME, "stride_w": 1, "stride_h": 1, "dilation_w_factor": 1, "dilation_h_factor": 1}
-        attrs["strides"] = (1, attrs["stride_h"], attrs["stride_w"], 1)
-
-        conv2d_op = testutil.create_op(
-            Op.Conv2D, [reshape1_ofm, weight_tens, bias_tens], conv_ofm, attrs=attrs, set_ifm_ofm_shapes=False
-        )
-        conv2d_op.run_on_npu = True
-
-        # create reshape2 op
-        ofm_shape = [8, 8, 16]
-        reshape2_ofm = create_const_tensor("reshape2_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
-        reshape2_ofm.quantization = quant
-        shape_tens = create_const_tensor("reshape2_shape", [1], DataType.int32, ofm_shape)
-        reshape2_op = testutil.create_op(Op.Reshape, [conv_ofm, shape_tens], reshape2_ofm, set_ifm_ofm_shapes=False)
-        reshape2_op.attrs["new_shape"] = ofm_shape
-        reshape2_op.run_on_npu = True
-        nng = Graph()
-        sg = testutil.create_subgraph([reshape1_op, conv2d_op, reshape2_op])
-        nng.subgraphs.append(sg)
-
-        return nng, reshape1_op, conv2d_op, reshape2_op
-
     # Test1 no Reshape op is expected to remain in the NPU subgrapgh
     # but first one will be put on CPU
     # Network is Reshape-Conv-Reshape
     # Result is Conv
-    nng, reshape1_op, conv2d_op, reshape2_op = setup_network()
+    nng, reshape1_op, conv2d_op, reshape2_op = setup_network(Op.Reshape)
     arch = testutil.create_arch()
     assert verify_graph_health(nng)
     nng = optimise_graph(nng, arch, NetworkType.TFLite)
@@ -387,10 +396,37 @@ def test_remove_reshape():
     # Test2 reshape1 with different quantisation, this Reshape op is expected to remain
     # Network is Reshape-Conv-Reshape
     # expected is Reshape-Conv
-    nng, reshape1_op, conv2d_op, reshape2_op = setup_network()
+    nng, reshape1_op, conv2d_op, reshape2_op = setup_network(Op.Reshape)
     quant_zp32 = testutil.default_quant_params()
     quant_zp32.zero_point = 32
     reshape1_op.ofm.quantization = quant_zp32
+    assert verify_graph_health(nng)
+    nng = optimise_graph(nng, arch, NetworkType.TFLite)
+    assert verify_graph_health(nng)
+
+
+def test_remove_squeeze():
+    """
+    Tests that the expected squeeze are removed in graph_optimisation
+    """
+
+    # Test1 no Squeeze op is expected to remain in the NPU subgrapgh
+    # but first one will be put on CPU
+    # Network is Squeeze-Conv-Squeeze
+    # Result is Conv
+    nng, squeeze1_op, conv2d_op, squeeze2_op = setup_network(Op.Squeeze)
+    arch = testutil.create_arch()
+    assert verify_graph_health(nng)
+    nng = optimise_graph(nng, arch, NetworkType.TFLite)
+    assert verify_graph_health(nng)
+
+    # Test2 squeeze1 with different quantisation, this Squeeze op is expected to remain
+    # Network is Squeeze-Conv-Squeeze
+    # expected is Squeeze-Conv
+    nng, squeeze1_op, conv2d_op, squeeze2_op = setup_network(Op.Squeeze)
+    quant_zp32 = testutil.default_quant_params()
+    quant_zp32.zero_point = 32
+    squeeze1_op.ofm.quantization = quant_zp32
     assert verify_graph_health(nng)
     nng = optimise_graph(nng, arch, NetworkType.TFLite)
     assert verify_graph_health(nng)
