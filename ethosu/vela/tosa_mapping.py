@@ -166,7 +166,7 @@ rescale_attrs = AttrSerializer(
     "RescaleAttribute",
     ("input_zp", "output_zp", ("multiplier", is_vec), ("shift", is_vec), "scale32", "double_round", "per_channel"),
 )
-mul_attrs = AttrSerializer("MulAttribute", ("shift"))
+mul_attrs = AttrSerializer("MulAttribute", ("shift",))
 ars_attrs = AttrSerializer("ArithmeticRightShiftAttribute", ("round",))
 condif_attrs = AttrSerializer("CondIfAttribute", (("then_branch"), ("else_branch")))  # TODO these are references
 while_attrs = AttrSerializer("WhileLoopAttribute", (("cond_branch"), ("body_branch")))  # TODO these are references
@@ -195,7 +195,6 @@ unsupported_tosa_operators = {
     TosaOp.LOGICAL_XOR,
     TosaOp.MAXIMUM,
     TosaOp.MINIMUM,
-    TosaOp.MUL,
     TosaOp.POW,
     TosaOp.TABLE,
     TosaOp.ABS,
@@ -275,7 +274,7 @@ tosa_operator_map = {
     # TODO TosaOp.LOGICAL_XOR
     # TODO TosaOp.MAXIMUM
     # TODO TosaOp.MINIMUM
-    # TODO TosaOp.MUL
+    TosaOp.MUL: (Op.Mul, mul_attrs, None, TOSA_IFM_IFM2_INDICES),
     # TODO TosaOp.POW
     TosaOp.SUB: (Op.Sub, None, None, TOSA_IFM_IFM2_INDICES),
     # TODO TosaOp.TABLE

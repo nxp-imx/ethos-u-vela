@@ -40,12 +40,16 @@ class TosaSupportedOperators:
     mac_main_ops = convolution_like_ops | pooling_ops | fc_vector_products
     memory_only_ops = set((Op.Reshape, Op.Transpose,))
 
+    binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.RescaleMul, Op.Sub,))
+
     type_conversion_ops = set((Op.Rescale,))
     relu_ops = set((Op.Clamp, Op.ReluN,))
     activation_ops = relu_ops
 
     npu_post_ops = activation_ops
-    supported_operators = mac_main_ops | type_conversion_ops | npu_post_ops | memory_only_ops
+    supported_operators = (
+        mac_main_ops | type_conversion_ops | npu_post_ops | memory_only_ops | binary_elem_wise_add_mul_sub
+    )
 
     # Supported data types
     # TODO will differ compared to TensorFlow Lite, currently set to the same

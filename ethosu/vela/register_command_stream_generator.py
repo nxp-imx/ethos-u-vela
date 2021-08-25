@@ -729,7 +729,9 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
             output_scale = 1 / 0x3000
 
         if npu_op.sub_op_type == NpuElementWiseOp.MUL:
-            if None in (input_scale, input2_scale, output_scale):
+            if npu_op.rescale:
+                ofm_scale, shift = npu_op.rescale
+            elif None in (input_scale, input2_scale, output_scale):
                 ofm_scale = 1
                 shift = 0
             else:

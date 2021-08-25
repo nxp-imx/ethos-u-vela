@@ -179,6 +179,11 @@ class TosaSubgraph:
                     # TODO CONV3D more to be done....
                     print("Unsupported kernel dimensions: ", len(kernel))
                     assert False
+            if "shift" in op.attrs and op.type == Op.Mul:
+                shift = op.attrs["shift"]
+                if shift != 0:
+                    op.type = Op.RescaleMul
+                    op.rescale = [1, shift]
             if op.type.is_depthwise_conv2d_op():
                 op.attrs["depth_multiplier"] = op.weights.shape[3]
 
@@ -213,7 +218,6 @@ class TosaSubgraph:
         # Initialize quantization parameters
         tens.quantization = QuantizationParameters()
 
-        tens.quantization.scale_f32 = 1.0
         if dtype == DataType.uint8:
             tens.quantization.quant_min = 0
             tens.quantization.quant_max = (1 << dtype.bits) - 1

@@ -314,7 +314,7 @@ def encode_weight_and_scale_tensor(
     # No cache hit, need to perform the encoding
     if do_weights:
         assert weight_tens.quantization is not None
-        assert weight_tens.quantization.scale_f32 is not None
+        assert weight_tens.quantization.scale_f32 is not None or op.explicit_scaling
         assert weight_tens.quantization.zero_point is not None
 
         # Early zero-point correction

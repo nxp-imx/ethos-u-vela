@@ -86,6 +86,7 @@ dtype_map = {
 # Maps an elementwise op type to an elementwise_mode enum value used by NPU_OP_ELEMENTWISE
 elementwise_op_map = {
     Op.Mul: NpuElementWiseOp.MUL,
+    Op.RescaleMul: NpuElementWiseOp.MUL,
     Op.Add: NpuElementWiseOp.ADD,
     Op.RescaleAdd: NpuElementWiseOp.ADD,
     Op.Sub: NpuElementWiseOp.SUB,
@@ -460,7 +461,7 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
         output_scale = npu_op.ifm.quantization.scale_f32 / npu_op.ofm.quantization.scale_f32
     if op.type == Op.LeakyRelu:
         output_scale = op.attrs["alpha"]
-    if op.type == Op.RescaleAdd:
+    if op.type in (Op.RescaleAdd, Op.RescaleMul):
         assert op.rescale is not None, f"{op.type} must have rescale"
         npu_op.rescale = op.rescale
     if op.type in (Op.Add, Op.Mul, Op.Sub):

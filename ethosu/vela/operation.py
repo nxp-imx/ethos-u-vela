@@ -244,6 +244,7 @@ class Op(Enum):
     ReluN = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
     Rescale = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
     RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
+    RescaleMul = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     Reshape = OperatorInfo(indices=NNG_IFM_INDICES)
     ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
     ResizeNearestNeighbor = OperatorInfo()
