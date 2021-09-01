@@ -212,6 +212,29 @@ def bypass_reshape_and_squeeze_ops(op):
                     cons.set_input_tensor(ifm, ifm_idx)
 
 
+def move_splitsliceread_to_consumer(op, cons_op):
+    assert op.type == Op.SplitSliceRead
+
+    if cons_op.ifm == op.ofm:
+        cons_op.read_offsets[0] = op.read_offsets[0]
+        cons_op.read_shapes[0] = op.read_shapes[0]
+        cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[0])
+        cons_op.ifm_shapes[0] = op.ifm_shapes[0]
+    elif cons_op.type.is_binary_elementwise_op() and cons_op.ifm2 == op.ofm:
+        cons_op.read_offsets[1] = op.read_offsets[0]
+        cons_op.read_shapes[1] = op.read_shapes[0]
+        cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[1])
+        cons_op.ifm_shapes[1] = op.ifm_shapes[0]
+
+    if "skirt" in cons_op.attrs:
+        assert cons_op.attrs["explicit_padding"] == cons_op.attrs["skirt"]
+        cons_op.attrs["skirt"] = None
+        cons_op.attrs["force_padding"] = True
+    op.ofm.consumer_list.remove(cons_op)
+    op.ofm.ops = []
+    op.ifm.consumer_list.remove(op)
+
+
 def check_reshapes(op, arch):
     if op.run_on_npu and op.type == Op.Reshape:
         ofm = op.ofm

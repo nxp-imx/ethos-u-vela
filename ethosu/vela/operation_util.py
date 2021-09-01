@@ -44,6 +44,12 @@ def create_avgpool_nop(name: str) -> Operation:
     return op
 
 
+def create_add_nop(name: str) -> Operation:
+    op = Operation(Op.Add, name)
+    op.run_on_npu = True
+    return op
+
+
 def create_depthwise_maxpool(
     name: str,
     ifm: Tensor,

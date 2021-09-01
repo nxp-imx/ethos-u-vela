@@ -34,6 +34,7 @@ from .graph_optimiser_util import bypass_reshape_and_squeeze_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
 from .graph_optimiser_util import fix_sg_input_output
+from .graph_optimiser_util import move_splitsliceread_to_consumer
 from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
@@ -193,24 +194,7 @@ def remove_SplitSliceRead(op, arch):
         ):
             # SplitSliceRead can be performed by tensor consumer
             cons_op = op.ofm.consumer_list[0]
-            if cons_op.ifm == op.ofm:
-                cons_op.read_offsets[0] = op.read_offsets[0]
-                cons_op.read_shapes[0] = op.read_shapes[0]
-                cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[0])
-                cons_op.ifm_shapes[0] = op.ifm_shapes[0]
-            elif cons_op.type.is_binary_elementwise_op() and cons_op.ifm2 == op.ofm:
-                cons_op.read_offsets[1] = op.read_offsets[0]
-                cons_op.read_shapes[1] = op.read_shapes[0]
-                cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[1])
-                cons_op.ifm_shapes[1] = op.ifm_shapes[0]
-
-            if "skirt" in cons_op.attrs:
-                assert cons_op.attrs["explicit_padding"] == cons_op.attrs["skirt"]
-                cons_op.attrs["skirt"] = None
-                cons_op.attrs["force_padding"] = True
-            op.ofm.consumer_list.remove(cons_op)
-            op.ofm.ops = []
-            op.ifm.consumer_list.remove(op)
+            move_splitsliceread_to_consumer(op, cons_op)
         else:
             avgpool_op = create_avgpool_nop(op.name + "_avgpool")
             avgpool_op.add_input_tensor(op.ifm)

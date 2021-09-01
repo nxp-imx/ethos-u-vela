@@ -154,7 +154,7 @@ transpose_conv2d_attrs = AttrSerializer(
     "TransposeConv2dAttribute", (("outpad", is_vec), ("stride", is_vec), ("dilation", is_vec), ("out_shape", is_vec))
 )
 relun_attrs = AttrSerializer("ReluNAttribute", ("max_int"))
-axis_attrs = AttrSerializer("AxisAttribute", ("axis"))
+axis_attrs = AttrSerializer("AxisAttribute", ("axis",))
 reshape_attrs = AttrSerializer("ReshapeAttribute", (("shape", is_vec),))
 slice_attrs = AttrSerializer("SliceAttribute", (("begin", is_vec), ("size", is_vec)))
 tile_attrs = AttrSerializer("TileAttribute", (("multiplies", is_vec),))
@@ -218,10 +218,8 @@ unsupported_tosa_operators = {
     TosaOp.REDUCE_MIN,
     TosaOp.REDUCE_PRODUCT,
     TosaOp.REDUCE_SUM,
-    TosaOp.CONCAT,
     TosaOp.PAD,
     TosaOp.REVERSE,
-    TosaOp.SLICE,
     TosaOp.TILE,
     TosaOp.GATHER,
     TosaOp.SCATTER,
@@ -241,7 +239,7 @@ TOSA_IFM_WEIGHTS_BIAS_INDICES = TensorIndices([0], [1], [2])
 TOSA_IFM_IFM2_INDICES = TensorIndices([0, 1], [], [])
 # TOSA_CONV2D_BACKPROP_INDICES = TensorIndices([2], [1], [3])
 # TOSA_TRANSPOSE_CONV_INDICES = TensorIndices([0], [1], [3])
-# TOSA_CONCAT_INDICES = TensorIndices([1, 2], [], [])
+TOSA_CONCAT_INDICES = TensorIndices([1, 2], [], [])
 # TOSA_SPLIT_IFM_INDICES = TensorIndices([1], [], [])
 # TOSA_BLOCK_LSTM_INDICES = TensorIndices([3], [4], [])
 
@@ -299,11 +297,11 @@ tosa_operator_map = {
     # TODO TosaOp.REDUCE_MIN
     # TODO TosaOp.REDUCE_PRODUCT
     # TODO TosaOp.REDUCE_SUM
-    # TODO TosaOp.CONCAT
+    TosaOp.CONCAT: (Op.Concat, axis_attrs, None, TOSA_CONCAT_INDICES),
     # TODO TosaOp.PAD
     TosaOp.RESHAPE: (Op.Reshape, reshape_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.REVERSE
-    # TODO TosaOp.SLICE
+    TosaOp.SLICE: (Op.SplitSliceRead, slice_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.TILE
     TosaOp.TRANSPOSE: (Op.Transpose, None, None, TOSA_IFM_IFM2_INDICES),
     # TODO TosaOp.GATHER

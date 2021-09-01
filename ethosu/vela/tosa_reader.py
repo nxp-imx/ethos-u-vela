@@ -29,6 +29,7 @@ from .reader_util import align_tensor_indices_to_nng
 from .reader_util import clone_and_reshape_tensor
 from .reader_util import decode_str
 from .reader_util import fixup_tensors
+from .shape4d import Shape4D
 from .tensor import QuantizationParameters
 from .tensor import shape_num_elements
 from .tensor import Tensor
@@ -186,6 +187,9 @@ class TosaSubgraph:
                     op.rescale = [1, shift]
             if op.type.is_depthwise_conv2d_op():
                 op.attrs["depth_multiplier"] = op.weights.shape[3]
+            if op.type == Op.SplitSliceRead:
+                op.read_offsets[0] = Shape4D.from_list(list(op.attrs["begin"]), 0)
+                op.read_shapes[0] = op.attrs["size"]
 
         elif op.type == Op.Transpose:
             op.attrs["perms"] = perms.values

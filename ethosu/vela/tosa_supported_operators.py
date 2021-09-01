@@ -38,7 +38,7 @@ class TosaSupportedOperators:
     fc_vector_products = set((Op.FullyConnected,))
 
     mac_main_ops = convolution_like_ops | pooling_ops | fc_vector_products
-    memory_only_ops = set((Op.Reshape, Op.Transpose,))
+    memory_only_ops = set((Op.Reshape, Op.Transpose, Op.Concat, Op.SplitSliceRead,))
 
     binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.RescaleMul, Op.Sub,))
 
@@ -53,7 +53,7 @@ class TosaSupportedOperators:
 
     # Supported data types
     # TODO will differ compared to TensorFlow Lite, currently set to the same
-    supported_op_dtypes = set((DataType.uint8, DataType.int8, DataType.int16, DataType.int32))
+    supported_op_dtypes = set((DataType.uint8, DataType.int8, DataType.int16, DataType.int32))  # TODO add bool
 
     def __init__(self):
         # Setup the generic constraints. Note: the order matters
@@ -109,7 +109,7 @@ class TosaSupportedOperators:
         valid = op.ifm.ops and op.ifm.ops[0].type == Op.Const
         return valid, "Op has ifm with non-constant data"
 
-    # TODO duplicates tflite_supported operators, but support for depth multiplier should be added at a later stage
+    # TODO duplicates TFLite_supported operators, but support for depth multiplier should be added at a later stage
     @staticmethod
     def constraint_depth_multiplier(op):
         "For depth multipliers > 1, IFM channels must be 1 and OFM channels must be equal to the depth multiplier"
