@@ -458,3 +458,57 @@ def test_mean_axis():
     assert semantic_checker.is_operator_semantic_valid(op)
     op = create_mean([1, 6, 6, 16], [1, 1, 1, 16], [2, 1], DataType.int8, {"keep_dims": True})
     assert semantic_checker.is_operator_semantic_valid(op)
+
+
+def test_matching_in_out_quant():
+    # quantisation parameters of ifm and ofm should match.
+    quant = testutil.default_quant_params()
+    # create reshape op
+    ifm_shape = [64, 16]
+    ofm_shape = [1, 4, 16, 16]
+    ifm = create_const_tensor("reshape_in", ifm_shape, DataType.uint8, np.zeros(ifm_shape))
+    ifm.quantization = quant
+    ofm = create_const_tensor("reshape_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
+    ofm.quantization = quant.clone()
+    shape_tens = create_const_tensor("shape", [1], DataType.int32, ofm_shape)
+    op = testutil.create_op(Op.Reshape, [ifm, shape_tens], ofm, set_ifm_ofm_shapes=False)
+    op.attrs["new_shape"] = ofm_shape
+
+    # Matching quantisation parameters
+    assert semantic_checker.is_operator_semantic_valid(op)
+
+    # Different zp
+    ofm.quantization.zero_point = 32
+    assert not semantic_checker.is_operator_semantic_valid(op)
+
+    # Different scale
+    ofm.quantization.zero_point = 0
+    ofm.quantization.scale_f32 = 0.9
+    assert not semantic_checker.is_operator_semantic_valid(op)
+
+    # Squeeze op diff quant
+    # create squeeze op
+    ifm_shape = [1, 1, 1, 1001]
+    ofm_shape = [1, 1001]
+    ifm = create_const_tensor("squeeze_in", ifm_shape, DataType.uint8, np.zeros(ifm_shape))
+    ifm.quantization = quant
+    ofm = create_const_tensor("squeeze_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
+    ofm.quantization = quant.clone()
+    ofm.quantization.zero_point = 32
+    op = testutil.create_op(Op.Squeeze, [ifm], ofm, set_ifm_ofm_shapes=False)
+    op.attrs["squeeze_dims"] = [1, 2]
+    assert not semantic_checker.is_operator_semantic_valid(op)
+
+    # ExpandDims diff quant
+    quant = testutil.default_quant_params()
+    # create expand_dims op
+    ifm_shape = [4, 16, 16]
+    ofm_shape = [1, 4, 16, 16]
+    ifm = create_const_tensor("expand_dims_in", ifm_shape, DataType.uint8, np.zeros(ifm_shape))
+    ifm.quantization = quant
+    ofm = create_const_tensor("expand_dims_out", ofm_shape, DataType.uint8, np.zeros(ofm_shape))
+    ofm.quantization = quant.clone()
+    ofm.quantization.zero_point = 32
+    dim = create_const_tensor("expand_dims_dim", [], DataType.uint8, 0)
+    op = testutil.create_op(Op.ExpandDims, [ifm, dim], ofm, set_ifm_ofm_shapes=False)
+    assert not semantic_checker.is_operator_semantic_valid(op)

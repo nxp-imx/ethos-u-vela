@@ -21,7 +21,7 @@ from . import rewrite_graph
 from .api import NpuRoundingMode
 from .data_type import DataType
 from .debug_database import DebugDatabase
-from .graph_optimiser_util import bypass_reshape_and_squeeze_ops
+from .graph_optimiser_util import bypass_memory_only_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
 from .graph_optimiser_util import move_splitsliceread_to_consumer
@@ -294,7 +294,7 @@ def rewrite_concat_ops(op, arch):
 
 def remove_reshapes(op, arch):
     if op.run_on_npu and op.type == Op.Reshape:
-        bypass_reshape_and_squeeze_ops(op)
+        bypass_memory_only_ops(op)
 
 
 def rewrite_activation(op, arch, nng):

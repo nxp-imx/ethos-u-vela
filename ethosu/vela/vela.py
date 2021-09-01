@@ -167,6 +167,10 @@ def print_subgraph_io_summary(nng):
 
 
 def generate_supported_ops():
+    # Exclude network type from generation by adding value to exclude list.
+    # To easily exclude NetworkType from generated documentation.
+    exclude_generation_network_type_value = [NetworkType.TOSA.value]
+
     lines = [
         "# Supported Ops",
         "",
@@ -180,11 +184,17 @@ def generate_supported_ops():
     ]
 
     for network_type in NetworkType:
+        if network_type.value in exclude_generation_network_type_value:
+            continue
+
         lines += [
             f"- [{network_type.name}](#{network_type.name.lower()}-summary-table)",
         ]
 
     for network_type in NetworkType:
+        if network_type.value in exclude_generation_network_type_value:
+            continue
+
         lines += [
             "",
             f"## {network_type.name} Summary Table",

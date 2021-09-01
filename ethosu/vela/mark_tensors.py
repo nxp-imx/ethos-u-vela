@@ -15,6 +15,7 @@
 # limitations under the License.
 # Description:
 # Mark purpose and select formats for Tensors.
+from .graph_optimiser_util import memory_only_ops
 from .operation import CustomType
 from .operation import Op
 from .rewrite_graph import visit_graph_post_order
@@ -72,8 +73,8 @@ def rewrite_mark_tensor_purpose(op, arch):
         else:
             purpose = TensorPurpose.FeatureMap
         mark_purpose(tens, arch, purpose)
-    if op.type == Op.Reshape:
-        # Reshape's input and output point to same data
+    if op.type in memory_only_ops:
+        # Memory only operator input and output point to same data
         op.ofm.mem_area = op.ifm.mem_area
 
     if op.type == Op.Custom and op.attrs.get("custom_type") == CustomType.ExistingNpuOp:

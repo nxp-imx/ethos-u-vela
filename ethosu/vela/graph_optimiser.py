@@ -17,7 +17,7 @@
 # Early optimisation of the network graph, using the rewrite_graph module to do the traversal of the graph.
 from . import rewrite_graph
 from .graph_optimiser_util import check_format_restrictions
-from .graph_optimiser_util import check_reshapes
+from .graph_optimiser_util import check_memory_only_removed
 from .graph_optimiser_util import record_optimised
 from .nn_graph import NetworkType
 from .tflite_graph_optimiser import tflite_optimise_graph
@@ -38,7 +38,7 @@ def optimise_graph(nng, arch, network_type, verbose_graph=False):
     # Post-optimisation operator debug tracing, and checking that no undesired reshapes are left in the graph
     for sg in nng.subgraphs:
         rewrite_graph.visit_graph_post_order(
-            sg.output_tensors, arch, [check_format_restrictions], [check_reshapes, record_optimised]
+            sg.output_tensors, arch, [check_format_restrictions], [check_memory_only_removed, record_optimised]
         )
 
     if verbose_graph:

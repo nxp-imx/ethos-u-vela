@@ -30,10 +30,11 @@ from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
-from .graph_optimiser_util import bypass_reshape_and_squeeze_ops
+from .graph_optimiser_util import bypass_memory_only_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
 from .graph_optimiser_util import fix_sg_input_output
+from .graph_optimiser_util import memory_only_ops
 from .graph_optimiser_util import move_splitsliceread_to_consumer
 from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
@@ -190,7 +191,7 @@ def remove_SplitSliceRead(op, arch):
             len(op.ofm.consumer_list) == 1
             and op.ofm.consumer_list[0] is not None
             and op.ofm.consumer_list[0].run_on_npu
-            and op.ofm.consumer_list[0].type not in (Op.Reshape, Op.Squeeze)
+            and op.ofm.consumer_list[0].type not in memory_only_ops
             and op.ofm_shapes[0] == Shape4D.from_list(op.ofm.shape)
         ):
             # SplitSliceRead can be performed by tensor consumer
@@ -209,27 +210,6 @@ def remove_SplitSliceRead(op, arch):
 
             op.ifm.consumer_list.remove(op)
             DebugDatabase.add_optimised(op, avgpool_op)
-
-
-def insert_copy_op_after_tens(tens):
-    tens_cons_list_copy = tens.consumer_list.copy()
-
-    # Create a avg_pool nop op with ifm as input
-    copy_tens = tens.clone()
-    copy_op = create_avgpool_nop(tens.name + "_avgpool")
-    copy_op.add_input_tensor(tens)
-    copy_op.set_output_tensor(copy_tens)
-    copy_op.set_ifm_ofm_shapes()
-    copy_op.run_on_npu = True
-
-    # Set copy_ifm consumers
-    for tens_cons in tens_cons_list_copy:
-        if tens_cons is not None:
-            for ifm_idx, cons_inp in enumerate(tens_cons.inputs):
-                if cons_inp == tens:
-                    tens_cons.set_input_tensor(copy_tens, ifm_idx)
-
-    DebugDatabase.add_optimised(tens.ops[0], copy_op)
 
 
 def calc_padding_and_skirt(padding_type, kernel, input_shape, explicit_padding):
@@ -985,19 +965,9 @@ def convert_tanh_sigmoid_to_lut(op, arch, nng):
     return op
 
 
-def remove_reshape_and_squeeze_ops(op, arch):
-    if op.run_on_npu and op.type in (Op.Reshape, Op.Squeeze):
-        ofm = op.ofm
-        ifm = op.ifm
-
-        # Check if quantization is the same in the input and output for the reshape ops
-        if not check_quantized_tens_scaling_equal(ifm, ofm):
-            # TODO Both tensors are needed, since quantisation properties currently are linked to Tensors.
-            # In order to remove this reshape either quantization properties need to be moved to Operator,
-            # or the reshape need to be replace with a NOP.
-            return
-
-        bypass_reshape_and_squeeze_ops(op)
+def remove_memory_only_ops(op, arch):
+    if op.run_on_npu and op.type in memory_only_ops:
+        bypass_memory_only_ops(op)
 
 
 def fuse_activation_function_with_prev(op, arch, nng):
@@ -1463,9 +1433,9 @@ def tflite_optimise_graph(nng, arch):
             nng, sg, arch, [], [fix_sg_input_output], rewrite_unsupported=False,
         )
 
-    # Removal of reshapes and squeeze
+    # Removal of memory only operators
     for sg in nng.subgraphs:
-        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [remove_reshape_and_squeeze_ops])
+        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [remove_memory_only_ops])
         sg.refresh_after_modification()
 
     # Rewrite of operators
