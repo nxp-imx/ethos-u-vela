@@ -881,14 +881,14 @@ def convert_lrelu_to_mul_max(op, arch):
     mul_alpha = Operation(Op.Mul, op.name + "_mul_alpha")
     mul_alpha.add_input_tensor(ifm)
     # Create const tensor containing alpha as scalar
-    alpha = op.attrs["alpha"]
+    alpha = np.float32(op.attrs["alpha"])
     quantization = ifm.quantization.clone()
     quantization.min = 0
     quantization.max = alpha * (quantization.quant_max - quantization.quant_min)
     quantization.zero_point = 0
-    if np.isinf(1 / np.float32(alpha)):
+    if np.isinf(1 / alpha):
         # Handling of alpha near zero
-        quantization.scale_f32 = 1
+        quantization.scale_f32 = np.float32(1)
         scalar = 0
     else:
         quantization.scale_f32 = alpha
@@ -914,7 +914,7 @@ def convert_lrelu_to_mul_max(op, arch):
         quantization = ifm.quantization.clone()
         quantization.min = 0
         quantization.max = quantization.quant_max - quantization.quant_min
-        quantization.scale_f32 = 1
+        quantization.scale_f32 = np.float32(1)
         quantization.zero_point = 0
         identity_tens = create_const_tensor(
             op.name + "_id_scalar", [], ifm.dtype, [1], np.uint8, quantization=quantization
