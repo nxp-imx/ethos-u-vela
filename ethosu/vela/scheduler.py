@@ -959,10 +959,12 @@ class Scheduler:
                         and self.arch.permanent_storage_mem_area != self.arch.feature_map_storage_mem_area
                     ) or tens.purpose == TensorPurpose.LUT:
                         if tens.purpose == TensorPurpose.LUT or (
+                            # For elementwise broadcast
                             tens.purpose == TensorPurpose.FeatureMap
                             and sched_op.op_type.is_binary_elementwise_op()
                             and tens.shape != []
                             and sched_op.ifm.shape != sched_op.ofm.shape
+                            and parent_op.write_shape is None
                             and tens.storage_size() > max_ifm_shram_avail
                         ):
                             only_vector_product_consumers = all(
