@@ -896,7 +896,7 @@ builtin_operator_map = {
         ),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.CUSTOM: (Op.Custom, None, TFLITE_NO_INDICES),
+    BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),
 }
 
 builtin_operator_inv_map = {v[0]: (k, v[1], v[2]) for k, v in builtin_operator_map.items()}
