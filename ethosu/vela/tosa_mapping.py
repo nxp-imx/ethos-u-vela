@@ -174,7 +174,7 @@ while_attrs = AttrSerializer("WhileLoopAttribute", (("cond_branch"), ("body_bran
 unary_quant_info = QuantSerializer("UnaryQuantInfo", ("input_zp", "output_zp"))
 conv_quant_info = QuantSerializer("ConvQuantInfo", ("input_zp", "weight_zp"))
 matmul_quant_info = QuantSerializer("MatMulQuantInfo", ("a_zp", "b_zp"))
-pad_quant_info = QuantSerializer("PadQuantInfo", ("input_zp"))
+pad_quant_info = QuantSerializer("PadQuantInfo", ("input_zp",))
 
 unsupported_tosa_operators = {
     TosaOp.UNKNOWN,
@@ -218,7 +218,6 @@ unsupported_tosa_operators = {
     TosaOp.REDUCE_MIN,
     TosaOp.REDUCE_PRODUCT,
     TosaOp.REDUCE_SUM,
-    TosaOp.PAD,
     TosaOp.REVERSE,
     TosaOp.TILE,
     TosaOp.GATHER,
@@ -298,12 +297,19 @@ tosa_operator_map = {
     # TODO TosaOp.REDUCE_PRODUCT
     # TODO TosaOp.REDUCE_SUM
     TosaOp.CONCAT: (Op.Concat, axis_attrs, None, TOSA_CONCAT_INDICES),
-    # TODO TosaOp.PAD
+    # TODO Is the padding intended to be dynamic input, TOSA spec state it as attribute
+    # Handled as for TFLite for now
+    TosaOp.PAD: (Op.Pad, None, pad_quant_info, TOSA_IFM_INDICES),
     TosaOp.RESHAPE: (Op.Reshape, reshape_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.REVERSE
     TosaOp.SLICE: (Op.SplitSliceRead, slice_attrs, None, TOSA_IFM_INDICES),
     # TODO TosaOp.TILE
-    TosaOp.TRANSPOSE: (Op.Transpose, None, None, TOSA_IFM_IFM2_INDICES),
+    TosaOp.TRANSPOSE: (
+        Op.Transpose,
+        None,
+        None,
+        TOSA_IFM_IFM2_INDICES,
+    ),  # TODO Is the perms intended to be dynamic input, TOSA spec state it as attribute
     # TODO TosaOp.GATHER
     # TODO TosaOp.SCATTER
     # TODO TosaOp.RESIZE

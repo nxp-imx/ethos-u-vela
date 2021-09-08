@@ -39,16 +39,15 @@ class TosaSupportedOperators:
 
     mac_main_ops = convolution_like_ops | pooling_ops | fc_vector_products
     memory_only_ops = set((Op.Reshape, Op.Transpose, Op.Concat, Op.SplitSliceRead,))
-
     binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.RescaleMul, Op.Sub,))
-
     type_conversion_ops = set((Op.Rescale,))
     relu_ops = set((Op.Clamp, Op.ReluN,))
     activation_ops = relu_ops
+    pad_ops = set((Op.Pad,))
 
     npu_post_ops = activation_ops
     supported_operators = (
-        mac_main_ops | type_conversion_ops | npu_post_ops | memory_only_ops | binary_elem_wise_add_mul_sub
+        mac_main_ops | type_conversion_ops | npu_post_ops | memory_only_ops | binary_elem_wise_add_mul_sub | pad_ops
     )
 
     # Supported data types
@@ -60,12 +59,15 @@ class TosaSupportedOperators:
         # Setup the generic constraints. Note: the order matters
         self.generic_constraints = []
         self.generic_constraints.append(TosaSupportedOperators.constraint_tens_dtype)
-        self.generic_constraints.append(TosaSupportedOperators.constraint_tens_dimension)
+        self.generic_constraints.append(TosaSupportedOperators.constraint_tens_dimension)  # TODO as not supported yet
+        self.generic_constraints.append(TosaSupportedOperators.constraint_rank)  # TODO as not supported yet
+        self.generic_constraints.append(TosaSupportedOperators.constraint_batch)  # TODO as not supported yet
 
         # Setup specific constraints. Note: the order matters
         self.specific_constraints = defaultdict(list)
 
         self.specific_constraints[Op.Transpose].append(TosaSupportedOperators.constraint_ifm_producer)
+        self.specific_constraints[Op.Pad].append(TosaSupportedOperators.constraint_padding_producer)
 
         # Depthwise Conv specific checks:
         for op_type in TosaSupportedOperators.depthwise_convolution_ops:
@@ -127,6 +129,38 @@ class TosaSupportedOperators:
                 extra.append(f"Tensor '{tens.name}' has shape: {tens.shape}")
         return valid, ", ".join(extra)
 
+    # TODO This is for a HW limitation, that is to be resolved in SW later on
+    @staticmethod
+    def constraint_rank(op):
+        "Tensor rank must be <= 4"
+        valid = True
+        extra = []
+        tensors = [tens for tens in op.get_ifm_ifm2_weights_ofm() if tens]
+        if not tensors:
+            tensors = [tens for tens in op.inputs if tens]
+        for tens in tensors:
+            rank = len(tens.shape)
+            if not rank <= 4:
+                valid = False
+                extra.append(f"Tensor '{tens.name}' has rank: {rank}")
+        return valid, ", ".join(extra)
+
+    # TODO This is for a HW limitation, that is to be resolved in SW later on
+    @staticmethod
+    def constraint_batch(op):
+        "If Tensor rank is 4 batch of ifms/ofm must be 1"
+        valid = True
+        extra = []
+        tensors = [tens for tens in op.get_ifm_ifm2_ofm() if tens]
+        if not tensors:
+            tensors = [tens for tens in op.inputs if tens]
+        for tens in tensors:
+            rank = len(tens.shape)
+            if rank == 4 and tens.shape[0] != 1:
+                valid = False
+                extra.append(f"Tensor '{tens.name}' has rank: 4 and N: {tens.shape[0]}")
+        return valid, ", ".join(extra)
+
     @staticmethod
     def constraint_ifm_producer(cls, op):
         "Input must be constant data"
@@ -142,6 +176,14 @@ class TosaSupportedOperators:
         valid = top == 0 and left == 0
 
         return valid, "Avgpool with pad_top {top} and pad_left {left}"
+
+    # TODO limit padding to be const data for now.
+    # For TFLite it is assumed to be constant.
+    @staticmethod
+    def constraint_padding_producer(op):
+        "Input must be constant data"
+        valid = op.inputs[1].ops and op.inputs[1].ops[0].type == Op.Const
+        return valid, "PAD Op with non-constant data padding"
 
     # TODO duplicates tflite_supported operators, but support for depth multiplier should be added at a later stage
     @staticmethod

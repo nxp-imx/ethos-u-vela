@@ -113,7 +113,7 @@ class TosaSubgraph:
         # Moving permutation to an attribute, to match internal graph representation for now
         perms = None
         if op_code == TosaOp.TRANSPOSE:
-            perms = perms = inputs.pop(1)
+            perms = inputs.pop(1)
             indices = TOSA_IFM_INDICES
 
         name = "unknown_op_name"

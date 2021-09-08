@@ -592,6 +592,9 @@ class Operation:
     def get_ifm_ifm2_weights_ofm(self):
         return self.ifm, self.ifm2, self.weights, self.ofm
 
+    def get_ifm_ifm2_ofm(self):
+        return self.ifm, self.ifm2, self.ofm
+
     def get_ifm_weights_biases_ofm(self):
         return self.ifm, self.weights, self.bias, self.ofm
 
