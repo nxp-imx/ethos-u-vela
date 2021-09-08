@@ -285,7 +285,7 @@ class Op(Enum):
     Tanh = OperatorInfo(indices=NNG_IFM_INDICES)
     Tile = OperatorInfo()
     TopKV2 = OperatorInfo()
-    Transpose = OperatorInfo(indices=NNG_IFM_INDICES)
+    Transpose = OperatorInfo(indices=NNG_IFM_IFM2_INDICES)
     UnidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     UnidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     Unique = OperatorInfo()

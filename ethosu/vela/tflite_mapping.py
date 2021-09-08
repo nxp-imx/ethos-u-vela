@@ -650,7 +650,7 @@ builtin_operator_map = {
         OptionsSerializer("SpaceToBatchNDOptions"),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.TRANSPOSE: (Op.Transpose, OptionsSerializer("TransposeOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.TRANSPOSE: (Op.Transpose, OptionsSerializer("TransposeOptions"), TFLITE_IFM_IFM2_INDICES),
     BuiltinOperator.MEAN: (Op.Mean, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_IFM_INDICES),
     BuiltinOperator.SUB: (
         Op.Sub,
@@ -685,7 +685,7 @@ builtin_operator_map = {
         ),
         TFLITE_IFM_WEIGHTS_INDICES,
     ),
-    BuiltinOperator.EXP: (Op.Exp, OptionsSerializer("ExpOptions"), TFLITE_IFM_INDICES),
+    BuiltinOperator.EXP: (Op.Exp, OptionsSerializer("ExpOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.TOPK_V2: (Op.TopKV2, OptionsSerializer("TopKV2Options"), TFLITE_NO_INDICES),
     BuiltinOperator.SPLIT: (Op.Split, OptionsSerializer("SplitOptions", ("num_splits",)), TFLITE_SPLIT_IFM_INDICES),
     BuiltinOperator.LOG_SOFTMAX: (Op.LogSoftmax, OptionsSerializer("LogSoftmaxOptions"), TFLITE_NO_INDICES),
