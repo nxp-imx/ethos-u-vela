@@ -29,7 +29,6 @@ from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
 from .operation import ExplicitScaling
-from .operation import NpuBlockType
 from .operation import Op
 from .operation_util import create_add_nop
 from .operation_util import create_avgpool_nop
@@ -303,20 +302,6 @@ def rewrite_activation(op, arch, nng):
         return op
 
     ifm = op.ifm
-    prev_op = ifm.ops[0]
-
-    # Note: the below checks on prev_op require that a first optimize pass on the full graph has been performed
-    fuseable = (
-        prev_op.run_on_npu
-        and prev_op.type.npu_block_type != NpuBlockType.Default
-        and len(ifm.ops) == 1
-        and len(prev_op.outputs[0].consumers()) == 1
-        and prev_op.activation is None
-    )
-    if not fuseable:
-        print("Warning: relu like op will not be possible to fuse, currently not supported")
-        assert False
-
     zp = ifm.quantization.zero_point if ifm.quantization.zero_point else 0
     if op.ofm.quantization.zero_point is None:
         op.ofm.quantization.zero_point = zp
@@ -326,9 +311,6 @@ def rewrite_activation(op, arch, nng):
         op.attrs["max"] = op.attrs["max_int"] - zp
     elif op.type == Op.ReluN:
         op.attrs["max"] = op.attrs["max_int"] - zp
-    else:
-        print("Warning: Unknown TOSA activation Op")
-        assert False
 
     return op
 
