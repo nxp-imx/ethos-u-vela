@@ -42,6 +42,7 @@ from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
 from .operation import create_activation_function
+from .operation import ExplicitScaling
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
@@ -628,6 +629,10 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             relu_fused_op = create_avgpool_nop(op.name + "_avgpool")
             # And fuse the original activation function to it
             relu_fused_op.activation = create_activation_function(op.type)
+            # Add explicit rescaling
+            rescale = ifm.quantization.scale_f32 / ofm.quantization.scale_f32
+            multiplier, shift = scaling.quantise_scale(rescale)
+            relu_fused_op.rescale = ExplicitScaling(False, [shift], [multiplier])
             # Tidy up and assign the ifm and ofm to the new op
             ifm.consumer_list.remove(op)
 
