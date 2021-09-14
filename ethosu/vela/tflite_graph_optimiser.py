@@ -22,7 +22,6 @@ import uuid
 import numpy as np
 
 from . import fp_math
-from . import lut
 from . import rewrite_graph
 from . import scaling
 from .api import NpuRoundingMode
@@ -33,6 +32,7 @@ from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .graph_optimiser_util import bypass_memory_only_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
+from .graph_optimiser_util import convert_to_lut
 from .graph_optimiser_util import fix_sg_input_output
 from .graph_optimiser_util import memory_only_ops
 from .graph_optimiser_util import move_splitsliceread_to_consumer
@@ -855,34 +855,6 @@ def convert_lrelu_to_mul_max(op, arch):
     op.set_ifm_ofm_shapes()
 
     DebugDatabase.add_optimised(op, op)
-    return op
-
-
-def convert_to_lut(op, lut_values, lut_name):
-    # Rewrite the operation by Add with scalar 0 + LUT activation
-    ifm = op.inputs[0]
-    if ifm is None:
-        return op
-    assert ifm.dtype.size_in_bytes() == 1
-    op.type = Op.Add
-    op.name = op.name + "_lut_" + lut_name
-    # Mark as no-op to enable potential fusing optimizations
-    op.attrs["is_nop"] = True
-    # Create an input tensor containing scalar zero
-    quantization = QuantizationParameters(0.0, 255.0)
-    quantization.scale_f32 = ifm.quantization.scale_f32
-    quantization.zero_point = 0
-    tens = create_const_tensor(op.inputs[0].name + "_scalar0", [], ifm.dtype, [0], np.uint8, quantization=quantization)
-    op.add_input_tensor(tens)
-    op.ifm_shapes.append(Shape4D(tens.shape))
-
-    # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
-    # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
-    # should be the same as the IFM
-    op.forced_output_quantization = ifm.quantization
-    lut_tensor = lut.create_lut_tensor(op.name + "_values", lut_values, DataType.int8)
-    op.set_activation_lut(lut_tensor)
-    op.set_ifm_ofm_shapes()
     return op
 
 

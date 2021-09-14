@@ -42,7 +42,7 @@ class TosaSupportedOperators:
     binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.RescaleMul, Op.Sub,))
     type_conversion_ops = set((Op.Rescale,))
     relu_ops = set((Op.Clamp, Op.ReluN,))
-    activation_ops = relu_ops
+    activation_ops = relu_ops | set((Op.Table,))
     pad_ops = set((Op.Pad,))
 
     npu_post_ops = activation_ops
@@ -68,6 +68,8 @@ class TosaSupportedOperators:
 
         self.specific_constraints[Op.Transpose].append(TosaSupportedOperators.constraint_ifm_producer)
         self.specific_constraints[Op.Pad].append(TosaSupportedOperators.constraint_padding_producer)
+        self.specific_constraints[Op.Table].append(TosaSupportedOperators.constraint_table_dtype)
+        self.specific_constraints[Op.Table].append(TosaSupportedOperators.constraint_table_producer)
 
         # Depthwise Conv specific checks:
         for op_type in TosaSupportedOperators.depthwise_convolution_ops:
@@ -200,3 +202,23 @@ class TosaSupportedOperators:
             )
             return valid, extra
         return True, "Op has depth_multiplier=1"
+
+    # TODO Table operator support limited to int8 for now.
+    # For TFLite it is assumed to be constant.
+    @staticmethod
+    def constraint_table_dtype(op):
+        "Only supported is int8"
+        valid = True
+        tensors = [op.ifm, op.ofm, op.inputs[1]]
+        for tens in tensors:
+            if tens.dtype != DataType.int8:
+                valid = False
+        return valid, "Table operator with non int8 tensor"
+
+    # TODO limit table to be constant data for now.
+    # Can it be non-constant?
+    @staticmethod
+    def constraint_table_producer(op):
+        "Input must be constant data"
+        valid = op.inputs[1].ops and op.inputs[1].ops[0].type == Op.Const
+        return valid, "Table Op with non-constant table input"

@@ -196,7 +196,6 @@ unsupported_tosa_operators = {
     TosaOp.MAXIMUM,
     TosaOp.MINIMUM,
     TosaOp.POW,
-    TosaOp.TABLE,
     TosaOp.ABS,
     TosaOp.BITWISE_NOT,
     TosaOp.CEIL,
@@ -274,7 +273,8 @@ tosa_operator_map = {
     TosaOp.MUL: (Op.Mul, mul_attrs, None, TOSA_IFM_IFM2_INDICES),
     # TODO TosaOp.POW
     TosaOp.SUB: (Op.Sub, None, None, TOSA_IFM_IFM2_INDICES),
-    # TODO TosaOp.TABLE
+    # TODO is table content in input[1] always constant?
+    TosaOp.TABLE: (Op.Table, None, None, TOSA_IFM_INDICES),
     # TODO TosaOp.ABS
     # TODO TosaOp.BITWISE_NOT
     # TODO TosaOp.CEIL

@@ -24,6 +24,7 @@ from .debug_database import DebugDatabase
 from .graph_optimiser_util import bypass_memory_only_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
+from .graph_optimiser_util import convert_to_lut
 from .graph_optimiser_util import move_splitsliceread_to_consumer
 from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
@@ -490,13 +491,26 @@ def convert_pad(op, arch, nng):
     return add_op
 
 
+def convert_table_to_lut(op, arch, nng):
+    # Converts table op to a no-op + LUT
+    if op.type is not Op.Table:
+        return op
+
+    table = op.inputs[1]
+    op.inputs.remove(table)
+    op.set_ifm_ofm_shapes()
+
+    return convert_to_lut(op, table.values, "table")
+
+
 def fixup_quantization(op, arch, nng):
     if op.ifm and op.ifm.quantization.zero_point is None:
         op.ifm.quantization.zero_point = 0
     if op.ifm2 and op.ifm2.quantization.zero_point is None:
-        op.ifm.quantization.zero_point = 0
-    if op.ofm and op.ofm.quantization.zero_point is None:
-        op.ofm.quantization.zero_point = 0
+        op.ifm2.quantization.zero_point = 0
+    if not op.forced_output_quantization:
+        if op.ofm and op.ofm.quantization and op.ofm.quantization.zero_point is None:
+            op.ofm.quantization.zero_point = 0
     return op
 
 
@@ -547,7 +561,7 @@ def tosa_optimise_graph(nng, arch):
         )
 
     # Rewite Operators step
-    op_rewrite_list = [set_tensor_equivalence, rewrite_rescale, convert_depthwise_to_conv]
+    op_rewrite_list = [set_tensor_equivalence, rewrite_rescale, convert_depthwise_to_conv, convert_table_to_lut]
 
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(

@@ -281,6 +281,7 @@ class Op(Enum):
     SubgraphInput = OperatorInfo()  # Only used in CPU subgraphs
     Sum = OperatorInfo()
     Svdf = OperatorInfo()
+    Table = OperatorInfo(indices=NNG_IFM_INDICES)
     Tanh = OperatorInfo(indices=NNG_IFM_INDICES)
     Tile = OperatorInfo()
     TopKV2 = OperatorInfo()
