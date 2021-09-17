@@ -51,6 +51,7 @@ from .high_level_command_stream import Box
 from .high_level_command_stream import Command
 from .high_level_command_stream import DMA
 from .high_level_command_stream import NpuStripe
+from .numeric_util import quantise_float32
 from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
@@ -210,7 +211,11 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
     fused_quantize = any(op.type == Op.Quantize for op in ps.ops)
     forced_ofm_quantization = ps.primary_op.forced_output_quantization
     use_0 = (
-        (ps.primary_op.activation is None or forced_ofm_quantization is not None)
+        (
+            ps.primary_op.activation is None
+            or forced_ofm_quantization is not None
+            or (ps.primary_op.type.is_avgpool_op() and ps.primary_op.activation.op_type.is_relu_op())
+        )
         and (ps.primary_op.memory_function != Op.ConcatSliceWrite)
         and not fused_quantize
     )
@@ -342,6 +347,15 @@ def create_npu_activation(op: Operation) -> NpuActivation:
     act = NpuActivation(act_op)
     act.min = op.activation.min
     act.max = op.activation.max
+    if act_op is NpuActivationOp.NONE_OR_RELU and op.type.is_avgpool_op():
+        quant = op.ofm.quantization
+        if quant and quant.zero_point:  # Zero point is not 0
+            scale_f32 = 1 if quant.scale_f32 is None else quant.scale_f32
+            zero_point = quant.zero_point
+            if act.min is not None:
+                act.min = scale_f32 * quantise_float32(act.min, scale_f32, zero_point)
+            if act.max is not None:
+                act.max = scale_f32 * quantise_float32(act.max, scale_f32, zero_point)
     act.lookup_table_index = op.activation.lut_index
     return act
 
