@@ -632,7 +632,7 @@ class Tensor:
         self, coord: Optional[Shape] = None, shape4D: Optional[Shape4D] = None
     ) -> Tuple[Optional[Shape], Optional[Shape]]:
         if coord is None:
-            coord = [0] * len(self.storage_shape)
+            coord = [0] * min(len(self.storage_shape), 4)
 
         if shape4D and self.is_standard_fm:
             augmented_shape = self.get_4D_storage_shape_for_shape(shape4D).as_list()

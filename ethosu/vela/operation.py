@@ -545,6 +545,7 @@ class Operation:
         res.rounding_mode = self.rounding_mode
         res.explicit_scaling = self.explicit_scaling
         res.low_precision_scaling = self.low_precision_scaling
+        res.rescale = self.rescale
 
         return res
 

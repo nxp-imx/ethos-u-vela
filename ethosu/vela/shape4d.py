@@ -136,6 +136,9 @@ class Shape4D(namedtuple("Shape4D", ["batch", "height", "width", "depth"])):
     def elements(self):
         return self.batch * self.width * self.height * self.depth
 
+    def dot_prod(self, rhs):
+        return self.batch * rhs.batch + self.width * rhs.width + self.height * rhs.height + self.depth * rhs.depth
+
     def elements_wh(self):
         return self.width * self.height
 
