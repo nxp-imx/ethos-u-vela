@@ -117,18 +117,19 @@ class TosaSupportedOperators:
     # This is for a HW limitation, that is to be resolved in SW later on
     @classmethod
     @docstring_format_args(tens_dim_range)
-    def constraint_tens_dimension(cls, op):
-        "Tensor dimensions must be in the range [{}, {}]"
-        tens_min, tens_max = cls.tens_dim_range
+    def constraint_tens_dimension(self, op):
+        "Tensor dimensions must be in the range [{}, {}], if not elementwise"
+        tens_min, tens_max = self.tens_dim_range
         valid = True
         extra = []
-        tensors = [tens for tens in op.get_ifm_ifm2_weights_ofm() if tens]
-        if not tensors:
-            tensors = [tens for tens in op.inputs if tens]
-        for tens in tensors:
-            if not all(tens_min <= dim <= tens_max for dim in tens.shape):
-                valid = False
-                extra.append(f"Tensor '{tens.name}' has shape: {tens.shape}")
+        if op.type not in self.binary_elem_wise_add_mul_sub:
+            tensors = [tens for tens in op.get_ifm_ifm2_weights_ofm() if tens]
+            if not tensors:
+                tensors = [tens for tens in op.inputs if tens]
+            for tens in tensors:
+                if not all(tens_min <= dim <= tens_max for dim in tens.shape):
+                    valid = False
+                    extra.append(f"Tensor '{tens.name}' has shape: {tens.shape}")
         return valid, ", ".join(extra)
 
     # TODO This is for a HW limitation, that is to be resolved in SW later on

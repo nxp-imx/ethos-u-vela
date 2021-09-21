@@ -111,6 +111,9 @@ class Shape4D(namedtuple("Shape4D", ["batch", "height", "width", "depth"])):
     def __sub__(self, rhs):
         return Shape4D(self.batch - rhs.batch, self.height - rhs.height, self.width - rhs.width, self.depth - rhs.depth)
 
+    def floordiv_const(self, const):
+        return Shape4D(self.batch // const, self.height // const, self.width // const, self.depth // const)
+
     def __floordiv__(self, rhs):
         return Shape4D(
             self.batch // rhs.batch, self.height // rhs.height, self.width // rhs.width, self.depth // rhs.depth
