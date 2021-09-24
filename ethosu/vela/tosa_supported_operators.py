@@ -46,10 +46,10 @@ class TosaSupportedOperators:
     activation_ops = relu_ops | set((Op.Table,))
     pad_ops = set((Op.Pad,))
 
-    rank_unlimited_ops = set((Op.Concat,))
+    rank_unlimited_ops = set((Op.Concat, Op.Reshape))
     rank6_limited_ops = elem_wise_ops
-    batch_enabled_ops = elem_wise_ops | set((Op.Concat,))
-    large_tens_dims_enabled_ops = elem_wise_ops | set((Op.Concat,))
+    batch_enabled_ops = rank6_limited_ops | rank_unlimited_ops
+    large_tens_dims_enabled_ops = batch_enabled_ops | set((Op.SplitSliceRead,))
     npu_post_ops = activation_ops
 
     supported_operators = mac_main_ops | type_conversion_ops | npu_post_ops | memory_only_ops | elem_wise_ops | pad_ops
@@ -63,11 +63,9 @@ class TosaSupportedOperators:
         # Setup the generic constraints. Note: the order matters
         self.generic_constraints = []
         self.generic_constraints.append(TosaSupportedOperators.constraint_tens_dtype)
-        self.generic_constraints.append(TosaSupportedOperators.constraint_tens_dimension)  # TODO as not supported yet
-        self.generic_constraints.append(TosaSupportedOperators.constraint_rank)  # TODO as not supported for all ops yet
-        self.generic_constraints.append(
-            TosaSupportedOperators.constraint_batch
-        )  # TODO as not supported for all ops yet
+        self.generic_constraints.append(TosaSupportedOperators.constraint_tens_dimension)  # TODO not supported yet
+        self.generic_constraints.append(TosaSupportedOperators.constraint_rank)  # TODO not supported for all ops yet
+        self.generic_constraints.append(TosaSupportedOperators.constraint_batch)  # TODO not supported for all ops yet
 
         # Setup specific constraints. Note: the order matters
         self.specific_constraints = defaultdict(list)
@@ -156,7 +154,10 @@ class TosaSupportedOperators:
                 rank = len(tens.shape)
                 if not rank <= rank_limit:
                     valid = False
-                    extra.append(f"Tensor '{tens.name}' has rank: {rank}")
+                    extra.append(
+                        f"Tensor '{tens.name}' has rank: {rank}, rank limit is currently {rank_limit}"
+                        f" for op of type {op.type}"
+                    )
         return valid, ", ".join(extra)
 
     # TODO This is for a HW limitation, that is to be resolved in SW later on
