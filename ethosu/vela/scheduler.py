@@ -32,7 +32,6 @@ from . import weight_compressor
 from .architecture_allocator import ArchitectureBlockConfig
 from .architecture_allocator import find_block_config
 from .architecture_allocator import get_ifm_area_required
-from .architecture_allocator import to_upscale
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .cascade_builder import CascadeBuilder
@@ -269,7 +268,7 @@ class SchedulerOperation:
         """Returns the amount of IFM required to produce the stripe with shape:'stripe_shape'"""
         ofm_shape_to_produce = Block.from_shape(stripe_shape.as_list())
 
-        return get_ifm_area_required(ofm_shape_to_produce, self.kernel, to_upscale(self.resampling_mode))
+        return get_ifm_area_required(ofm_shape_to_produce, self.kernel, self.resampling_mode)
 
     def _calculate_min_stripe_input(self) -> Shape4D:
         # Calculate the input volume required height and width for the smallest possible stripe (h,w = 1,1)

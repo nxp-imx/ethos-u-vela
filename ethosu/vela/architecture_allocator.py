@@ -157,6 +157,10 @@ def _acc_type(npu_op_type: NpuBlockType, ifm_bits: int, scaled: bool) -> int:
     return acc_type
 
 
+def is_nearest(ifm_resampling: resampling_mode) -> bool:
+    return ifm_resampling == resampling_mode.NEAREST
+
+
 def to_upscale(ifm_resampling: resampling_mode) -> int:
     # Upscaling depending on resampling mode
     return 1 if ifm_resampling == resampling_mode.NONE else 2
@@ -170,26 +174,32 @@ def _ifm_blockdepth(arch, ifm_shape: Shape4D, ifm_bits: int, is_partkernel: bool
     return ifm_blockdepth
 
 
-def _required_size(value: int, stride: int, border: int, upscale: int) -> int:
-    return int(math.ceil(((value - 1) * stride + border) / upscale))
+def _required_size(value: int, stride: int, border: int, upscale: int, nearest: bool) -> int:
+    return int(math.ceil(((value - 1) * stride + border + nearest) / upscale))
 
 
-def get_ifm_area_required(ofm_shape: Shape4D, kernel: Kernel, upscale: int) -> Tuple[int, int]:
-    h1 = _required_size(ofm_shape.height, kernel.stride.y, kernel.area_height(), upscale)
-    w1 = _required_size(ofm_shape.width, kernel.stride.x, kernel.area_width(), upscale)
+def get_ifm_area_required(ofm_shape: Shape4D, kernel: Kernel, resampling_mode: resampling_mode) -> Tuple[int, int]:
+    upscale = to_upscale(resampling_mode)
+    nearest = is_nearest(resampling_mode)
+    h1 = _required_size(ofm_shape.height, kernel.stride.y, kernel.area_height(), upscale, nearest)
+    w1 = _required_size(ofm_shape.width, kernel.stride.x, kernel.area_width(), upscale, nearest)
     return (w1, h1)
 
 
 def _get_ifm_blocksize(
-    ofm_block: Shape4D, kernel: Kernel, ublock: Block, subkernel_limit: Block, upscale: int
+    ofm_block: Shape4D, kernel: Kernel, ublock: Block, subkernel_limit: Block, upscale: int, nearest: bool
 ) -> Shape4D:
     # IFM block height
-    h1 = _required_size(ofm_block.height, kernel.stride.y, min(kernel.area_height(), subkernel_limit.height), upscale)
+    h1 = _required_size(
+        ofm_block.height, kernel.stride.y, min(kernel.area_height(), subkernel_limit.height), upscale, nearest
+    )
     h2 = h1
     height = round_up(min(h1, h2), ublock.height)
 
     # IFM block width
-    w1 = _required_size(ofm_block.width, kernel.stride.x, min(kernel.area_width(), subkernel_limit.width), upscale)
+    w1 = _required_size(
+        ofm_block.width, kernel.stride.x, min(kernel.area_width(), subkernel_limit.width), upscale, nearest
+    )
     w2 = w1
     width = round_up(min(w1, w2), ublock.width)
 
@@ -248,6 +258,7 @@ def find_block_config(
         ifm_granule = arch.ifm_bank_granules[ifm_bits]
     lut_banks = max(lut_banks, arch.shram.reserved_end_banks)
     upscale = to_upscale(ifm_resampling)
+    nearest = is_nearest(ifm_resampling)
 
     # Subkernel repeats of the IFM
     ifm_repeats = round_up_divide(kernel.area_width(), arch.SubKernelMax.width) * round_up_divide(
@@ -279,7 +290,7 @@ def find_block_config(
 
                 # Calculate the IFM block dimensions required to feed this OFM block
                 ofm_block = Shape4D(1, height, width, depth)
-                ifm_block = _get_ifm_blocksize(ofm_block, kernel, arch.ofm_ublock, arch.SubKernelMax, upscale)
+                ifm_block = _get_ifm_blocksize(ofm_block, kernel, arch.ofm_ublock, arch.SubKernelMax, upscale, nearest)
                 if not is_equal_depth_op:
                     ifm_block = ifm_block.with_depth(ifm_blockdepth)
 
@@ -396,8 +407,9 @@ def try_block_config(
         ifm_granule = arch.ifm_bank_granules[ifm_bits]
     lut_banks = max(lut_banks, arch.shram.reserved_end_banks)
     upscale = to_upscale(ifm_resampling)
+    nearest = is_nearest(ifm_resampling)
     ifm_blockdepth = _ifm_blockdepth(arch, ifm_shape, ifm_bits, is_partkernel)
-    ifm_block = _get_ifm_blocksize(block_config, kernel, arch.ofm_ublock, arch.SubKernelMax, upscale)
+    ifm_block = _get_ifm_blocksize(block_config, kernel, arch.ofm_ublock, arch.SubKernelMax, upscale, nearest)
     if not is_equal_depth_op:
         ifm_block = ifm_block.with_depth(ifm_blockdepth)
 
