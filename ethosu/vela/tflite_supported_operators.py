@@ -204,6 +204,7 @@ class TFLiteSupportedOperators:
         self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_pad_type)
 
         # Mean specific checks:
+        self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_batch_size)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product_avgpool)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product_int8)
