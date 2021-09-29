@@ -978,7 +978,10 @@ class Scheduler:
 
                                 new_tens.consumer_list.append(parent_op)
                                 parent_op.inputs[idx] = new_tens
-                                sched_op.parent_ps.inputs[idx] = new_tens
+                                # If the index is out of range, IFM and IFM2 are the same tensor
+                                # and pass inputs don't have duplicates
+                                if idx < len(sched_op.parent_ps.inputs):
+                                    sched_op.parent_ps.inputs[idx] = new_tens
 
     def print_schedule(self, schedule: Schedule):
         print(f"Schedule: '{schedule.name}'")
