@@ -35,6 +35,7 @@ memory_only_ops = (
     Op.QuantizedReshape,
     Op.Squeeze,
     Op.ExpandDims,
+    Op.Identity,
 )
 
 

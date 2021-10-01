@@ -46,13 +46,21 @@ class TosaSupportedOperators:
     activation_ops = relu_ops | set((Op.Table,))
     pad_ops = set((Op.Pad,))
 
-    rank_unlimited_ops = set((Op.Concat, Op.Reshape))
+    rank_unlimited_ops = set((Op.Concat, Op.Reshape, Op.Identity))
     rank6_limited_ops = elem_wise_ops
     batch_enabled_ops = rank6_limited_ops | rank_unlimited_ops
     large_tens_dims_enabled_ops = batch_enabled_ops | set((Op.SplitSliceRead,))
     npu_post_ops = activation_ops
 
-    supported_operators = mac_main_ops | type_conversion_ops | npu_post_ops | memory_only_ops | elem_wise_ops | pad_ops
+    supported_operators = (
+        mac_main_ops
+        | type_conversion_ops
+        | npu_post_ops
+        | memory_only_ops
+        | elem_wise_ops
+        | pad_ops
+        | set((Op.Identity,))
+    )
 
     # Supported data types
     # TODO will differ compared to TensorFlow Lite, currently set to the same

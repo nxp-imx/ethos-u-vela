@@ -223,7 +223,6 @@ unsupported_tosa_operators = {
     TosaOp.SCATTER,
     TosaOp.RESIZE,
     TosaOp.CAST,
-    TosaOp.IDENTITY,
     TosaOp.CUSTOM,
     TosaOp.COND_IF,
     TosaOp.WHILE_LOOP,
@@ -316,7 +315,7 @@ tosa_operator_map = {
     # TODO TosaOp.CAST
     TosaOp.RESCALE: (Op.Rescale, rescale_attrs, None, TOSA_IFM_INDICES),
     TosaOp.CONST: (Op.Const, None, None, TOSA_NO_INDICES),
-    # TODO TosaOp.IDENTITY
+    TosaOp.IDENTITY: (Op.Identity, None, None, TOSA_IFM_INDICES),
     # TODO TosaOp.CUSTOM
     # TODO TosaOp.COND_IF
     # TODO TosaOp.WHILE_LOOP

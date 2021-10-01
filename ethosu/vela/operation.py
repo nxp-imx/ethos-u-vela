@@ -189,7 +189,7 @@ class Op(Enum):
     GreaterEqual = OperatorInfo()
     HardSwish = OperatorInfo(indices=NNG_IFM_INDICES)
     HashtableLookup = OperatorInfo()
-    Identity = OperatorInfo()
+    Identity = OperatorInfo(indices=NNG_IFM_INDICES)
     If = OperatorInfo()
     L2Norm = OperatorInfo()
     L2Pool2D = OperatorInfo()
