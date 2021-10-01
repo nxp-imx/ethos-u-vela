@@ -22,7 +22,7 @@ class Op(object):
     BITWISE_AND = 16
     BITWISE_OR = 17
     BITWISE_XOR = 18
-    DIV = 19
+    INTDIV = 19
     LOGICAL_AND = 20
     LOGICAL_LEFT_SHIFT = 21
     LOGICAL_RIGHT_SHIFT = 22

@@ -4,9 +4,9 @@
 
 class Attribute(object):
     NONE = 0
-    Pool2dAttribute = 1
-    Conv2dAttribute = 2
-    TransposeConv2dAttribute = 3
+    PoolAttribute = 1
+    ConvAttribute = 2
+    TransposeConvAttribute = 3
     ReluNAttribute = 4
     AxisAttribute = 5
     ReshapeAttribute = 6

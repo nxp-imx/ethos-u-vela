@@ -4,21 +4,21 @@
 
 import flatbuffers
 
-class Conv2dAttribute(object):
+class ConvAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsConv2dAttribute(cls, buf, offset):
+    def GetRootAsConvAttribute(cls, buf, offset):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = Conv2dAttribute()
+        x = ConvAttribute()
         x.Init(buf, n + offset)
         return x
 
-    # Conv2dAttribute
+    # ConvAttribute
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # Conv2dAttribute
+    # ConvAttribute
     def Padding(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
@@ -26,21 +26,21 @@ class Conv2dAttribute(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def PaddingAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def PaddingLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def Stride(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
@@ -48,21 +48,21 @@ class Conv2dAttribute(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def StrideAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def StrideLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def Dilation(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
@@ -70,25 +70,25 @@ class Conv2dAttribute(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def DilationAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
         return 0
 
-    # Conv2dAttribute
+    # ConvAttribute
     def DilationLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
-def Conv2dAttributeStart(builder): builder.StartObject(3)
-def Conv2dAttributeAddPadding(builder, padding): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(padding), 0)
-def Conv2dAttributeStartPaddingVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def Conv2dAttributeAddStride(builder, stride): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(stride), 0)
-def Conv2dAttributeStartStrideVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def Conv2dAttributeAddDilation(builder, dilation): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(dilation), 0)
-def Conv2dAttributeStartDilationVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def Conv2dAttributeEnd(builder): return builder.EndObject()
+def ConvAttributeStart(builder): builder.StartObject(3)
+def ConvAttributeAddPadding(builder, padding): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(padding), 0)
+def ConvAttributeStartPaddingVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def ConvAttributeAddStride(builder, stride): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(stride), 0)
+def ConvAttributeStartStrideVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def ConvAttributeAddDilation(builder, dilation): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(dilation), 0)
+def ConvAttributeStartDilationVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def ConvAttributeEnd(builder): return builder.EndObject()
