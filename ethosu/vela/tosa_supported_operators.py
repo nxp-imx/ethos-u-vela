@@ -46,7 +46,7 @@ class TosaSupportedOperators:
     activation_ops = relu_ops | set((Op.Table,))
     pad_ops = set((Op.Pad,))
 
-    rank_unlimited_ops = set((Op.Concat, Op.Reshape, Op.Identity))
+    rank_unlimited_ops = set((Op.Concat, Op.Reshape, Op.Identity, Op.Pad))
     rank6_limited_ops = elem_wise_ops
     batch_enabled_ops = rank6_limited_ops | rank_unlimited_ops
     large_tens_dims_enabled_ops = batch_enabled_ops | set((Op.SplitSliceRead,))
