@@ -214,7 +214,11 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
         (
             ps.primary_op.activation is None
             or forced_ofm_quantization is not None
-            or (ps.primary_op.type.is_avgpool_op() and ps.primary_op.activation.op_type.is_relu_op())
+            or (
+                ps.primary_op.type.is_avgpool_op()
+                and ps.primary_op.activation.op_type.is_relu_op()
+                and not ps.primary_op.rescale
+            )
         )
         and (ps.primary_op.memory_function != Op.ConcatSliceWrite)
         and not fused_quantize
@@ -347,7 +351,7 @@ def create_npu_activation(op: Operation) -> NpuActivation:
     act = NpuActivation(act_op)
     act.min = op.activation.min
     act.max = op.activation.max
-    if act_op is NpuActivationOp.NONE_OR_RELU and op.type.is_avgpool_op():
+    if act_op is NpuActivationOp.NONE_OR_RELU and op.type.is_avgpool_op() and not op.rescale:
         quant = op.ofm.quantization
         if quant and quant.zero_point:  # Zero point is not 0
             scale_f32 = 1 if quant.scale_f32 is None else quant.scale_f32
