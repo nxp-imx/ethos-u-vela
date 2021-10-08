@@ -282,7 +282,7 @@ class TFLiteSemantic:
         "Input and Output tensors must have quantization scales that fit within float32 precision"
         if op.ofm is not None and op.ofm.is_quantized():
             ofm_scale = op.ofm.quantization.scale_f32
-            if ofm_scale < np.finfo(np.float32).tiny:
+            if np.any(ofm_scale < np.finfo(np.float32).tiny):
                 return (
                     False,
                     f"The quantization scale of the output tensor is {ofm_scale}, "
@@ -290,7 +290,7 @@ class TFLiteSemantic:
                 )
             if op.ifm is not None and op.ifm.is_quantized():
                 ifm_scale = op.ifm.quantization.scale_f32
-                if np.isinf(ifm_scale / ofm_scale):
+                if np.any(np.isinf(ifm_scale / ofm_scale)):
                     return (
                         False,
                         f"IFM scale divided by OFM scale is infinite, ifm_scale={ifm_scale} ofm_scale={ofm_scale}",

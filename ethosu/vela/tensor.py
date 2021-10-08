@@ -270,12 +270,12 @@ class QuantizationParameters:
     def is_valid(self) -> bool:
         # quantisation parameters are consider valid if they have a scale and zero point
 
-        return None not in (self.scale_f32, self.zero_point)
+        return self.scale_f32 is not None and self.zero_point is not None
 
     def is_per_axis(self) -> bool:
-        """Returns True if either the scale, zero point, minimum or maximum values are arrays"""
+        """Returns True if either the scale, zero point, minimum or maximum values have more than one value"""
         for attr in ("scale_f32", "zero_point", "min", "max"):
-            if isinstance(getattr(self, attr), np.ndarray):
+            if np.size(getattr(self, attr)) > 1:
                 return True
         return False
 
