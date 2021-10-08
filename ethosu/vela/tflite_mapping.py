@@ -160,6 +160,10 @@ datatype_map = {
     TensorType.BOOL: DataType.bool,
     TensorType.COMPLEX64: DataType.complex64,
     TensorType.COMPLEX128: DataType.complex128,
+    TensorType.UINT64: DataType.uint64,
+    TensorType.RESOURCE: DataType.resource,
+    TensorType.VARIANT: DataType.variant,
+    TensorType.UINT32: DataType.uint32,
 }
 
 datatype_inv_map = inverse_map(datatype_map)
@@ -172,6 +176,8 @@ datatype_inv_map[DataType.qint32] = TensorType.INT32
 
 datatype_map_numpy = {
     TensorType.UINT8: np.uint8,
+    TensorType.UINT32: np.uint32,
+    TensorType.UINT64: np.uint64,
     TensorType.INT8: np.int8,
     TensorType.INT16: np.int16,
     TensorType.INT32: np.int32,
@@ -183,6 +189,8 @@ datatype_map_numpy = {
     TensorType.COMPLEX64: np.complex64,
     TensorType.COMPLEX128: np.complex128,
     TensorType.STRING: np.uint8,
+    TensorType.RESOURCE: None,  # experimental type
+    TensorType.VARIANT: None,  # experimental type
 }
 
 
