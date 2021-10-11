@@ -188,18 +188,19 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type):
     scratch_fast_tens = None
     flash_tens = None
 
-    # Calculate live ranges for all constant Npu tensors, in permanent storage
-    for sg in nng.subgraphs:
-        if sg.placement == PassPlacement.Npu:
-            lr_graph_flash = live_range.create_linear_live_range_graph(
-                sg, permanent_storage, MemType.Permanent_NPU, lr_graph=lr_graph_flash,
-            )
+    # Create list of NPU subgraphs with same order as the list of all subgraphs
+    npu_subgraphs = [sg for sg in nng.subgraphs if sg.placement == PassPlacement.Npu]
 
-    if len(nng.subgraphs) > 1:
+    # Calculate live ranges for all constant Npu tensors, in permanent storage
+    for sg in npu_subgraphs:
+        lr_graph_flash = live_range.create_linear_live_range_graph(
+            sg, permanent_storage, MemType.Permanent_NPU, lr_graph=lr_graph_flash,
+        )
+
+    if npu_subgraphs:
         # Allocate all Npu constant tensors to the first Npu subgraph since it is
         # processed first during serialization into tensors
-        first_npu_sg = nng.subgraphs[1]
-        assert first_npu_sg.placement == PassPlacement.Npu
+        first_npu_sg = npu_subgraphs[0]
         tensor_allocation.allocate_tensors(
             nng,
             first_npu_sg,
@@ -214,18 +215,17 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type):
     root_sg = nng.get_root_subgraph()
 
     # Generate command streams and serialise Npu-ops into tensors
-    for sg in nng.subgraphs:
-        if sg.placement == PassPlacement.Npu:
-            high_level_command_stream_generator.generate_high_level_command_stream_for_schedule(
-                nng, sg, arch, options.verbose_high_level_command_stream
-            )
-            lut.optimize_high_level_cmd_stream(sg, arch)
-            high_level_command_to_npu_op.generate_register_command_stream_for_sg(
-                nng, sg, arch, options.verbose_register_command_stream
-            )
-            scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
-                sg, arch, scratch_tens, scratch_fast_tens, flash_tens
-            )
+    for sg in npu_subgraphs:
+        high_level_command_stream_generator.generate_high_level_command_stream_for_schedule(
+            nng, sg, arch, options.verbose_high_level_command_stream
+        )
+        lut.optimize_high_level_cmd_stream(sg, arch)
+        high_level_command_to_npu_op.generate_register_command_stream_for_sg(
+            nng, sg, arch, options.verbose_register_command_stream
+        )
+        scratch_tens, scratch_fast_tens, flash_tens = npu_serialisation.serialise_npu_subgraph_into_tensors(
+            sg, arch, scratch_tens, scratch_fast_tens, flash_tens
+        )
 
     npu_serialisation.rewrite_npu_call_ops(root_sg, arch)
 
