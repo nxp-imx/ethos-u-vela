@@ -40,7 +40,6 @@ from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
 from .numeric_util import clamp_sigmoid
-from .numeric_util import full_shape
 from .numeric_util import round_away_zero
 from .operation import create_activation_function
 from .operation import ExplicitScaling
@@ -620,26 +619,6 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             relu_fused_op.set_output_tensor(ofm)
             relu_fused_op.set_ifm_ofm_shapes()
             op = relu_fused_op
-    return op
-
-
-def fixup_elementwise_with_scalars(op, arch, nng):
-    if op.type.is_binary_elementwise_op():
-        ifm_tensor, ifm2_tensor, _, _ = op.get_ifm_ifm2_weights_ofm()
-        if ifm2_tensor.shape != [] and ifm_tensor.shape != []:
-            diff = len(ifm_tensor.shape) - len(ifm2_tensor.shape)
-            if diff > 0:
-                ifm2_tensor.shape = full_shape(len(ifm_tensor.shape), ifm2_tensor.shape, 1)
-            elif diff < 0:
-                ifm_tensor.shape = full_shape(len(ifm2_tensor.shape), ifm_tensor.shape, 1)
-        elif ifm_tensor.shape == [] and ifm_tensor.values is None:
-            # IFM is marked as a scalar, but is a result of an operation; change it to a shape of size 1
-            ifm_tensor.shape = len(ifm2_tensor.shape) * [1]
-            ifm_tensor.storage_shape = ifm_tensor.shape
-        elif ifm2_tensor.shape == [] and ifm2_tensor.values is None:
-            # IFM2 is marked as a scalar, but is a result of an operation; change it to a shape of size 1
-            ifm2_tensor.shape = len(ifm_tensor.shape) * [1]
-            ifm2_tensor.storage_shape = ifm2_tensor.shape
     return op
 
 
@@ -1423,7 +1402,6 @@ def tflite_optimise_graph(nng, arch):
         convert_batched_fc_shape,
         fixup_conv2d_backprop,
         fixup_relus_with_differing_ifm_ofm_scaling,
-        fixup_elementwise_with_scalars,
         reorder_depthwise_weights,
         fixup_resizebilinear,
         fixup_bias_tensors,
