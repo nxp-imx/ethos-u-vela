@@ -134,7 +134,7 @@ def extract_subgraph(nng, orig_sg, arch):
     ] = PassPlacement.Cpu  # Keep the startup init pass on the CPU, we'll make new ones to move onto NPU.
 
     # MemoryOnly passes that are either squeezed between NPU passes or on the boundary of NPU and CPU
-    # passes should be assigned to the NPU.
+    # passes should be assigned to the NPU, unless they are assigned to run on CPU explicitly.
 
     # Forward, then backwards
     for is_reversed in range(2):
@@ -143,7 +143,7 @@ def extract_subgraph(nng, orig_sg, arch):
         if is_reversed:
             seq = reversed(list(seq))
         for idx, place in seq:
-            if place == PassPlacement.MemoryOnly:
+            if place == PassPlacement.MemoryOnly and passes[idx].ops[0].run_on_npu:
                 if last_place == PassPlacement.Npu:
                     place = PassPlacement.Npu
                     place_vec[idx] = place
