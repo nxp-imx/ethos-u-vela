@@ -104,7 +104,8 @@ def rewrite_tensor_npu_producer_cpu_consumers(
     orig_tens, call_ps, startup_init_ps, npu_subgraph, cpu_subgraph, subgraph_for_pass
 ):
 
-    new_tens = orig_tens.clone("_cpu")
+    new_tens = orig_tens.clone("")
+    orig_tens.name = orig_tens.name + "_cpu"
     npu_subgraph.output_tensors.append(orig_tens)
 
     call_ps.outputs.append(new_tens)
