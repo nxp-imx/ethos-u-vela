@@ -47,7 +47,7 @@ class ArchitectureBlockConfig:
     def __init__(self):
         self.layout = SHRAMLayout()
         self.ifm_block = Shape4D()
-        self.ofm_block = Shape4D()
+        self.ofm_block = Shape4D()  # non-1D-optimised block
         self.acc_type = SHRAMElements.Acc32
         self.is_partkernel = False
         self.bank_size = 0
@@ -414,10 +414,10 @@ def try_block_config(
         ifm_block = ifm_block.with_depth(ifm_blockdepth)
 
     # 256/512 Conv1D optimisation (ratio of IFM:Accumulators changes)
-    block_config = fit_block_for_ofm(arch, ofm_shape, kernel, block_config)
+    block_config_opt = fit_block_for_ofm(arch, ofm_shape, kernel, block_config)
 
     layout = _try_block_config(
-        arch.shram, ew_usage, block_config, ifm_block, ifm_bits, ifm_granule, acc_bits, acc_granule, lut_banks
+        arch.shram, ew_usage, block_config_opt, ifm_block, ifm_bits, ifm_granule, acc_bits, acc_granule, lut_banks
     )
     if layout is None:
         return None
