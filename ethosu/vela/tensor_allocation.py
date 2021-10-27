@@ -182,14 +182,8 @@ def allocate(
     cpu_tensor_alignment=Tensor.AllocationQuantum,
 ):
     # Allocates addresses to tensors, returns False if tensors could not be fit within max_size
-    ignore_subgraph_input_output_tensors = False
     lrs = live_range.extract_live_ranges_from_cascaded_passes(
-        sg,
-        mem_area,
-        mem_type_set,
-        ignore_subgraph_input_output_tensors=ignore_subgraph_input_output_tensors,
-        lr_graph=lr_graph,
-        cpu_tensor_alignment=cpu_tensor_alignment,
+        sg, mem_area, mem_type_set, lr_graph=lr_graph, cpu_tensor_alignment=cpu_tensor_alignment,
     )
     total_sz = 0
     if lrs.ranges:

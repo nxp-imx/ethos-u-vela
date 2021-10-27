@@ -425,7 +425,7 @@ class Scheduler:
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
             live_range.extract_live_ranges_from_cascaded_passes(
-                self.nng.get_root_subgraph(), mem_area, mem_type_set, False, lr_graph, Tensor.AllocationQuantum,
+                self.nng.get_root_subgraph(), mem_area, mem_type_set, lr_graph, Tensor.AllocationQuantum,
             )
 
         # Populate time-array with memory used by live ranges
@@ -918,7 +918,7 @@ class Scheduler:
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
             live_range.extract_live_ranges_from_cascaded_passes(
-                self.nng.get_root_subgraph(), mem_area, mem_type_set, False, lr_graph, Tensor.AllocationQuantum,
+                self.nng.get_root_subgraph(), mem_area, mem_type_set, lr_graph, Tensor.AllocationQuantum,
             )
 
         # Iterate over live ranges and evict tensors that doesn't fit
