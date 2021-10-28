@@ -327,6 +327,13 @@ def test_constraint_resize():
     assert not support.is_operator_supported(op)
 
 
+def test_constraint_bilinear_resize_attrs():
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 1, 1, 8], [1, 8, 8, 8])
+    assert support.is_operator_supported(op)
+    op.attrs["half_pixel_centers"] = True
+    assert not support.is_operator_supported(op)
+
+
 def test_constraint_concat_pass():
     # A working concat
     op = testutil.create_op_with_quant_tensors(Op.Concat, [1, 1, 1, 4], [1, 1, 1, 8])

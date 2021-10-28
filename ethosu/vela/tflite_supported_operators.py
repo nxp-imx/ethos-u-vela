@@ -162,6 +162,7 @@ class TFLiteSupportedOperators:
         # Resizing specific checks:
         for op_type in TFLiteSupportedOperators.resizing_ops:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_attrs)
 
         # Vector Product specific checks:
         for op_type in TFLiteSupportedOperators.fc_vector_products:
@@ -528,6 +529,14 @@ class TFLiteSupportedOperators:
                         valid = True
                         break
         return valid, f"Op has ifm_shape={ifm_shape}, ofm_shape={ofm_shape} and align_corners={align_corners}"
+
+    @staticmethod
+    def constraint_bilinear_resize_attrs(op):
+        "half_pixel_centers are not supported"
+        valid = True
+        if op.attrs.get("half_pixel_centers"):
+            valid = False
+        return valid, f"Op has half_pixel_centers set to {not valid}."
 
     @staticmethod
     def constraint_pad_shape(op):
