@@ -1058,7 +1058,7 @@ def convert_pad(op: Operation, arch, nng):
 
     ifm = op.ifm
     assert ifm is not None
-    ifm_shape = Shape4D(ifm.shape)
+    ifm_shape = op.ifm_shapes[0]
     ofm = op.ofm
     assert ofm is not None
     ofm.ops = []
