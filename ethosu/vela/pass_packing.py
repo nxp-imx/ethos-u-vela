@@ -105,7 +105,7 @@ test_sequence = [
         # ops_set
         npu_post_fuse_limited_ops,
         # incompatible_pack_flags
-        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Main,
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Main | PassFlags.PostFusingLimited,
         # flags_to_set
         PassFlags.Npu | PassFlags.PostFusingLimited,
         # flags_to_clear
