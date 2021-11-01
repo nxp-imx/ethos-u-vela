@@ -88,6 +88,7 @@ class TFLiteSubgraph:
             tens.quantization.max = self.len1_array_to_scalar(quant.MaxAsNumpy())
             tens.quantization.scale_f32 = self.len1_array_to_scalar(quant.ScaleAsNumpy())
             tens.quantization.zero_point = self.len1_array_to_scalar(quant.ZeroPointAsNumpy())
+            tens.quantization.quant_dim = quant.QuantizedDimension()
 
         if dtype == DataType.uint8:
             tens.quantization.quant_min = 0

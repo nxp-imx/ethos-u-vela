@@ -1152,6 +1152,16 @@ def fixup_bias_tensors(op, arch, nng):
     return op
 
 
+def fixup_asymmetric_weights(op, arch, nng):
+    if op.run_on_npu and (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op()):
+        if op.ifm.dtype == DataType.int8:
+            if not np.all(op.weights.quantization.zero_point == 0):
+                print(f"Warning: {op.type} '{op.name}' has asymmetric weights, zero points have been adjusted.")
+                op.weights.quantization.zero_point *= 0
+
+    return op
+
+
 def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
     if op.type == Op.Mean and op.run_on_npu:
         keep_dims = op.attrs.get("keep_dims", False)
@@ -1405,6 +1415,7 @@ def tflite_optimise_graph(nng, arch):
         reorder_depthwise_weights,
         fixup_resizebilinear,
         fixup_bias_tensors,
+        fixup_asymmetric_weights,
         convert_mul_max_to_abs_or_lrelu,
         convert_lrelu,
         convert_tanh_sigmoid_to_lut,

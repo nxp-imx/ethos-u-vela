@@ -236,6 +236,8 @@ class TFLiteSerialiser:
                 QuantizationParameters.QuantizationParametersAddScale(builder, scale)
             if zero_point is not None:
                 QuantizationParameters.QuantizationParametersAddZeroPoint(builder, zero_point)
+            if quant.quant_dim is not None:
+                QuantizationParameters.QuantizationParametersAddQuantizedDimension(builder, quant.quant_dim)
             qp = QuantizationParameters.QuantizationParametersEnd(builder)
 
         return qp
