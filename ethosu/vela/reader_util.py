@@ -53,11 +53,6 @@ def fixup_tensors(input_tensors, tensors):
 
     for tens in tensors:
         if not tens.ops:
-            if tens.values is None:
-                tens.error(
-                    "Tensor with no operator output connection is assumed to contain constant "
-                    "data but no data buffer is associated with this tensor. Perhaps the network is invalid?"
-                )
             op = Operation(Op.Const, tens.name)
             op.set_output_tensor(tens)
 
