@@ -37,9 +37,11 @@ def write_rawdata_output(nng, arch, filename):
 
         if custom_op:
             ifm_shapes = []
+            ifm_elem_sizes = []
             ifm_regions = []
             ifm_offsets = []
             ofm_shapes = []
+            ofm_elem_sizes = []
             ofm_regions = []
             ofm_offsets = []
             cmd_stream_tensor, weight_tensor, scratch_tensor, scratch_fast_tensor = custom_op.inputs[:4]
@@ -50,10 +52,12 @@ def write_rawdata_output(nng, arch, filename):
                 ifm_shapes.append(ifm.shape)
                 ifm_regions.append(get_region(ifm.mem_type, arch))
                 ifm_offsets.append(ifm.address)
+                ifm_elem_sizes.append(ifm.element_size())
             for ofm in custom_op.outputs:
                 ofm_shapes.append(ofm.shape)
                 ofm_regions.append(get_region(ofm.mem_type, arch))
                 ofm_offsets.append(ofm.address)
+                ofm_elem_sizes.append(ofm.element_size())
 
             filename_sg = f"{filename}_sg{sg_idx}_vela.npz"
             np.savez(
@@ -66,9 +70,11 @@ def write_rawdata_output(nng, arch, filename):
                 scratch_fast_shape=scratch_fast_tensor.shape,
                 scratch_fast_region=scratch_fast_region,
                 input_shape=ifm_shapes,
+                input_elem_size=ifm_elem_sizes,
                 input_region=ifm_regions,
                 input_offset=ifm_offsets,
                 output_shape=ofm_shapes,
+                output_elem_size=ofm_elem_sizes,
                 output_region=ofm_regions,
                 output_offset=ofm_offsets,
             )

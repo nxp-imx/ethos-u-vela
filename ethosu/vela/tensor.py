@@ -434,7 +434,7 @@ class Tensor:
 
     def element_size(self) -> int:
         if self.element_size_bytes == 0:
-            return self.dtype.size_in_bits() / 8
+            return self.dtype.size_in_bits() // 8
         return self.element_size_bytes
 
     # Returns a copy, renamed to self.name + suffix
