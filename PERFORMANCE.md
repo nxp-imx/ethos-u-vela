@@ -210,23 +210,34 @@ Total cycles                                   114098 cycles/batch
 Batch Inference time                 0.23 ms, 4382.18 inferences/s (batch size 1)
 ```
 
-### Neural network macs
+### Neural network MACs
 
 This shows the estimated number of MACs in the network per batch. This number
-includes MACs from convolutions and vector products, not from operations such as
-elementwise and pooling operations.
+includes MACs from convolutions, vector products and pooling operations.
+It does not include MACs from elementwise or any other type of operation.
 
 ### Network Tops/s
 
 This shows the estimated TOPs/s for the network, which is an alternative
-representation of [Neural network macs](#Neural-network-macs)
+representation of [Neural network MACs](#Neural-network-MACs)
 
 ### Cycles
 
 This shows the estimated number of cycles per batch for NPU, memory accesses and
 in total. The total is the sum of the single action that consumes the most
 cycles per pass, i.e. if memory access consumes the most cycles for a pass only
-that will account for the pass cycles in the total.
+that will account for the pass cycles in the total.  
+To clarify: for each type of cycle counts, the number of cycles per batch is the
+sum of cycle counts for each layer, where each layer's cycle count is based on
+the maximal processing path. A layer consists of a feature map and an operator.  
+For example, if the DMA transfer for a feature map requires less cycles than the
+cycles for the operation, then the DMA cycles will not contribute to the layer
+cycle count. As a result, it will not be part of the summed SRAM or DRAM access
+cycles.  
+Looking at the example above in [Estimated performance](#Estimated-performance),
+the zero cycle count for DRAM Access cycles means that either there was no DRAM
+access or, like in our previously described example, the DMA cycles were fewer
+than for the operation for every layer that required a DMA transfer.
 
 ### Batch Inference time
 
