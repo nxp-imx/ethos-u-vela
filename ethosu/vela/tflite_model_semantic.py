@@ -160,7 +160,7 @@ class TFLiteSemantic:
             valid, extra = constraint(op)
             if not valid:
                 print(
-                    f"Warning: unsupported TensorFlow Lite semantics for {ext_type} '{op.name}'. Placing on CPU instead"
+                    f"Warning: Unsupported TensorFlow Lite semantics for {ext_type} '{op.name}'. Placing on CPU instead"
                 )
                 print(f" - {constraint.__doc__}")
                 if extra:
