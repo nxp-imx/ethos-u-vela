@@ -67,6 +67,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/",
     author="Arm Ltd.",
+    author_email="mlg-vela@arm.com",
     license="Apache License 2.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
