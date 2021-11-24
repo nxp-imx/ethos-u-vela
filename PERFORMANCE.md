@@ -18,8 +18,9 @@ Design peak Off-chip Flash bandwidth             0.50 GB/s
 Total SRAM used                                  0.95 KiB
 Total Off-chip Flash used                      106.98 KiB
 
-51 passes fused into 51
-0/106 (0.0%) operations falling back to the CPU
+CPU operators = 0 (0.0%)
+NPU operators = 44 (100.0%)
+
 Average SRAM bandwidth                           0.04 GB/s
 Input   SRAM bandwidth                           0.01 MB/batch
 Weight  SRAM bandwidth                           0.00 MB/batch
@@ -115,15 +116,11 @@ system config and memory mode.
 
 ## Operator information
 
-Information about cascading and operators.
-The first line shows the number of passes (i.e. operations) and how many NPU
-passes they have been fused or combined into.
-The second line shows how many operators in the network are falling back to
-the CPU (i.e. not supported by the NPU).
+Information about the number of operators that will run on the CPU and NPU.
 
 ```
-51 passes fused into 51
-0/106 (0.0%) operations falling back to the CPU
+CPU operators = 0 (0.0%)
+NPU operators = 44 (100.0%)
 ```
 
 ## Estimated memory bandwidth

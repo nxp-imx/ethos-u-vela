@@ -227,10 +227,8 @@ def print_performance_metrics_for_strat(
     bandwidths,
     batch_size,
     memory_used,
-    num_passes,
-    num_cascaded_passes,
-    n_operations=0,
     cpu_operations=None,
+    npu_operations=None,
     show_cpu_operations=False,
     weights_data=None,
     f=sys.stdout,
@@ -271,32 +269,32 @@ def print_performance_metrics_for_strat(
         print(f"Total {aug_label:25}          {memory_used[mem_area] / 1024.0:12.2f} KiB", file=f)
 
     print(file=f)
-    print(f"{num_passes:d} passes fused into {num_cascaded_passes:d}", file=f)
 
     if cpu_operations is None:
         cpu_operations = []
+    if npu_operations is None:
+        npu_operations = []
 
     n_cpu_operations = len(cpu_operations)
-    if n_operations > 0:
-        print(
-            f"{n_cpu_operations:d}/{n_operations:d}"
-            f" ({n_cpu_operations / n_operations:4.1%}) operations falling back to the CPU",
-            file=f,
-        )
+    n_npu_operations = len(npu_operations)
+    n_total_operations = n_cpu_operations + n_npu_operations
 
-    if show_cpu_operations:
-        for op in cpu_operations:
+    def format_tens_list(lst):
+        return " ".join(str(list(tens.shape)) for tens in lst)
 
-            def format_tens_list(lst):
-                return " ".join(str(list(tens.shape)) for tens in lst)
+    for str_ops_type, n_ops, ops in (
+        ("CPU", n_cpu_operations, cpu_operations),
+        ("NPU", n_npu_operations, npu_operations),
+    ):
+        print(f"{str_ops_type} operators = {n_ops:d} ({n_ops / n_total_operations:4.1%})", file=f)
+        if show_cpu_operations:
+            for op in ops:
+                print(
+                    f"   {str_ops_type}: {op.type} = {op.name}"
+                    f" (inputs {format_tens_list(op.inputs)}, outputs {format_tens_list(op.outputs)})"
+                )
 
-            print(
-                f"CPU operation: {op.type}"
-                f" inputs {format_tens_list(op.inputs)}, outputs {format_tens_list(op.outputs)}",
-                file=f,
-            )
-
-        print("", file=f)
+    print("", file=f)
 
     for mem_area, label in mem_area_labels:
         bws = bandwidths[mem_area]
@@ -354,10 +352,25 @@ def print_performance_metrics_for_strat(
 
 
 def print_performance_metrics(nng, arch, show_cpu_operations=False, verbose_weights=False, f=sys.stdout):
-    n_passes = sum(len(sg.passes) for sg in nng.subgraphs)
-    n_cascaded_passes = sum(len(sg.cascaded_passes) for sg in nng.subgraphs)
-    n_operations = sum(len(ps.ops) for sg in nng.subgraphs for ps in sg.passes)
-    cpu_operations = sum((ps.ops for sg in nng.subgraphs for ps in sg.passes if ps.placement == PassPlacement.Cpu), [])
+    cpu_operations = []
+    npu_operations = []
+    ir_only_ops = (
+        Op.Const,
+        Op.Placeholder,
+        Op.CustomNpuOp,
+        Op.SubgraphInput,
+    )
+
+    for sg in nng.subgraphs:
+        if sg.placement == PassPlacement.Cpu:
+            for op in sg.get_all_ops():
+                if op.type not in ir_only_ops:
+                    cpu_operations.append(op)
+        elif sg.placement == PassPlacement.Npu:
+            for op in sg.get_all_ops():
+                if op.type not in ir_only_ops:
+                    npu_operations.append(op)
+
     weights_data = (
         {
             "original": nng.total_original_weights,
@@ -375,10 +388,8 @@ def print_performance_metrics(nng, arch, show_cpu_operations=False, verbose_weig
         nng.bandwidths,
         nng.batch_size,
         nng.memory_used,
-        n_passes,
-        n_cascaded_passes,
-        n_operations,
         cpu_operations,
+        npu_operations,
         show_cpu_operations,
         weights_data,
         f,
