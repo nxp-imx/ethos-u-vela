@@ -5,6 +5,39 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.2.0 - 26/11/2021
+
+**Main feature changes:**
+
+* Bug fixes
+* Documentation of community bug reporting via Phabricator on ML Platform
+* New operator support: EXPAND_DIMS
+* Extended experimental TOSA support
+
+**Interface changes:**
+
+* External API v1.2
+  * Fixed bug in `npu_find_block_configs()` with Conv1D optimisation
+
+* Verbose output
+  * Clarified Subgraph IO Summary
+
+* Summary output
+  * Removed incorrect passes information
+  * Fixed and reformatted the reporting of CPU operators
+
+**Reported defect fixes:**
+
+* Clarified section on access cycles in PERFORMANCE.md (MLCE-654)
+* Crash due to mismatch in padding shape in OFM (MLCE-652)
+* Bug where back to back activations were ignored (MLCE-650)
+* Output mismatch for unsupported RESHAPE with 16-bit 5D tensors (MLCE-630)
+* Bug where tensors with "skip connections" were incorrectly handled (MLCE-621)
+* Crash due to the same tensor being used for both inputs to operator (MLCE-620)
+* Missing constraint on batch size for MEAN operator (MLCE-619)
+* Bug where third-party custom ops were not passed through correctly (MLCE-602)
+* Crash due to mismatch in tensor indices for EXP operator (MLCE-599)
+
 ## Release 3.1.0 - 30/08/2021
 
 **Main feature changes:**
@@ -24,7 +57,7 @@ fixed.  The version numbering adheres to the
 
 * Bug with IFM box depth for convolutions fused with SPLIT (MLCE-490)
 * Bug with missing attribute from integer type (MLCE-534)
-* Bug with incorrect options in TensorFlow Lite mapping (MLCE-427) 
+* Bug with incorrect options in TensorFlow Lite mapping (MLCE-427)
 
 ## Release 3.0.0 - 28/05/2021
 
@@ -120,7 +153,8 @@ configurations
   * `--verbose-config`, `--cache-bias-scale-tensor`, `--memory-mode`
   * `--cpu-tensor-alignment`
 * Addition of External APIs:
-  * Command Stream generation, Driver Payload creation, and Finding a Block Config
+  * Command Stream generation, Driver Payload creation, and Finding a Block
+Config
 
 **Reported defect fixes:**
 
