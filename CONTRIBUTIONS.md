@@ -46,3 +46,15 @@ performed using the
 Prior to submitting a patch for review please make sure that all the pre-commit
 checks and tests have been run and are passing (see [Vela Testing](TESTING.md)
 for more details).
+
+## Bug Resolution
+
+In the case that your submission aims to resolve a bug, please follow the
+[Vela Community Bug Reporting Process](BUGS.md). The document guides
+you through the process of adding a bug ticket to the bug tracker on the
+[Maniphest website](https://developer.mlplatform.org/maniphest/).
+
+The ticket will be visible to the public and will thus help the Vela community
+track and find solutions to any bugs that are found during the use of Vela.
+
+Please include a link to your patch in the bug ticket description.
