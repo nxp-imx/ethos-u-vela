@@ -656,8 +656,11 @@ def generate_ofm_scaling_for_pooling(emit: CommandStreamEmitter, pool_op: NpuPoo
             rounded_log2 = int(round(x_log2))
             is_power_of_two = abs(x_log2 - rounded_log2) < 0.001
             shift = rounded_log2 + 12
-            if is_power_of_two and shift in (0, 1):
-                # Special handling if input scale is 1/2048 or 1/4096
+            if is_power_of_two and (
+                (pool_op.activation.op_type == NpuActivationOp.TANH and shift in (0, 1))
+                or (pool_op.activation.op_type == NpuActivationOp.SIGMOID and shift == 0)
+            ):
+                # Special handling if input scale is 1/2048 (tanh/sigmoid) or 1/4096 (tanh)
                 scale = 3 << shift
                 shift = 0
             else:
