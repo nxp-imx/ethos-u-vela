@@ -1301,8 +1301,8 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
             if dims == 2:
                 shape += [1]
 
-        # If height is greater than max kernel height, reshape to from HxW to 1x(HxW)
-        if h > 64:
+        # If height is greater than max kernel height, reshape from HxW to 1x(HxW)
+        if (h > 64 and op.type == Op.DepthwiseConv2DBias) or (h > 256 and op.type == Op.AvgPool):
             shape = [shape[0], 1, h * w, shape[3]]
             op.ifm_shapes[0] = Shape4D(shape)
             if h > 256 and op.type == Op.AvgPool:
