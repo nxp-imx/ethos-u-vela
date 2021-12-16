@@ -147,13 +147,22 @@ def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
         top = cmd.pad_top
         bottom = cmd.pad_bottom
 
+    # the ifm box coordinate range depends upon whether the primary op was combined with a split slice read
+    ifm_read_offset = primary_op.read_offsets[0]
+    ifm_read_shape = primary_op.read_shapes[0]
+    if ifm_read_offset is None or len(ifm_read_offset) < 2:
+        box_start_coord_min = 0
+        box_end_coord_max = cmd.ps.ifm_shapes[0].width
+    else:
+        box_start_coord_min = ifm_read_offset[-2]
+        box_end_coord_max = ifm_read_shape[-2]
+
     # Indexing from end since a 1x1 Avgpool might have been added with non 4-dimensional input/output,
     # because of activation function needed to be fused.
-    if not primary_op.attrs.get("force_padding"):
-        if len(cmd.ifm_box.start_coord) >= 2 and cmd.ifm_box.start_coord[-2] > 0:
-            left = 0
-        if len(cmd.ifm_box.end_coord) >= 2 and cmd.ifm_box.end_coord[-2] < cmd.ps.ifm_shapes[0].width:
-            right = 0
+    if len(cmd.ifm_box.start_coord) >= 2 and cmd.ifm_box.start_coord[-2] > box_start_coord_min:
+        left = 0
+    if len(cmd.ifm_box.end_coord) >= 2 and cmd.ifm_box.end_coord[-2] < box_end_coord_max:
+        right = 0
     return NpuPadding(top=top, left=left, bottom=bottom, right=right)
 
 
