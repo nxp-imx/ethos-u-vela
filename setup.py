@@ -18,6 +18,7 @@
 import os
 import re
 
+import setuptools_scm.git
 from setuptools import Extension
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
@@ -59,9 +60,14 @@ mlw_module = Extension(
     define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_9_API_VERSION")],
 )
 
+
+def scm_version_parse(root):
+    return setuptools_scm.git.parse(root, pre_parse=setuptools_scm.git.fetch_on_shallow)
+
+
 setup(
     name="ethos-u-vela",
-    use_scm_version=True,
+    use_scm_version={"parse": scm_version_parse},
     description="Neural network model compiler for Arm Ethos-U NPUs",
     long_description=long_description,
     long_description_content_type="text/markdown",
