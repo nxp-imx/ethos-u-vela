@@ -399,6 +399,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             avgpool_op.ifm_shapes = op.ifm_shapes.copy()
             avgpool_op.ofm_shapes = op.ofm_shapes.copy()
             avgpool_op.read_offsets = op.read_offsets.copy()
+            avgpool_op.read_shapes = op.read_shapes.copy()
 
             op.inputs[0] = avgpool_out
             op_list.insert(0, avgpool_op)
