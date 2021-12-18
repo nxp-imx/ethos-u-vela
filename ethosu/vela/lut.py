@@ -115,6 +115,7 @@ def optimize_high_level_cmd_stream(sg, arch):
         existing_tens = lut_state.get_equivalent(lut_tens)
         if existing_tens is not None:
             # LUT is already in SHRAM, no need to perform DMA
+            lut_tens.equivalence_id = existing_tens.equivalence_id
             lut_tens.address = existing_tens.address
             cmd.ps.primary_op.activation.lut_index = get_lut_index(arch, existing_tens)
             continue
