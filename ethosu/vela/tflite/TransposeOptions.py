@@ -10,12 +10,16 @@ class TransposeOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsTransposeOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = TransposeOptions()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsTransposeOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def TransposeOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -25,4 +29,8 @@ class TransposeOptions(object):
         self._tab = flatbuffers.table.Table(buf, pos)
 
 def TransposeOptionsStart(builder): builder.StartObject(0)
+def Start(builder):
+    return TransposeOptionsStart(builder)
 def TransposeOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return TransposeOptionsEnd(builder)

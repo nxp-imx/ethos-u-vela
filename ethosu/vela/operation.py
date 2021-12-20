@@ -307,6 +307,11 @@ class Op(Enum):
     HashtableSize = OperatorInfo()
     ReduceAll = OperatorInfo()
     Conv3DTranspose = OperatorInfo()
+    VarHandle = OperatorInfo()
+    ReadVariable = OperatorInfo()
+    AssignVariable = OperatorInfo()
+    BroadcastArgs = OperatorInfo()
+    RandomStandardNormal = OperatorInfo()
 
     @property
     def info(self):

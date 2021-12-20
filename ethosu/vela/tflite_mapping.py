@@ -31,6 +31,7 @@ from .tflite import AddNOptions
 from .tflite import AddOptions
 from .tflite import ArgMaxOptions
 from .tflite import ArgMinOptions
+from .tflite import AssignVariableOptions
 from .tflite import BatchMatMulOptions
 from .tflite import BatchToSpaceNDOptions
 from .tflite import BidirectionalSequenceLSTMOptions
@@ -96,8 +97,10 @@ from .tflite import PadV2Options
 from .tflite import Pool2DOptions
 from .tflite import PowOptions
 from .tflite import QuantizeOptions
+from .tflite import RandomOptions
 from .tflite import RangeOptions
 from .tflite import RankOptions
+from .tflite import ReadVariableOptions
 from .tflite import ReducerOptions
 from .tflite import ReshapeOptions
 from .tflite import ResizeBilinearOptions
@@ -133,6 +136,7 @@ from .tflite import TransposeOptions
 from .tflite import UnidirectionalSequenceLSTMOptions
 from .tflite import UniqueOptions
 from .tflite import UnpackOptions
+from .tflite import VarHandleOptions
 from .tflite import WhereOptions
 from .tflite import WhileOptions
 from .tflite import ZerosLikeOptions
@@ -305,7 +309,12 @@ builtin_options_map = {
     BuiltinOptions.HashtableFindOptions: HashtableFindOptions.HashtableFindOptions,
     BuiltinOptions.HashtableImportOptions: HashtableImportOptions.HashtableImportOptions,
     BuiltinOptions.HashtableSizeOptions: HashtableSizeOptions.HashtableSizeOptions,
+    BuiltinOptions.VarHandleOptions: VarHandleOptions.VarHandleOptions,
+    BuiltinOptions.ReadVariableOptions: ReadVariableOptions.ReadVariableOptions,
+    BuiltinOptions.AssignVariableOptions: AssignVariableOptions.AssignVariableOptions,
+    BuiltinOptions.RandomOptions: RandomOptions.RandomOptions,
 }
+
 
 builtin_options_inv_map = inverse_map(builtin_options_map)
 
@@ -902,6 +911,19 @@ builtin_operator_map = {
                 "stride_w",
             ),
         ),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.VAR_HANDLE: (
+        Op.VarHandle,
+        OptionsSerializer("VarHandleOptions", ("container", "shared_name",),),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.READ_VARIABLE: (Op.ReadVariable, OptionsSerializer("ReadVariableOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.ASSIGN_VARIABLE: (Op.AssignVariable, OptionsSerializer("AssignVariableOptions"), TFLITE_NO_INDICES),
+    BuiltinOperator.BROADCAST_ARGS: (Op.BroadcastArgs, None, TFLITE_NO_INDICES),
+    BuiltinOperator.RANDOM_STANDARD_NORMAL: (
+        Op.RandomStandardNormal,
+        OptionsSerializer("RandomOptions", ("seed", "seed2",),),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),

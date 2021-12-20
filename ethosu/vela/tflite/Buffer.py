@@ -3,17 +3,23 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Buffer(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsBuffer(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Buffer()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsBuffer(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def BufferBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -50,6 +56,14 @@ class Buffer(object):
         return o == 0
 
 def BufferStart(builder): builder.StartObject(1)
+def Start(builder):
+    return BufferStart(builder)
 def BufferAddData(builder, data): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(data), 0)
+def AddData(builder, data):
+    return BufferAddData(builder, data)
 def BufferStartDataVector(builder, numElems): return builder.StartVector(1, numElems, 1)
+def StartDataVector(builder, numElems):
+    return BufferStartDataVector(builder, numElems)
 def BufferEnd(builder): return builder.EndObject()
+def End(builder):
+    return BufferEnd(builder)

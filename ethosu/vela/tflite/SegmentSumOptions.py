@@ -10,12 +10,16 @@ class SegmentSumOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSegmentSumOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = SegmentSumOptions()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsSegmentSumOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def SegmentSumOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -25,4 +29,8 @@ class SegmentSumOptions(object):
         self._tab = flatbuffers.table.Table(buf, pos)
 
 def SegmentSumOptionsStart(builder): builder.StartObject(0)
+def Start(builder):
+    return SegmentSumOptionsStart(builder)
 def SegmentSumOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return SegmentSumOptionsEnd(builder)

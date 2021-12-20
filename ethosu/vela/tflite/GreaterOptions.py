@@ -3,17 +3,23 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class GreaterOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsGreaterOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = GreaterOptions()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsGreaterOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def GreaterOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -23,4 +29,8 @@ class GreaterOptions(object):
         self._tab = flatbuffers.table.Table(buf, pos)
 
 def GreaterOptionsStart(builder): builder.StartObject(0)
+def Start(builder):
+    return GreaterOptionsStart(builder)
 def GreaterOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return GreaterOptionsEnd(builder)

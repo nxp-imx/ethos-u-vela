@@ -10,12 +10,16 @@ class SparsityParameters(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSparsityParameters(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = SparsityParameters()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsSparsityParameters(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def SparsityParametersBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -85,7 +89,7 @@ class SparsityParameters(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from .DimensionMetadata import DimensionMetadata
+            from tflite.DimensionMetadata import DimensionMetadata
             obj = DimensionMetadata()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -104,10 +108,26 @@ class SparsityParameters(object):
         return o == 0
 
 def SparsityParametersStart(builder): builder.StartObject(3)
+def Start(builder):
+    return SparsityParametersStart(builder)
 def SparsityParametersAddTraversalOrder(builder, traversalOrder): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(traversalOrder), 0)
+def AddTraversalOrder(builder, traversalOrder):
+    return SparsityParametersAddTraversalOrder(builder, traversalOrder)
 def SparsityParametersStartTraversalOrderVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartTraversalOrderVector(builder, numElems):
+    return SparsityParametersStartTraversalOrderVector(builder, numElems)
 def SparsityParametersAddBlockMap(builder, blockMap): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(blockMap), 0)
+def AddBlockMap(builder, blockMap):
+    return SparsityParametersAddBlockMap(builder, blockMap)
 def SparsityParametersStartBlockMapVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartBlockMapVector(builder, numElems):
+    return SparsityParametersStartBlockMapVector(builder, numElems)
 def SparsityParametersAddDimMetadata(builder, dimMetadata): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(dimMetadata), 0)
+def AddDimMetadata(builder, dimMetadata):
+    return SparsityParametersAddDimMetadata(builder, dimMetadata)
 def SparsityParametersStartDimMetadataVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartDimMetadataVector(builder, numElems):
+    return SparsityParametersStartDimMetadataVector(builder, numElems)
 def SparsityParametersEnd(builder): return builder.EndObject()
+def End(builder):
+    return SparsityParametersEnd(builder)

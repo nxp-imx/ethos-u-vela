@@ -10,12 +10,16 @@ class SubGraph(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSubGraph(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = SubGraph()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsSubGraph(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def SubGraphBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -136,13 +140,35 @@ class SubGraph(object):
         return None
 
 def SubGraphStart(builder): builder.StartObject(5)
+def Start(builder):
+    return SubGraphStart(builder)
 def SubGraphAddTensors(builder, tensors): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(tensors), 0)
+def AddTensors(builder, tensors):
+    return SubGraphAddTensors(builder, tensors)
 def SubGraphStartTensorsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartTensorsVector(builder, numElems):
+    return SubGraphStartTensorsVector(builder, numElems)
 def SubGraphAddInputs(builder, inputs): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(inputs), 0)
+def AddInputs(builder, inputs):
+    return SubGraphAddInputs(builder, inputs)
 def SubGraphStartInputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartInputsVector(builder, numElems):
+    return SubGraphStartInputsVector(builder, numElems)
 def SubGraphAddOutputs(builder, outputs): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(outputs), 0)
+def AddOutputs(builder, outputs):
+    return SubGraphAddOutputs(builder, outputs)
 def SubGraphStartOutputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartOutputsVector(builder, numElems):
+    return SubGraphStartOutputsVector(builder, numElems)
 def SubGraphAddOperators(builder, operators): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(operators), 0)
+def AddOperators(builder, operators):
+    return SubGraphAddOperators(builder, operators)
 def SubGraphStartOperatorsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartOperatorsVector(builder, numElems):
+    return SubGraphStartOperatorsVector(builder, numElems)
 def SubGraphAddName(builder, name): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
+def AddName(builder, name):
+    return SubGraphAddName(builder, name)
 def SubGraphEnd(builder): return builder.EndObject()
+def End(builder):
+    return SubGraphEnd(builder)

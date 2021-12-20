@@ -3,17 +3,23 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class CallOnceOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsCallOnceOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = CallOnceOptions()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsCallOnceOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
     @classmethod
     def CallOnceOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
@@ -30,5 +36,11 @@ class CallOnceOptions(object):
         return 0
 
 def CallOnceOptionsStart(builder): builder.StartObject(1)
+def Start(builder):
+    return CallOnceOptionsStart(builder)
 def CallOnceOptionsAddInitSubgraphIndex(builder, initSubgraphIndex): builder.PrependInt32Slot(0, initSubgraphIndex, 0)
+def AddInitSubgraphIndex(builder, initSubgraphIndex):
+    return CallOnceOptionsAddInitSubgraphIndex(builder, initSubgraphIndex)
 def CallOnceOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return CallOnceOptionsEnd(builder)

@@ -19,4 +19,3 @@ class TensorType(object):
     RESOURCE = 13
     VARIANT = 14
     UINT32 = 15
-

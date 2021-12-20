@@ -6,51 +6,51 @@ import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
 
-class PackOptions(object):
+class RandomOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = PackOptions()
+        x = RandomOptions()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsPackOptions(cls, buf, offset=0):
+    def GetRootAsRandomOptions(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
     @classmethod
-    def PackOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+    def RandomOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
-    # PackOptions
+    # RandomOptions
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # PackOptions
-    def ValuesCount(self):
+    # RandomOptions
+    def Seed(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-    # PackOptions
-    def Axis(self):
+    # RandomOptions
+    def Seed2(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def PackOptionsStart(builder): builder.StartObject(2)
+def RandomOptionsStart(builder): builder.StartObject(2)
 def Start(builder):
-    return PackOptionsStart(builder)
-def PackOptionsAddValuesCount(builder, valuesCount): builder.PrependInt32Slot(0, valuesCount, 0)
-def AddValuesCount(builder, valuesCount):
-    return PackOptionsAddValuesCount(builder, valuesCount)
-def PackOptionsAddAxis(builder, axis): builder.PrependInt32Slot(1, axis, 0)
-def AddAxis(builder, axis):
-    return PackOptionsAddAxis(builder, axis)
-def PackOptionsEnd(builder): return builder.EndObject()
+    return RandomOptionsStart(builder)
+def RandomOptionsAddSeed(builder, seed): builder.PrependInt32Slot(0, seed, 0)
+def AddSeed(builder, seed):
+    return RandomOptionsAddSeed(builder, seed)
+def RandomOptionsAddSeed2(builder, seed2): builder.PrependInt32Slot(1, seed2, 0)
+def AddSeed2(builder, seed2):
+    return RandomOptionsAddSeed2(builder, seed2)
+def RandomOptionsEnd(builder): return builder.EndObject()
 def End(builder):
-    return PackOptionsEnd(builder)
+    return RandomOptionsEnd(builder)
