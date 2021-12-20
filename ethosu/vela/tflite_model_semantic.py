@@ -69,6 +69,7 @@ class TFLiteSemantic:
         self.generic_constraints.append(TFLiteSemantic.constraint_tens_quant_none_check)
         self.generic_constraints.append(TFLiteSemantic.constraint_tens_quant_scale)
         self.generic_constraints.append(TFLiteSemantic.constraint_quant_scale_inf)
+        self.generic_constraints.append(TFLiteSemantic.constraint_none_const_tensors)
 
         # Setup specific constraints. Note: the order matters
         self.specific_constraints = defaultdict(list)
@@ -168,6 +169,17 @@ class TFLiteSemantic:
                 return False
 
         return True
+
+    @staticmethod
+    def constraint_none_const_tensors(op):
+        "Constant tensors should not have NoneType-values"
+        valid = True
+        extra = ""
+        for tens in filter(None, op.inputs):
+            if len(tens.ops) > 0 and tens.ops[0].type == Op.Const and tens.values is None:
+                valid = False
+                extra = str(tens.name)
+        return valid, f"Unexpected None value for constant tensor: {extra}"
 
     @staticmethod
     def constraint_tens_no_dynamic(op):
