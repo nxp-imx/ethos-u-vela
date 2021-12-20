@@ -79,13 +79,13 @@ class Box:
             if len(new_start_coord) >= 2:
                 stride = strides[2]
                 # if the current op was combined with a split slice read then the valid ifm range is given by the output
-                # of the split op
+                # of the split op (which is defined by the read offset and the read shape)
                 if split_offset is None:
                     new_start_coord[-2] = max(new_start_coord[-2] * stride - skirt[1], 0)
                     new_end_coord[-2] = min(new_end_coord[-2] * stride + skirt[3], ifm_shape.width)
                 else:
                     new_start_coord[-2] = max(new_start_coord[-2] * stride - skirt[1], split_offset[-2])
-                    new_end_coord[-2] = min(new_end_coord[-2] * stride + skirt[3], split_shape[-2])
+                    new_end_coord[-2] = min(new_end_coord[-2] * stride + skirt[3], split_offset[-2] + split_shape[-2])
 
             if len(new_start_coord) >= 3:
                 stride = strides[1]
