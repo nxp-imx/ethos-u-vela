@@ -179,7 +179,7 @@ for (operation_set, incompatible_pack_flags, flags_to_set, flags_to_clear) in te
 
 
 def pack_into_passes(nng, arch, verbose_packing=False):
-    def visit_op(op, ignored):
+    def visit_op(op, multiple_ops=None):
         visit_op_refcount[op] += 1
 
         if visit_op_refcount[op] == 1:  # First-time visit, go and fix up unused output tensors
@@ -187,7 +187,6 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 if len(tens.consumers()) == 0:
                     visit_op_refcount[op] += 1
 
-        assert visit_op_refcount[op] <= len(op.outputs)
         if visit_op_refcount[op] == len(op.outputs):
 
             if op.type in startup_init_ops:
@@ -198,9 +197,9 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                     ofm_tensor = op.outputs[0]
                 ofm_shape = op.ofm_shapes[0] if op.run_on_npu else None
 
-                build_pass((op,), ofm_tensor, ofm_shape)
+                build_pass((op,), ofm_tensor, ofm_shape, multiple_ops)
 
-    def build_pass(start_ops_to_process, ofm_tensor=None, ofm_shape=None):
+    def build_pass(start_ops_to_process, ofm_tensor=None, ofm_shape=None, multiple_ops=None):
         reverse_ops_list = []
         curr_flags = PassFlags.Empty
         npu_block_type = NpuBlockType.Default
@@ -373,6 +372,10 @@ def pack_into_passes(nng, arch, verbose_packing=False):
 
         reverse_pass_list.append(ps)
 
+        if multiple_ops:
+            multiple_op_next = multiple_ops.pop(0)
+            visit_op(multiple_op_next, multiple_ops)
+
         for inp, refcount in input_refcounts.items():
             for _ in range(refcount):
                 visit_tensor(inp)
@@ -383,8 +386,10 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         visit_tensor_refcount[tens] += 1
         assert visit_tensor_refcount[tens] <= len(tens.consumers())
         if visit_tensor_refcount[tens] == len(tens.consumers()):
-            for op in reversed(tens.ops):
-                visit_op(op, tens)
+            if tens.ops:
+                op = tens.ops[0]
+                multiple_ops = [o for o in tens.ops if o != op]
+                visit_op(op, multiple_ops)
 
     def create_primary_op(op_list):
         if any(op.type in (npu_post_ops | npu_post_fuse_limited_ops) and op.run_on_npu for op in op_list):
