@@ -75,6 +75,10 @@ def build_config_word(arch):
     log2_macs_cc = int(np.log2(macs_cc) + 0.5)
     shram_size = arch.ncores * int(arch.shram_size_bytes / 1024)
     n = config_r()
+    if arch.is_ethos_u65_system:
+        n.set_product(1)
+    else:
+        n.set_product(0)  # U55
     n.set_shram_size(shram_size)
     n.set_cmd_stream_version(0)  # may be incremented in the future
     n.set_macs_per_cc(log2_macs_cc)
