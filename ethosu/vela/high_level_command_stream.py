@@ -40,9 +40,9 @@ class Box:
         ifm_shape: Shape4D,
         npu_block_type: NpuBlockType,
         concat_offsets: List[int],
+        k_dilated_height: int,
         split_offset: Shape4D = None,
         split_shape: Shape4D = None,
-        k_height: int = 1,
         upscaling_factor: int = 1,
     ):
         new_start_coord = list(self.start_coord)
@@ -105,7 +105,9 @@ class Box:
                         pad_bottom = original_end_coord[-3] - (ifm_shape.height * upscaling_factor)
                     else:
                         k_start = new_start_coord[-3] - pad_top
-                        pad_bottom = max(0, k_start + total_stride + k_height - (ifm_shape.height * upscaling_factor))
+                        pad_bottom = max(
+                            0, k_start + total_stride + k_dilated_height - (ifm_shape.height * upscaling_factor)
+                        )
 
                 # Adjust for upscaling
                 new_start_coord[-3] = max(new_start_coord[-3] // upscaling_factor, 0)

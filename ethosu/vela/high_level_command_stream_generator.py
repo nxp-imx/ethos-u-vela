@@ -82,7 +82,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
     elif sched_op.op_type == Op.ResizeBilinear:
         upscaling = round_up_divide(ofm_shape.height, ifm.shape.height)
 
-    # Get Kernel height
+    # Get kernel height and height dilation
     k_height = 1
     if npu_block_type in (NpuBlockType.Pooling, NpuBlockType.ReduceSum):
         if parent_op is not None:
@@ -90,6 +90,11 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
     else:
         if uncomp_weight_tensor is not None:
             k_height = uncomp_weight_tensor.shape[0]
+
+    k_height_dilation = parent_op.attrs.get("dilation", (_, 1, _, _))[-3]
+
+    # Calculate dilated kernel height
+    k_dilated_height = k_height_dilation * (k_height - 1) + 1
 
     # Define Start and End coordinates for the OFM
     ofm_start = Shape4D(0, 0, 0, op_info.ofm_depth_slices[0])
@@ -150,9 +155,9 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         ifm.shape,
                         npu_block_type,
                         write_offset.as_list(),
+                        k_dilated_height,
                         read_offsets[0],
                         read_shapes[0],
-                        k_height,
                         upscaling,
                     )
 
@@ -164,9 +169,9 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         ifm2.shape,
                         npu_block_type,
                         write_offset.as_list(),
+                        k_dilated_height,
                         read_offsets[1],
                         read_shapes[1],
-                        k_height,
                         upscaling,
                     )
 
