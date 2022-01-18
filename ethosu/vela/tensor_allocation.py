@@ -96,8 +96,9 @@ def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
         for t in range(lr.start_time, lr.end_time + 1):
             lrs_at_time[t].append(lr)
     for t in range(nr_time_slots):
-        for ix, n in enumerate(lrs_at_time[t]):
-            for m in lrs_at_time[t][ix + 1 :]:
+        lrs_new_items = [lr for lr in lrs_at_time[t] if t == 0 or lr not in lrs_at_time[t - 1]]
+        for m in lrs_new_items:
+            for n in lrs_at_time[t]:
                 overlap, tens_n, tens_m = n.overlaps_address(m)
                 if overlap and not (tens_n.equivalent(tens_m) and tens_n.address == tens_m.address):
                     raise AllocationError(
