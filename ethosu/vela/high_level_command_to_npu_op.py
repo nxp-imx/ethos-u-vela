@@ -201,6 +201,11 @@ def get_upscale(op: Operation) -> NpuResamplingMode:
     return upscale
 
 
+def get_double_buffer_offset(arch: ArchitectureFeatures, range_index: int, core: int) -> int:
+    """Returns 0 if the first half of a double buffer should be used, 1 if the second half should be used"""
+    return ((range_index - core) // arch.ncores) % 2
+
+
 def get_ifm_depth(npu_block_type: NpuBlockType, ifm_box: Box, ofm_box: Box) -> int:
     if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
         block = ifm_box.get_block()
@@ -310,8 +315,8 @@ def create_weights(
             if weight_tensor.sub_purpose == TensorSubPurpose.DoubleBuffer:
                 assert weight_tensor != w_tensor_src
                 # Double buffered inside weight_tensor
-                address = weight_tensor.address + w_tensor_src.max_range_bytes * ((weight_range.index - core) % 2)
-                address += core_offset
+                address = weight_tensor.address + core_offset
+                address += get_double_buffer_offset(arch, weight_range.index, core) * w_tensor_src.max_range_bytes
                 core_offset += round_up(weight_range.total_bytes, 16)
             else:
                 if weight_tensor == w_tensor_src:
@@ -522,7 +527,7 @@ def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
 
                     if cmd.out_tensor.sub_purpose == TensorSubPurpose.DoubleBuffer:
                         dest_addr = cmd.out_tensor.address + cmd.in_tensor.max_range_bytes * (
-                            (weight_range.index - core) % 2
+                            get_double_buffer_offset(arch, weight_range.index, core)
                         )
                     else:
                         dest_addr = cmd.out_tensor.address
