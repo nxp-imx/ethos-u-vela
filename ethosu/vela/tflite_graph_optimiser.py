@@ -299,13 +299,13 @@ def convert_resizebilinear_1x1_to_add(op):
     return op
 
 
-# Convert ResizeBilinear to a number of 2x2 pool ops
-def convert_resizebilinear_to_2x2_pool(op):
-    count = 0
+# Convert ResizeBilinear to a number of 2x2 nearest neighbor upscaling and one avgpool op with kernel size dependent
+# on the upscaling factor. Avgpool kernel limit of 8x8 when padding is applied limits upscaling to 8x8.
+def convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op):
     pre_op = op
     outputs = op.outputs
-
-    op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 2, 2, 1)})
+    dtype = op.ifm.dtype
+    op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 1, 1, 1)})
     if op.attrs["align_corners"]:
         shape_modifier = 1
         op.attrs["padding"] = Padding.VALID
@@ -316,40 +316,40 @@ def convert_resizebilinear_to_2x2_pool(op):
 
     upscaled_shape = np.array(op.ifm_shapes[0].get_hw_as_list())
     out_shape = np.array(op.ofm_shapes[0].get_hw_as_list())
-    if (upscaled_shape == upscaled_shape * 2 - shape_modifier).all():
-        return op
 
-    while (upscaled_shape < out_shape).all():
-        if count == 0:
-            scaled_op = pre_op
-        else:
-            scaled_op = op.clone("_{}".format(count))
+    # Calculate how many times 2x2 upscaling needs to be performed
+    upscale_factor = round(out_shape[1] / upscaled_shape[1])
+    n = int(np.log2(upscale_factor))
+
+    # Perform 2x2 upscaling n-1 times
+    scaled_op = pre_op
+    for count in range(n - 1):
+        if count > 0:
+            scaled_op = op.clone(f"_{count}")
             scaled_op.inputs[0] = pre_op.outputs[0]
 
+        # Nearest neighbor 2x2 upscaling
         upscaled_shape = upscaled_shape * 2 - shape_modifier
+        shape = op.ofm_shapes[0].as_list()
+        shape[1:3] = upscaled_shape
+        out_tens = Tensor(shape, dtype, f"{op.outputs[0].name}_{count}")
+        out_tens.quantization = op.outputs[0].quantization.clone()
+        scaled_op.set_output_tensor(out_tens)
+        pre_op = scaled_op
 
-        if (upscaled_shape == out_shape).all():
-            scaled_op.outputs = outputs
-            scaled_op.outputs[0].ops = [scaled_op]
-        else:
-            shape = op.ofm_shapes[0].as_list()
-            shape[1:3] = upscaled_shape
-            out_tens = Tensor(shape, DataType.int16, "{}_{}".format(op.outputs[0].name, count))
-            out_tens.quantization = op.outputs[0].quantization.clone()
-            out_tens.quantization.quant_min = np.iinfo(np.int16).min
-            out_tens.quantization.quant_max = np.iinfo(np.int16).max
-            scaled_op.set_output_tensor(out_tens)
-            pre_op = scaled_op
-            count += 1
-
-        # Setup the scale value
-        if scaled_op.inputs[0].dtype.bits == 8 and scaled_op.outputs[0].dtype.bits == 16:
-            scaled_op.rescale = 128
-        elif scaled_op.inputs[0].dtype.bits == 16 and scaled_op.outputs[0].dtype.bits == 8:
-            scaled_op.rescale = 1 / 128
-        else:
-            scaled_op.rescale = None
         scaled_op.set_ifm_ofm_shapes()
+
+    # Last 2x2 upscaling also applies avgpool with kernel size dependent on the upscaling factor and adds
+    # padding to the right and bottom.
+    if n > 1:
+        scaled_op = op.clone(f"_{n-1}")
+        scaled_op.inputs[0] = pre_op.outputs[0]
+    scaled_op.attrs["padding"] = Padding.EXPLICIT
+    scaled_op.attrs["explicit_padding"] = [0, 0, upscale_factor - 1, upscale_factor - 1]
+    scaled_op.attrs.update({"ksize": (1, upscale_factor, upscale_factor, 1)})
+    scaled_op.outputs = outputs
+    scaled_op.outputs[0].ops = [scaled_op]
+    scaled_op.set_ifm_ofm_shapes()
 
     return op
 
@@ -363,7 +363,7 @@ def fixup_resizebilinear(op, arch, nng):
         elif op.ifm_shapes[0].height == 1 and op.ifm_shapes[0].width == 1:
             convert_resizebilinear_1x1_to_add(op)
         else:
-            convert_resizebilinear_to_2x2_pool(op)
+            convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op)
 
     return op
 
