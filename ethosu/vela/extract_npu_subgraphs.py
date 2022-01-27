@@ -98,6 +98,9 @@ def rewrite_tensor_cpu_producer_npu_consumers(
 
     # Deal with output tensors for the NPU graph. These are special.
     npu_subgraph.output_tensors = [new_tens if tens == orig_tens else tens for tens in npu_subgraph.output_tensors]
+    for tens in npu_subgraph.output_tensors:
+        # Enforce output tensor from NPU graph to use normal NHWC output
+        tens.needs_linear_format = True
 
 
 def rewrite_tensor_npu_producer_cpu_consumers(
