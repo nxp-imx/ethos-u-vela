@@ -42,7 +42,10 @@ class LiveRange:
             self.add_tensor(tens)
 
     def __str__(self):
-        return "<live_range.LiveRange: '%s' start_time=%s, end_time=%s>" % (self.name, self.start_time, self.end_time)
+        return (
+            f"<live_range.LiveRange: {self.start_time}-{self.end_time}, "
+            f"size={self.size}, '{self.name}' #:{len(self.tensors)}>"
+        )
 
     __repr__ = __str__
 
@@ -142,10 +145,10 @@ class LiveRangeGraph:
 
     def get_temporal_memory_usage(self, target_mem_area):
         usage = np.zeros(self.update_endtime(), dtype=np.int32)
-        for rng in self.ranges.values():
-            if rng.mem_area == target_mem_area:
+        for lr in self.lrs:
+            if lr.mem_area == target_mem_area:
                 # End time is inclusive
-                usage[rng.start_time : rng.end_time + 1] += rng.size
+                usage[lr.start_time : lr.end_time + 1] += lr.size
 
         return usage
 
