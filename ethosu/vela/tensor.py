@@ -370,6 +370,7 @@ class Tensor:
         "resampling_mode",
         "src_tensor",
         "needs_linear_format",
+        "ifm_write_protected",
     )
     AllocationQuantum = 16
 
@@ -416,6 +417,7 @@ class Tensor:
         self.resampling_mode: resampling_mode = resampling_mode.NONE
 
         self.needs_linear_format = True
+        self.ifm_write_protected = False
 
         # Reference to parent-tensor if this tensor is a clone
         self.src_tensor = None

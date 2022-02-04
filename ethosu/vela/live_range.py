@@ -158,7 +158,7 @@ def tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
 
 def merge_elementwise_op_ranges(sg, sched_op, lr_graph, target_mem_area, target_mem_type_set):
     def _tensor_should_be_ignored(tens):
-        if tens in sg.input_tensors + sg.output_tensors:
+        if tens.ifm_write_protected:
             return True
         return tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set)
 
