@@ -35,6 +35,7 @@ from .architecture_features import SHRAMElements
 from .architecture_features import TensorFormat
 from .nn_graph import Graph
 from .numeric_util import round_up
+from .numeric_util import round_up_to_int
 from .operation import Kernel
 from .operation import Op
 from .scheduler import Schedule
@@ -388,7 +389,9 @@ def _estimate_conv_cycles(arch, op_type: Op, faf_type: Op, query: PerformanceQue
 
     # Estimate output cycles
     num_ofm_blks = query.ofm_shape.div_round_up(ofm_block).elements()
-    cycles_output_blk = _estimate_output_cycles_per_element(arch, op_type, faf_type, query) * ofm_block.elements()
+    cycles_output_blk = round_up_to_int(
+        _estimate_output_cycles_per_element(arch, op_type, faf_type, query) * ofm_block.elements()
+    )
 
     # Scale and bias tensor
     if query.const_shape.depth > 0:
@@ -442,8 +445,10 @@ def measure_cycle_cost(arch, op_type: Op, faf_type: Op, query: PerformanceQuery)
     # Elementwise cycle calculation
     elif query.npu_block_type == NpuBlockType.ElementWise:
         cycles.op_macs = 0
-        cycles.op_cycles = int(_estimate_output_cycles_per_element(arch, op_type, faf_type, query)) * int(
-            query.ofm_shape.elements()
+        ofm_rounding = Shape4D(list(arch.storage_rounding_quantums[query.ofm_format]))
+        cycles.op_cycles = round_up_to_int(
+            _estimate_output_cycles_per_element(arch, op_type, faf_type, query)
+            * Shape4D.round_up(query.ofm_shape, ofm_rounding).elements()
         )
     else:
         assert False
