@@ -106,9 +106,6 @@ def rewrite_tensor_cpu_producer_npu_consumers(
 
     # Deal with output tensors for the NPU graph. These are special.
     npu_subgraph.output_tensors = [new_tens if tens == orig_tens else tens for tens in npu_subgraph.output_tensors]
-    for tens in npu_subgraph.output_tensors:
-        # Enforce output tensor from NPU graph to use normal NHWC output
-        tens.needs_linear_format = True
 
 
 def rewrite_tensor_npu_producer_cpu_consumers(
@@ -240,6 +237,11 @@ def extract_subgraph(nng, orig_sg, arch):
                     rewrite_tensor_npu_producer_cpu_consumers(
                         tens, call_pass[curr_sg], startup_init_passes[curr_sg], curr_sg, orig_sg, subgraph_for_pass
                     )
+
+        for tens in curr_sg.output_tensors:
+            # ofm can depend on multiple ops. These ops can be divided into different NPU
+            # nodes due to CPU nodes. If that is the case the ofm must be NHWC.
+            tens.needs_linear_format = True
 
     return new_subgraphs
 
