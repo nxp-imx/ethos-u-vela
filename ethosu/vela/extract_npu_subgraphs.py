@@ -120,6 +120,14 @@ def rewrite_tensor_npu_producer_cpu_consumers(
     call_ps.primary_op.outputs.append(new_tens)
     new_tens.ops = [call_ps.primary_op]
 
+    # Elementwise op can not overwrite ifm if input is used by many consumers
+    if orig_tens in npu_subgraph.input_tensors and len(orig_tens.consumers()) > 1:
+        new_tens.ifm_write_protected = True
+
+    # Elementwise op can not overwrite ifm if tensor is used as output from sub graph
+    if orig_tens in npu_subgraph.output_tensors:
+        new_tens.ifm_write_protected = True
+
     for op in list(orig_tens.consumers()):
         if op is None:
             continue  # Subgraph consumers handled separately.
