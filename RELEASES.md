@@ -5,6 +5,31 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.3.0 - 25/02/2022
+
+**Main feature changes:**
+
+* Upgrade TensorFlow Lite support to version 2.7
+  * Increases Python requirement to at least version 3.8
+* Scheduling algorithm improvements
+  * Improved spilling reduces DRAM bandwidth for Ethos-U65 Dedicated SRAM
+  * Improved weight buffering increases performance for Ethos-U65 512-MAC
+  * Optimised tensor allocation reduces compilation time for large networks
+* Extended operator support:
+  * RESIZE_BILINEAR: Adds support for upscaling on NPU by factors of 4x4 and 8x8
+
+**Interface changes:**
+
+* None
+
+**Reported defect fixes:**
+
+* Memory corruption with custom operator and zero concatenation (MLCE-678)
+* Crash when creating explicit padding (MLCE-684)
+* Fix assert when setting address on identical LUT tensors (MLCE-691)
+* Reduce SRAM usage for some elementwise operations (MLCE-750)
+* Issue when running a model with Padding (MLCE-768)
+
 ## Release 3.2.0 - 26/11/2021
 
 **Main feature changes:**

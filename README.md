@@ -44,6 +44,8 @@ Vela runs on Linux and Microsoft Windows 10 operating systems.
 The following should be installed prior to the installation of Vela:
 
 * Python 3.8 or compatible
+   - Development version containing the Python/C API header files
+   - e.g. `apt install python3.8-dev` or `yum install python38-devel`
 * Pip3
 * A C99 capable compiler and associated toolchain
     - For Linux operating systems, a GNU toolchain is recommended.
