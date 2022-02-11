@@ -29,27 +29,26 @@ The tool has limited functionality for compiling a
 
 ## TensorFlow Support
 
-* Vela 3.1.0 to current supports TensorFlow 2.5
+* Vela 3.3.0 to current supports TensorFlow 2.7
+* Vela 3.1.0 to 3.2.0 supports TensorFlow 2.5
 * Vela 2.1.0 to 3.0.0 supports TensorFlow 2.4
 * Vela 2.0.0 to 2.0.1 supports TensorFlow 2.3
 * Vela 0.1.0 to 1.2.0 supports TensorFlow 2.1
 
 ## Environment
 
-Vela runs on the Linux and Microsoft Windows 10 operating systems, see note in
-Installation section below.
+Vela runs on Linux and Microsoft Windows 10 operating systems.
 
 ## Prerequisites
 
 The following should be installed prior to the installation of Vela:
 
-* Python >= 3.6
+* Python 3.8 or compatible
 * Pip3
-* GNU toolchain (GCC, Binutils and libraries)
-
-And optionally:
-
-* Pipenv virtual environment tool
+* A C99 capable compiler and associated toolchain
+    - For Linux operating systems, a GNU toolchain is recommended.
+    - For Microsoft Windows 10, Microsoft Visual C++ 14.2 Build Tools is recommended.
+      See <https://wiki.python.org/moin/WindowsCompilers>
 
 ## Installation
 
@@ -58,10 +57,6 @@ Vela is available to install as a package from
 source code from
 [ML Platform](https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela).
 Both methods will automatically install all the required dependencies.
-
-**Note:** For installing on Microsoft Windows 10 you need to have a C99 capable
-toolchain installed.  The recommended and tested toolchain is Microsoft Visual
-C++ 14.2 Build Tools, see <https://wiki.python.org/moin/WindowsCompilers>
 
 ### PyPi
 
@@ -83,13 +78,14 @@ git clone https://review.mlplatform.org/ml/ethos-u/ethos-u-vela.git
 ```
 
 Once you have the source code, Vela can be installed using the following
-command:
+command from the root directory of the repository:
 
 ```bash
 pip3 install .
 ```
 
-Or, if you use `pipenv`:
+A `Pipfile` is maintained for the project, so users of the virtual environment
+tool `pipenv` may prefer the following command instead:
 
 ```bash
 pipenv install .
@@ -99,16 +95,10 @@ pipenv install .
 
 If you plan to modify the Vela codebase then it is recommended to install Vela
 as an editable package to avoid the need to re-install after every modification.
-This is done by adding the `-e` option to the above install commands like so:
+This is done by adding the `-e` option to the install command like so:
 
 ```bash
 pip3 install -e .
-```
-
-Or, if you use `pipenv`:
-
-```bash
-pipenv install -e .
 ```
 
 If you plan to contribute to the Vela project (highly encouraged!) then it is
@@ -117,22 +107,12 @@ recommended to install Vela along with the pre-commit tools (see
 
 ## Running
 
-Vela is run with an input `.tflite` file passed on the command line.  This file
-contains the neural network to be compiled. The tool then outputs an optimised
-version with a `_vela.tflite` file prefix, along with the performance estimate
-(EXPERIMENTAL) CSV files, all to the output directory. It also prints a
-performance estimation summary back to the console, see
+Vela is run with an input `.tflite` or `.tosa` (EXPERIMENTAL) file passed on the
+command line. This file contains the neural network to be compiled. The tool then
+outputs an optimised `.tflite` file with a `_vela` suffix in the file name, along
+with performance estimate (EXPERIMENTAL) CSV files, all to the output directory.
+It also prints a performance estimation summary back to the console, see
 [Vela Performance Estimation Summary](PERFORMANCE.md).
-
-If you use the `pipenv` virtual environment tool then first start by spawning a
-shell in the virtual environment:
-
-```bash
-pipenv shell
-```
-
-After which running Vela is the same regardless of whether you are in a virtual
-environment or not.
 
 Example usage:
 
@@ -150,14 +130,14 @@ in the directory `./results_dir/`.
 vela --output-dir ./results_dir /path/to/my_model.tflite
 ```
 
-3) Compile a network using a particular Ethos-U NPU.  The following command
+3) Compile a network targeting a particular Ethos-U NPU.  The following command
 selects an Ethos-U65 NPU accelerator configured with 512 MAC units.
 
 ```bash
 vela --accelerator-config ethos-u65-512 my_model.tflite
 ```
-4) Compile a network while minimizing peak SRAM usage,
-therefore prioritising a lower SRAM usage over runtime performance.
+4) Compile a network while minimizing peak SRAM usage, prioritising lower SRAM
+usage over runtime performance.
 
 ```bash
 vela --optimise Size my_model.tflite
