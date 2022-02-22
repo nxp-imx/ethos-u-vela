@@ -629,18 +629,7 @@ def estimate_full_op_performance(
 
             bws[src_tensor.mem_area][lut_tensor.purpose][BandwidthDirection.Read] += bw
             # LUT read from SHRAM TODO remove?
-            scaled_bws[lut_tensor.mem_area][lut_tensor.purpose][
-                BandwidthDirection.Read
-            ] += _estimate_memory_transfer_efficiency(
-                arch,
-                True,
-                lut_tensor.mem_area,
-                lut_tensor.format,
-                lut_tensor.element_size(),
-                query.config.ifm_block,
-                Shape4D(lut_tensor.shape),
-                bw,
-            )
+            scaled_bws[lut_tensor.mem_area][lut_tensor.purpose][BandwidthDirection.Read] += bw
 
     if cost.npu_weights_tensor and cost.buffered_weight_tensor:
         # DMA Weight Transfer
