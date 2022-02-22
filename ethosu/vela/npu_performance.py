@@ -22,6 +22,8 @@
 import copy
 from enum import auto
 from enum import IntEnum
+from typing import Set
+from uuid import UUID
 
 import numpy as np
 
@@ -31,11 +33,13 @@ from .architecture_features import Accelerator
 from .architecture_features import NpuBlockType
 from .architecture_features import SHRAMElements
 from .architecture_features import TensorFormat
+from .nn_graph import Graph
 from .numeric_util import round_up
 from .operation import Kernel
 from .operation import Op
 from .scheduler import Schedule
 from .scheduler import SchedulerOperation
+from .scheduler import SchedulerOpInfo
 from .shape4d import Shape4D
 from .tensor import BandwidthDirection
 from .tensor import MemArea
@@ -725,16 +729,39 @@ def estimate_full_op_performance(
     return bws, macs, cycles_a
 
 
-def calc_new_performance_for_network(nng, arch):
+def calc_new_performance_for_network(nng: Graph, arch):
     total_bws = make_bandwidth_array()
     total_macs = 0
     total_cycles = np.zeros(PassCycles.Size)
+    total_weight_size = 0
+    total_encoded_weight_size = 0
+
+    # Store unique instances of original/encoded weight tensor uuids to prevent double counting of weights
+    original_weight_uuids: Set[UUID] = set()
+    encoded_npu_weight_uuids: Set[UUID] = set()
 
     for sg in nng.subgraphs:
         prev_op = None
         for sched_op in sg.sched_ops:
-            op_info = sg.schedule.cost_map[sched_op]
+            op_info: SchedulerOpInfo = sg.schedule.cost_map[sched_op]
             bws, macs, cycles = estimate_full_op_performance(arch, sg.schedule, sched_op, prev_op, op_info.block_config)
+
+            # Tensors for calculating weight sizes
+            original_weight = sched_op.parent_op.weights
+            encoded_npu_weight = op_info.npu_weights_tensor
+
+            # Save UUIDs of original_weight so only unique instances of tensors are used to calculate weights
+            if original_weight and (original_weight.equivalence_id not in original_weight_uuids):
+
+                original_weight_uuids.add(original_weight.equivalence_id)
+                total_weight_size += original_weight.values.itemsize * original_weight.values.size
+
+            # Save UUIDs of encoded_npu_weight so only unique instances of tensors are used to calculate weights
+            if encoded_npu_weight and (encoded_npu_weight.equivalence_id not in encoded_npu_weight_uuids):
+
+                encoded_npu_weight_uuids.add(encoded_npu_weight)
+                total_encoded_weight_size += len(encoded_npu_weight.buffer)
+
             total_bws += bws
             total_macs += macs
             total_cycles += cycles
@@ -743,3 +770,5 @@ def calc_new_performance_for_network(nng, arch):
     nng.bandwidths = total_bws
     nng.macs = total_macs
     nng.cycles = total_cycles
+    nng.total_original_weights = total_weight_size
+    nng.total_npu_encoded_weights = total_encoded_weight_size

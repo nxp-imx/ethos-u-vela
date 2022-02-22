@@ -339,7 +339,7 @@ class Scheduler:
         self.nng = nng
         self.sg = sg
         self.arch = arch
-        self.sched_ops: List(SchedulerOperation) = []
+        self.sched_ops: List[SchedulerOperation] = []
         self.max_schedule = None
         self.scheduler_options = options
 
@@ -459,7 +459,6 @@ class Scheduler:
     def create_initial_schedule(self) -> Schedule:
         """Creates an initial schedule with no cascading or buffering of any kind"""
         schedule = Schedule(self.sg, "MAX")
-
         for op in self.sched_ops:
             cost = op.create_scheduler_info(self.nng, op.ofm.shape)
             cost.cycles = self.estimate_op_performance(op, cost.block_config, op.ofm.shape.depth)

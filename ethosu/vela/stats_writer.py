@@ -110,7 +110,6 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
         data_items += [midpoint_fps, nng.batch_size, midpoint_inference_time, n_passes, n_cascaded_passes]
         data_items += [nng.memory_used.get(mem_area, 0) / 1024.0 for mem_area in mem_areas]
         data_items += [nng.total_original_weights]
-        data_items += [nng.total_npu_weights]
         data_items += [nng.total_npu_encoded_weights]
 
         for mem_area in mem_areas:
@@ -325,7 +324,6 @@ def print_performance_metrics_for_strat(
 
     if weights_data:
         print(f"Original Weights Size                    {weights_data['original'] / 1024.0:12.2f} KiB", file=f)
-        print(f"NPU Weights Size                         {weights_data['npu'] / 1024.0:12.2f} KiB", file=f)
         print(f"NPU Encoded Weights Size                 {weights_data['npu_encoded'] / 1024.0:12.2f} KiB", file=f)
         print(file=f)
 
@@ -372,11 +370,7 @@ def print_performance_metrics(nng, arch, show_cpu_operations=False, verbose_weig
                     npu_operations.append(op)
 
     weights_data = (
-        {
-            "original": nng.total_original_weights,
-            "npu": nng.total_npu_weights,
-            "npu_encoded": nng.total_npu_encoded_weights,
-        }
+        {"original": nng.total_original_weights, "npu_encoded": nng.total_npu_encoded_weights}
         if verbose_weights
         else None
     )
