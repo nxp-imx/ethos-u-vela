@@ -1152,7 +1152,7 @@ class FastStorageComponentAllocator:
         if ix >= len(self.lrs):
             if alloc_size > self.best_allocated_size:
                 self.best_allocated_size = alloc_size
-                self.evicted = self.curr_evicted
+                self.evicted = self.curr_evicted.copy()
             return
 
         lr = self.lrs[ix]
