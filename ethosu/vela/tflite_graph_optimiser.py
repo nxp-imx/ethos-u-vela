@@ -236,7 +236,7 @@ def calc_padding_and_skirt(padding_type, kernel, input_shape, explicit_padding):
         top_pad, bottom_pad = calc_explicit_padding(int(input_shape.height), int(s_y), int(k_h), int(top), int(bottom))
         left_pad, right_pad = calc_explicit_padding(int(input_shape.width), int(s_x), int(k_w), int(left), int(right))
     else:
-        raise UnsupportedFeatureError(f"Unknown padding")
+        raise UnsupportedFeatureError(f"Unsupported padding = {padding_type} for padding calculation")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = (top_pad, left_pad, ypad - top_pad, xpad - left_pad)
     return padding, skirt
@@ -257,7 +257,7 @@ def calc_upscaled_padding_and_skirt(padding_type, kernel_size, stride, input_sha
         left_pad = kernel_width - 1
         top_pad = kernel_height - 1
     else:
-        raise UnsupportedFeatureError(f"Unknown padding")
+        raise UnsupportedFeatureError(f"Unsupported padding = {padding_type} for up-scaled padding calculation")
     padding = (top_pad, left_pad, bottom_pad, right_pad)
     skirt = padding
     return padding, skirt
@@ -977,6 +977,7 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
     """
     if (
         (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op() or op.type.is_avgpool_op())
+        and op.type not in (Op.Conv2DBackpropInput, Op.Conv2DBackpropInputSwitchedBias)
         and op.run_on_npu
         and op.attrs["padding"] == Padding.VALID
     ):
