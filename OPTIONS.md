@@ -457,7 +457,11 @@ arena_cache_size=???   ---> Size of the arena/cache memory area.  ??? = {int in 
 The Vela configuration file defines three potential memory modes although other configurations are possible.  Each
 memory mode is defined with respect to four attributes.  If any of those attributes are not specified then an internal
 default value will be used.  Note that this value may not be valid for the target embedded system.  Therefore, the user
-is recommended to explicitly specify all settings.
+is recommended to explicitly specify all settings.  
+The three memory area attributes are each assigned to a virtual AXI port.  This assignment is used by the compiler to
+map a memory area to a specific memory type (as defined in the System Configuration section).  It allows the System
+Configuration sections to be reused with different Memory Mode sections.  It does not control the mapping of the
+physical AXI ports of the hardware, which are pre-determined in the compiler and driver.
 
 1. `const_mem_area` this is the memory area in which the compiler will store all constant data such as weights,
 scales & biases, and constant value tensors.
