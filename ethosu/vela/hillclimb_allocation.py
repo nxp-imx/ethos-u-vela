@@ -94,6 +94,8 @@ class HillClimbAllocator:
     NOT_ALLOCATED = -1
     # Used for live ranges allocated at address 0
     NO_PREDECESSOR = -1
+    # Special handling if best solution has not improved during this many iterations
+    MAX_ITERATIONS_STUCK = 50
 
     def __init__(self, live_ranges: List[LiveRange]):
         # Contains the live ranges
@@ -190,7 +192,7 @@ class HillClimbAllocator:
                 turn_set.add(turn)
                 turn_list.append(turn)
 
-    def attempt_bottleneck_fix(self, indices: List[int]):
+    def attempt_bottleneck_fix(self, indices: List[int], iterations_stuck):
         """
         Finds the "bottleneck", the live range with highest end address, and reorders the indices
         such that a next allocation might lower the memory usage.
@@ -255,24 +257,41 @@ class HillClimbAllocator:
             ix2 = turn_list[-1]
         # Swap indices
         indices[ix1], indices[ix2] = indices[ix2], indices[ix1]
+        if iterations_stuck > HillClimbAllocator.MAX_ITERATIONS_STUCK:
+            # The best allocation has not improved for a while, maybe improvement is not possible
+            # by single-swapping indices; add more neighbour live ranges and swap up to two more indices.
+            # Adding more neighbours can sometimes resolve the situation where the current bottleneck
+            # is resolved, but always results in a higher bottleneck at a nearby live range.
+            # Magic number is based on tuning
+            for turn in non_nb_turn_list:
+                for lr in self.lrs[indices[turn]].neighbours:
+                    if lr.turn not in turn_set:
+                        turn_set.add(lr.turn)
+                        turn_list.append(lr.turn)
+            ix1 = turn_list[random.randint(0, len(turn_list) - 1)]
+            ix2 = turn_list[random.randint(0, len(turn_list) - 1)]
+            indices[ix1], indices[ix2] = indices[ix2], indices[ix1]
 
     def search(self, indices: List[int], iterations: int):
         """
         Search for a solution, using the given indices as initial solution.
         """
         best_indices = indices[:]
-        for _ in range(iterations):
+        last_improvement_iteration = 0
+        for i in range(iterations):
             # Reorder the indices
-            self.attempt_bottleneck_fix(indices)
+            self.attempt_bottleneck_fix(indices, i - last_improvement_iteration)
             # Allocate the reordered indices and check if it gave an improvement
             new_size = self.allocate_indices(indices)
             if new_size <= self.best_size:
                 # The new allocation produced a new best result remember it
+                if new_size < self.best_size:
+                    last_improvement_iteration = i
                 self.best_size = new_size
                 best_indices = indices[:]
                 self.allocated_addresses = [lr.address for lr in self.lrs]
                 if self.best_size <= self.min_required_size:
-                    # Target reached stop
+                    # Target reached; stop
                     return
             else:
                 # The new allocation produced worse result undo the change
