@@ -68,7 +68,6 @@ from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
-from .tensor import TensorSubPurpose
 from .weight_compressor import NpuWeightTensor
 from .weight_compressor import WeightKey
 
@@ -202,9 +201,15 @@ def get_mem_limits_for_regions(arch: ArchitectureFeatures) -> Dict[int, int]:
     return mem_limits
 
 
-def get_double_buffer_offset(arch: ArchitectureFeatures, range_index: int, core: int) -> int:
-    """Returns 0 if the first half of a double buffer should be used, 1 if the second half should be used"""
-    return ((range_index - core) // arch.ncores) % 2
+def get_upscale(op: Operation) -> NpuResamplingMode:
+    upscale = NpuResamplingMode.NONE
+    if op.type == Op.ResizeBilinear:
+        # perform nearest neighbor upscale
+        upscale = NpuResamplingMode.NEAREST
+    elif op.type == Op.Conv2DBackpropInputSwitchedBias:
+        # perform insert zero upscale
+        upscale = NpuResamplingMode.TRANSPOSE
+    return upscale
 
 
 def get_ifm_depth(npu_block_type: NpuBlockType, ifm_box: Box, ofm_box: Box) -> int:
@@ -313,20 +318,13 @@ def create_weights(
         key = WeightKey(core, weight_box.start_coord[-1])
         if key in w_tensor_src.encoded_ranges:
             weight_range = w_tensor_src.encoded_ranges[key]
-            if weight_tensor.sub_purpose == TensorSubPurpose.DoubleBuffer:
-                assert weight_tensor != w_tensor_src
-                # Double buffered inside weight_tensor
-                address = weight_tensor.address + core_offset
-                address += get_double_buffer_offset(arch, weight_range.index, core) * w_tensor_src.max_range_bytes
-                core_offset += round_up(weight_range.total_bytes, 16)
+            if weight_tensor == w_tensor_src:
+                # Straight from source tensor
+                address = weight_tensor.address + weight_range.offset
             else:
-                if weight_tensor == w_tensor_src:
-                    # Straight from source tensor
-                    address = weight_tensor.address + weight_range.offset
-                else:
-                    # Single buffered inside weight tensor
-                    address = weight_tensor.address + core_offset
-                    core_offset += round_up(weight_range.total_bytes, 16)
+                # Weight buffered tensor
+                address = weight_tensor.address + core_offset
+                core_offset += round_up(weight_range.total_bytes, 16)
 
             # Location of weights in tensor
             addr_range = NpuAddressRange(
@@ -525,13 +523,7 @@ def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
                 if core == 0:
                     weight_range = cmd.in_tensor.encoded_ranges[key]
                     src_addr = cmd.in_tensor.address + weight_range.offset
-
-                    if cmd.out_tensor.sub_purpose == TensorSubPurpose.DoubleBuffer:
-                        dest_addr = cmd.out_tensor.address + cmd.in_tensor.max_range_bytes * (
-                            get_double_buffer_offset(arch, weight_range.index, core)
-                        )
-                    else:
-                        dest_addr = cmd.out_tensor.address
+                    dest_addr = cmd.out_tensor.address
     else:
         start_coord = cmd.box.start_coord
         src_addr = cmd.in_tensor.address_for_coordinate(start_coord)

@@ -608,8 +608,8 @@ def estimate_full_op_performance(
     prev_cost = schedule.cost_map[prev_op] if prev_op else None
     if op.parent_op.bias:
         query.const_shape = Shape4D(1, 1, 1, op.ofm.shape.depth)
-        if cost.buffered_weight_tensor:
-            query.const_memory_area = cost.buffered_weight_tensor.mem_area
+        if cost.buffered_weight_tensors:
+            query.const_memory_area = cost.buffered_weight_tensors[0].mem_area
         else:
             query.const_memory_area = cost.npu_weights_tensor.mem_area
 
@@ -637,7 +637,7 @@ def estimate_full_op_performance(
             # LUT read from SHRAM TODO remove?
             scaled_bws[lut_tensor.mem_area][lut_tensor.purpose][BandwidthDirection.Read] += bw
 
-    if cost.npu_weights_tensor and cost.buffered_weight_tensor:
+    if cost.npu_weights_tensor and cost.buffered_weight_tensors:
         # DMA Weight Transfer
         sz = 0
         # Get the size of the first DMA
@@ -649,10 +649,10 @@ def estimate_full_op_performance(
 
         total_sz = len(cost.npu_weights_tensor.buffer)
         bws[cost.npu_weights_tensor.mem_area][TensorPurpose.Weights][BandwidthDirection.Read] += total_sz
-        bws[cost.buffered_weight_tensor.mem_area][TensorPurpose.Weights][BandwidthDirection.Write] += total_sz
+        bws[cost.buffered_weight_tensors[0].mem_area][TensorPurpose.Weights][BandwidthDirection.Write] += total_sz
 
         ws_first_transfer_cycles = measure_mem2mem_cycles(
-            arch, cost.npu_weights_tensor.mem_area, cost.buffered_weight_tensor.mem_area, sz
+            arch, cost.npu_weights_tensor.mem_area, cost.buffered_weight_tensors[0].mem_area, sz
         )
 
         # Add cycles for Weight + Scale Transfer
@@ -708,7 +708,7 @@ def estimate_full_op_performance(
         bw = access.const_read[0] * bandwidth_compression_scale_approx
         bws[query.const_memory_area][TensorPurpose.Weights][BandwidthDirection.Read] += bw
 
-        if not cost.buffered_weight_tensor:
+        if not cost.buffered_weight_tensors:
             scaled_bws[query.const_memory_area][TensorPurpose.Weights][BandwidthDirection.Read] += bw
 
     if access.const_read[1] > 0:
@@ -716,7 +716,7 @@ def estimate_full_op_performance(
         bw = access.const_read[1] * op.parent_op.bias.element_size()
         bws[query.const_memory_area][TensorPurpose.FSBias][BandwidthDirection.Read] += bw
 
-        if not cost.buffered_weight_tensor:
+        if not cost.buffered_weight_tensors:
             scaled_bws[query.const_memory_area][TensorPurpose.FSBias][BandwidthDirection.Read] += bw
 
     update_summary_cycles(arch, scaled_bws, cycles_a)
