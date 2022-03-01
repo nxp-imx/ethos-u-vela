@@ -15,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Simple example of the usage of mlw_codec.
+from typing import Any
+from typing import List
+
 import pytest
 
 from ethosu import mlw_codec
@@ -68,7 +71,7 @@ class TestMLWCodec:
         with pytest.raises(Exception):
             mlw_codec.encode(input)
 
-    invalid_decode_test_data = [None, 3, []]
+    invalid_decode_test_data: List[Any] = [None, 3, []]
 
     @pytest.mark.parametrize("input", invalid_decode_test_data)
     def test_decode_invalid_input(self, input):

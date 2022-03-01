@@ -234,7 +234,7 @@ def create_binary_elementwise(
     op_type: Op,
     name: str,
     ifm: Tensor,
-    ifm2: Tensor,
+    ifm2: Optional[Tensor],
     quantization: QuantizationParameters,
     activation: Optional[ActivationFunction] = None,
     dtype: Optional[DataType] = None,

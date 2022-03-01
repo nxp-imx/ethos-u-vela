@@ -91,7 +91,7 @@ def verify_allocation(live_ranges: LiveRangeGraph, alignment: int):
     verify_alignment(live_ranges, alignment)
     nr_time_slots = 1 + max(lr.end_time for lr in live_ranges.lrs)
     # Contains active live ranges at each timestamp
-    lrs_at_time = [[] for i in range(nr_time_slots)]
+    lrs_at_time: List[List[LiveRange]] = [[] for i in range(nr_time_slots)]
     for lr in live_ranges.lrs:
         for t in range(lr.start_time, lr.end_time + 1):
             lrs_at_time[t].append(lr)

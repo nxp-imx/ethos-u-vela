@@ -16,6 +16,7 @@
 # Description:
 # Contains classes that hold commands for the high-level command stream (one command per DMA or NPU stripe).
 from typing import List
+from typing import Optional
 
 import numpy as np
 
@@ -41,8 +42,8 @@ class Box:
         npu_block_type: NpuBlockType,
         concat_offsets: List[int],
         k_dilated_height: int,
-        split_offset: Shape4D = None,
-        split_shape: Shape4D = None,
+        split_offset: Optional[Shape4D] = None,
+        split_shape: Optional[Shape4D] = None,
         upscaling_factor: int = 1,
     ):
         new_start_coord = list(self.start_coord)

@@ -130,6 +130,7 @@ class CascadedPass:
         self.predecessors = []
         self.successors = []
         self.sram_used = 0
+        self.time = 0
 
     def __str__(self):
         return "<nng.CascadedPass strategy=%s x %s '%s',  passes=%s, block_configs=%s>" % (
@@ -537,6 +538,9 @@ class Graph:
         self.total_npu_weights = 0
         self.total_npu_encoded_weights = 0
         self.weight_cache = None  # See CompressedWeightCache
+        self.bandwidths = 0
+        self.macs = 0
+        self.cycles = 0
 
     def get_root_subgraph(self):
         return self.subgraphs[0]

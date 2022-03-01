@@ -101,7 +101,7 @@ class HillClimbAllocator:
             LiveRangeInfo(id, lr.start_time, lr.end_time, lr.size, lr.get_alignment())
             for id, lr in enumerate(live_ranges)
         ]
-        self.lrs_at_time = []
+        self.lrs_at_time: List[List[LiveRangeInfo]] = []
         # The available size (input to algorithm).
         self.available_size: int = 0
         # The algorithm stops once the target size has been achieved
@@ -227,8 +227,8 @@ class HillClimbAllocator:
         # - direct neighbours of the bottleneck live range
         # - direct and indirect predecessors of these neighbours + bottleneck
         # The turns at which these live ranges were allocated are put in the turns set.
-        turn_set = set()
-        turn_list = list()
+        turn_set: Set[int] = set()
+        turn_list: List[int] = list()
         self.add_predecessor_turns(turn_set, turn_list, max_lr)
         for lr2 in max_lr.neighbours:
             self.add_predecessor_turns(turn_set, turn_list, lr2)

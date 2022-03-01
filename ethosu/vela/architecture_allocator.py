@@ -17,8 +17,10 @@
 # Description: Architecture SHRAM allocator
 import enum
 import math
+from typing import Dict
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
@@ -77,8 +79,8 @@ class ElementwiseUsage(enum.IntEnum):
 def _try_block_config(
     shram: SHRAMConfig,
     ew_usage: ElementwiseUsage,
-    ofm_block: Block,
-    ifm_block: Block,
+    ofm_block: Union[Shape4D, Block],
+    ifm_block: Union[Shape4D, Block],
     ifm_bits: int,
     ifm_granule: int,
     acc_bits: int,
@@ -86,7 +88,7 @@ def _try_block_config(
     lut_banks: int,
     ifm_depth_buf_scaling: int,
     cores: int,
-) -> SHRAMLayout:
+) -> Union[SHRAMLayout, None]:
     assert (acc_bits > 0) and (acc_granule > 0)
     assert (ifm_bits >= 8) and ((ifm_bits % 8) == 0) and (ifm_granule > 0)
 
@@ -173,7 +175,7 @@ def to_upscale(ifm_resampling: resampling_mode) -> int:
     return 1 if ifm_resampling == resampling_mode.NONE else 2
 
 
-def _ifm_blockdepth(arch, ifm_shape: Shape4D, ifm_bits: int, is_partkernel: bool):
+def _ifm_blockdepth(arch, ifm_shape: Union[Shape4D, Block], ifm_bits: int, is_partkernel: bool):
     if ifm_bits == 16:
         ifm_blockdepth = round_up(min(ifm_shape.depth, 16), 4)
     else:
@@ -185,7 +187,9 @@ def _required_size(value: int, stride: int, border: int, upscale: int, nearest: 
     return int(math.ceil(((value - 1) * stride + border + nearest) / upscale))
 
 
-def get_ifm_area_required(ofm_shape: Shape4D, kernel: Kernel, resampling_mode: resampling_mode) -> Tuple[int, int]:
+def get_ifm_area_required(
+    ofm_shape: Union[Shape4D, Block], kernel: Kernel, resampling_mode: resampling_mode
+) -> Tuple[int, int]:
     upscale = to_upscale(resampling_mode)
     nearest = is_nearest(resampling_mode)
     h1 = _required_size(ofm_shape.height, kernel.stride.y, kernel.area_height(), upscale, nearest)
@@ -194,7 +198,7 @@ def get_ifm_area_required(ofm_shape: Shape4D, kernel: Kernel, resampling_mode: r
 
 
 def _get_ifm_blocksize(
-    ofm_block: Shape4D, kernel: Kernel, ublock: Block, subkernel_limit: Block, upscale: int, nearest: bool
+    ofm_block: Union[Shape4D, Block], kernel: Kernel, ublock: Block, subkernel_limit: Block, upscale: int, nearest: bool
 ) -> Shape4D:
     # IFM block height
     h1 = _required_size(
@@ -213,7 +217,9 @@ def _get_ifm_blocksize(
     return Shape4D(1, height, width, ofm_block.depth)
 
 
-def fit_block_for_ofm(arch: ArchitectureFeatures, ofm_shape: Shape4D, kernel: Kernel, block: Shape4D):
+def fit_block_for_ofm(
+    arch: ArchitectureFeatures, ofm_shape: Union[Shape4D, Block], kernel: Kernel, block: Union[Shape4D, Block]
+):
     # 256/512 Conv1D optimisation (ratio of IFM:Accumulators changes) This is a specific
     # interpretation of a more general constraint that can't be applied because the
     # find_block_config function must return block configs that can be applied to any OFM shape.
@@ -227,14 +233,14 @@ def find_block_config(
     npu_op_type: NpuBlockType,
     ofm_shape: Shape4D,
     ifm_shape: Shape4D,
-    ifm2_shape: Shape4D,
+    ifm2_shape: Optional[Shape4D],
     uses_scalar: bool,
     ifm_bits: int,
     kernel: Kernel,
     lut_banks: int,
     scaled: bool,
     ifm_resampling: resampling_mode,
-) -> ArchitectureBlockConfig:
+) -> Optional[ArchitectureBlockConfig]:
     SplitDepth = ArchitectureFeatures.OFMSplitDepth
     # Elementwise larger-volume correction
     if ifm2_shape is not None and ifm2_shape.elements() > ifm_shape.elements():
@@ -296,7 +302,7 @@ def find_block_config(
         depth = round_up(depth, SplitDepth)
 
     while depth <= search_space.depth:
-        wont_fit = {}
+        wont_fit: Dict[Tuple[int, int], bool] = {}
         for height in range(arch.ofm_ublock.height, search_space.height + 1, arch.ofm_ublock.height):
             for width in range(arch.ofm_ublock.width, search_space.width + 1, arch.ofm_ublock.width):
                 # Avoid checking W/H transposed blocks that already didn't fit. i.e. if 8x4x16 didn't
@@ -315,8 +321,8 @@ def find_block_config(
                 layout = _try_block_config(
                     arch.shram,
                     ew_usage,
-                    ofm_block,
-                    ifm_block,
+                    Block(ofm_block.width, ofm_block.height, ofm_block.depth),
+                    Block(ifm_block.width, ifm_block.height, ifm_block.depth),
                     ifm_bits,
                     ifm_granule,
                     acc_bits,
@@ -385,9 +391,9 @@ def try_block_config(
     block_config: Block,
     arch: ArchitectureFeatures,
     npu_op_type: NpuBlockType,
-    ofm_shape: Block,
-    ifm_shape: Block,
-    ifm2_shape: Optional[Block],
+    ofm_shape: Union[Shape4D, Block],
+    ifm_shape: Union[Shape4D, Block],
+    ifm2_shape: Optional[Union[Shape4D, Block]],
     uses_scalar: bool,
     ifm_bits: int,
     is_partkernel: bool,

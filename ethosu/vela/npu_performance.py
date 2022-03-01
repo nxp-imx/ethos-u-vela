@@ -22,6 +22,7 @@
 import copy
 from enum import auto
 from enum import IntEnum
+from typing import Optional
 from typing import Set
 from uuid import UUID
 
@@ -580,7 +581,7 @@ def update_summary_cycles(arch, bws, cycles):
 
 
 def estimate_full_op_performance(
-    arch, schedule: Schedule, op: SchedulerOperation, prev_op: SchedulerOperation, block_config
+    arch, schedule: Schedule, op: SchedulerOperation, prev_op: Optional[SchedulerOperation], block_config
 ):
     cycles_a = make_cycles_array()
     bws = make_bandwidth_array()

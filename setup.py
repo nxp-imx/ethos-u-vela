@@ -98,6 +98,6 @@ setup(
     ],
     entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
     ext_modules=[mlw_module],
-    cmdclass={"build_ext": BuildExtension},
+    cmdclass={"build_ext": BuildExtension},  # type: ignore[dict-item]
     setup_requires=["numpy>=1.16.6,<=1.19.5", "setuptools_scm"],
 )

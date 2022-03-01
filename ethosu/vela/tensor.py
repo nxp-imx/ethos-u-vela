@@ -420,7 +420,7 @@ class Tensor:
         self.ifm_write_protected = False
 
         # Reference to parent-tensor if this tensor is a clone
-        self.src_tensor = None
+        self.src_tensor: Optional[Tensor] = None
 
     @property
     def address(self) -> int:
