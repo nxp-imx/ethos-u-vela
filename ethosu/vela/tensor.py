@@ -269,9 +269,10 @@ class QuantizationParameters:
         return np.subtract(values, self.zero_point) * self.scale_f32
 
     def is_scaling_equal(self, other: Optional["QuantizationParameters"]) -> bool:
-        # quantisation parameter scaling is not equal if 'other' is None because
-        # it implies that the tensor it belongs to is not quantised. otherwise,
-        # it depends upon whether the scale and zero point are equal
+        """
+        Returns True if the scale and zero point of self and other are equal. If other is None then the scaling is
+        not considered equal because the tensor is assumed to not be quantised and False will be returned
+        """
 
         if not isinstance(other, QuantizationParameters):
             return False
@@ -279,12 +280,13 @@ class QuantizationParameters:
         return self.scale_f32 == other.scale_f32 and self.zero_point == other.zero_point
 
     def is_valid(self) -> bool:
-        # quantisation parameters are consider valid if they have a scale and zero point
+        """Return True if the quantisation parameters have a scale and zero point"""
 
         return self.scale_f32 is not None and self.zero_point is not None
 
     def is_per_axis(self) -> bool:
         """Returns True if either the scale, zero point, minimum or maximum values have more than one value"""
+
         for attr in ("scale_f32", "zero_point", "min", "max"):
             if np.size(getattr(self, attr)) > 1:
                 return True

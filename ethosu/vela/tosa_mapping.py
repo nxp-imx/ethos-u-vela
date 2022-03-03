@@ -323,14 +323,12 @@ tosa_operator_map = {
 
 tosa_operator_inv_map = {v[0]: (k, v[1]) for k, v in tosa_operator_map.items()}
 
-
-def tosa_type_name(builtin):
-    return next(k for k, v in vars(TosaOp).items() if v == builtin)
+tosa_operator_name_map = {v: k for k, v in vars(TosaOp).items()}
 
 
 # TODO will return UNKNOWN for the once that have not yet been defined in tosa_operator_map
-def optype_to_tosa_op_type(op_type):
+def optype_to_tosa_op_type(op_type: Op):
     if op_type in tosa_operator_inv_map:
-        return tosa_type_name(tosa_operator_inv_map[op_type][0])
+        return tosa_operator_name_map[tosa_operator_inv_map[op_type][0]]
     else:
         return TosaOp.UNKNOWN

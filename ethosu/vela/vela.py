@@ -42,7 +42,7 @@ from .tensor import MemArea
 from .tensor import Tensor
 from .tflite.Model import Model
 from .tflite_mapping import builtin_operator_map
-from .tflite_mapping import builtin_type_name
+from .tflite_mapping import builtin_operator_name_map
 from .tflite_model_semantic import TFLiteSemantic
 from .tflite_supported_operators import TFLiteSupportedOperators
 from .tosa_model_semantic import TosaSemantic
@@ -230,7 +230,7 @@ def generate_supported_ops():
             raise ValueError
 
         op_constraint_links = []
-        op_list = sorted(((op, builtin_type_name(op)) for op in builtin_operator_map), key=lambda x: x[1])
+        op_list = sorted(((op, builtin_operator_name_map[op]) for op in builtin_operator_map), key=lambda x: x[1])
         for op, name in op_list:
             internal_op = builtin_operator_map[op][0]
             if internal_op in TFLiteSupportedOperators.supported_operators:
