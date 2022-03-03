@@ -301,6 +301,7 @@ class ArchitectureFeatures:
 
         self.num_elem_wise_units = accel_config.elem_units
         self.num_macs_per_cycle = dpu_min_height * dpu_min_width * dpu_dot_product_width * dpu_min_ofm_channels
+        assert self.num_macs_per_cycle == accel_config.macs, f"{self.num_macs_per_cycle} != {accel_config.macs}"
         # Max value in address offsets
         self.max_address_offset = 1 << axi_port_address_width
 

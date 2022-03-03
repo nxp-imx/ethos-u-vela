@@ -341,6 +341,7 @@ def main(args=None):
         )
         parser.add_argument("--verbose-operators", action="store_true", help="Verbose operator list")
         parser.add_argument("--verbose-weights", action="store_true", help="Verbose weights information")
+        parser.add_argument("--verbose-performance", action="store_true", help="Verbose performance information")
         parser.add_argument(
             "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
         )
@@ -476,6 +477,7 @@ def main(args=None):
             verbose_register_command_stream=args.verbose_register_command_stream,
             verbose_operators=args.verbose_operators,
             verbose_weights=args.verbose_weights,
+            verbose_performance=args.verbose_performance,
             show_cpu_operations=args.show_cpu_operations,
             tensor_allocator=args.tensor_allocator,
             timing=args.timing,

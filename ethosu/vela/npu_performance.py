@@ -31,10 +31,14 @@ import numpy as np
 from . import numeric_util
 from .architecture_allocator import ArchitectureBlockConfig
 from .architecture_features import Accelerator
+from .architecture_features import ArchitectureFeatures
 from .architecture_features import NpuBlockType
 from .architecture_features import SHRAMElements
 from .architecture_features import TensorFormat
+from .debug_database import DebugDatabase
 from .nn_graph import Graph
+from .nn_graph import NetworkType
+from .nn_graph import PassPlacement
 from .numeric_util import round_up
 from .numeric_util import round_up_to_int
 from .operation import Kernel
@@ -46,6 +50,8 @@ from .shape4d import Shape4D
 from .tensor import BandwidthDirection
 from .tensor import MemArea
 from .tensor import TensorPurpose
+from .tflite_mapping import optype_to_builtintype as tflite_optype_to_builtintype
+from .tosa_mapping import optype_to_tosa_op_type as tosa_optype_to_tosa_op_type
 from .weight_compressor import WeightKey
 
 
@@ -736,7 +742,81 @@ def estimate_full_op_performance(
     return bws, macs, cycles_a
 
 
-def calc_new_performance_for_network(nng: Graph, arch):
+def print_performance(
+    nng: Graph,
+    arch: ArchitectureFeatures,
+    network_type: NetworkType,
+    bws: dict,
+    macs: dict,
+    cycles: dict,
+    mem_usage: dict,
+):
+    if network_type == NetworkType.TFLite:
+        nng_optype_to_input_op_type = tflite_optype_to_builtintype
+    else:
+        nng_optype_to_input_op_type = tosa_optype_to_tosa_op_type
+
+    suid_inv_map = {v: k for k, v in DebugDatabase._sourceUID.items()}
+
+    for sg in nng.subgraphs:
+
+        if sg.placement != PassPlacement.Npu:
+            continue
+
+        print(f"\n{str('#') * 80}")
+        print(f"Performance for NPU Subgraph {sg.name}")
+        print(
+            f" {network_type.name + str(' Operator:'):20s}"
+            f" {str('NNG Operator:'):20s}"
+            f" {str('SRAM Usage'):>10s}"
+            f" ({str('Peak'):>6s}%):"
+            f"{str('Op Cycles'):>10s}"
+            f" ({str('Netwrk'):>6s}%)"
+            f" ["
+            f" {str('NPU'):>10s}"
+            f" {str('SRAM AC'):>10s}"
+            f" {str('DRAM AC'):>10s}"
+            f" {str('OnFlash AC'):>10s}"
+            f" {str('OffFlashAC'):>10s}"
+            f" ]:"
+            f"{str('MAC Count'):>10s}"
+            f" ({str('Netwrk'):>6s}% / {str('Util'):>6s}%):"
+            f"Name:"
+        )
+
+        for sched_op in sg.sched_ops:
+            # get source op name
+            sched_op_src_uid = DebugDatabase._optimisedUID[sched_op.parent_op][1]
+            if sched_op_src_uid == DebugDatabase.NULLREF:
+                src_op_type = None
+            else:
+                src_op_type = suid_inv_map[sched_op_src_uid].type
+
+            src_op_name = nng_optype_to_input_op_type(src_op_type)
+
+            max_macs = cycles[sched_op][PassCycles.Total] * arch.num_macs_per_cycle * arch.ncores
+
+            print(
+                f" {src_op_name:20s}"
+                f" {sched_op.op_type:20s}"
+                f" {mem_usage[sched_op]:10.0f}"
+                f" ({mem_usage[sched_op] / nng.memory_used[MemArea.Sram] * 100:6.2f}%)"
+                f" {cycles[sched_op][PassCycles.Total]:10.0f}"
+                f" ({cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total] * 100:6.2f}%)"
+                f" ["
+                f" {cycles[sched_op][PassCycles.Npu]:10.0f}"
+                f" {cycles[sched_op][PassCycles.SramAccess]:10.0f}"
+                f" {cycles[sched_op][PassCycles.DramAccess]:10.0f}"
+                f" {cycles[sched_op][PassCycles.OnChipFlashAccess]:10.0f}"
+                f" {cycles[sched_op][PassCycles.OffChipFlashAccess]:10.0f}"
+                f" ]"
+                f" {macs[sched_op]:10d}"
+                f" ({macs[sched_op] / nng.macs * 100:6.2f}% / {macs[sched_op] / max_macs * 100:6.2f}%)"
+                f" {sched_op.name:s}"
+            )
+
+
+def calc_new_performance_for_network(nng: Graph, arch, network_type: NetworkType, verbose_performance: bool):
     total_bws = make_bandwidth_array()
     total_macs = 0
     total_cycles = np.zeros(PassCycles.Size)
@@ -747,11 +827,25 @@ def calc_new_performance_for_network(nng: Graph, arch):
     original_weight_uuids: Set[UUID] = set()
     encoded_npu_weight_uuids: Set[UUID] = set()
 
+    bws = {}
+    macs = {}
+    cycles = {}
+    mem_usage = {}
+
     for sg in nng.subgraphs:
         prev_op = None
         for sched_op in sg.sched_ops:
             op_info: SchedulerOpInfo = sg.schedule.cost_map[sched_op]
-            bws, macs, cycles = estimate_full_op_performance(arch, sg.schedule, sched_op, prev_op, op_info.block_config)
+            bws[sched_op], macs[sched_op], cycles[sched_op] = estimate_full_op_performance(
+                arch, sg.schedule, sched_op, prev_op, op_info.block_config
+            )
+
+            # get op sram usage
+            mem_usage[sched_op] = (
+                sg.schedule.memory_snapshot[op_info.time_index]
+                if op_info.time_index < len(sg.schedule.memory_snapshot)
+                else 0
+            )
 
             # Tensors for calculating weight sizes
             original_weight = sched_op.parent_op.weights
@@ -769,9 +863,9 @@ def calc_new_performance_for_network(nng: Graph, arch):
                 encoded_npu_weight_uuids.add(encoded_npu_weight.equivalence_id)
                 total_encoded_weight_size += len(encoded_npu_weight.buffer)
 
-            total_bws += bws
-            total_macs += macs
-            total_cycles += cycles
+            total_bws += bws[sched_op]
+            total_macs += macs[sched_op]
+            total_cycles += cycles[sched_op]
             prev_op = sched_op
 
     nng.bandwidths = total_bws
@@ -779,3 +873,6 @@ def calc_new_performance_for_network(nng: Graph, arch):
     nng.cycles = total_cycles
     nng.total_original_weights = total_weight_size
     nng.total_npu_encoded_weights = total_encoded_weight_size
+
+    if verbose_performance:
+        print_performance(nng, arch, network_type, bws, macs, cycles, mem_usage)

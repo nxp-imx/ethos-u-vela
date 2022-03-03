@@ -1006,7 +1006,7 @@ class Scheduler:
         options: SchedulerOptions,
     ):
         default_schedule = self.sg.schedule
-        npu_performance.calc_new_performance_for_network(self.nng, self.arch)
+        npu_performance.calc_new_performance_for_network(self.nng, self.arch, None, False)
         default_tot_cycles = self.nng.cycles[npu_performance.PassCycles.Total]
         default_dram_cycles = self.nng.cycles[npu_performance.PassCycles.DramAccess]
 
@@ -1069,7 +1069,7 @@ class Scheduler:
         self.apply_schedule(self.sg.schedule)
         self.use_fast_storage_for_feature_maps(self.sg.schedule, options.optimization_sram_limit)
 
-        npu_performance.calc_new_performance_for_network(self.nng, self.arch)
+        npu_performance.calc_new_performance_for_network(self.nng, self.arch, None, False)
         new_tot_cycles = self.nng.cycles[npu_performance.PassCycles.Total]
         new_dram_cycles = self.nng.cycles[npu_performance.PassCycles.DramAccess]
 

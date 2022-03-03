@@ -60,6 +60,7 @@ class CompilerOptions:
         verbose_register_command_stream=False,
         verbose_operators=False,
         verbose_weights=False,
+        verbose_performance=False,
         show_cpu_operations=False,
         tensor_allocator=TensorAllocator.Greedy,
         timing=False,
@@ -77,6 +78,7 @@ class CompilerOptions:
         self.verbose_register_command_stream = verbose_register_command_stream
         self.verbose_operators = verbose_operators
         self.verbose_weights = verbose_weights
+        self.verbose_performance = verbose_performance
         self.show_cpu_operations = show_cpu_operations
         self.tensor_allocator = tensor_allocator
         self.timing = timing
@@ -250,4 +252,4 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type):
         cpu_tensor_alignment=options.cpu_tensor_alignment,
     )
 
-    npu_performance.calc_new_performance_for_network(nng, arch)
+    npu_performance.calc_new_performance_for_network(nng, arch, network_type, options.verbose_performance)
