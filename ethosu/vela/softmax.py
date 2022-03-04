@@ -501,9 +501,7 @@ class SoftMax:
         reciprocal_right_shift = add_op_get_ofm(create_sub(name, const_31, headroom_plus_one, no_scale_quant))
 
         # PASS 7 - SHL
-        one = create_const_tensor(
-            f"one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant
-        )
+        one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant)
         constant_one = add_op_get_ofm(
             create_shl(f"{self.op.name}_shl{pass_number}", one, reciprocal_right_shift, no_scale_quant)
         )

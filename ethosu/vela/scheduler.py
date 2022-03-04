@@ -1099,7 +1099,7 @@ class Scheduler:
             )
             print(f"\t\tSRAM Used: {mem_usage} bytes")
 
-        print(f"\tCascades:")
+        print("\tCascades:")
         for i, cascade in enumerate(schedule.cascades.values()):
             print(f"\t\t{i}: {cascade.start} -> {cascade.end}, size: {cascade.mem_usage}")
 

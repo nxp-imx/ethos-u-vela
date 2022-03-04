@@ -253,7 +253,7 @@ class TosaSubgraph:
         if tens.quantization.zero_point is None:
             tens.quantization.zero_point = zp
         elif tens.quantization.zero_point != zp:
-            print(f"Error: Setting tensor zp not possible, tensor already has different zero point")
+            print("Error: Setting tensor zp not possible, tensor already has different zero point")
             assert False
 
 
