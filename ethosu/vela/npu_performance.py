@@ -753,7 +753,7 @@ def calc_new_performance_for_network(nng: Graph, arch):
             # Save UUIDs of encoded_npu_weight so only unique instances of tensors are used to calculate weights
             if encoded_npu_weight and (encoded_npu_weight.equivalence_id not in encoded_npu_weight_uuids):
 
-                encoded_npu_weight_uuids.add(encoded_npu_weight)
+                encoded_npu_weight_uuids.add(encoded_npu_weight.equivalence_id)
                 total_encoded_weight_size += len(encoded_npu_weight.buffer)
 
             total_bws += bws
