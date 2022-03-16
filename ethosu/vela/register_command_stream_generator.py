@@ -824,19 +824,20 @@ def print_feature_map(fm: Optional[NpuFeatureMap], name: str):
         t = fm.tiles
         addresses = [hex(addr) for addr in t.addresses]
         print(f"         {stride_str}, tiles: w0={t.width_0}, h0={t.height_0}, h1={t.height_1}, base={addresses}")
+        print(f"         name={fm.name}")
 
 
 def print_operation(npu_op: NpuOperation, index: int = 0, cmd=None):
-    pass_info = f", {cmd}" if cmd else ""
+    pass_info = f" {cmd}" if cmd else ""
     if isinstance(npu_op, NpuOperation) and not isinstance(npu_op, (NpuDmaOperation, NpuBlockOperation)):
-        print(f"{index} {npu_op.op_type.name}{pass_info}")
+        print(f"{index} {npu_op.op_type.name}  name={npu_op.name}:{pass_info}")
         return
     if isinstance(npu_op, NpuDmaOperation):
-        print(f"{index} DMA_START src={npu_op.src}, dest={npu_op.dest}{pass_info}")
+        print(f"{index} {npu_op.op_type.name} name={npu_op.name}, src={npu_op.src}, dest={npu_op.dest}:{pass_info}")
         return
     k = None if npu_op.kernel is None else to_kernel(npu_op.kernel)
     if isinstance(npu_op, (NpuPoolingOperation, NpuElementWiseOperation)):
-        print(f"{index} {npu_op.sub_op_type.name} {npu_op.op_type.name}:{pass_info}")
+        print(f"{index} {npu_op.sub_op_type.name} {npu_op.op_type.name} name={npu_op.name}:{pass_info}")
     else:
         if (
             isinstance(npu_op, NpuConv2DOperation)
@@ -845,7 +846,7 @@ def print_operation(npu_op: NpuOperation, index: int = 0, cmd=None):
             fc = "FullyConnected "
         else:
             fc = ""
-        print(f"{index} {fc}{npu_op.op_type.name}{pass_info}")
+        print(f"{index} {fc}{npu_op.op_type.name} name={npu_op.name}:{pass_info}")
     print_feature_map(npu_op.ifm, "IFM")
     if npu_op.ifm2_scalar is not None:
         quant_val = quantise(npu_op.ifm2_scalar, npu_op.ifm2.quantization)

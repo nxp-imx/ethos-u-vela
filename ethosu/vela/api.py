@@ -27,7 +27,7 @@ import numpy
 
 
 API_VERSION_MAJOR = 1
-API_VERSION_MINOR = 2
+API_VERSION_MINOR = 3
 API_VERSION = f"{API_VERSION_MAJOR}.{API_VERSION_MINOR}"
 
 
@@ -253,6 +253,8 @@ class NpuFeatureMap:
         self.layout: NpuLayout = NpuLayout.NHWC
         # x/y/c strides used by the NPU when traversing the feature map, if None, vela will use default strides
         self.strides: Optional[NpuShape3D] = None
+        # Used for debug
+        self.name: Optional[str] = None
 
 
 class NpuKernel:
@@ -290,6 +292,8 @@ class NpuOperation:
 
     def __init__(self, op_type: NpuOperationType):
         self.op_type = op_type
+        # Used for debug
+        self.name: Optional[str] = None
 
 
 class NpuDmaOperation(NpuOperation):

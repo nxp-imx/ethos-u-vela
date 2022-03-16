@@ -296,6 +296,7 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_sh
     )
     strides = tens.get_strides(shape4D=op_shape4D)
     fm.strides = NpuShape3D(height=int(strides[2]), width=int(strides[3]), depth=int(strides[1]))
+    fm.name = tens.name
     return fm
 
 
@@ -539,6 +540,7 @@ def convert_command_to_npu_op(cmd: Command, arch: ArchitectureFeatures) -> NpuOp
     npu_op: NpuOperation
     if isinstance(cmd, DMA):
         npu_op = create_dma_op(cmd, arch)
+        npu_op.name = cmd.out_tensor.name
     elif isinstance(cmd, NpuStripe):
         npu_block_type = cmd.ps.primary_op.type.npu_block_type
         if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct):
@@ -551,6 +553,7 @@ def convert_command_to_npu_op(cmd: Command, arch: ArchitectureFeatures) -> NpuOp
             npu_op = create_npu_elementwise_op(cmd, arch)
         else:
             assert 0, f"Unknown command type {npu_block_type}"
+        npu_op.name = cmd.ps.primary_op.name
     return npu_op
 
 
