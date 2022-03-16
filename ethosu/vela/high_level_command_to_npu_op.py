@@ -49,6 +49,7 @@ from .architecture_features import ArchitectureFeatures
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .high_level_command_stream import Box
 from .high_level_command_stream import Command
 from .high_level_command_stream import DMA
@@ -101,6 +102,14 @@ elementwise_op_map = {
     Op.CLZ: NpuElementWiseOp.CLZ,
     Op.SHR: NpuElementWiseOp.SHR,
     Op.SHL: NpuElementWiseOp.SHL,
+}
+
+
+# inverse of the resampling_mode_map in the register command stream generator
+resampling_mode_inv_map = {
+    resampling_mode.NONE: NpuResamplingMode.NONE,
+    resampling_mode.NEAREST: NpuResamplingMode.NEAREST,
+    resampling_mode.TRANSPOSE: NpuResamplingMode.TRANSPOSE,
 }
 
 
@@ -191,17 +200,6 @@ def get_mem_limits_for_regions(arch: ArchitectureFeatures) -> Dict[int, int]:
         mem_limits[get_region(mem_type, arch)] = arch.mem_type_size(mem_type)
     mem_limits[BASE_PTR_INDEX_MEM2MEM] = arch.shram_size_bytes
     return mem_limits
-
-
-def get_upscale(op: Operation) -> NpuResamplingMode:
-    upscale = NpuResamplingMode.NONE
-    if op.type == Op.ResizeBilinear:
-        # perform nearest neighbor upscale
-        upscale = NpuResamplingMode.NEAREST
-    elif op.type == Op.Conv2DBackpropInputSwitchedBias:
-        # perform insert zero upscale
-        upscale = NpuResamplingMode.TRANSPOSE
-    return upscale
 
 
 def get_double_buffer_offset(arch: ArchitectureFeatures, range_index: int, core: int) -> int:
@@ -409,7 +407,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     if not op.type.is_elementwise_op():
         npu_op.padding = create_padding(cmd, op)
         npu_op.kernel = to_npu_kernel(op.kernel)
-    npu_op.ifm_upscale = get_upscale(op)
+    npu_op.ifm_upscale = resampling_mode_inv_map[op.ifm_resampling_mode]
     return npu_op
 
 

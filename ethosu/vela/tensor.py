@@ -36,7 +36,6 @@ from .data_type import BaseType
 from .data_type import DataType
 from .errors import UnsupportedFeatureError
 from .errors import VelaError
-from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
 from .operation import Op
 from .operation import Operation
@@ -367,7 +366,6 @@ class Tensor:
         "element_size_bytes",
         "block_traversal",
         "equivalence_id",
-        "resampling_mode",
         "src_tensor",
         "needs_linear_format",
         "ifm_write_protected",
@@ -414,7 +412,6 @@ class Tensor:
         # quantization parameters
         self.quantization: Optional[QuantizationParameters] = None
         self.block_traversal: TensorBlockTraversal = TensorBlockTraversal.Default
-        self.resampling_mode: resampling_mode = resampling_mode.NONE
 
         self.needs_linear_format = True
         self.ifm_write_protected = False

@@ -268,7 +268,7 @@ def fixup_conv2d_backprop(op, arch, nng):
         # flip the inputs
         op.inputs[0], op.inputs[2] = op.inputs[2], op.inputs[0]
         op.type = Op.Conv2DBackpropInputSwitchedBias
-        op.ifm.resampling_mode = resampling_mode.TRANSPOSE
+        op.ifm_resampling_mode = resampling_mode.TRANSPOSE
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
@@ -312,7 +312,7 @@ def convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op):
     else:
         shape_modifier = 0
         op.attrs["padding"] = Padding.SAME
-    op.inputs[0].resampling_mode = resampling_mode.NEAREST
+    op.ifm_resampling_mode = resampling_mode.NEAREST
 
     upscaled_shape = np.array(op.ifm_shapes[0].get_hw_as_list())
     out_shape = np.array(op.ofm_shapes[0].get_hw_as_list())
@@ -1128,7 +1128,6 @@ def convert_pad(op: Operation, arch, nng):
 
 def add_attrs_to_resizebilinear(op, arch, nng):
     if op.type == Op.ResizeBilinear and op.run_on_npu:
-        input_tensor = op.inputs[0]
         input_shape = op.ifm_shapes[0]
         upscaled_height = input_shape.height * 2
         upscaled_width = input_shape.width * 2
@@ -1147,7 +1146,7 @@ def add_attrs_to_resizebilinear(op, arch, nng):
             op.attrs["padding"] = Padding.VALID
         else:
             return op
-        input_tensor.resampling_mode = resampling_mode.NEAREST
+        op.ifm_resampling_mode = resampling_mode.NEAREST
         op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 2, 2, 1)})
     return op
 

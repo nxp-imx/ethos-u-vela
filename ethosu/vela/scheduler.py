@@ -170,7 +170,7 @@ class SchedulerOperation:
         self.op_type = ps.primary_op.type
         self.activation = ps.primary_op.activation
         self.kernel = ps.primary_op.kernel
-        self.resampling_mode = ps.primary_op.ifm.resampling_mode
+        self.resampling_mode = ps.primary_op.ifm_resampling_mode
         self.uses_scalar = ps.primary_op.ifm2 is not None and (
             ps.primary_op.ifm.shape == [] or ps.primary_op.ifm2.shape == []
         )

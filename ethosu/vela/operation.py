@@ -31,6 +31,7 @@ from typing import Union
 
 from .api import NpuRoundingMode
 from .errors import VelaError
+from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
 from .shape4d import Shape4D
 
@@ -488,6 +489,7 @@ class Operation:
         "low_precision_scaling",
         "write_offset",
         "write_shape",
+        "ifm_resampling_mode",
     )
 
     def __init__(self, op_type: Op, name: str):
@@ -530,6 +532,7 @@ class Operation:
         # E.g. an operation that only fills the bottom row of an OFM of size 1x10x8x1 would have
         # write_offset 0,9,0,0, write_shape 1,1,8,1
         self.write_shape: Optional[Shape4D] = None
+        self.ifm_resampling_mode: resampling_mode = resampling_mode.NONE
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
