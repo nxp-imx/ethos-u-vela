@@ -180,6 +180,11 @@ class CascadeBuilder:
                     # Current op has already been processed or cannot be cascaded
                     break
 
+                if producer.index + 1 != current_op.index:
+                    # Cascading is possible, but requires reordering of operations in the schedule,
+                    # this is currently not supported
+                    break
+
                 # Get the size of the FeatureMap buffers between current and neighbouring Ops
                 op_full_ifm = current_op.ifm_size_in_bytes()
                 op_full_ofm = current_op.ofm_size_in_bytes()
@@ -235,6 +240,7 @@ class CascadeBuilder:
                 buffers_in_cascade = {}
                 prev_op = None
                 for cascaded_op in ops_in_best_cascade:
+                    assert cascade_start <= cascaded_op.index <= cascade_end
                     cost[cascaded_op] = ref_cost[cascaded_op]
                     cost[cascaded_op].cascade = cascade_end
                     if prev_op:
