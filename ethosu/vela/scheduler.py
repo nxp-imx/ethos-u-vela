@@ -183,6 +183,7 @@ class SchedulerOperation:
         self.uses_scalar = ps.primary_op.ifm2 is not None and (
             ps.primary_op.ifm.shape == [] or ps.primary_op.ifm2.shape == []
         )
+
         self.ifm_ublock = arch.ifm_ublock
 
         self.ifm = SchedulerTensor(
@@ -219,6 +220,31 @@ class SchedulerOperation:
         self.evicted_fms_size = 0
 
         self.index = 0
+
+        # Perform an IFM swap for certain binary elementwise operators
+        # in order to enable cascading, if the SchedOp conforms to
+        # Elementwise cascading rules.
+        if self.op_type.is_binary_elementwise_op() and CascadeBuilder.element_wise_cascading_conformity(self):
+            ifm1 = ps.ifm_tensor
+            ifm2 = ps.ifm2_tensor
+            ofm = ps.ofm_tensor
+            assert ifm1.elements() > 0
+            assert ifm2.elements() > 0
+
+            if (
+                # The non-constant IFM should be the primary input
+                (ifm1.ops[0].type == Op.Const and ifm2.ops[0].type != Op.Const)
+                # The non-broadcasted IFM should be the primary input
+                or (ifm1.shape != ofm.shape and ifm2.shape == ofm.shape)
+            ):
+                self.ifm, self.ifm2 = self.ifm2, self.ifm
+
+                self.parent_ps.ifm_shapes = self.parent_ps.ifm_shapes[::-1]
+                self.parent_ps.inputs = self.parent_ps.inputs[::-1]
+                self.parent_ps.ifm_tensor, self.parent_ps.ifm2_tensor = (
+                    self.parent_ps.ifm2_tensor,
+                    self.parent_ps.ifm_tensor,
+                )
 
     def add_ifm_connection(self, conn: "Connection"):
         """Add input connection to another SchedulerOperation or Subgraph Input"""

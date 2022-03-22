@@ -134,7 +134,6 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
         ifm_present = Box([0, 0, 0, 0], [0, 0, 0, 0])
         producer_op = sched_op.ifm.connection.producers[0]
         prev_cmd_gen = generate_high_level_commands_for_sched_op(producer_op, schedule)
-
     ofm_step = op_info.stripe
     for start_height in range(ofm_start.height, ofm_end.height, ofm_step.height):
         end_height = min(start_height + ofm_step.height, ofm_end.height)
@@ -152,7 +151,6 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                 ofm_box = Box(ofm_box_start.as_list(), ofm_box_end.as_list())
                 ifm_box = Box([], [])
                 ifm2_box = Box([], [])
-
                 # Calculate IFM input box based on the OFM box
                 if ifm:
                     ifm_box, pad_top, pad_bottom = ofm_box.transform_with_strides_and_skirt(
@@ -165,8 +163,8 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         read_offsets[0],
                         read_shapes[0],
                         upscaling,
+                        op.type,
                     )
-
                 # Calculate IFM2 input box based on the OFM box
                 if ifm2:
                     ifm2_box, pad_top, pad_bottom = ofm_box.transform_with_strides_and_skirt(
@@ -179,6 +177,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         read_offsets[1],
                         read_shapes[1],
                         upscaling,
+                        op.type,
                     )
 
                 ifm_required = ifm_box
