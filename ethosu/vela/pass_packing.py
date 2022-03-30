@@ -87,7 +87,14 @@ quantization_ops = set((Op.Dequantize, Op.Max, Op.Min))
 cpu_ops = set((Op.Softmax, Op.LRN, Op.Shape, Op.Pad, Op.AddN)) | quantization_ops
 
 startup_init_ops = set((Op.Const, Op.Placeholder, Op.SubgraphInput))
-memory_only_ops = set((Op.Squeeze, Op.Reshape, Op.QuantizedReshape, Op.ExpandDims,))
+memory_only_ops = set(
+    (
+        Op.Squeeze,
+        Op.Reshape,
+        Op.QuantizedReshape,
+        Op.ExpandDims,
+    )
+)
 
 
 test_sequence = [

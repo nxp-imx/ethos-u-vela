@@ -647,7 +647,9 @@ class ArchitectureFeatures:
 
         else:
             raise CliOptionError(
-                "--system-config", self.system_config, f"Section {sys_cfg_section} not found in Vela config file",
+                "--system-config",
+                self.system_config,
+                f"Section {sys_cfg_section} not found in Vela config file",
             )
 
         # read the memory mode
@@ -678,7 +680,9 @@ class ArchitectureFeatures:
 
         else:
             raise CliOptionError(
-                "--memory-mode", self.memory_mode, f"Section {mem_mode_section} not found in Vela config file",
+                "--memory-mode",
+                self.memory_mode,
+                f"Section {mem_mode_section} not found in Vela config file",
             )
 
         # override sram to onchipflash
@@ -777,7 +781,8 @@ class ArchitectureFeatures:
             # check for recursion loop
             if inheritance_section == section:
                 raise ConfigOptionError(
-                    "inherit", f"{inheritance_section}. This references its own section and recursion is not allowed",
+                    "inherit",
+                    f"{inheritance_section}. This references its own section and recursion is not allowed",
                 )
             result = self._read_config(inheritance_section, key, result, found)
 

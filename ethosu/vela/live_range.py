@@ -200,7 +200,11 @@ def merge_elementwise_op_ranges(sg, sched_op, lr_graph, target_mem_area, target_
 
 
 def extract_live_ranges_from_cascaded_passes(
-    sg, target_mem_area, target_mem_type_set, lr_graph=None, cpu_tensor_alignment=Tensor.AllocationQuantum,
+    sg,
+    target_mem_area,
+    target_mem_type_set,
+    lr_graph=None,
+    cpu_tensor_alignment=Tensor.AllocationQuantum,
 ):
     if lr_graph is None:
         lr_graph = LiveRangeGraph()

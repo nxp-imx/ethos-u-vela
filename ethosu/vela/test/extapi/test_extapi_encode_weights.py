@@ -24,7 +24,8 @@ from ethosu.vela.api import NpuBlockTraversal
 
 
 @pytest.mark.parametrize(
-    "arch", list(NpuAccelerator),
+    "arch",
+    list(NpuAccelerator),
 )
 @pytest.mark.parametrize("dilation_x", [1, 2])
 @pytest.mark.parametrize("dilation_y", [1, 2])
@@ -32,7 +33,12 @@ from ethosu.vela.api import NpuBlockTraversal
 @pytest.mark.parametrize("depth_control", [1, 2, 3])
 @pytest.mark.parametrize("weights_shape_and_block_depth", [((16, 16, 16, 16), 8), ((3, 3, 25, 16), 8)])
 def test_encode_weights(
-    arch, weights_shape_and_block_depth, dilation_x, dilation_y, ifm_bitdepth, depth_control,
+    arch,
+    weights_shape_and_block_depth,
+    dilation_x,
+    dilation_y,
+    ifm_bitdepth,
+    depth_control,
 ):
     """
     This unit test checks the interface of the API function but not the functionality.

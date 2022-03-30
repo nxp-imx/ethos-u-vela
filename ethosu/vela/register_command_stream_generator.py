@@ -521,7 +521,8 @@ def generate_biases(emit: CommandStreamEmitter, biases: List[NpuAddressRange], a
 
 
 def generate_block_config(
-    emit: CommandStreamEmitter, block_config: NpuShape3D,
+    emit: CommandStreamEmitter,
+    block_config: NpuShape3D,
 ):
     """Generates OFM_BLK_HEIGHT/WIDTH/DEPTH registers"""
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, block_config.height - 1)
@@ -530,7 +531,9 @@ def generate_block_config(
 
 
 def generate_shram_registers(
-    emit: CommandStreamEmitter, npu_op: NpuBlockOperation, arch_block_config: ArchitectureBlockConfig,
+    emit: CommandStreamEmitter,
+    npu_op: NpuBlockOperation,
+    arch_block_config: ArchitectureBlockConfig,
 ):
     """Generates IB_END/IB_START/AB_START/ACC_FORMAT registers"""
     emit.cmd0_with_param(cmd0.NPU_SET_IFM_IB_END, arch_block_config.layout.ib_end)
@@ -775,9 +778,13 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
             if use_advanced_scaling:
                 # Use advanced implementation only when input/output scales differ,
                 # or when we can't guarantee the absence of rounding errors
-                (opa_scale, opa_shift, ofm_scale, shift, op_to_scale,) = scaling.advanced_elementwise_add_sub_scale(
-                    input_scale, input2_scale, output_scale, bitdepth
-                )
+                (
+                    opa_scale,
+                    opa_shift,
+                    ofm_scale,
+                    shift,
+                    op_to_scale,
+                ) = scaling.advanced_elementwise_add_sub_scale(input_scale, input2_scale, output_scale, bitdepth)
                 opb_scale = 0  # Unused for this case
                 if npu_op.reversed_operands:
                     # If the operand order is reversed we also have to swap which operand is scaled

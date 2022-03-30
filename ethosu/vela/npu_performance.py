@@ -59,14 +59,26 @@ class PassCycles(IntEnum):
     Size = auto()
 
     def display_name(self):
-        return ("NPU", "SRAM Access", "DRAM Access", "On-chip Flash Access", "Off-chip Flash Access", "Total", "Size",)[
-            self.value
-        ]
+        return (
+            "NPU",
+            "SRAM Access",
+            "DRAM Access",
+            "On-chip Flash Access",
+            "Off-chip Flash Access",
+            "Total",
+            "Size",
+        )[self.value]
 
     def identifier_name(self):
-        return ("npu", "sram_access", "dram_access", "on_chip_flash_access", "off_chip_flash_access", "total", "size",)[
-            self.value
-        ]
+        return (
+            "npu",
+            "sram_access",
+            "dram_access",
+            "on_chip_flash_access",
+            "off_chip_flash_access",
+            "total",
+            "size",
+        )[self.value]
 
     @staticmethod
     def all():

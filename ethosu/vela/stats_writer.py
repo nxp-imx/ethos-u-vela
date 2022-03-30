@@ -256,7 +256,8 @@ def print_performance_metrics_for_strat(
         label += " bandwidth"
         bandwidth = arch.memory_bandwidths_per_second[mem_area] / 1000.0 / 1000 / 1000
         print(
-            f"Design peak {label:25}    {bandwidth:12.2f} GB/s", file=f,
+            f"Design peak {label:25}    {bandwidth:12.2f} GB/s",
+            file=f,
         )
     print(file=f)
     for mem_area, label in mem_area_labels:
@@ -302,7 +303,8 @@ def print_performance_metrics_for_strat(
         fm_bws = bws[TensorPurpose.FeatureMap]
         aug_label = label + " bandwidth"
         print(
-            f"Average {aug_label:25}        {total_bw * midpoint_fps / 1000.0 / 1000.0 / 1000.0:12.2f} GB/s", file=f,
+            f"Average {aug_label:25}        {total_bw * midpoint_fps / 1000.0 / 1000.0 / 1000.0:12.2f} GB/s",
+            file=f,
         )
         print(
             f"Input   {aug_label:25}        {np.sum(fm_bws[BandwidthDirection.Read]) / 1000.0 / 1000.0:12.2f} MB/batch",
@@ -328,10 +330,12 @@ def print_performance_metrics_for_strat(
         print(file=f)
 
     print(
-        f"Neural network macs                      {int(macs):12d} MACs/batch", file=f,
+        f"Neural network macs                      {int(macs):12d} MACs/batch",
+        file=f,
     )
     print(
-        f"Network Tops/s                           {macs * 2 * midpoint_fps / 1e12:12.2f} Tops/s", file=f,
+        f"Network Tops/s                           {macs * 2 * midpoint_fps / 1e12:12.2f} Tops/s",
+        file=f,
     )
     print(file=f)
 

@@ -139,11 +139,11 @@ class NpuDataType(Enum):
         return self.value[1]
 
     def size_in_bits(self) -> int:
-        """ Size of the data type in bits"""
+        """Size of the data type in bits"""
         return self.value[0]
 
     def size_in_bytes(self) -> int:
-        """ Size of the data type in bytes"""
+        """Size of the data type in bytes"""
         return self.value[0] // 8
 
     def min_value(self) -> int:

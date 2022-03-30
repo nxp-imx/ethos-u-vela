@@ -669,7 +669,10 @@ builtin_operator_map = {
     BuiltinOperator.DIV: (Op.Div, OptionsSerializer("DivOptions", (fused_act,)), TFLITE_NO_INDICES),
     BuiltinOperator.SQUEEZE: (
         Op.Squeeze,
-        OptionsSerializer("SqueezeOptions", (("squeeze_dims", is_int_vec),),),
+        OptionsSerializer(
+            "SqueezeOptions",
+            (("squeeze_dims", is_int_vec),),
+        ),
         TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.UNIDIRECTIONAL_SEQUENCE_LSTM: (
@@ -915,7 +918,13 @@ builtin_operator_map = {
     ),
     BuiltinOperator.VAR_HANDLE: (
         Op.VarHandle,
-        OptionsSerializer("VarHandleOptions", ("container", "shared_name",),),
+        OptionsSerializer(
+            "VarHandleOptions",
+            (
+                "container",
+                "shared_name",
+            ),
+        ),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.READ_VARIABLE: (Op.ReadVariable, OptionsSerializer("ReadVariableOptions"), TFLITE_NO_INDICES),
@@ -923,7 +932,13 @@ builtin_operator_map = {
     BuiltinOperator.BROADCAST_ARGS: (Op.BroadcastArgs, None, TFLITE_NO_INDICES),
     BuiltinOperator.RANDOM_STANDARD_NORMAL: (
         Op.RandomStandardNormal,
-        OptionsSerializer("RandomOptions", ("seed", "seed2",),),
+        OptionsSerializer(
+            "RandomOptions",
+            (
+                "seed",
+                "seed2",
+            ),
+        ),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),

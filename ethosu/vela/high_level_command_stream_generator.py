@@ -67,7 +67,13 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
     ofm_tensor = ps.ofm_tensor
 
     # Get Tensors and Full Shapes
-    (ifm_tensor, ifm2_tensor, uncomp_weight_tensor, _, _,) = parent_op.get_ifm_ifm2_weights_biases_ofm()
+    (
+        ifm_tensor,
+        ifm2_tensor,
+        uncomp_weight_tensor,
+        _,
+        _,
+    ) = parent_op.get_ifm_ifm2_weights_biases_ofm()
     ifm = sched_op.ifm
     ifm2 = sched_op.ifm2
     ofm_shape = sched_op.ofm.shape

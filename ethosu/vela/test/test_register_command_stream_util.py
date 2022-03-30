@@ -131,14 +131,34 @@ def test_calc_blockdep0():
     op2 takes 1 block to complete, which results in blockdep 0
     """
     op1 = NpuElementWiseOperation(NpuElementWiseOp.CLZ)
-    op1.ifm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0x60, layout=NpuLayout.NHCWB16,)
-    intermediate_fm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0xA0, layout=NpuLayout.NHCWB16,)
+    op1.ifm = create_feature_map(
+        NpuShape3D(height=1, width=1, depth=1),
+        1,
+        0x60,
+        layout=NpuLayout.NHCWB16,
+    )
+    intermediate_fm = create_feature_map(
+        NpuShape3D(height=1, width=1, depth=1),
+        1,
+        0xA0,
+        layout=NpuLayout.NHCWB16,
+    )
     op1.ofm = intermediate_fm
     op1.block_config = NpuShape3D(height=1, width=1, depth=4)
     op2 = NpuElementWiseOperation(NpuElementWiseOp.SUB)
-    op2.ifm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0x39AC0, layout=NpuLayout.NHCWB16,)
+    op2.ifm = create_feature_map(
+        NpuShape3D(height=1, width=1, depth=1),
+        1,
+        0x39AC0,
+        layout=NpuLayout.NHCWB16,
+    )
     op2.ifm2 = intermediate_fm
-    op2.ofm = create_feature_map(NpuShape3D(height=1, width=1, depth=1), 1, 0xE0, layout=NpuLayout.NHCWB16,)
+    op2.ofm = create_feature_map(
+        NpuShape3D(height=1, width=1, depth=1),
+        1,
+        0xE0,
+        layout=NpuLayout.NHCWB16,
+    )
     op2.block_config = NpuShape3D(height=1, width=1, depth=4)
     arch = create_default_arch(Accelerator.Ethos_U55_128)
     block_dep = calc_blockdep(arch, op1, op2)
@@ -153,8 +173,18 @@ def test_calc_blockdep2():
     which results in blockdep 2
     """
     op1 = NpuConv2DOperation()
-    op1.ifm = create_feature_map(NpuShape3D(height=4, width=48, depth=8), 1, 0x4C80, layout=NpuLayout.NHCWB16,)
-    op1.ofm = create_feature_map(NpuShape3D(height=4, width=48, depth=16), 1, 0x6480, layout=NpuLayout.NHCWB16,)
+    op1.ifm = create_feature_map(
+        NpuShape3D(height=4, width=48, depth=8),
+        1,
+        0x4C80,
+        layout=NpuLayout.NHCWB16,
+    )
+    op1.ofm = create_feature_map(
+        NpuShape3D(height=4, width=48, depth=16),
+        1,
+        0x6480,
+        layout=NpuLayout.NHCWB16,
+    )
     op1.kernel = NpuKernel(1, 1)
     op1.weights = [NpuAddressRange(region=1, address=0x4AE0, length=208)]
     op1.biases = [NpuAddressRange(region=1, address=0x49A0, length=160)]
@@ -162,10 +192,20 @@ def test_calc_blockdep2():
     op1.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
     op1.block_config = NpuShape3D(height=4, width=6, depth=16)
     op2 = NpuConvDepthWiseOperation()
-    op2.ifm = create_feature_map(NpuShape3D(height=3, width=48, depth=16), 1, 0, layout=NpuLayout.NHCWB16,)
+    op2.ifm = create_feature_map(
+        NpuShape3D(height=3, width=48, depth=16),
+        1,
+        0,
+        layout=NpuLayout.NHCWB16,
+    )
     # op2 has two tiles, the lower tile is produced by op1
     op2.ifm.tiles = NpuTileBox(height_0=2, height_1=2, width_0=48, addresses=[0x7680, 0, 0x6480, 0])
-    op2.ofm = create_feature_map(NpuShape3D(height=1, width=24, depth=16), 1, 0x6480, layout=NpuLayout.NHCWB16,)
+    op2.ofm = create_feature_map(
+        NpuShape3D(height=1, width=24, depth=16),
+        1,
+        0x6480,
+        layout=NpuLayout.NHCWB16,
+    )
     op2.kernel = NpuKernel(3, 3, stride_x=2, stride_y=2)
     op2.weights = [NpuAddressRange(region=1, address=0x4BB0, length=208)]
     op2.biases = [NpuAddressRange(region=1, address=0x4A40, length=160)]
@@ -183,8 +223,18 @@ def test_calc_blockdep3():
     which results in blockdep 3
     """
     op1 = NpuConv2DOperation()
-    op1.ifm = create_feature_map(NpuShape3D(height=13, width=96, depth=1), 1, 0, layout=NpuLayout.NHWC,)
-    op1.ofm = create_feature_map(NpuShape3D(height=6, width=48, depth=8), 1, 0x7C80, layout=NpuLayout.NHCWB16,)
+    op1.ifm = create_feature_map(
+        NpuShape3D(height=13, width=96, depth=1),
+        1,
+        0,
+        layout=NpuLayout.NHWC,
+    )
+    op1.ofm = create_feature_map(
+        NpuShape3D(height=6, width=48, depth=8),
+        1,
+        0x7C80,
+        layout=NpuLayout.NHCWB16,
+    )
     op1.kernel = NpuKernel(3, 3, stride_x=2, stride_y=2)
     op1.weights = [NpuAddressRange(region=1, address=0x4AE0, length=144)]
     op1.biases = [NpuAddressRange(region=1, address=0x49A0, length=80)]
@@ -192,8 +242,18 @@ def test_calc_blockdep3():
     op1.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
     op1.block_config = NpuShape3D(height=6, width=3, depth=8)
     op2 = NpuConvDepthWiseOperation()
-    op2.ifm = create_feature_map(NpuShape3D(height=5, width=48, depth=8), 1, 0x7C80, layout=NpuLayout.NHCWB16,)
-    op2.ofm = create_feature_map(NpuShape3D(height=4, width=48, depth=8), 1, 0x4C80, layout=NpuLayout.NHCWB16,)
+    op2.ifm = create_feature_map(
+        NpuShape3D(height=5, width=48, depth=8),
+        1,
+        0x7C80,
+        layout=NpuLayout.NHCWB16,
+    )
+    op2.ofm = create_feature_map(
+        NpuShape3D(height=4, width=48, depth=8),
+        1,
+        0x4C80,
+        layout=NpuLayout.NHCWB16,
+    )
     op2.kernel = NpuKernel(3, 3)
     op2.weights = [NpuAddressRange(region=1, address=0x4BB0, length=112)]
     op2.biases = [NpuAddressRange(region=1, address=0x4A40, length=80)]

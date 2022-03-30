@@ -204,7 +204,16 @@ def get_address_ranges(fm: NpuFeatureMap) -> List[Optional[NpuAddressRange]]:
     strides = get_strides(fm)
     height, width, depth = fm.shape.height, fm.shape.width, fm.shape.depth
     height_0, height_1, width_0 = fm.tiles.height_0, fm.tiles.height_1, fm.tiles.width_0
-    t0 = get_address_range(fm, strides, 0, 0, 0, min(height, height_0) - 1, min(width, width_0) - 1, depth - 1,)
+    t0 = get_address_range(
+        fm,
+        strides,
+        0,
+        0,
+        0,
+        min(height, height_0) - 1,
+        min(width, width_0) - 1,
+        depth - 1,
+    )
     if width > width_0:
         t1 = get_address_range(fm, strides, 0, width_0, 0, min(height, height_1) - 1, width - 1, depth - 1)
     else:
@@ -443,7 +452,9 @@ def get_first_job_input_volume(
     # IFM block that will be sampled for the FIRST+block_offset job in the next operator's OFM
     start_coord = PointXYZ(x=ifm_coord_x, y=ifm_coord_y, z=ifm_coord_z)
     end_coord = PointXYZ(
-        x=start_coord[0] + ifm_block.width, y=start_coord[1] + ifm_block.height, z=start_coord[2] + ifm_block.depth,
+        x=start_coord[0] + ifm_block.width,
+        y=start_coord[1] + ifm_block.height,
+        z=start_coord[2] + ifm_block.depth,
     )
     return (start_coord, end_coord, 1)  # start, end, total jobs
 
@@ -456,12 +467,18 @@ def get_prev_job_output_volume(ofm: Rect, ofm_block: Block, block_offset: int):
     if start_coord is None:
         return None
     end_coord = PointXYZ(
-        x=start_coord.x + ofm_block.width, y=start_coord.y + ofm_block.height, z=start_coord.z + ofm_block.depth,
+        x=start_coord.x + ofm_block.width,
+        y=start_coord.y + ofm_block.height,
+        z=start_coord.z + ofm_block.depth,
     )
     return (start_coord, end_coord, 1)  # start, end, total jobs for this OFM block
 
 
-def calc_blockdep(arch: ArchitectureFeatures, prev_op: Optional[NpuBlockOperation], npu_op: NpuBlockOperation,) -> int:
+def calc_blockdep(
+    arch: ArchitectureFeatures,
+    prev_op: Optional[NpuBlockOperation],
+    npu_op: NpuBlockOperation,
+) -> int:
     """Calculates the value of the BLOCKDEP register"""
     if prev_op is None:
         return 0

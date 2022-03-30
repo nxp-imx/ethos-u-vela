@@ -128,7 +128,12 @@ def print_allocation(lrs, mem_area, mem_type_set, tensor_allocator, sg, actual_m
     print("\n" + "#" * 80)
     sg_placement = (
         sg.placement.name
-        if mem_type_set.intersection((MemType.Permanent_NPU, MemType.Permanent_CPU,))
+        if mem_type_set.intersection(
+            (
+                MemType.Permanent_NPU,
+                MemType.Permanent_CPU,
+            )
+        )
         else "Cpu and Npu"
     )
     print(
@@ -141,7 +146,15 @@ def print_allocation(lrs, mem_area, mem_type_set, tensor_allocator, sg, actual_m
     min_mem_usage_for_alloc = max(memory_hist)
     print("Start Time -   End Time: Start Addr -   End Addr: Tensor Size: Memory Usage:  Tensor Purpose: Tensor Name")
     for start_time, end_time, size, start_addr, end_addr, purpose, name in sorted(
-        (lr.start_time, lr.end_time, lr.size, tens.address, tens.address + lr.size, tens.purpose, tens.name,)
+        (
+            lr.start_time,
+            lr.end_time,
+            lr.size,
+            tens.address,
+            tens.address + lr.size,
+            tens.purpose,
+            tens.name,
+        )
         for tens, lr in lrs.ranges.items()
     ):
         print(
@@ -184,7 +197,11 @@ def allocate(
 ):
     # Allocates addresses to tensors, returns False if tensors could not be fit within max_size
     lrs = live_range.extract_live_ranges_from_cascaded_passes(
-        sg, mem_area, mem_type_set, lr_graph=lr_graph, cpu_tensor_alignment=cpu_tensor_alignment,
+        sg,
+        mem_area,
+        mem_type_set,
+        lr_graph=lr_graph,
+        cpu_tensor_alignment=cpu_tensor_alignment,
     )
     total_sz = 0
     if lrs.ranges:

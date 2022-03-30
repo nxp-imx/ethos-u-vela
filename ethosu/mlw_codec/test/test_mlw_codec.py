@@ -24,7 +24,7 @@ from ethosu import mlw_codec
 
 
 class TestMLWCodec:
-    """ This class is responsible to test the mlw_codec library
+    """This class is responsible to test the mlw_codec library
     It mainly tests the two methods encode() and decode() with different inputs"""
 
     weights = [0, 2, 3, 0, -1, -2, -3, 0, 0, 0, 1, -250, 240] * 3

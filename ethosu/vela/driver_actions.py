@@ -119,8 +119,7 @@ def emit_dump_shram(data: List[int]):
 
 
 def create_driver_payload(register_command_stream: List[int], arch: ArchitectureFeatures) -> bytes:
-    """Creates driver header and includes the given command
-    """
+    """Creates driver header and includes the given command"""
     # Prepare driver actions for this command tensor
     da_list: List[int] = []
     emit_fourcc(da_list, "COP1")

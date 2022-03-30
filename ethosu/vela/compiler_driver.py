@@ -44,10 +44,9 @@ from .tensor import Tensor
 class CompilerOptions:
     """Set of options to change compiler behaviour - verbosity, targets, turning off passes.
 
-Note the difference between ArchitectureFeatures and CompilerOptions
-- ArchitectureFeatures is for changing the Ethos-U and system architecture
-- CompilerOptions is for changing the behaviour of the compiler
-"""
+    Note the difference between ArchitectureFeatures and CompilerOptions
+    - ArchitectureFeatures is for changing the Ethos-U and system architecture
+    - CompilerOptions is for changing the behaviour of the compiler"""
 
     def __init__(
         self,
@@ -194,7 +193,10 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type):
     # Calculate live ranges for all constant Npu tensors, in permanent storage
     for sg in npu_subgraphs:
         lr_graph_flash = live_range.create_linear_live_range_graph(
-            sg, permanent_storage, MemType.Permanent_NPU, lr_graph=lr_graph_flash,
+            sg,
+            permanent_storage,
+            MemType.Permanent_NPU,
+            lr_graph=lr_graph_flash,
         )
 
     if npu_subgraphs:

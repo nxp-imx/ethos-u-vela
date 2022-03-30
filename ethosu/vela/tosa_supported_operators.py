@@ -38,11 +38,30 @@ class TosaSupportedOperators:
     fc_vector_products = set((Op.FullyConnected,))
 
     mac_main_ops = convolution_like_ops | pooling_ops | fc_vector_products
-    memory_only_ops = set((Op.Reshape, Op.Transpose, Op.Concat, Op.SplitSliceRead,))
-    binary_elem_wise_add_mul_sub = set((Op.Add, Op.Mul, Op.RescaleMul, Op.Sub,))
+    memory_only_ops = set(
+        (
+            Op.Reshape,
+            Op.Transpose,
+            Op.Concat,
+            Op.SplitSliceRead,
+        )
+    )
+    binary_elem_wise_add_mul_sub = set(
+        (
+            Op.Add,
+            Op.Mul,
+            Op.RescaleMul,
+            Op.Sub,
+        )
+    )
     elem_wise_ops = binary_elem_wise_add_mul_sub
     type_conversion_ops = set((Op.Rescale,))
-    relu_ops = set((Op.Clamp, Op.ReluN,))
+    relu_ops = set(
+        (
+            Op.Clamp,
+            Op.ReluN,
+        )
+    )
     activation_ops = relu_ops | set((Op.Table,))
     pad_ops = set((Op.Pad,))
 

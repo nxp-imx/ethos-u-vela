@@ -42,7 +42,8 @@ from ethosu import mlw_codec
 # Contains meta info for a weight compression. If two tensors have identical weight compression config,
 # then they also will have identical compressed weights.
 WeightCompressionConfig = namedtuple(
-    "WeightCompressionConfig", ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "dilation", "weight_value_id"],
+    "WeightCompressionConfig",
+    ["npu_block_type", "ofm_block_depth", "ofm_depth_step", "dilation", "weight_value_id"],
 )
 
 ScaleCompressionConfig = namedtuple("ScaleCompressionConfig", ["scale_value_id", "ifm_scale", "ofm_scale"])

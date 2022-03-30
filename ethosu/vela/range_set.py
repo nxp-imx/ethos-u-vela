@@ -21,7 +21,7 @@ from functools import lru_cache
 
 class RangeSet:
     """A Range set class to track ranges and whether they intersect.
-Intended for e.g. tracking sets of memory ranges and whether two commands use the same memory areas."""
+    Intended for e.g. tracking sets of memory ranges and whether two commands use the same memory areas."""
 
     def __init__(self, start=None, end=None, ranges=None):
         if ranges is None:

@@ -345,7 +345,12 @@ def test_constraint_concat_pass():
 
 
 def create_pad_op(
-    in_shape, out_shape, padding, in_dtype=DataType.int8, out_dtype=DataType.int8, pad_dtype=DataType.int32,
+    in_shape,
+    out_shape,
+    padding,
+    in_dtype=DataType.int8,
+    out_dtype=DataType.int8,
+    pad_dtype=DataType.int32,
 ):
     qp = testutil.default_quant_params()
     in0 = Tensor(in_shape, in_dtype, "in")
@@ -359,11 +364,23 @@ def create_pad_op(
 
 def test_constraint_padded_dimensions():
     # Incorrect padding dimensions, can only pad width and height
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [1, 1], [0, 0]],)
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[[1, 1], [1, 1], [1, 1], [0, 0]],
+    )
     assert not support.is_operator_supported(op)
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [0, 0]],)
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[[1, 1], [1, 1], [0, 0]],
+    )
     assert support.is_operator_supported(op)
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [0, 1]],)
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[[1, 1], [1, 1], [0, 1]],
+    )
     assert not support.is_operator_supported(op)
 
 
@@ -371,12 +388,20 @@ def test_constraint_pad_shape():
     # PAD operator must be of shape (3,2) or (4,2)
     op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[1, 1], [1, 1], [0, 0]])
     assert support.is_operator_supported(op)
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],)
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[[0, 0], [1, 1], [1, 1], [0, 0], [0, 0]],
+    )
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_pad_none():
-    op = create_pad_op(in_shape=[1, 1, 1, 1], out_shape=[1, 3, 3, 1], padding=[],)
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[],
+    )
     assert not support.is_operator_supported(op)
 
 
