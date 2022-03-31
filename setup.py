@@ -92,12 +92,11 @@ setup(
     python_requires="~=3.8",
     install_requires=[
         "flatbuffers==1.12.0",
-        "numpy>=1.16.6,<=1.19.5",
-        "numpy>=1.16.6,<1.19.4 ; platform_system=='Windows'",
+        "numpy",
         "lxml>=4.5.1",
     ],
     entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
     ext_modules=[mlw_module],
     cmdclass={"build_ext": BuildExtension},  # type: ignore[dict-item]
-    setup_requires=["numpy>=1.16.6,<=1.19.5", "setuptools_scm"],
+    setup_requires=["numpy", "setuptools_scm"],
 )
