@@ -692,7 +692,7 @@ class Scheduler:
 
                 while True:
                     # Attempt to buffer whole blocks
-                    if buffering_bytes > block_depth:
+                    if buffering_depth > block_depth:
                         buffering_depth = round_down(buffering_depth, block_depth)
                     else:
                         buffering_depth = round_down(buffering_depth, ArchitectureFeatures.OFMSplitDepth)
