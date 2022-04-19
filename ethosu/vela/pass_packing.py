@@ -461,7 +461,68 @@ def pack_into_passes(nng, arch, verbose_packing=False):
             startup_ps.outputs = [op.outputs[0] for op in startup_list]  # Need to fixup the outputs
             startup_ps.name = "startup_weight_initialisation"
 
-        sg.passes = list(reversed(reverse_pass_list))
+        # Graphs with both CPU and NPU ops might not have an optimal order in
+        # the pass list due to how the graph is traversed (depth first search).
+        # This can result in more context switching between CPU and NPU.
+        # Try to optmize this by moving/grouping CPU ops where that is possible.
+        # Criteria for CPU pass to be moved:
+        #
+        # 1) CPU passes that only depends on sg.input_tensor can be
+        #    moved to the top of the list.
+        #
+        # 2) A CPU pass X is allowed to be grouped together with CPU pass Y
+        #    if there is no NPU pass between pass X and pass Y that depends
+        #    on output from pass X or a MemoryOnly pass.
+        #
+        # Criteria 2 will try to move as many CPU passes towards the bottom of
+        # the list.
+
+        pass_list_top = []
+        pass_list = []
+
+        # Filter out early passes from the rest
+        for ps in list(reversed(reverse_pass_list)):
+            if startup_ps == ps:
+                # startup pass belongs in the top
+                pass_list_top.insert(0, ps)
+                continue
+
+            if (
+                ps.placement == PassPlacement.Cpu
+                and ps.ops[0].ifm in sg.input_tensors
+                and (ps.ops[0].ifm2 in sg.input_tensors or ps.ops[0].ifm2 is None)
+            ):
+                # This CPU pass only depends on sg.input_tensors
+                pass_list_top.append(ps)
+            else:
+                # Add pass to the list that will be sorted in the next step
+                pass_list.append(ps)
+
+        # Sort the rest of the list based on critera 2.
+        # Search from bottom of list and when a CPU pass is found
+        # search forward in the list and see if it is possible to join another CPU pass.
+        for cpu_ps in reversed(pass_list):
+            if cpu_ps.placement != PassPlacement.Cpu:
+                continue
+            # CPU pass found, search forward and move pass if possible
+            idx = pass_list.index(cpu_ps)
+            for next_ps in pass_list[idx + 1 :]:
+                if next_ps.placement == PassPlacement.Cpu:
+                    # It is possible to move the CPU pass
+                    pass_list.remove(cpu_ps)
+                    insert_index = pass_list.index(next_ps)
+                    pass_list.insert(insert_index, cpu_ps)
+                    break
+                if (
+                    cpu_ps.ops[0].ofm not in [next_ps.ops[0].ifm, next_ps.ops[0].ifm2]
+                    and next_ps.placement != PassPlacement.MemoryOnly
+                ):
+                    continue
+
+                break
+        pass_list_top.extend(pass_list)
+
+        sg.passes = pass_list_top
         sg.build_pass_links()
 
     if verbose_packing:
