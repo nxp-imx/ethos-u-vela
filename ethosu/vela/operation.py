@@ -555,6 +555,7 @@ class Operation:
         res.explicit_scaling = self.explicit_scaling
         res.low_precision_scaling = self.low_precision_scaling
         res.rescale = self.rescale
+        res.ifm_resampling_mode = self.ifm_resampling_mode
 
         return res
 
