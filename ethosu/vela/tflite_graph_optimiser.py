@@ -318,7 +318,9 @@ def convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op):
     out_shape = np.array(op.ofm_shapes[0].get_hw_as_list())
 
     # Calculate how many times 2x2 upscaling needs to be performed
-    upscale_factor = round(out_shape[1] / upscaled_shape[1])
+    # Force the result of round to be an integer. This is because the behaviour of rounding numpy.float64 values changed
+    # between different versions of numpy. This consistency ensures that the kernel dimensions are kept integral
+    upscale_factor = int(round(out_shape[1] / upscaled_shape[1]))
     n = int(np.log2(upscale_factor))
 
     # Perform 2x2 upscaling n-1 times
