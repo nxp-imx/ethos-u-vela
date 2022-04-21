@@ -379,14 +379,12 @@ def convert_nop_split_to_identity(op, arch, nng):
     return op
 
 
-def rewrite_fully_connected_input(op, arch, nng):
-    if op.type == Op.FullyConnected:
-        n_in_elems = op.weights.shape[-2]
-        elms = op.ifm.elements()
-        batch_size = elms // n_in_elems
-        assert batch_size * n_in_elems == elms
+def rewrite_fully_connected_input(op: Operation, arch, nng):
 
-        op.ifm_shapes[0] = Shape4D([batch_size, 1, 1, n_in_elems])
+    if op.type == Op.FullyConnected:
+        new_shape = op.ifm.get_shape_as_2d(op.weights.shape[-2])
+        assert new_shape is not None, "Tensor can not be reshaped to 2D"
+        op.ifm_shapes[0] = new_shape
     return op
 
 

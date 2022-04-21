@@ -295,14 +295,11 @@ class TFLiteSemantic:
 
     @staticmethod
     def constraint_fc_output_2d(op):
-        "The output tensor(s) must have 2D shape"
-        valid = True
-        extra = []
-        for tens in op.outputs:
-            if len(tens.shape) != 2:
-                valid = False
-                extra.append(f"Tensor '{tens.name}' is {len(tens.shape)}D")
-        return valid, ", ".join(extra)
+        """The output tensor(s) must have 2D shape"""
+        valid = op.ifm.get_shape_as_2d(op.weights.shape[-2]) is not None
+        extra = f"Op has non-2D output tensor '{op.ofm.name}'" if not valid else ""
+
+        return valid, extra
 
     @staticmethod
     def constraint_stride_type(op):

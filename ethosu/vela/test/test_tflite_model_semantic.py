@@ -81,11 +81,13 @@ def test_constraint_tens_quant_scale():
 
 
 def test_constraint_fc_output_2d_not_supp():
-    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1], [3, 2, 2, 1], weights_shape=[12, 1, 1, 1])
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [7, 4, 6], [3, 2, 2, 8], weights_shape=[1, 9, 1])
     assert not semantic_checker.is_operator_semantic_valid(op)
-    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1, 1, 1], [1, 3, 4], weights_shape=[12, 1, 1, 1])
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1, 6, 1], [3, 7, 4], weights_shape=[1, 1, 7, 1])
     assert not semantic_checker.is_operator_semantic_valid(op)
-    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [1, 1, 1, 1], [1], weights_shape=[1, 1, 1, 1])
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [4, 1, 4, 7], [1, 9], weights_shape=[12, 3])
+    assert not semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [4], [9], weights_shape=[3, 2])
     assert not semantic_checker.is_operator_semantic_valid(op)
 
 
@@ -93,6 +95,20 @@ def test_constraint_fc_output_2d_is_supp():
     op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [4, 8, 8, 4], [32, 32], weights_shape=[4, 8, 8, 4])
     assert semantic_checker.is_operator_semantic_valid(op)
     op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [1, 1024], [16, 64], weights_shape=[1, 1024])
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1], [3, 2, 1, 1], weights_shape=[12, 1, 1, 1])
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1], [3, 2, 1], weights_shape=[12, 1, 1, 1])
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1], [1, 1, 3, 2], weights_shape=[12, 1, 1, 1])
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [12, 1, 1, 1], [1, 1, 1], weights_shape=[12, 1, 1, 1])
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(
+        Op.FullyConnected, [12, 1, 1, 1], [1, 1, 24], weights_shape=[12, 1, 1, 1]
+    )
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_op_with_quant_tensors(Op.FullyConnected, [1, 1, 1, 1], [1, 3, 4], weights_shape=[1, 1, 1, 1])
     assert semantic_checker.is_operator_semantic_valid(op)
 
 
