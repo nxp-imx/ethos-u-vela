@@ -63,24 +63,31 @@ class StridedSliceOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def StridedSliceOptionsStart(builder): builder.StartObject(5)
-def Start(builder):
-    return StridedSliceOptionsStart(builder)
-def StridedSliceOptionsAddBeginMask(builder, beginMask): builder.PrependInt32Slot(0, beginMask, 0)
-def AddBeginMask(builder, beginMask):
-    return StridedSliceOptionsAddBeginMask(builder, beginMask)
-def StridedSliceOptionsAddEndMask(builder, endMask): builder.PrependInt32Slot(1, endMask, 0)
-def AddEndMask(builder, endMask):
-    return StridedSliceOptionsAddEndMask(builder, endMask)
-def StridedSliceOptionsAddEllipsisMask(builder, ellipsisMask): builder.PrependInt32Slot(2, ellipsisMask, 0)
-def AddEllipsisMask(builder, ellipsisMask):
-    return StridedSliceOptionsAddEllipsisMask(builder, ellipsisMask)
-def StridedSliceOptionsAddNewAxisMask(builder, newAxisMask): builder.PrependInt32Slot(3, newAxisMask, 0)
-def AddNewAxisMask(builder, newAxisMask):
-    return StridedSliceOptionsAddNewAxisMask(builder, newAxisMask)
-def StridedSliceOptionsAddShrinkAxisMask(builder, shrinkAxisMask): builder.PrependInt32Slot(4, shrinkAxisMask, 0)
-def AddShrinkAxisMask(builder, shrinkAxisMask):
-    return StridedSliceOptionsAddShrinkAxisMask(builder, shrinkAxisMask)
-def StridedSliceOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return StridedSliceOptionsEnd(builder)
+def Start(builder): builder.StartObject(5)
+def StridedSliceOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddBeginMask(builder, beginMask): builder.PrependInt32Slot(0, beginMask, 0)
+def StridedSliceOptionsAddBeginMask(builder, beginMask):
+    """This method is deprecated. Please switch to AddBeginMask."""
+    return AddBeginMask(builder, beginMask)
+def AddEndMask(builder, endMask): builder.PrependInt32Slot(1, endMask, 0)
+def StridedSliceOptionsAddEndMask(builder, endMask):
+    """This method is deprecated. Please switch to AddEndMask."""
+    return AddEndMask(builder, endMask)
+def AddEllipsisMask(builder, ellipsisMask): builder.PrependInt32Slot(2, ellipsisMask, 0)
+def StridedSliceOptionsAddEllipsisMask(builder, ellipsisMask):
+    """This method is deprecated. Please switch to AddEllipsisMask."""
+    return AddEllipsisMask(builder, ellipsisMask)
+def AddNewAxisMask(builder, newAxisMask): builder.PrependInt32Slot(3, newAxisMask, 0)
+def StridedSliceOptionsAddNewAxisMask(builder, newAxisMask):
+    """This method is deprecated. Please switch to AddNewAxisMask."""
+    return AddNewAxisMask(builder, newAxisMask)
+def AddShrinkAxisMask(builder, shrinkAxisMask): builder.PrependInt32Slot(4, shrinkAxisMask, 0)
+def StridedSliceOptionsAddShrinkAxisMask(builder, shrinkAxisMask):
+    """This method is deprecated. Please switch to AddShrinkAxisMask."""
+    return AddShrinkAxisMask(builder, shrinkAxisMask)
+def End(builder): return builder.EndObject()
+def StridedSliceOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -42,15 +42,19 @@ class ResizeNearestNeighborOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def ResizeNearestNeighborOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return ResizeNearestNeighborOptionsStart(builder)
-def ResizeNearestNeighborOptionsAddAlignCorners(builder, alignCorners): builder.PrependBoolSlot(0, alignCorners, 0)
-def AddAlignCorners(builder, alignCorners):
-    return ResizeNearestNeighborOptionsAddAlignCorners(builder, alignCorners)
-def ResizeNearestNeighborOptionsAddHalfPixelCenters(builder, halfPixelCenters): builder.PrependBoolSlot(1, halfPixelCenters, 0)
-def AddHalfPixelCenters(builder, halfPixelCenters):
-    return ResizeNearestNeighborOptionsAddHalfPixelCenters(builder, halfPixelCenters)
-def ResizeNearestNeighborOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ResizeNearestNeighborOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def ResizeNearestNeighborOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddAlignCorners(builder, alignCorners): builder.PrependBoolSlot(0, alignCorners, 0)
+def ResizeNearestNeighborOptionsAddAlignCorners(builder, alignCorners):
+    """This method is deprecated. Please switch to AddAlignCorners."""
+    return AddAlignCorners(builder, alignCorners)
+def AddHalfPixelCenters(builder, halfPixelCenters): builder.PrependBoolSlot(1, halfPixelCenters, 0)
+def ResizeNearestNeighborOptionsAddHalfPixelCenters(builder, halfPixelCenters):
+    """This method is deprecated. Please switch to AddHalfPixelCenters."""
+    return AddHalfPixelCenters(builder, halfPixelCenters)
+def End(builder): return builder.EndObject()
+def ResizeNearestNeighborOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

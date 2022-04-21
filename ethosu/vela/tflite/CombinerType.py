@@ -6,3 +6,4 @@ class CombinerType(object):
     SUM = 0
     MEAN = 1
     SQRTN = 2
+

@@ -35,12 +35,15 @@ class SplitVOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def SplitVOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return SplitVOptionsStart(builder)
-def SplitVOptionsAddNumSplits(builder, numSplits): builder.PrependInt32Slot(0, numSplits, 0)
-def AddNumSplits(builder, numSplits):
-    return SplitVOptionsAddNumSplits(builder, numSplits)
-def SplitVOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SplitVOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def SplitVOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddNumSplits(builder, numSplits): builder.PrependInt32Slot(0, numSplits, 0)
+def SplitVOptionsAddNumSplits(builder, numSplits):
+    """This method is deprecated. Please switch to AddNumSplits."""
+    return AddNumSplits(builder, numSplits)
+def End(builder): return builder.EndObject()
+def SplitVOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

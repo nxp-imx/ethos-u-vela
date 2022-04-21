@@ -28,9 +28,11 @@ class SquareOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def SquareOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return SquareOptionsStart(builder)
-def SquareOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SquareOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def SquareOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def SquareOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

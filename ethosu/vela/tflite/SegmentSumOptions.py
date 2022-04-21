@@ -28,9 +28,11 @@ class SegmentSumOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def SegmentSumOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return SegmentSumOptionsStart(builder)
-def SegmentSumOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SegmentSumOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def SegmentSumOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def SegmentSumOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

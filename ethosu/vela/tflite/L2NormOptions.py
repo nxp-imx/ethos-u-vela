@@ -35,12 +35,15 @@ class L2NormOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def L2NormOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return L2NormOptionsStart(builder)
-def L2NormOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
-def AddFusedActivationFunction(builder, fusedActivationFunction):
-    return L2NormOptionsAddFusedActivationFunction(builder, fusedActivationFunction)
-def L2NormOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return L2NormOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def L2NormOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
+def L2NormOptionsAddFusedActivationFunction(builder, fusedActivationFunction):
+    """This method is deprecated. Please switch to AddFusedActivationFunction."""
+    return AddFusedActivationFunction(builder, fusedActivationFunction)
+def End(builder): return builder.EndObject()
+def L2NormOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

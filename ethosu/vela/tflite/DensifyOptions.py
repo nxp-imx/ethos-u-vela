@@ -28,9 +28,11 @@ class DensifyOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def DensifyOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return DensifyOptionsStart(builder)
-def DensifyOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return DensifyOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def DensifyOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def DensifyOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -42,15 +42,19 @@ class ReverseSequenceOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def ReverseSequenceOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return ReverseSequenceOptionsStart(builder)
-def ReverseSequenceOptionsAddSeqDim(builder, seqDim): builder.PrependInt32Slot(0, seqDim, 0)
-def AddSeqDim(builder, seqDim):
-    return ReverseSequenceOptionsAddSeqDim(builder, seqDim)
-def ReverseSequenceOptionsAddBatchDim(builder, batchDim): builder.PrependInt32Slot(1, batchDim, 0)
-def AddBatchDim(builder, batchDim):
-    return ReverseSequenceOptionsAddBatchDim(builder, batchDim)
-def ReverseSequenceOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ReverseSequenceOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def ReverseSequenceOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddSeqDim(builder, seqDim): builder.PrependInt32Slot(0, seqDim, 0)
+def ReverseSequenceOptionsAddSeqDim(builder, seqDim):
+    """This method is deprecated. Please switch to AddSeqDim."""
+    return AddSeqDim(builder, seqDim)
+def AddBatchDim(builder, batchDim): builder.PrependInt32Slot(1, batchDim, 0)
+def ReverseSequenceOptionsAddBatchDim(builder, batchDim):
+    """This method is deprecated. Please switch to AddBatchDim."""
+    return AddBatchDim(builder, batchDim)
+def End(builder): return builder.EndObject()
+def ReverseSequenceOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

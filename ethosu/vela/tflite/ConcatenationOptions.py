@@ -42,15 +42,19 @@ class ConcatenationOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def ConcatenationOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return ConcatenationOptionsStart(builder)
-def ConcatenationOptionsAddAxis(builder, axis): builder.PrependInt32Slot(0, axis, 0)
-def AddAxis(builder, axis):
-    return ConcatenationOptionsAddAxis(builder, axis)
-def ConcatenationOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(1, fusedActivationFunction, 0)
-def AddFusedActivationFunction(builder, fusedActivationFunction):
-    return ConcatenationOptionsAddFusedActivationFunction(builder, fusedActivationFunction)
-def ConcatenationOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ConcatenationOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def ConcatenationOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddAxis(builder, axis): builder.PrependInt32Slot(0, axis, 0)
+def ConcatenationOptionsAddAxis(builder, axis):
+    """This method is deprecated. Please switch to AddAxis."""
+    return AddAxis(builder, axis)
+def AddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(1, fusedActivationFunction, 0)
+def ConcatenationOptionsAddFusedActivationFunction(builder, fusedActivationFunction):
+    """This method is deprecated. Please switch to AddFusedActivationFunction."""
+    return AddFusedActivationFunction(builder, fusedActivationFunction)
+def End(builder): return builder.EndObject()
+def ConcatenationOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -28,9 +28,11 @@ class RankOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def RankOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return RankOptionsStart(builder)
-def RankOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return RankOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def RankOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def RankOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

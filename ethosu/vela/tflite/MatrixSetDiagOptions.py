@@ -28,9 +28,11 @@ class MatrixSetDiagOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def MatrixSetDiagOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return MatrixSetDiagOptionsStart(builder)
-def MatrixSetDiagOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return MatrixSetDiagOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def MatrixSetDiagOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def MatrixSetDiagOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

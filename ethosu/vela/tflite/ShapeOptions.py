@@ -35,12 +35,15 @@ class ShapeOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def ShapeOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return ShapeOptionsStart(builder)
-def ShapeOptionsAddOutType(builder, outType): builder.PrependInt8Slot(0, outType, 0)
-def AddOutType(builder, outType):
-    return ShapeOptionsAddOutType(builder, outType)
-def ShapeOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ShapeOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def ShapeOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddOutType(builder, outType): builder.PrependInt8Slot(0, outType, 0)
+def ShapeOptionsAddOutType(builder, outType):
+    """This method is deprecated. Please switch to AddOutType."""
+    return AddOutType(builder, outType)
+def End(builder): return builder.EndObject()
+def ShapeOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

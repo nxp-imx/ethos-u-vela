@@ -42,15 +42,19 @@ class WhileOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def WhileOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return WhileOptionsStart(builder)
-def WhileOptionsAddCondSubgraphIndex(builder, condSubgraphIndex): builder.PrependInt32Slot(0, condSubgraphIndex, 0)
-def AddCondSubgraphIndex(builder, condSubgraphIndex):
-    return WhileOptionsAddCondSubgraphIndex(builder, condSubgraphIndex)
-def WhileOptionsAddBodySubgraphIndex(builder, bodySubgraphIndex): builder.PrependInt32Slot(1, bodySubgraphIndex, 0)
-def AddBodySubgraphIndex(builder, bodySubgraphIndex):
-    return WhileOptionsAddBodySubgraphIndex(builder, bodySubgraphIndex)
-def WhileOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return WhileOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def WhileOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddCondSubgraphIndex(builder, condSubgraphIndex): builder.PrependInt32Slot(0, condSubgraphIndex, 0)
+def WhileOptionsAddCondSubgraphIndex(builder, condSubgraphIndex):
+    """This method is deprecated. Please switch to AddCondSubgraphIndex."""
+    return AddCondSubgraphIndex(builder, condSubgraphIndex)
+def AddBodySubgraphIndex(builder, bodySubgraphIndex): builder.PrependInt32Slot(1, bodySubgraphIndex, 0)
+def WhileOptionsAddBodySubgraphIndex(builder, bodySubgraphIndex):
+    """This method is deprecated. Please switch to AddBodySubgraphIndex."""
+    return AddBodySubgraphIndex(builder, bodySubgraphIndex)
+def End(builder): return builder.EndObject()
+def WhileOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -28,9 +28,11 @@ class NotEqualOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def NotEqualOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return NotEqualOptionsStart(builder)
-def NotEqualOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return NotEqualOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def NotEqualOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def NotEqualOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

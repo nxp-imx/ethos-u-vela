@@ -35,12 +35,15 @@ class DivOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def DivOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return DivOptionsStart(builder)
-def DivOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
-def AddFusedActivationFunction(builder, fusedActivationFunction):
-    return DivOptionsAddFusedActivationFunction(builder, fusedActivationFunction)
-def DivOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return DivOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def DivOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
+def DivOptionsAddFusedActivationFunction(builder, fusedActivationFunction):
+    """This method is deprecated. Please switch to AddFusedActivationFunction."""
+    return AddFusedActivationFunction(builder, fusedActivationFunction)
+def End(builder): return builder.EndObject()
+def DivOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

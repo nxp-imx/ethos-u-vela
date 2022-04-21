@@ -89,24 +89,31 @@ class ConcatEmbeddingsOptions(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         return o == 0
 
-def ConcatEmbeddingsOptionsStart(builder): builder.StartObject(3)
-def Start(builder):
-    return ConcatEmbeddingsOptionsStart(builder)
-def ConcatEmbeddingsOptionsAddNumChannels(builder, numChannels): builder.PrependInt32Slot(0, numChannels, 0)
-def AddNumChannels(builder, numChannels):
-    return ConcatEmbeddingsOptionsAddNumChannels(builder, numChannels)
-def ConcatEmbeddingsOptionsAddNumColumnsPerChannel(builder, numColumnsPerChannel): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(numColumnsPerChannel), 0)
-def AddNumColumnsPerChannel(builder, numColumnsPerChannel):
-    return ConcatEmbeddingsOptionsAddNumColumnsPerChannel(builder, numColumnsPerChannel)
-def ConcatEmbeddingsOptionsStartNumColumnsPerChannelVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def StartNumColumnsPerChannelVector(builder, numElems):
-    return ConcatEmbeddingsOptionsStartNumColumnsPerChannelVector(builder, numElems)
-def ConcatEmbeddingsOptionsAddEmbeddingDimPerChannel(builder, embeddingDimPerChannel): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(embeddingDimPerChannel), 0)
-def AddEmbeddingDimPerChannel(builder, embeddingDimPerChannel):
-    return ConcatEmbeddingsOptionsAddEmbeddingDimPerChannel(builder, embeddingDimPerChannel)
-def ConcatEmbeddingsOptionsStartEmbeddingDimPerChannelVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def StartEmbeddingDimPerChannelVector(builder, numElems):
-    return ConcatEmbeddingsOptionsStartEmbeddingDimPerChannelVector(builder, numElems)
-def ConcatEmbeddingsOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ConcatEmbeddingsOptionsEnd(builder)
+def Start(builder): builder.StartObject(3)
+def ConcatEmbeddingsOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddNumChannels(builder, numChannels): builder.PrependInt32Slot(0, numChannels, 0)
+def ConcatEmbeddingsOptionsAddNumChannels(builder, numChannels):
+    """This method is deprecated. Please switch to AddNumChannels."""
+    return AddNumChannels(builder, numChannels)
+def AddNumColumnsPerChannel(builder, numColumnsPerChannel): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(numColumnsPerChannel), 0)
+def ConcatEmbeddingsOptionsAddNumColumnsPerChannel(builder, numColumnsPerChannel):
+    """This method is deprecated. Please switch to AddNumColumnsPerChannel."""
+    return AddNumColumnsPerChannel(builder, numColumnsPerChannel)
+def StartNumColumnsPerChannelVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def ConcatEmbeddingsOptionsStartNumColumnsPerChannelVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartNumColumnsPerChannelVector(builder, numElems)
+def AddEmbeddingDimPerChannel(builder, embeddingDimPerChannel): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(embeddingDimPerChannel), 0)
+def ConcatEmbeddingsOptionsAddEmbeddingDimPerChannel(builder, embeddingDimPerChannel):
+    """This method is deprecated. Please switch to AddEmbeddingDimPerChannel."""
+    return AddEmbeddingDimPerChannel(builder, embeddingDimPerChannel)
+def StartEmbeddingDimPerChannelVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def ConcatEmbeddingsOptionsStartEmbeddingDimPerChannelVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartEmbeddingDimPerChannelVector(builder, numElems)
+def End(builder): return builder.EndObject()
+def ConcatEmbeddingsOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

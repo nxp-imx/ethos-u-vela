@@ -6,68 +6,68 @@ import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
 
-class ReshapeOptions(object):
+class BucketizeOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = ReshapeOptions()
+        x = BucketizeOptions()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsReshapeOptions(cls, buf, offset=0):
+    def GetRootAsBucketizeOptions(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
     @classmethod
-    def ReshapeOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+    def BucketizeOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
-    # ReshapeOptions
+    # BucketizeOptions
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # ReshapeOptions
-    def NewShape(self, j):
+    # BucketizeOptions
+    def Boundaries(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+            return self._tab.Get(flatbuffers.number_types.Float32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
         return 0
 
-    # ReshapeOptions
-    def NewShapeAsNumpy(self):
+    # BucketizeOptions
+    def BoundariesAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Float32Flags, o)
         return 0
 
-    # ReshapeOptions
-    def NewShapeLength(self):
+    # BucketizeOptions
+    def BoundariesLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
-    # ReshapeOptions
-    def NewShapeIsNone(self):
+    # BucketizeOptions
+    def BoundariesIsNone(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         return o == 0
 
 def Start(builder): builder.StartObject(1)
-def ReshapeOptionsStart(builder):
+def BucketizeOptionsStart(builder):
     """This method is deprecated. Please switch to Start."""
     return Start(builder)
-def AddNewShape(builder, newShape): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(newShape), 0)
-def ReshapeOptionsAddNewShape(builder, newShape):
-    """This method is deprecated. Please switch to AddNewShape."""
-    return AddNewShape(builder, newShape)
-def StartNewShapeVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def ReshapeOptionsStartNewShapeVector(builder, numElems):
+def AddBoundaries(builder, boundaries): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(boundaries), 0)
+def BucketizeOptionsAddBoundaries(builder, boundaries):
+    """This method is deprecated. Please switch to AddBoundaries."""
+    return AddBoundaries(builder, boundaries)
+def StartBoundariesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def BucketizeOptionsStartBoundariesVector(builder, numElems):
     """This method is deprecated. Please switch to Start."""
-    return StartNewShapeVector(builder, numElems)
+    return StartBoundariesVector(builder, numElems)
 def End(builder): return builder.EndObject()
-def ReshapeOptionsEnd(builder):
+def BucketizeOptionsEnd(builder):
     """This method is deprecated. Please switch to End."""
     return End(builder)

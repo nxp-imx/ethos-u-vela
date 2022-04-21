@@ -314,6 +314,11 @@ class Op(Enum):
     AssignVariable = OperatorInfo()
     BroadcastArgs = OperatorInfo()
     RandomStandardNormal = OperatorInfo()
+    Bucketize = OperatorInfo()
+    RandomUniform = OperatorInfo()
+    Multinomial = OperatorInfo()
+    Gelu = OperatorInfo()
+    DynamicUpdateSlice = OperatorInfo()
 
     @property
     def info(self):

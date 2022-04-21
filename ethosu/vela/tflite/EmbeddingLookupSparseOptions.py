@@ -35,12 +35,15 @@ class EmbeddingLookupSparseOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def EmbeddingLookupSparseOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return EmbeddingLookupSparseOptionsStart(builder)
-def EmbeddingLookupSparseOptionsAddCombiner(builder, combiner): builder.PrependInt8Slot(0, combiner, 0)
-def AddCombiner(builder, combiner):
-    return EmbeddingLookupSparseOptionsAddCombiner(builder, combiner)
-def EmbeddingLookupSparseOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return EmbeddingLookupSparseOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def EmbeddingLookupSparseOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddCombiner(builder, combiner): builder.PrependInt8Slot(0, combiner, 0)
+def EmbeddingLookupSparseOptionsAddCombiner(builder, combiner):
+    """This method is deprecated. Please switch to AddCombiner."""
+    return AddCombiner(builder, combiner)
+def End(builder): return builder.EndObject()
+def EmbeddingLookupSparseOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

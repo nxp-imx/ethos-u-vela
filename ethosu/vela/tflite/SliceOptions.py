@@ -28,9 +28,11 @@ class SliceOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def SliceOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return SliceOptionsStart(builder)
-def SliceOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SliceOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def SliceOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def SliceOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

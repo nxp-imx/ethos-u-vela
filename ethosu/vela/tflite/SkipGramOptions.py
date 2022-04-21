@@ -49,18 +49,23 @@ class SkipGramOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def SkipGramOptionsStart(builder): builder.StartObject(3)
-def Start(builder):
-    return SkipGramOptionsStart(builder)
-def SkipGramOptionsAddNgramSize(builder, ngramSize): builder.PrependInt32Slot(0, ngramSize, 0)
-def AddNgramSize(builder, ngramSize):
-    return SkipGramOptionsAddNgramSize(builder, ngramSize)
-def SkipGramOptionsAddMaxSkipSize(builder, maxSkipSize): builder.PrependInt32Slot(1, maxSkipSize, 0)
-def AddMaxSkipSize(builder, maxSkipSize):
-    return SkipGramOptionsAddMaxSkipSize(builder, maxSkipSize)
-def SkipGramOptionsAddIncludeAllNgrams(builder, includeAllNgrams): builder.PrependBoolSlot(2, includeAllNgrams, 0)
-def AddIncludeAllNgrams(builder, includeAllNgrams):
-    return SkipGramOptionsAddIncludeAllNgrams(builder, includeAllNgrams)
-def SkipGramOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SkipGramOptionsEnd(builder)
+def Start(builder): builder.StartObject(3)
+def SkipGramOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddNgramSize(builder, ngramSize): builder.PrependInt32Slot(0, ngramSize, 0)
+def SkipGramOptionsAddNgramSize(builder, ngramSize):
+    """This method is deprecated. Please switch to AddNgramSize."""
+    return AddNgramSize(builder, ngramSize)
+def AddMaxSkipSize(builder, maxSkipSize): builder.PrependInt32Slot(1, maxSkipSize, 0)
+def SkipGramOptionsAddMaxSkipSize(builder, maxSkipSize):
+    """This method is deprecated. Please switch to AddMaxSkipSize."""
+    return AddMaxSkipSize(builder, maxSkipSize)
+def AddIncludeAllNgrams(builder, includeAllNgrams): builder.PrependBoolSlot(2, includeAllNgrams, 0)
+def SkipGramOptionsAddIncludeAllNgrams(builder, includeAllNgrams):
+    """This method is deprecated. Please switch to AddIncludeAllNgrams."""
+    return AddIncludeAllNgrams(builder, includeAllNgrams)
+def End(builder): return builder.EndObject()
+def SkipGramOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

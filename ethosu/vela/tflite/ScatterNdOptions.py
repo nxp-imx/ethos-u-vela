@@ -28,9 +28,11 @@ class ScatterNdOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def ScatterNdOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return ScatterNdOptionsStart(builder)
-def ScatterNdOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ScatterNdOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def ScatterNdOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def ScatterNdOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

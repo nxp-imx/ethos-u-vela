@@ -37,6 +37,7 @@ from .tflite import BatchToSpaceNDOptions
 from .tflite import BidirectionalSequenceLSTMOptions
 from .tflite import BidirectionalSequenceRNNOptions
 from .tflite import BroadcastToOptions
+from .tflite import BucketizeOptions
 from .tflite import CallOnceOptions
 from .tflite import CallOptions
 from .tflite import CastOptions
@@ -51,6 +52,7 @@ from .tflite import DepthToSpaceOptions
 from .tflite import DepthwiseConv2DOptions
 from .tflite import DequantizeOptions
 from .tflite import DivOptions
+from .tflite import DynamicUpdateSliceOptions
 from .tflite import EmbeddingLookupSparseOptions
 from .tflite import EqualOptions
 from .tflite import ExpandDimsOptions
@@ -62,6 +64,7 @@ from .tflite import FloorModOptions
 from .tflite import FullyConnectedOptions
 from .tflite import GatherNdOptions
 from .tflite import GatherOptions
+from .tflite import GeluOptions
 from .tflite import GreaterEqualOptions
 from .tflite import GreaterOptions
 from .tflite import HardSwishOptions
@@ -168,6 +171,7 @@ datatype_map = {
     TensorType.RESOURCE: DataType.resource,
     TensorType.VARIANT: DataType.variant,
     TensorType.UINT32: DataType.uint32,
+    TensorType.UINT16: DataType.uint16,
 }
 
 datatype_inv_map = inverse_map(datatype_map)
@@ -180,6 +184,7 @@ datatype_inv_map[DataType.qint32] = TensorType.INT32
 
 datatype_map_numpy = {
     TensorType.UINT8: np.uint8,
+    TensorType.UINT16: np.uint16,
     TensorType.UINT32: np.uint32,
     TensorType.UINT64: np.uint64,
     TensorType.INT8: np.int8,
@@ -313,6 +318,9 @@ builtin_options_map = {
     BuiltinOptions.ReadVariableOptions: ReadVariableOptions.ReadVariableOptions,
     BuiltinOptions.AssignVariableOptions: AssignVariableOptions.AssignVariableOptions,
     BuiltinOptions.RandomOptions: RandomOptions.RandomOptions,
+    BuiltinOptions.BucketizeOptions: BucketizeOptions.BucketizeOptions,
+    BuiltinOptions.DynamicUpdateSliceOptions: DynamicUpdateSliceOptions.DynamicUpdateSliceOptions,
+    BuiltinOptions.GeluOptions: GeluOptions.GeluOptions,
 }
 
 
@@ -939,6 +947,22 @@ builtin_operator_map = {
                 "seed2",
             ),
         ),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.BUCKETIZE: (
+        Op.Bucketize,
+        OptionsSerializer(
+            "BucketizeOptions",
+            ("boundaries", "boundaries_as_numpy", "boundaries_length", "boundaries_is_none"),
+        ),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.RANDOM_UNIFORM: (Op.RandomUniform, None, TFLITE_NO_INDICES),
+    BuiltinOperator.MULTINOMIAL: (Op.Multinomial, None, TFLITE_NO_INDICES),
+    BuiltinOperator.GELU: (Op.Gelu, OptionsSerializer("GeluOptions", ("approximate",)), TFLITE_NO_INDICES),
+    BuiltinOperator.DYNAMIC_UPDATE_SLICE: (
+        Op.DynamicUpdateSlice,
+        OptionsSerializer("DynamicUpdateSliceOptions"),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),

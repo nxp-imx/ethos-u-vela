@@ -28,9 +28,11 @@ class HashtableSizeOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def HashtableSizeOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return HashtableSizeOptionsStart(builder)
-def HashtableSizeOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return HashtableSizeOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def HashtableSizeOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def HashtableSizeOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

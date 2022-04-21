@@ -35,12 +35,15 @@ class OneHotOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def OneHotOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return OneHotOptionsStart(builder)
-def OneHotOptionsAddAxis(builder, axis): builder.PrependInt32Slot(0, axis, 0)
-def AddAxis(builder, axis):
-    return OneHotOptionsAddAxis(builder, axis)
-def OneHotOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return OneHotOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def OneHotOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddAxis(builder, axis): builder.PrependInt32Slot(0, axis, 0)
+def OneHotOptionsAddAxis(builder, axis):
+    """This method is deprecated. Please switch to AddAxis."""
+    return AddAxis(builder, axis)
+def End(builder): return builder.EndObject()
+def OneHotOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

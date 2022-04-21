@@ -28,9 +28,11 @@ class Rfft2dOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def Rfft2dOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return Rfft2dOptionsStart(builder)
-def Rfft2dOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return Rfft2dOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def Rfft2dOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def Rfft2dOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

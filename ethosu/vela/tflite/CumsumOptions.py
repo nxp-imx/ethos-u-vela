@@ -42,15 +42,19 @@ class CumsumOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def CumsumOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return CumsumOptionsStart(builder)
-def CumsumOptionsAddExclusive(builder, exclusive): builder.PrependBoolSlot(0, exclusive, 0)
-def AddExclusive(builder, exclusive):
-    return CumsumOptionsAddExclusive(builder, exclusive)
-def CumsumOptionsAddReverse(builder, reverse): builder.PrependBoolSlot(1, reverse, 0)
-def AddReverse(builder, reverse):
-    return CumsumOptionsAddReverse(builder, reverse)
-def CumsumOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return CumsumOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def CumsumOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddExclusive(builder, exclusive): builder.PrependBoolSlot(0, exclusive, 0)
+def CumsumOptionsAddExclusive(builder, exclusive):
+    """This method is deprecated. Please switch to AddExclusive."""
+    return AddExclusive(builder, exclusive)
+def AddReverse(builder, reverse): builder.PrependBoolSlot(1, reverse, 0)
+def CumsumOptionsAddReverse(builder, reverse):
+    """This method is deprecated. Please switch to AddReverse."""
+    return AddReverse(builder, reverse)
+def End(builder): return builder.EndObject()
+def CumsumOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -35,12 +35,15 @@ class UniqueOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 2
 
-def UniqueOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return UniqueOptionsStart(builder)
-def UniqueOptionsAddIdxOutType(builder, idxOutType): builder.PrependInt8Slot(0, idxOutType, 2)
-def AddIdxOutType(builder, idxOutType):
-    return UniqueOptionsAddIdxOutType(builder, idxOutType)
-def UniqueOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return UniqueOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def UniqueOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddIdxOutType(builder, idxOutType): builder.PrependInt8Slot(0, idxOutType, 2)
+def UniqueOptionsAddIdxOutType(builder, idxOutType):
+    """This method is deprecated. Please switch to AddIdxOutType."""
+    return AddIdxOutType(builder, idxOutType)
+def End(builder): return builder.EndObject()
+def UniqueOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -28,9 +28,11 @@ class ZerosLikeOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def ZerosLikeOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return ZerosLikeOptionsStart(builder)
-def ZerosLikeOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ZerosLikeOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def ZerosLikeOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def ZerosLikeOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

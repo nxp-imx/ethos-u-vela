@@ -42,15 +42,19 @@ class CastOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def CastOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return CastOptionsStart(builder)
-def CastOptionsAddInDataType(builder, inDataType): builder.PrependInt8Slot(0, inDataType, 0)
-def AddInDataType(builder, inDataType):
-    return CastOptionsAddInDataType(builder, inDataType)
-def CastOptionsAddOutDataType(builder, outDataType): builder.PrependInt8Slot(1, outDataType, 0)
-def AddOutDataType(builder, outDataType):
-    return CastOptionsAddOutDataType(builder, outDataType)
-def CastOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return CastOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def CastOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddInDataType(builder, inDataType): builder.PrependInt8Slot(0, inDataType, 0)
+def CastOptionsAddInDataType(builder, inDataType):
+    """This method is deprecated. Please switch to AddInDataType."""
+    return AddInDataType(builder, inDataType)
+def AddOutDataType(builder, outDataType): builder.PrependInt8Slot(1, outDataType, 0)
+def CastOptionsAddOutDataType(builder, outDataType):
+    """This method is deprecated. Please switch to AddOutDataType."""
+    return AddOutDataType(builder, outDataType)
+def End(builder): return builder.EndObject()
+def CastOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

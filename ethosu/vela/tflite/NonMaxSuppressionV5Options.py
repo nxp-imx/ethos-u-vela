@@ -28,9 +28,11 @@ class NonMaxSuppressionV5Options(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def NonMaxSuppressionV5OptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return NonMaxSuppressionV5OptionsStart(builder)
-def NonMaxSuppressionV5OptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return NonMaxSuppressionV5OptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def NonMaxSuppressionV5OptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def NonMaxSuppressionV5OptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

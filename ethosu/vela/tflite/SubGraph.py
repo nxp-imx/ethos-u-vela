@@ -35,7 +35,7 @@ class SubGraph(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from .Tensor import Tensor
+            from tflite.Tensor import Tensor
             obj = Tensor()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -114,7 +114,7 @@ class SubGraph(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from .Operator import Operator
+            from tflite.Operator import Operator
             obj = Operator()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -139,36 +139,47 @@ class SubGraph(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def SubGraphStart(builder): builder.StartObject(5)
-def Start(builder):
-    return SubGraphStart(builder)
-def SubGraphAddTensors(builder, tensors): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(tensors), 0)
-def AddTensors(builder, tensors):
-    return SubGraphAddTensors(builder, tensors)
-def SubGraphStartTensorsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def StartTensorsVector(builder, numElems):
-    return SubGraphStartTensorsVector(builder, numElems)
-def SubGraphAddInputs(builder, inputs): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(inputs), 0)
-def AddInputs(builder, inputs):
-    return SubGraphAddInputs(builder, inputs)
-def SubGraphStartInputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def StartInputsVector(builder, numElems):
-    return SubGraphStartInputsVector(builder, numElems)
-def SubGraphAddOutputs(builder, outputs): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(outputs), 0)
-def AddOutputs(builder, outputs):
-    return SubGraphAddOutputs(builder, outputs)
-def SubGraphStartOutputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def StartOutputsVector(builder, numElems):
-    return SubGraphStartOutputsVector(builder, numElems)
-def SubGraphAddOperators(builder, operators): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(operators), 0)
-def AddOperators(builder, operators):
-    return SubGraphAddOperators(builder, operators)
-def SubGraphStartOperatorsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def StartOperatorsVector(builder, numElems):
-    return SubGraphStartOperatorsVector(builder, numElems)
-def SubGraphAddName(builder, name): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
-def AddName(builder, name):
-    return SubGraphAddName(builder, name)
-def SubGraphEnd(builder): return builder.EndObject()
-def End(builder):
-    return SubGraphEnd(builder)
+def Start(builder): builder.StartObject(5)
+def SubGraphStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddTensors(builder, tensors): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(tensors), 0)
+def SubGraphAddTensors(builder, tensors):
+    """This method is deprecated. Please switch to AddTensors."""
+    return AddTensors(builder, tensors)
+def StartTensorsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def SubGraphStartTensorsVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartTensorsVector(builder, numElems)
+def AddInputs(builder, inputs): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(inputs), 0)
+def SubGraphAddInputs(builder, inputs):
+    """This method is deprecated. Please switch to AddInputs."""
+    return AddInputs(builder, inputs)
+def StartInputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def SubGraphStartInputsVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartInputsVector(builder, numElems)
+def AddOutputs(builder, outputs): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(outputs), 0)
+def SubGraphAddOutputs(builder, outputs):
+    """This method is deprecated. Please switch to AddOutputs."""
+    return AddOutputs(builder, outputs)
+def StartOutputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def SubGraphStartOutputsVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartOutputsVector(builder, numElems)
+def AddOperators(builder, operators): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(operators), 0)
+def SubGraphAddOperators(builder, operators):
+    """This method is deprecated. Please switch to AddOperators."""
+    return AddOperators(builder, operators)
+def StartOperatorsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def SubGraphStartOperatorsVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartOperatorsVector(builder, numElems)
+def AddName(builder, name): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
+def SubGraphAddName(builder, name):
+    """This method is deprecated. Please switch to AddName."""
+    return AddName(builder, name)
+def End(builder): return builder.EndObject()
+def SubGraphEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

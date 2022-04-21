@@ -28,9 +28,11 @@ class LessOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def LessOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return LessOptionsStart(builder)
-def LessOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return LessOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def LessOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def LessOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

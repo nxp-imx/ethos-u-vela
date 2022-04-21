@@ -56,21 +56,27 @@ class FullyConnectedOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def FullyConnectedOptionsStart(builder): builder.StartObject(4)
-def Start(builder):
-    return FullyConnectedOptionsStart(builder)
-def FullyConnectedOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
-def AddFusedActivationFunction(builder, fusedActivationFunction):
-    return FullyConnectedOptionsAddFusedActivationFunction(builder, fusedActivationFunction)
-def FullyConnectedOptionsAddWeightsFormat(builder, weightsFormat): builder.PrependInt8Slot(1, weightsFormat, 0)
-def AddWeightsFormat(builder, weightsFormat):
-    return FullyConnectedOptionsAddWeightsFormat(builder, weightsFormat)
-def FullyConnectedOptionsAddKeepNumDims(builder, keepNumDims): builder.PrependBoolSlot(2, keepNumDims, 0)
-def AddKeepNumDims(builder, keepNumDims):
-    return FullyConnectedOptionsAddKeepNumDims(builder, keepNumDims)
-def FullyConnectedOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(3, asymmetricQuantizeInputs, 0)
-def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
-    return FullyConnectedOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
-def FullyConnectedOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return FullyConnectedOptionsEnd(builder)
+def Start(builder): builder.StartObject(4)
+def FullyConnectedOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
+def FullyConnectedOptionsAddFusedActivationFunction(builder, fusedActivationFunction):
+    """This method is deprecated. Please switch to AddFusedActivationFunction."""
+    return AddFusedActivationFunction(builder, fusedActivationFunction)
+def AddWeightsFormat(builder, weightsFormat): builder.PrependInt8Slot(1, weightsFormat, 0)
+def FullyConnectedOptionsAddWeightsFormat(builder, weightsFormat):
+    """This method is deprecated. Please switch to AddWeightsFormat."""
+    return AddWeightsFormat(builder, weightsFormat)
+def AddKeepNumDims(builder, keepNumDims): builder.PrependBoolSlot(2, keepNumDims, 0)
+def FullyConnectedOptionsAddKeepNumDims(builder, keepNumDims):
+    """This method is deprecated. Please switch to AddKeepNumDims."""
+    return AddKeepNumDims(builder, keepNumDims)
+def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(3, asymmetricQuantizeInputs, 0)
+def FullyConnectedOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
+    """This method is deprecated. Please switch to AddAsymmetricQuantizeInputs."""
+    return AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
+def End(builder): return builder.EndObject()
+def FullyConnectedOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

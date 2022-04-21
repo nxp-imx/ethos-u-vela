@@ -32,25 +32,29 @@ class RandomOptions(object):
     def Seed(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
+            return self._tab.Get(flatbuffers.number_types.Int64Flags, o + self._tab.Pos)
         return 0
 
     # RandomOptions
     def Seed2(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
+            return self._tab.Get(flatbuffers.number_types.Int64Flags, o + self._tab.Pos)
         return 0
 
-def RandomOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return RandomOptionsStart(builder)
-def RandomOptionsAddSeed(builder, seed): builder.PrependInt32Slot(0, seed, 0)
-def AddSeed(builder, seed):
-    return RandomOptionsAddSeed(builder, seed)
-def RandomOptionsAddSeed2(builder, seed2): builder.PrependInt32Slot(1, seed2, 0)
-def AddSeed2(builder, seed2):
-    return RandomOptionsAddSeed2(builder, seed2)
-def RandomOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return RandomOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def RandomOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddSeed(builder, seed): builder.PrependInt64Slot(0, seed, 0)
+def RandomOptionsAddSeed(builder, seed):
+    """This method is deprecated. Please switch to AddSeed."""
+    return AddSeed(builder, seed)
+def AddSeed2(builder, seed2): builder.PrependInt64Slot(1, seed2, 0)
+def RandomOptionsAddSeed2(builder, seed2):
+    """This method is deprecated. Please switch to AddSeed2."""
+    return AddSeed2(builder, seed2)
+def End(builder): return builder.EndObject()
+def RandomOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

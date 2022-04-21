@@ -35,12 +35,15 @@ class SpaceToDepthOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def SpaceToDepthOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return SpaceToDepthOptionsStart(builder)
-def SpaceToDepthOptionsAddBlockSize(builder, blockSize): builder.PrependInt32Slot(0, blockSize, 0)
-def AddBlockSize(builder, blockSize):
-    return SpaceToDepthOptionsAddBlockSize(builder, blockSize)
-def SpaceToDepthOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SpaceToDepthOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def SpaceToDepthOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddBlockSize(builder, blockSize): builder.PrependInt32Slot(0, blockSize, 0)
+def SpaceToDepthOptionsAddBlockSize(builder, blockSize):
+    """This method is deprecated. Please switch to AddBlockSize."""
+    return AddBlockSize(builder, blockSize)
+def End(builder): return builder.EndObject()
+def SpaceToDepthOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

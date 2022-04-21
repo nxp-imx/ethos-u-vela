@@ -28,9 +28,11 @@ class AssignVariableOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def AssignVariableOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return AssignVariableOptionsStart(builder)
-def AssignVariableOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return AssignVariableOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def AssignVariableOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def AssignVariableOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

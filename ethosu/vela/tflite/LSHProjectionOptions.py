@@ -35,12 +35,15 @@ class LSHProjectionOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def LSHProjectionOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return LSHProjectionOptionsStart(builder)
-def LSHProjectionOptionsAddType(builder, type): builder.PrependInt8Slot(0, type, 0)
-def AddType(builder, type):
-    return LSHProjectionOptionsAddType(builder, type)
-def LSHProjectionOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return LSHProjectionOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def LSHProjectionOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddType(builder, type): builder.PrependInt8Slot(0, type, 0)
+def LSHProjectionOptionsAddType(builder, type):
+    """This method is deprecated. Please switch to AddType."""
+    return AddType(builder, type)
+def End(builder): return builder.EndObject()
+def LSHProjectionOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

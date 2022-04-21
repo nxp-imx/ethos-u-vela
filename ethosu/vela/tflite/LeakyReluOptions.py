@@ -35,12 +35,15 @@ class LeakyReluOptions(object):
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
-def LeakyReluOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return LeakyReluOptionsStart(builder)
-def LeakyReluOptionsAddAlpha(builder, alpha): builder.PrependFloat32Slot(0, alpha, 0.0)
-def AddAlpha(builder, alpha):
-    return LeakyReluOptionsAddAlpha(builder, alpha)
-def LeakyReluOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return LeakyReluOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def LeakyReluOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddAlpha(builder, alpha): builder.PrependFloat32Slot(0, alpha, 0.0)
+def LeakyReluOptionsAddAlpha(builder, alpha):
+    """This method is deprecated. Please switch to AddAlpha."""
+    return AddAlpha(builder, alpha)
+def End(builder): return builder.EndObject()
+def LeakyReluOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

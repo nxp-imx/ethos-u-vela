@@ -42,15 +42,19 @@ class ResizeBilinearOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def ResizeBilinearOptionsStart(builder): builder.StartObject(4)
-def Start(builder):
-    return ResizeBilinearOptionsStart(builder)
-def ResizeBilinearOptionsAddAlignCorners(builder, alignCorners): builder.PrependBoolSlot(2, alignCorners, 0)
-def AddAlignCorners(builder, alignCorners):
-    return ResizeBilinearOptionsAddAlignCorners(builder, alignCorners)
-def ResizeBilinearOptionsAddHalfPixelCenters(builder, halfPixelCenters): builder.PrependBoolSlot(3, halfPixelCenters, 0)
-def AddHalfPixelCenters(builder, halfPixelCenters):
-    return ResizeBilinearOptionsAddHalfPixelCenters(builder, halfPixelCenters)
-def ResizeBilinearOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ResizeBilinearOptionsEnd(builder)
+def Start(builder): builder.StartObject(4)
+def ResizeBilinearOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddAlignCorners(builder, alignCorners): builder.PrependBoolSlot(2, alignCorners, 0)
+def ResizeBilinearOptionsAddAlignCorners(builder, alignCorners):
+    """This method is deprecated. Please switch to AddAlignCorners."""
+    return AddAlignCorners(builder, alignCorners)
+def AddHalfPixelCenters(builder, halfPixelCenters): builder.PrependBoolSlot(3, halfPixelCenters, 0)
+def ResizeBilinearOptionsAddHalfPixelCenters(builder, halfPixelCenters):
+    """This method is deprecated. Please switch to AddHalfPixelCenters."""
+    return AddHalfPixelCenters(builder, halfPixelCenters)
+def End(builder): return builder.EndObject()
+def ResizeBilinearOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

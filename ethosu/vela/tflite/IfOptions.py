@@ -42,15 +42,19 @@ class IfOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def IfOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return IfOptionsStart(builder)
-def IfOptionsAddThenSubgraphIndex(builder, thenSubgraphIndex): builder.PrependInt32Slot(0, thenSubgraphIndex, 0)
-def AddThenSubgraphIndex(builder, thenSubgraphIndex):
-    return IfOptionsAddThenSubgraphIndex(builder, thenSubgraphIndex)
-def IfOptionsAddElseSubgraphIndex(builder, elseSubgraphIndex): builder.PrependInt32Slot(1, elseSubgraphIndex, 0)
-def AddElseSubgraphIndex(builder, elseSubgraphIndex):
-    return IfOptionsAddElseSubgraphIndex(builder, elseSubgraphIndex)
-def IfOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return IfOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def IfOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddThenSubgraphIndex(builder, thenSubgraphIndex): builder.PrependInt32Slot(0, thenSubgraphIndex, 0)
+def IfOptionsAddThenSubgraphIndex(builder, thenSubgraphIndex):
+    """This method is deprecated. Please switch to AddThenSubgraphIndex."""
+    return AddThenSubgraphIndex(builder, thenSubgraphIndex)
+def AddElseSubgraphIndex(builder, elseSubgraphIndex): builder.PrependInt32Slot(1, elseSubgraphIndex, 0)
+def IfOptionsAddElseSubgraphIndex(builder, elseSubgraphIndex):
+    """This method is deprecated. Please switch to AddElseSubgraphIndex."""
+    return AddElseSubgraphIndex(builder, elseSubgraphIndex)
+def End(builder): return builder.EndObject()
+def IfOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

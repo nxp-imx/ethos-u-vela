@@ -55,15 +55,19 @@ class Uint16Vector(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         return o == 0
 
-def Uint16VectorStart(builder): builder.StartObject(1)
-def Start(builder):
-    return Uint16VectorStart(builder)
-def Uint16VectorAddValues(builder, values): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(values), 0)
-def AddValues(builder, values):
-    return Uint16VectorAddValues(builder, values)
-def Uint16VectorStartValuesVector(builder, numElems): return builder.StartVector(2, numElems, 2)
-def StartValuesVector(builder, numElems):
-    return Uint16VectorStartValuesVector(builder, numElems)
-def Uint16VectorEnd(builder): return builder.EndObject()
-def End(builder):
-    return Uint16VectorEnd(builder)
+def Start(builder): builder.StartObject(1)
+def Uint16VectorStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddValues(builder, values): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(values), 0)
+def Uint16VectorAddValues(builder, values):
+    """This method is deprecated. Please switch to AddValues."""
+    return AddValues(builder, values)
+def StartValuesVector(builder, numElems): return builder.StartVector(2, numElems, 2)
+def Uint16VectorStartValuesVector(builder, numElems):
+    """This method is deprecated. Please switch to Start."""
+    return StartValuesVector(builder, numElems)
+def End(builder): return builder.EndObject()
+def Uint16VectorEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

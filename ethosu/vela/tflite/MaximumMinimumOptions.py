@@ -28,9 +28,11 @@ class MaximumMinimumOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def MaximumMinimumOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return MaximumMinimumOptionsStart(builder)
-def MaximumMinimumOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return MaximumMinimumOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def MaximumMinimumOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def MaximumMinimumOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

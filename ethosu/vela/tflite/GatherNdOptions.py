@@ -28,9 +28,11 @@ class GatherNdOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def GatherNdOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return GatherNdOptionsStart(builder)
-def GatherNdOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return GatherNdOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def GatherNdOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def GatherNdOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

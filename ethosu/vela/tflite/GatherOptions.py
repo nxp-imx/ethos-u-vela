@@ -42,15 +42,19 @@ class GatherOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def GatherOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return GatherOptionsStart(builder)
-def GatherOptionsAddAxis(builder, axis): builder.PrependInt32Slot(0, axis, 0)
-def AddAxis(builder, axis):
-    return GatherOptionsAddAxis(builder, axis)
-def GatherOptionsAddBatchDims(builder, batchDims): builder.PrependInt32Slot(1, batchDims, 0)
-def AddBatchDims(builder, batchDims):
-    return GatherOptionsAddBatchDims(builder, batchDims)
-def GatherOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return GatherOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def GatherOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddAxis(builder, axis): builder.PrependInt32Slot(0, axis, 0)
+def GatherOptionsAddAxis(builder, axis):
+    """This method is deprecated. Please switch to AddAxis."""
+    return AddAxis(builder, axis)
+def AddBatchDims(builder, batchDims): builder.PrependInt32Slot(1, batchDims, 0)
+def GatherOptionsAddBatchDims(builder, batchDims):
+    """This method is deprecated. Please switch to AddBatchDims."""
+    return AddBatchDims(builder, batchDims)
+def End(builder): return builder.EndObject()
+def GatherOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

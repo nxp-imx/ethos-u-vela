@@ -28,9 +28,11 @@ class NegOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def NegOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return NegOptionsStart(builder)
-def NegOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return NegOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def NegOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def NegOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

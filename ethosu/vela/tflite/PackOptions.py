@@ -42,15 +42,19 @@ class PackOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def PackOptionsStart(builder): builder.StartObject(2)
-def Start(builder):
-    return PackOptionsStart(builder)
-def PackOptionsAddValuesCount(builder, valuesCount): builder.PrependInt32Slot(0, valuesCount, 0)
-def AddValuesCount(builder, valuesCount):
-    return PackOptionsAddValuesCount(builder, valuesCount)
-def PackOptionsAddAxis(builder, axis): builder.PrependInt32Slot(1, axis, 0)
-def AddAxis(builder, axis):
-    return PackOptionsAddAxis(builder, axis)
-def PackOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return PackOptionsEnd(builder)
+def Start(builder): builder.StartObject(2)
+def PackOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddValuesCount(builder, valuesCount): builder.PrependInt32Slot(0, valuesCount, 0)
+def PackOptionsAddValuesCount(builder, valuesCount):
+    """This method is deprecated. Please switch to AddValuesCount."""
+    return AddValuesCount(builder, valuesCount)
+def AddAxis(builder, axis): builder.PrependInt32Slot(1, axis, 0)
+def PackOptionsAddAxis(builder, axis):
+    """This method is deprecated. Please switch to AddAxis."""
+    return AddAxis(builder, axis)
+def End(builder): return builder.EndObject()
+def PackOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -28,9 +28,11 @@ class SelectOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def SelectOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return SelectOptionsStart(builder)
-def SelectOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return SelectOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def SelectOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def SelectOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

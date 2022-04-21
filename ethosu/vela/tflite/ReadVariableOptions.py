@@ -28,9 +28,11 @@ class ReadVariableOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def ReadVariableOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return ReadVariableOptionsStart(builder)
-def ReadVariableOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ReadVariableOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def ReadVariableOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def ReadVariableOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

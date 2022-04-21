@@ -35,12 +35,15 @@ class ReducerOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def ReducerOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return ReducerOptionsStart(builder)
-def ReducerOptionsAddKeepDims(builder, keepDims): builder.PrependBoolSlot(0, keepDims, 0)
-def AddKeepDims(builder, keepDims):
-    return ReducerOptionsAddKeepDims(builder, keepDims)
-def ReducerOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ReducerOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def ReducerOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddKeepDims(builder, keepDims): builder.PrependBoolSlot(0, keepDims, 0)
+def ReducerOptionsAddKeepDims(builder, keepDims):
+    """This method is deprecated. Please switch to AddKeepDims."""
+    return AddKeepDims(builder, keepDims)
+def End(builder): return builder.EndObject()
+def ReducerOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

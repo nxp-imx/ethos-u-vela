@@ -28,9 +28,11 @@ class CosOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def CosOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return CosOptionsStart(builder)
-def CosOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return CosOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def CosOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def CosOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

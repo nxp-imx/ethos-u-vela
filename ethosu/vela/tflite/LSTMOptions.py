@@ -63,24 +63,31 @@ class LSTMOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def LSTMOptionsStart(builder): builder.StartObject(5)
-def Start(builder):
-    return LSTMOptionsStart(builder)
-def LSTMOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
-def AddFusedActivationFunction(builder, fusedActivationFunction):
-    return LSTMOptionsAddFusedActivationFunction(builder, fusedActivationFunction)
-def LSTMOptionsAddCellClip(builder, cellClip): builder.PrependFloat32Slot(1, cellClip, 0.0)
-def AddCellClip(builder, cellClip):
-    return LSTMOptionsAddCellClip(builder, cellClip)
-def LSTMOptionsAddProjClip(builder, projClip): builder.PrependFloat32Slot(2, projClip, 0.0)
-def AddProjClip(builder, projClip):
-    return LSTMOptionsAddProjClip(builder, projClip)
-def LSTMOptionsAddKernelType(builder, kernelType): builder.PrependInt8Slot(3, kernelType, 0)
-def AddKernelType(builder, kernelType):
-    return LSTMOptionsAddKernelType(builder, kernelType)
-def LSTMOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(4, asymmetricQuantizeInputs, 0)
-def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
-    return LSTMOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
-def LSTMOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return LSTMOptionsEnd(builder)
+def Start(builder): builder.StartObject(5)
+def LSTMOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
+def LSTMOptionsAddFusedActivationFunction(builder, fusedActivationFunction):
+    """This method is deprecated. Please switch to AddFusedActivationFunction."""
+    return AddFusedActivationFunction(builder, fusedActivationFunction)
+def AddCellClip(builder, cellClip): builder.PrependFloat32Slot(1, cellClip, 0.0)
+def LSTMOptionsAddCellClip(builder, cellClip):
+    """This method is deprecated. Please switch to AddCellClip."""
+    return AddCellClip(builder, cellClip)
+def AddProjClip(builder, projClip): builder.PrependFloat32Slot(2, projClip, 0.0)
+def LSTMOptionsAddProjClip(builder, projClip):
+    """This method is deprecated. Please switch to AddProjClip."""
+    return AddProjClip(builder, projClip)
+def AddKernelType(builder, kernelType): builder.PrependInt8Slot(3, kernelType, 0)
+def LSTMOptionsAddKernelType(builder, kernelType):
+    """This method is deprecated. Please switch to AddKernelType."""
+    return AddKernelType(builder, kernelType)
+def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(4, asymmetricQuantizeInputs, 0)
+def LSTMOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
+    """This method is deprecated. Please switch to AddAsymmetricQuantizeInputs."""
+    return AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
+def End(builder): return builder.EndObject()
+def LSTMOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -70,27 +70,35 @@ class BidirectionalSequenceLSTMOptions(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def BidirectionalSequenceLSTMOptionsStart(builder): builder.StartObject(6)
-def Start(builder):
-    return BidirectionalSequenceLSTMOptionsStart(builder)
-def BidirectionalSequenceLSTMOptionsAddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
-def AddFusedActivationFunction(builder, fusedActivationFunction):
-    return BidirectionalSequenceLSTMOptionsAddFusedActivationFunction(builder, fusedActivationFunction)
-def BidirectionalSequenceLSTMOptionsAddCellClip(builder, cellClip): builder.PrependFloat32Slot(1, cellClip, 0.0)
-def AddCellClip(builder, cellClip):
-    return BidirectionalSequenceLSTMOptionsAddCellClip(builder, cellClip)
-def BidirectionalSequenceLSTMOptionsAddProjClip(builder, projClip): builder.PrependFloat32Slot(2, projClip, 0.0)
-def AddProjClip(builder, projClip):
-    return BidirectionalSequenceLSTMOptionsAddProjClip(builder, projClip)
-def BidirectionalSequenceLSTMOptionsAddMergeOutputs(builder, mergeOutputs): builder.PrependBoolSlot(3, mergeOutputs, 0)
-def AddMergeOutputs(builder, mergeOutputs):
-    return BidirectionalSequenceLSTMOptionsAddMergeOutputs(builder, mergeOutputs)
-def BidirectionalSequenceLSTMOptionsAddTimeMajor(builder, timeMajor): builder.PrependBoolSlot(4, timeMajor, 1)
-def AddTimeMajor(builder, timeMajor):
-    return BidirectionalSequenceLSTMOptionsAddTimeMajor(builder, timeMajor)
-def BidirectionalSequenceLSTMOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(5, asymmetricQuantizeInputs, 0)
-def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
-    return BidirectionalSequenceLSTMOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
-def BidirectionalSequenceLSTMOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return BidirectionalSequenceLSTMOptionsEnd(builder)
+def Start(builder): builder.StartObject(6)
+def BidirectionalSequenceLSTMOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddFusedActivationFunction(builder, fusedActivationFunction): builder.PrependInt8Slot(0, fusedActivationFunction, 0)
+def BidirectionalSequenceLSTMOptionsAddFusedActivationFunction(builder, fusedActivationFunction):
+    """This method is deprecated. Please switch to AddFusedActivationFunction."""
+    return AddFusedActivationFunction(builder, fusedActivationFunction)
+def AddCellClip(builder, cellClip): builder.PrependFloat32Slot(1, cellClip, 0.0)
+def BidirectionalSequenceLSTMOptionsAddCellClip(builder, cellClip):
+    """This method is deprecated. Please switch to AddCellClip."""
+    return AddCellClip(builder, cellClip)
+def AddProjClip(builder, projClip): builder.PrependFloat32Slot(2, projClip, 0.0)
+def BidirectionalSequenceLSTMOptionsAddProjClip(builder, projClip):
+    """This method is deprecated. Please switch to AddProjClip."""
+    return AddProjClip(builder, projClip)
+def AddMergeOutputs(builder, mergeOutputs): builder.PrependBoolSlot(3, mergeOutputs, 0)
+def BidirectionalSequenceLSTMOptionsAddMergeOutputs(builder, mergeOutputs):
+    """This method is deprecated. Please switch to AddMergeOutputs."""
+    return AddMergeOutputs(builder, mergeOutputs)
+def AddTimeMajor(builder, timeMajor): builder.PrependBoolSlot(4, timeMajor, 1)
+def BidirectionalSequenceLSTMOptionsAddTimeMajor(builder, timeMajor):
+    """This method is deprecated. Please switch to AddTimeMajor."""
+    return AddTimeMajor(builder, timeMajor)
+def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(5, asymmetricQuantizeInputs, 0)
+def BidirectionalSequenceLSTMOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
+    """This method is deprecated. Please switch to AddAsymmetricQuantizeInputs."""
+    return AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
+def End(builder): return builder.EndObject()
+def BidirectionalSequenceLSTMOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

@@ -28,9 +28,11 @@ class LogicalOrOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def LogicalOrOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return LogicalOrOptionsStart(builder)
-def LogicalOrOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return LogicalOrOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def LogicalOrOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def LogicalOrOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

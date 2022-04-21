@@ -5,3 +5,4 @@
 class LSTMKernelType(object):
     FULL = 0
     BASIC = 1
+

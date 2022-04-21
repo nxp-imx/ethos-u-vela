@@ -56,21 +56,27 @@ class LocalResponseNormalizationOptions(object):
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
-def LocalResponseNormalizationOptionsStart(builder): builder.StartObject(4)
-def Start(builder):
-    return LocalResponseNormalizationOptionsStart(builder)
-def LocalResponseNormalizationOptionsAddRadius(builder, radius): builder.PrependInt32Slot(0, radius, 0)
-def AddRadius(builder, radius):
-    return LocalResponseNormalizationOptionsAddRadius(builder, radius)
-def LocalResponseNormalizationOptionsAddBias(builder, bias): builder.PrependFloat32Slot(1, bias, 0.0)
-def AddBias(builder, bias):
-    return LocalResponseNormalizationOptionsAddBias(builder, bias)
-def LocalResponseNormalizationOptionsAddAlpha(builder, alpha): builder.PrependFloat32Slot(2, alpha, 0.0)
-def AddAlpha(builder, alpha):
-    return LocalResponseNormalizationOptionsAddAlpha(builder, alpha)
-def LocalResponseNormalizationOptionsAddBeta(builder, beta): builder.PrependFloat32Slot(3, beta, 0.0)
-def AddBeta(builder, beta):
-    return LocalResponseNormalizationOptionsAddBeta(builder, beta)
-def LocalResponseNormalizationOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return LocalResponseNormalizationOptionsEnd(builder)
+def Start(builder): builder.StartObject(4)
+def LocalResponseNormalizationOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddRadius(builder, radius): builder.PrependInt32Slot(0, radius, 0)
+def LocalResponseNormalizationOptionsAddRadius(builder, radius):
+    """This method is deprecated. Please switch to AddRadius."""
+    return AddRadius(builder, radius)
+def AddBias(builder, bias): builder.PrependFloat32Slot(1, bias, 0.0)
+def LocalResponseNormalizationOptionsAddBias(builder, bias):
+    """This method is deprecated. Please switch to AddBias."""
+    return AddBias(builder, bias)
+def AddAlpha(builder, alpha): builder.PrependFloat32Slot(2, alpha, 0.0)
+def LocalResponseNormalizationOptionsAddAlpha(builder, alpha):
+    """This method is deprecated. Please switch to AddAlpha."""
+    return AddAlpha(builder, alpha)
+def AddBeta(builder, beta): builder.PrependFloat32Slot(3, beta, 0.0)
+def LocalResponseNormalizationOptionsAddBeta(builder, beta):
+    """This method is deprecated. Please switch to AddBeta."""
+    return AddBeta(builder, beta)
+def End(builder): return builder.EndObject()
+def LocalResponseNormalizationOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

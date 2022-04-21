@@ -28,9 +28,11 @@ class FloorModOptions(object):
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-def FloorModOptionsStart(builder): builder.StartObject(0)
-def Start(builder):
-    return FloorModOptionsStart(builder)
-def FloorModOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return FloorModOptionsEnd(builder)
+def Start(builder): builder.StartObject(0)
+def FloorModOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def End(builder): return builder.EndObject()
+def FloorModOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)

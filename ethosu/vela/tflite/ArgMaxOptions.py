@@ -35,12 +35,15 @@ class ArgMaxOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
-def ArgMaxOptionsStart(builder): builder.StartObject(1)
-def Start(builder):
-    return ArgMaxOptionsStart(builder)
-def ArgMaxOptionsAddOutputType(builder, outputType): builder.PrependInt8Slot(0, outputType, 0)
-def AddOutputType(builder, outputType):
-    return ArgMaxOptionsAddOutputType(builder, outputType)
-def ArgMaxOptionsEnd(builder): return builder.EndObject()
-def End(builder):
-    return ArgMaxOptionsEnd(builder)
+def Start(builder): builder.StartObject(1)
+def ArgMaxOptionsStart(builder):
+    """This method is deprecated. Please switch to Start."""
+    return Start(builder)
+def AddOutputType(builder, outputType): builder.PrependInt8Slot(0, outputType, 0)
+def ArgMaxOptionsAddOutputType(builder, outputType):
+    """This method is deprecated. Please switch to AddOutputType."""
+    return AddOutputType(builder, outputType)
+def End(builder): return builder.EndObject()
+def ArgMaxOptionsEnd(builder):
+    """This method is deprecated. Please switch to End."""
+    return End(builder)
