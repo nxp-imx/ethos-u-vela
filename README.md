@@ -163,13 +163,20 @@ vela --optimise Performance --arena-cache-size 300000 my_model.tflite
 
 7) Compile a network using a particular embedded system configuration defined in
 Vela's configuration file.  The following command selects the `My_Sys_Config`
-system configuration along with the `My_Mem_Mode` memory mode from the `vela_cfg.ini` configuration file.
+system configuration along with the `My_Mem_Mode` memory mode from the `vela.ini`
+configuration file located in the config_files directory.
 
 ```bash
-vela --config vela_cfg.ini --system-config My_Sys_Config --memory-mode My_Mem_Mode my_model.tflite
+vela --config Arm/vela.ini --system-config My_Sys_Config --memory-mode My_Mem_Mode my_model.tflite
 ```
 
-8) To get a list of all available options (see CLI Options section below):
+8) To get a list of all available configuration files in the config_files directory:
+
+```bash
+vela --list-config-files
+```
+
+9) To get a list of all available options (see CLI Options section below):
 
 ```bash
 vela --help

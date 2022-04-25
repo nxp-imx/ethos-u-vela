@@ -83,12 +83,14 @@ setup(
     ],
     keywords=["ethos-u", "vela compiler", "tflite", "npu"],
     packages=[
+        "ethosu",
         "ethosu.vela",
         "ethosu.vela.ethos_u55_regs",
         "ethosu.vela.tflite",
         "ethosu.vela.tosa",
         "ethosu.mlw_codec",
     ],
+    package_data={"ethosu": ["config_files/*/*.ini"]},
     python_requires="~=3.7",
     install_requires=[
         "flatbuffers==1.12.0",

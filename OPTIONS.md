@@ -66,6 +66,19 @@ the required Network argument.
 vela --supported-ops-report
 ```
 
+### List Configuration Files
+
+Displays the configuration files in the `ethosu/config_files` directory. All
+configuration files must have the .ini extension and be placed in an
+appropriately named directory under `ethosu/config_files`. Note that the file
+depth from `ethosu/config_files` must be exactly 2 for the file to be
+discovered (e.g. `config_files/directory_name/my_config_file.ini`). Can be
+used without the required Network argument.
+
+```bash
+vela --list-config-files
+```
+
 ### Output Directory
 
 Specifies the output directory of the optimised network model as well as the
@@ -93,12 +106,15 @@ vela network.tflite --enable-debug-db
 Specifies the path to the Vela configuration file.  The format of the file is a
 Python ConfigParser `.ini` file.  This option can be specified multiple times to
 allow multiple files to be searched for the required system config and memory
-mode.  More details can be found in the Configuration File section below.  
+mode.  Custom configuration files can be used by adding a .ini file in an
+appropriate directory under the `ethosu/config_files` directory or by providing
+its absolute path. More details can be found in the Configuration File and List
+Configuration Files sections.
 **Type: POSIX path**  
 **Default: use default configuration**  
 
 ```bash
-vela network.tflite --config my_vela_cfg1.ini --config my_vela_cfg2.ini --system-config My_Sys_Cfg --memory-mode My_Mem_Mode
+vela network.tflite --config DirectoryName/my_vela_cfg1.ini --config absolute/path/to/my_vela_cfg2.ini --system-config My_Sys_Cfg --memory-mode My_Mem_Mode
 ```
 
 ### Timing
@@ -400,11 +416,25 @@ To see the configuration values being used by Vela use the `--verbose_config`
 CLI option.  This can also be used to display the internal-default values and to
 see a full list of all the available options.
 
-An example Vela configuration file, called `vela_cfg.ini`, is included in the
-directory containing this file.  Example usage based on this file is:  
+An example Vela configuration file, called `vela.ini`, is included in the
+`ethosu/config_files/Arm` directory. Example usage based on this file is:
 
 ```bash
-vela network.tflite --accelerator-config ethos-u55-256 --config vela_cfg.ini --system-config Ethos_U55_High_End_Embedded --memory-mode Shared_Sram
+vela network.tflite --accelerator-config ethos-u55-256 --config Arm/vela.ini --system-config Ethos_U55_High_End_Embedded --memory-mode Shared_Sram
+```
+
+Hardware vendors and/or users may wish to contribute their own configuration
+files for various SoC platforms by adding a .ini file in an appropriate
+directory under the ethosu/config_files directory.  This can be done by
+following the process outlined in CONTRIBUTIONS.md. These can then be accessed
+with `--config <DirectoryName>/config.ini` as in the example above.
+
+To use configuration files located outside the config_files directory, provide
+its absolute path to `--config`. The `--list-config-files` option can be used to
+view all available configuration files:
+
+```bash
+vela --list-config-files
 ```
 
 The following is an in-line explanation of the Vela configuration file format:

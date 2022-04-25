@@ -18,6 +18,7 @@
 #
 # Provides command line interface, options parsing, and network loading. Before calling the compiler driver.
 import argparse
+import glob
 import os
 import sys
 import time
@@ -48,6 +49,8 @@ from .tflite_supported_operators import TFLiteSupportedOperators
 from .tosa_model_semantic import TosaSemantic
 from .tosa_supported_operators import TosaSupportedOperators
 from ethosu.vela.architecture_features import ArchitectureFeatures
+
+CONFIG_FILES_PATH = os.path.abspath(f"{__file__}/../../config_files")
 
 
 def process(input_name, enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options):
@@ -282,6 +285,12 @@ def generate_supported_ops():
         print(f"Report file: {filepath}")
 
 
+def list_config_files():
+    print("\nAvailable config files:\n")
+    for config in glob.glob(os.path.join(CONFIG_FILES_PATH, "*", "*.ini")):
+        print(config.lstrip(CONFIG_FILES_PATH + os.path.sep))
+
+
 def main(args=None):
     try:
         if args is None:
@@ -296,6 +305,15 @@ def main(args=None):
             "--supported-ops-report",
             action="store_true",
             help="Generate the SUPPORTED_OPS.md file in the current working directory and exit",
+        )
+
+        parser.add_argument(
+            "--list-config-files",
+            action="store_true",
+            help=(
+                "Display all available configurations in the `config_files` folder and exit. To select config file, "
+                "use the --config argument with one of the listed config files (For example: --config Arm/vela.ini )"
+            ),
         )
 
         # set network nargs to be optional to allow the support-ops-report CLI option to be used standalone
@@ -428,14 +446,36 @@ def main(args=None):
             generate_supported_ops()
             return 0
 
+        if args.list_config_files:
+            list_config_files()
+            return 0
+
         if args.network is None:
             parser.error("the following argument is required: NETWORK")
 
+        def _parse_config(config):
+            if not config.endswith(".ini"):
+                raise InputFileError(config, "Configuration files must use the .ini extension")
+
+            if len(config.split(os.path.sep)) == 2 and not config.startswith(os.path.sep):
+                config_path = os.path.join(CONFIG_FILES_PATH, config)
+            else:
+                print(
+                    f"Warning: Configuration file `{config}` not located in a folder directly under the "
+                    "`config_files` directory. Note that the file depth from the `config_files` directory must be "
+                    "exactly 2 to be discovered via the --list-config-files mechanism "
+                    "(e.g. `config_files/directory_name/my_config_file.ini`). This config file will still be "
+                    "parsed however, and treated as an absolute path config instead."
+                )
+                config_path = config
+
+            if not os.access(config_path, os.R_OK):
+                raise InputFileError(config_path, "File not found or is not readable")
+
+            return config_path
+
         # check all config files exist because they will be read as a group
-        if args.config is not None:
-            for filename in args.config:
-                if not os.access(filename, os.R_OK):
-                    raise InputFileError(filename, "File not found or is not readable")
+        config_files = [_parse_config(cfg) for cfg in args.config] if args.config else None
 
         if args.cpu_tensor_alignment < 16 or args.cpu_tensor_alignment & (args.cpu_tensor_alignment - 1) != 0:
             parser.error(
@@ -457,7 +497,7 @@ def main(args=None):
         sys.setrecursionlimit(args.recursion_limit)
 
         arch = architecture_features.ArchitectureFeatures(
-            vela_config_files=args.config,
+            vela_config_files=config_files,
             system_config=args.system_config,
             memory_mode=args.memory_mode,
             accelerator_config=args.accelerator_config,
