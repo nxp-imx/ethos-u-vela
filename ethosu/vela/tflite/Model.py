@@ -42,7 +42,7 @@ class Model(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from tflite.OperatorCode import OperatorCode
+            from .OperatorCode import OperatorCode
             obj = OperatorCode()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -67,7 +67,7 @@ class Model(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from tflite.SubGraph import SubGraph
+            from .SubGraph import SubGraph
             obj = SubGraph()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -99,7 +99,7 @@ class Model(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from tflite.Buffer import Buffer
+            from .Buffer import Buffer
             obj = Buffer()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -151,7 +151,7 @@ class Model(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from tflite.Metadata import Metadata
+            from .Metadata import Metadata
             obj = Metadata()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -176,7 +176,7 @@ class Model(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from tflite.SignatureDef import SignatureDef
+            from .SignatureDef import SignatureDef
             obj = SignatureDef()
             obj.Init(self._tab.Bytes, x)
             return obj
