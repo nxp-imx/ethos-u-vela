@@ -106,7 +106,7 @@ class SchedulerOpInfo:
         self.ofm_depth_slices: List[int] = [0, stripe.depth]
         self.npu_weights_tensor: Optional[NpuWeightTensor] = None
         self.npu_scales_tensor: Optional[NpuWeightTensor] = None
-        self.buffered_weight_tensors: List[Tensor] = []
+        self.buffered_weight_tensor: Optional[Tensor] = None
         self.cycles: Optional[CycleCost] = None
         self.slack_buffering_cycles = 0
         self.slack_buffering_memory = 0
@@ -130,8 +130,9 @@ class SchedulerOpInfo:
         res += f"\t\tIFM2 Stripe  = {self.stripe_input2}\n"
         res += f"\t\tOFM Stripe   = {self.stripe}\n"
         res += f"\t\tEncoded Weights = {self.npu_weights_tensor and len(self.npu_weights_tensor.buffer)} bytes\n"
-        for idx, tens in enumerate(self.buffered_weight_tensors):
-            res += f"\t\tWeight buffer{idx + 1} = {tens.storage_size()} bytes\n"
+        res += (
+            f"\t\tWeight buffer = {self.buffered_weight_tensor and self.buffered_weight_tensor.storage_size()} bytes\n"
+        )
         res += f"\t\tDepth slices = {self.ofm_depth_slices}\n"
         res += f"\t\tAssigned Cascade = {self.cascade}"
         return res
@@ -719,7 +720,7 @@ class Scheduler:
                     # Chosen buffering might not fit at all, iterate until it does
                     # or until the minimum usable slice size is reached
                     if (
-                        encoded_weights.double_buffer_size() <= buffer_limit_bytes
+                        encoded_weights.max_range_bytes <= half_buffer_limit
                         or prebuffer_depth == ArchitectureFeatures.OFMSplitDepth
                     ):
                         break
@@ -736,40 +737,24 @@ class Scheduler:
                 cost.slack_buffering_cycles = tail_cycles.op_cycles
 
         # Determine whether the weights need to be double buffered
-        weight_buffer_size = min(len(encoded_weights.buffer), encoded_weights.max_range_bytes())
+        weight_buffer_size = min(len(encoded_weights.buffer), encoded_weights.max_range_bytes)
 
         # Only buffer weights if there's still space left for the buffer
         if weight_buffer_size <= buffer_limit_bytes:
             assert weight_buffer_size % 16 == 0
             # Determine whether to double buffer or single buffer
-            double_buffer_size = encoded_weights.double_buffer_size()
-            if (double_buffer_size <= buffer_limit_bytes) and (weight_buffer_size < len(encoded_weights.buffer)):
+            if (weight_buffer_size * 2 <= buffer_limit_bytes) and (weight_buffer_size < len(encoded_weights.buffer)):
+                weight_buffer_size = weight_buffer_size * 2
                 weight_tensor_purpose = TensorSubPurpose.DoubleBuffer
             else:
                 weight_tensor_purpose = TensorSubPurpose.Standard
 
-            cost.buffered_weight_tensors = [
-                self.buffer_tensor(
-                    encoded_weights,
-                    weight_tensor_purpose,
-                    encoded_weights.double_buffer_sizes[0],
-                    weight_tensor.name + "_buffer",
-                )
-            ]
-            if weight_tensor_purpose == TensorSubPurpose.DoubleBuffer:
-                buf2 = self.buffer_tensor(
-                    encoded_weights,
-                    weight_tensor_purpose,
-                    encoded_weights.double_buffer_sizes[1],
-                    weight_tensor.name + "_buffer2",
-                )
-                cost.buffered_weight_tensors.append(buf2)
-                last_used_buffer_idx = len(cost.ofm_depth_slices) % 2
-                weight_buffer_size = encoded_weights.double_buffer_sizes[last_used_buffer_idx]
+            cost.buffered_weight_tensor = self.buffer_tensor(
+                encoded_weights, weight_tensor_purpose, weight_buffer_size, weight_tensor.name
+            )
             if ref_cost.cascade == 0:
-                # Determine if the lifetime can be extended and pre-buffer the first weight buffer
-                # under the previous operation
-                cost.buffered_weight_tensors[0].pre_buffer = encoded_weights.double_buffer_sizes[0] < slack_memory
+                # Determine if the lifetime can be extended and pre-buffer weights under the previous operation
+                cost.buffered_weight_tensor.pre_buffer = weight_buffer_size < slack_memory
 
             cost.slack_buffering_memory -= weight_buffer_size
         else:
@@ -782,7 +767,7 @@ class Scheduler:
         cost.npu_scales_tensor = encoded_scales
 
     def buffer_tensor(self, src_tensor: Tensor, sub_purpose: TensorSubPurpose, buffer_size: int, name: str) -> Tensor:
-        buffered_weight_tensor = Tensor([1, 1, 1, buffer_size], DataType.uint8, name)
+        buffered_weight_tensor = Tensor([1, 1, 1, buffer_size], DataType.uint8, name + "_buffer")
         buffered_weight_tensor.src_tensor = src_tensor
         buffered_weight_tensor.mem_area = self.arch.fast_storage_mem_area
         buffered_weight_tensor.mem_type = MemType.Scratch_fast
@@ -824,13 +809,11 @@ class Scheduler:
             # Create a cost entry with the new stripe
             cost = sched_op.create_scheduler_info(self.nng, stripe)
 
-            for buffered_tens in ref_cost[sched_op].buffered_weight_tensors:
+            if ref_cost[sched_op].buffered_weight_tensor:
                 # If the weights are buffered in the reference schedule they should be in the new proposal
                 weight_tensor = cost.npu_weights_tensor
-                cost.buffered_weight_tensors.append(
-                    self.buffer_tensor(
-                        weight_tensor, TensorSubPurpose.Standard, buffered_tens.storage_size(), buffered_tens.name
-                    )
+                cost.buffered_weight_tensor = self.buffer_tensor(
+                    weight_tensor, TensorSubPurpose.Standard, len(weight_tensor.buffer), weight_tensor.name
                 )
 
             # Estimate performance
@@ -859,7 +842,9 @@ class Scheduler:
                 peak_mem_usage = max(cascade_info.mem_usage, peak_mem_usage)
             else:
                 # This Op is not part of a cascade - calculate the memory usage
-                op_weight_buffer = sum(tens.storage_size() for tens in cost[sched_op].buffered_weight_tensors)
+                op_weight_buffer = 0
+                if cost[sched_op].buffered_weight_tensor:
+                    op_weight_buffer = cost[sched_op].buffered_weight_tensor.storage_size()
 
                 op_mem_usage = (
                     sched_op.ifm_size_in_bytes()
@@ -998,8 +983,8 @@ class Scheduler:
             sched_op.parent_ps.block_config = op_info.block_config.old_style_representation()
 
             # Ensure that the src_tensor reference is set correctly
-            for tens in op_info.buffered_weight_tensors:
-                tens.src_tensor = op_info.npu_weights_tensor
+            if op_info.buffered_weight_tensor:
+                op_info.buffered_weight_tensor.src_tensor = op_info.npu_weights_tensor
 
     def use_fast_storage_for_feature_maps(self, schedule, staging_limit):
         scratched_fms = {}

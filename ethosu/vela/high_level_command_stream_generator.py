@@ -204,12 +204,9 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                 if op_info.npu_weights_tensor:
                     weight_box = Box([0, 0, 0, start_channel], [1, 1, 1, end_channel])
 
-                    if op_info.buffered_weight_tensors and is_first_h_stripe:
-                        idx = depth_idx % len(op_info.buffered_weight_tensors)
-                        yield from dma_if_necessary(
-                            sched_op.parent_ps, weight_box, op_info.buffered_weight_tensors[idx]
-                        )
-                        weight_tensor = op_info.buffered_weight_tensors[idx]
+                    if op_info.buffered_weight_tensor and is_first_h_stripe:
+                        yield from dma_if_necessary(sched_op.parent_ps, weight_box, op_info.buffered_weight_tensor)
+                        weight_tensor = op_info.buffered_weight_tensor
                 else:
                     weight_box = None
 

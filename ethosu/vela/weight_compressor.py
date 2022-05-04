@@ -68,18 +68,11 @@ class NpuWeightTensor(Tensor):
     def __init__(self, name):
         Tensor.__init__(self, None, None, name + "_npu_encoded_weights")
         self.buffer = []
-        self.double_buffer_sizes = [0, 0]  # Required sizes if double buffering is used
+        self.max_range_bytes = 0
         self.encoded_ranges = OrderedDict()
         self.hw_traversal = NpuBlockTraversal.DEPTH_FIRST
         self.dtype = DataType.uint8
         self.scale_compression_config = None
-
-    def max_range_bytes(self):
-        return max(self.double_buffer_sizes)
-
-    def double_buffer_size(self):
-        """Return total required size for double buffering"""
-        return sum(self.double_buffer_sizes)
 
 
 class CompressedWeightCache:
@@ -364,7 +357,7 @@ def encode_weight_and_scale_tensor(
             weights = np.flip(weights, axis=(0, 1))
 
     encoded_stream = bytearray()
-    double_buffer_sizes = [0, 0]
+    max_single_buffer_len = 0
     is_depthwise = npu_block_type == NpuBlockType.ConvolutionDepthWise
 
     # Bias & scale
@@ -442,11 +435,11 @@ def encode_weight_and_scale_tensor(
                 npu_tensor.encoded_ranges[key] = weight_range
 
         # Remember maximum encoded length for DoubleBuffering
-        double_buffer_sizes[idx % 2] = max(double_buffer_sizes[idx % 2], len(encoded_stream) - buffer_start_offset)
+        max_single_buffer_len = max(max_single_buffer_len, len(encoded_stream) - buffer_start_offset)
 
     # Attach buffer to tensor
     npu_tensor.buffer = encoded_stream
-    npu_tensor.double_buffer_sizes = double_buffer_sizes
+    npu_tensor.max_range_bytes = max_single_buffer_len
     npu_tensor.set_all_shapes([1, 1, 1, len(encoded_stream)])
     npu_tensor.format = TensorFormat.WeightsCompressed
 
