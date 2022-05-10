@@ -136,29 +136,40 @@ class CommandStreamEmitter:
         return [elem for cmd in self.cmd_stream for elem in cmd]
 
     def print_cmds(self):
-        print("Code:    Command:                       Param: Payload:")
+        s = f"  {'Offset':6}:"
+        s += f" {'Payload':8}"
+        s += f"{'Param':4}"  # no leading space for alignment
+        s += f" {'Code':4}"
+        s += f" - {'Command':30}"
+        s += f" {'Param':5}"
+        print(s)
+
+        offset = 0
         for words_for_one_command in self.cmd_stream:
             code = words_for_one_command[0] & 0x0000FFFF  # lower 16 bits
             param = words_for_one_command[0] >> 16  # higher 16 bits
 
             payload_mode = CmdMode(code & CmdMode.Mask)
 
-            # code and command
-            s = "  0x%04x " % code
+            s = f"0x{offset:06x}:"
+
             if payload_mode == CmdMode.NoPayload:
-                s += str(cmd0(code & CmdMode.CmdOpMask))
+                s += f" {'':8}"
             else:
-                s += str(cmd1(code & CmdMode.CmdOpMask))
+                assert payload_mode == CmdMode.Payload32
+                s += f" {words_for_one_command[1]:08x}"
 
-            s = s.ljust(40)
-            s += "%5d" % param
+            s += f" {param:04x}"
+            s += f" {code:04x}"
 
-            # payload
-            if payload_mode == CmdMode.Payload32:
-                s += "   0x%08x (%d)" % (words_for_one_command[1], words_for_one_command[1])
+            if payload_mode == CmdMode.NoPayload:
+                s += f" - {cmd0(code & CmdMode.CmdOpMask):30}"
+                offset += 4
             else:
-                s += "   -"
+                s += f" - {cmd1(code & CmdMode.CmdOpMask):30}"
+                offset += 8
 
+            s += f" {param:5}"
             print(s)
 
     def cmd0_with_param(self, cmd: cmd0, param):
@@ -1047,8 +1058,8 @@ def generate_command_stream(
 
     if verbose:
         emit.print_cmds()
-        print("number of commands", len(emit.cmd_stream))
-        print("command stream length in words", len(res))
+        print(f"Number of commands = {len(emit.cmd_stream)}")
+        print(f"Command stream length = {emit.size_in_bytes()} bytes")
     return res
 
 
