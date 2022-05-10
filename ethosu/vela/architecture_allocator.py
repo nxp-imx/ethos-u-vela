@@ -53,7 +53,6 @@ class ArchitectureBlockConfig:
         self.acc_type = SHRAMElements.Acc32
         self.is_partkernel = False
         self.bank_size = 0
-        self.ifm_depth_buf_scaling = 0
 
     def get_shram_memory_access_range(self):
         # Returns the SHRAM memory access range used by this shared buffer,
@@ -86,18 +85,12 @@ def _try_block_config(
     acc_bits: int,
     acc_granule: int,
     lut_banks: int,
-    ifm_depth_buf_scaling: int,
-    cores: int,
 ) -> Union[SHRAMLayout, None]:
     assert (acc_bits > 0) and (acc_granule > 0)
     assert (ifm_bits >= 8) and ((ifm_bits % 8) == 0) and (ifm_granule > 0)
 
-    # Scale depth with cores
-    ifm_depth = round_up_divide(ifm_block.depth, ifm_depth_buf_scaling)
-    ofm_depth = round_up_divide(ofm_block.depth, cores)
-
     # Aways need IFM space
-    ifm_bytes = ifm_block.elements_wh() * round_up((ifm_depth * ifm_bits) / 8, 8)
+    ifm_bytes = ifm_block.elements_wh() * round_up((ifm_block.depth * ifm_bits) / 8, 8)
     ifm_banks = round_up_divide(ifm_bytes, shram.bank_size_bytes) * 2
     ifm_banks = round_up(ifm_banks, ifm_granule)
 
@@ -109,7 +102,7 @@ def _try_block_config(
 
     # If not elementwise then we need accumulator space
     if ew_usage == ElementwiseUsage.No:
-        acc_bytes = (ofm_block.elements_wh() * round_up(ofm_depth, 8) * acc_bits) // 8
+        acc_bytes = (ofm_block.elements_wh() * round_up(ofm_block.depth, 8) * acc_bits) // 8
         acc_banks = round_up_divide(acc_bytes, shram.bank_size_bytes) * 2
         acc_banks = round_up(acc_banks, acc_granule)
         acc_start = acc_start - acc_banks
@@ -259,14 +252,6 @@ def find_block_config(
     config = ArchitectureBlockConfig()
     config.is_partkernel = is_convolution and _choose_kernel_method(ifm_shape, ifm_bits, kernel)
 
-    # IFM is not broadcasted for pooling and depthwise ops and for elementwise
-    # when there's no elementwise-broadcasting in depth
-    elemwise_buf_scalable = npu_op_type == NpuBlockType.ElementWise and (
-        not ifm2_shape or ifm_shape.depth == ifm2_shape.depth
-    )
-    ifm_depth_buf_scaling = arch.ncores if is_pooling or is_depthwise or elemwise_buf_scalable else 1
-    config.ifm_depth_buf_scaling = ifm_depth_buf_scaling
-
     # Accumulator & granule settings
     config.acc_type = _acc_type(npu_op_type, ifm_bits, scaled)
 
@@ -290,9 +275,8 @@ def find_block_config(
     # Weights fetch (for operators that have them)
     weight_fetch_wh = (kernel.area_width() * kernel.area_height()) if is_convolution else 0
 
-    ofm_ublock_depth = arch.ofm_ublock.depth * arch.ncores
     search_space = Shape4D.min(ofm_shape, Shape4D(arch.ofm_block_max.to_hwc()))
-    search_space = Shape4D.round_up(search_space, Shape4D(arch.ofm_ublock.to_hwc()).with_depth(ofm_ublock_depth))
+    search_space = Shape4D.round_up(search_space, Shape4D(arch.ofm_ublock.to_hwc()))
 
     # Block WHC search, loops across the search space looking for best efficiency
     best_cost = math.inf
@@ -328,8 +312,6 @@ def find_block_config(
                     acc_bits,
                     acc_granule,
                     lut_banks,
-                    ifm_depth_buf_scaling,
-                    arch.ncores,
                 )
 
                 if layout:
@@ -427,14 +409,6 @@ def try_block_config(
     config = ArchitectureBlockConfig()
     config.is_partkernel = is_partkernel
 
-    # IFM is not broadcasted for pooling and depthwise ops and for elementwise
-    # when there's no elementwise-broadcasting in depth
-    elemwise_buf_scalable = npu_op_type == NpuBlockType.ElementWise and (
-        not ifm2_shape or ifm_shape.depth == ifm2_shape.depth
-    )
-    ifm_depth_buf_scaling = arch.ncores if is_pooling or is_depthwise or elemwise_buf_scalable else 1
-    config.ifm_depth_buf_scaling = ifm_depth_buf_scaling
-
     # Accumulator & granule settings
     config.acc_type = _acc_type(npu_op_type, ifm_bits, scaled)
 
@@ -457,17 +431,7 @@ def try_block_config(
     block_config_opt = fit_block_for_ofm(arch, ofm_shape, kernel, block_config)
 
     layout = _try_block_config(
-        arch.shram,
-        ew_usage,
-        block_config_opt,
-        ifm_block,
-        ifm_bits,
-        ifm_granule,
-        acc_bits,
-        acc_granule,
-        lut_banks,
-        ifm_depth_buf_scaling,
-        arch.ncores,
+        arch.shram, ew_usage, block_config_opt, ifm_block, ifm_bits, ifm_granule, acc_bits, acc_granule, lut_banks
     )
     if layout is None:
         return None
