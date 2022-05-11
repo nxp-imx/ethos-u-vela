@@ -77,7 +77,7 @@ setup(
         "Operating System :: Microsoft :: Windows :: Windows 10",
         "Programming Language :: C",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Software Development :: Compilers",
     ],
@@ -89,7 +89,7 @@ setup(
         "ethosu.vela.tosa",
         "ethosu.mlw_codec",
     ],
-    python_requires="~=3.8",
+    python_requires="~=3.7",
     install_requires=[
         "flatbuffers==1.12.0",
         "numpy",
