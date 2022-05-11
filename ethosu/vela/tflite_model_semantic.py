@@ -532,10 +532,11 @@ class TFLiteSemantic:
 
     @staticmethod
     def constraint_alpha_valid(op):
-        "Alpha must not be negative"
+        "Alpha only allowed to be negative if IFM is int8 or uint8"
         alpha = op.attrs["alpha"]
-        valid = alpha >= 0
-        return valid, f"Op has alpha={alpha}"
+        ifm_dtype = op.ifm.dtype
+        valid = ifm_dtype == DataType.int8 or ifm_dtype == DataType.uint8 or alpha >= 0
+        return valid, f"Op has alpha={alpha} and ifm_dtype={ifm_dtype} "
 
     @staticmethod
     def constraint_keep_dim_ifm_ofm(op):

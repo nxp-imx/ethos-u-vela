@@ -413,12 +413,17 @@ def test_constraint_matching_either_shapes():
 
 
 def test_constraint_alpha_valid():
-    # Alpha cannot be negative
-    op = testutil.create_elemwise_op(Op.LeakyRelu, "op", [2, 2], None, [2, 2])
+    # Alpha can only be negative for int8 and uint8
+    op = testutil.create_elemwise_op(Op.LeakyRelu, "op", [2, 2], None, [2, 2], DataType.int16)
     op.attrs["alpha"] = 0
     assert semantic_checker.is_operator_semantic_valid(op)
     op.attrs["alpha"] = -1
     assert not semantic_checker.is_operator_semantic_valid(op)
+    op = testutil.create_elemwise_op(Op.LeakyRelu, "op", [2, 2], None, [2, 2], DataType.int8)
+    op.attrs["alpha"] = 0
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op.attrs["alpha"] = -1
+    assert semantic_checker.is_operator_semantic_valid(op)
 
 
 def test_constraint_hardswish_dtype():
