@@ -50,6 +50,7 @@ from .shape4d import Shape4D
 from .tensor import BandwidthDirection
 from .tensor import MemArea
 from .tensor import TensorPurpose
+from .tensor import TensorSubPurpose
 from .tflite_mapping import optype_to_builtintype as tflite_optype_to_builtintype
 from .tosa_mapping import optype_to_tosa_op_type as tosa_optype_to_tosa_op_type
 from .weight_compressor import WeightKey
@@ -674,10 +675,18 @@ def estimate_full_op_performance(
         )
 
         # Add cycles for Weight + Scale Transfer
-        cycles_a[PassCycles.Npu] = max(
-            cost.full_weight_transfer_cycles - slack_cycles + cost.slack_buffering_cycles,
-            cycles.op_cycles + max(ws_first_transfer_cycles - slack_cycles, 0),
-        )
+        if cost.buffered_weight_tensors[0].sub_purpose == TensorSubPurpose.DoubleBuffer:
+            # Double buffer - weights can be fetched in parallel
+            cycles_a[PassCycles.Npu] = max(
+                cost.full_weight_transfer_cycles - slack_cycles + cost.slack_buffering_cycles,
+                cycles.op_cycles + max(ws_first_transfer_cycles - slack_cycles, 0),
+            )
+        else:
+            # Standard buffer - weights can not be fetched in parallel so weight transfer
+            # must be included in the result
+            cycles_a[PassCycles.Npu] = (
+                cycles.op_cycles + cost.full_weight_transfer_cycles - min(ws_first_transfer_cycles, slack_cycles)
+            )
 
         # Add cycles for LUT Transfer
         cycles_a[PassCycles.Npu] += lut_transfer_cycles
