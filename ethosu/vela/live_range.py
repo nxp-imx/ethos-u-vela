@@ -63,7 +63,7 @@ class LiveRange:
     def mark_usage(self, op_time, op_length=1):
         op_time_start = max(op_time, 0)
         op_time_end = op_time + op_length
-        if op_time_end <= op_time_start:
+        if op_time_end < op_time_start:
             return
 
         self.start_time = min(self.start_time, op_time_start)
@@ -325,13 +325,20 @@ def _extract_live_ranges_from_schedule(sg, target_mem_area, target_mem_type_set,
 
             rng.mark_usage(time_to_set)
 
-        weight_tens = op_info.buffered_weight_tensor
-        if weight_tens and weight_tens.mem_type in target_mem_type_set and weight_tens.mem_area == target_mem_area:
-            rng = lr_graph.get_or_create_range(weight_tens)
-            if weight_tens.pre_buffer:
-                rng.mark_usage(time_to_set - 1, 2)
-            else:
-                rng.mark_usage(time_to_set)
+        for idx, weight_tens in enumerate(op_info.buffered_weight_tensors):
+            if weight_tens.mem_type in target_mem_type_set and weight_tens.mem_area == target_mem_area:
+                rng = lr_graph.get_or_create_range(weight_tens)
+                start_time = time_to_set
+                length = 1
+                if weight_tens.pre_buffer:
+                    start_time -= 1
+                    length += 1
+                if len(op_info.buffered_weight_tensors) > 1:
+                    last_idx = len(op_info.ofm_depth_slices) % len(op_info.buffered_weight_tensors)
+                    # Double buffering: reduce end time of the buffer that is not used last
+                    if last_idx != idx:
+                        length -= 1
+                rng.mark_usage(start_time, length)
 
         if time_to_set == lr_graph.current_time:
             lr_graph.current_time += 2
