@@ -1077,7 +1077,7 @@ class Scheduler:
         improvement_dram = round((default_dram_cycles - new_dram_cycles) / default_dram_cycles, 2)
 
         # Compare both total and dram improvement
-        if not (improvement_tot > 0 and improvement_dram > 0):
+        if not (improvement_tot >= 0 and improvement_dram > 0):
             # No improvement, restore the default schedule
             for sched_op in self.sched_ops:
                 sched_op.evicted_fms_size = 0
