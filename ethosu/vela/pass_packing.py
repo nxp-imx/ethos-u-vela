@@ -501,6 +501,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         # Sort the rest of the list based on critera 2.
         # Search from bottom of list and when a CPU pass is found
         # search forward in the list and see if it is possible to join another CPU pass.
+        last_idx = len(pass_list) - 1
         for cpu_ps in reversed(pass_list):
             if cpu_ps.placement != PassPlacement.Cpu:
                 continue
@@ -513,13 +514,20 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                     insert_index = pass_list.index(next_ps)
                     pass_list.insert(insert_index, cpu_ps)
                     break
-                if (
-                    cpu_ps.ops[0].ofm not in [next_ps.ops[0].ifm, next_ps.ops[0].ifm2]
-                    and next_ps.placement != PassPlacement.MemoryOnly
-                ):
-                    continue
 
-                break
+                if (
+                    cpu_ps.ops[0].ofm in [next_ps.ops[0].ifm, next_ps.ops[0].ifm2]
+                    or next_ps.placement == PassPlacement.MemoryOnly
+                ):
+                    # Not possible to move
+                    break
+
+                if pass_list.index(next_ps) == last_idx:
+                    # Last element, ok to move the CPU pass
+                    pass_list.remove(cpu_ps)
+                    pass_list.append(cpu_ps)
+                    break
+
         pass_list_top.extend(pass_list)
 
         sg.passes = pass_list_top
