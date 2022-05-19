@@ -804,12 +804,14 @@ def print_performance(
             src_op_name = nng_optype_to_input_op_type(src_op_type)
 
             max_macs = cycles[sched_op][PassCycles.Total] * arch.num_macs_per_cycle * arch.ncores
-
+            peak_sram = (
+                mem_usage[sched_op] / nng.memory_used[MemArea.Sram] * 100 if MemArea.Sram in nng.memory_used else 0
+            )
             print(
                 f" {src_op_name:20s}"
                 f" {sched_op.op_type:20s}"
                 f" {mem_usage[sched_op]:10.0f}"
-                f" ({mem_usage[sched_op] / nng.memory_used[MemArea.Sram] * 100:6.2f}%)"
+                f" ({peak_sram:6.2f}%)"
                 f" {cycles[sched_op][PassCycles.Total]:10.0f}"
                 f" ({cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total] * 100:6.2f}%)"
                 f" ["
