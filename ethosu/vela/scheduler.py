@@ -1073,8 +1073,12 @@ class Scheduler:
         new_tot_cycles = self.nng.cycles[npu_performance.PassCycles.Total]
         new_dram_cycles = self.nng.cycles[npu_performance.PassCycles.DramAccess]
 
-        improvement_tot = round((default_tot_cycles - new_tot_cycles) / default_tot_cycles, 2)
-        improvement_dram = round((default_dram_cycles - new_dram_cycles) / default_dram_cycles, 2)
+        improvement_tot = (
+            round((default_tot_cycles - new_tot_cycles) / default_tot_cycles, 2) if default_tot_cycles != 0 else 0
+        )
+        improvement_dram = (
+            round((default_dram_cycles - new_dram_cycles) / default_dram_cycles, 2) if default_dram_cycles != 0 else 0
+        )
 
         # Compare both total and dram improvement
         if not (improvement_tot >= 0 and improvement_dram > 0):
