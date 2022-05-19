@@ -90,14 +90,17 @@ class HillClimbAllocator:
         if the new allocation is better: keep it, else set allocation to previous allocation
     """
 
-    MAX_ITERATIONS = 500
+    # Maximum number of iterations of the algorithm (can be override from the command line)
+    MAX_ITERATIONS = 99999
     NOT_ALLOCATED = -1
     # Used for live ranges allocated at address 0
     NO_PREDECESSOR = -1
     # Special handling if best solution has not improved during this many iterations
     MAX_ITERATIONS_STUCK = 50
+    # Minimum number of iterations since the last improvement (unless an optimal solution is found)
+    MIN_ITERATIONS_IMPROVE = 500
 
-    def __init__(self, live_ranges: List[LiveRange]):
+    def __init__(self, live_ranges: List[LiveRange], max_iterations: int, memory_limit: int):
         # Contains the live ranges
         self.lrs: List[LiveRangeInfo] = [
             LiveRangeInfo(id, lr.start_time, lr.end_time, lr.size, lr.get_alignment())
@@ -122,6 +125,18 @@ class HillClimbAllocator:
         size_at_time = [sum(lr.size for lr in self.lrs_at_time[t]) for t in range(nr_time_slots)]
         # The minimum possible size, assuming all live ranges can be perfectly allocated
         self.min_required_size: int = max(size_at_time)
+        # Set the maximum number of iterations the search will iterate to find a solution
+        if max_iterations is None:
+            self.max_iterations = self.MAX_ITERATIONS
+        else:
+            self.max_iterations = max_iterations
+        # Defines a memory limit that the allocation must meet
+        self.memory_limit = memory_limit
+        if self.memory_limit < self.min_required_size:
+            print(
+                f"Warning: Memory limit = {self.memory_limit} is less than the minimum possible allocation size ="
+                f" {self.min_required_size}"
+            )
         # Calculate all neighbours + the urgency of each live range
         for lr in self.lrs:
             lr.urgency = 0
@@ -272,13 +287,16 @@ class HillClimbAllocator:
             ix2 = turn_list[random.randint(0, len(turn_list) - 1)]
             indices[ix1], indices[ix2] = indices[ix2], indices[ix1]
 
-    def search(self, indices: List[int], iterations: int):
+    def search(self, indices: List[int]):
         """
         Search for a solution, using the given indices as initial solution.
         """
         best_indices = indices[:]
         last_improvement_iteration = 0
-        for i in range(iterations):
+        i = 0
+        while (self.best_size > self.memory_limit and i < self.max_iterations) or (
+            i - last_improvement_iteration < self.MIN_ITERATIONS_IMPROVE
+        ):
             # Reorder the indices
             self.attempt_bottleneck_fix(indices, i - last_improvement_iteration)
             # Allocate the reordered indices and check if it gave an improvement
@@ -296,6 +314,7 @@ class HillClimbAllocator:
             else:
                 # The new allocation produced worse result undo the change
                 indices = best_indices[:]
+            i += 1
 
     def allocate(self) -> List[int]:
         """
@@ -316,17 +335,17 @@ class HillClimbAllocator:
         self.allocated_addresses = [lr.address for lr in self.lrs]
         if self.best_size > self.min_required_size:
             # Try to improve the heuristic allocation
-            self.search(indices, HillClimbAllocator.MAX_ITERATIONS)
+            self.search(indices)
         # else the heuristic allocation returned an optimal solution; no search needed
         return self.allocated_addresses
 
 
-def allocate_live_ranges(lrs: List[LiveRange]) -> List[int]:
+def allocate_live_ranges(lrs: List[LiveRange], max_iterations: int, memory_limit: int) -> List[int]:
     """
     Allocates live ranges using a search based allocator.
     Returns the list of allocated addresses (one for each live range)
     """
     if not lrs:
         return []
-    allocator = HillClimbAllocator(lrs)
+    allocator = HillClimbAllocator(lrs, max_iterations, memory_limit)
     return allocator.allocate()

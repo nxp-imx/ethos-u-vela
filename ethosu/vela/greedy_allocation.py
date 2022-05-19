@@ -19,11 +19,7 @@ from . import numeric_util
 
 
 class GreedyAllocator:
-    def __init__(self, nng, arch, live_ranges, mem_area):
-        self.nng = nng
-        self.arch = arch
-        self.mem_area = mem_area
-
+    def __init__(self, live_ranges):
         self.live_ranges = live_ranges
         self.memory_required = 0
 
@@ -75,6 +71,6 @@ class GreedyAllocator:
         return self.memory_required
 
 
-def allocate_live_ranges(nng, arch, live_ranges, mem_area, alignment):
-    g = GreedyAllocator(nng, arch, live_ranges, mem_area)
+def allocate_live_ranges(live_ranges, alignment):
+    g = GreedyAllocator(live_ranges)
     return g.allocate_live_ranges(alignment)

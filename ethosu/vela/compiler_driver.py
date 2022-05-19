@@ -66,6 +66,7 @@ class CompilerOptions:
         timing=False,
         output_dir="outputs",
         cpu_tensor_alignment=Tensor.AllocationQuantum,
+        hillclimb_max_iterations=None,
     ):
 
         self.verbose_graph = verbose_graph
@@ -84,6 +85,7 @@ class CompilerOptions:
         self.timing = timing
         self.output_dir = output_dir
         self.cpu_tensor_alignment = cpu_tensor_alignment
+        self.hillclimb_max_iterations = hillclimb_max_iterations
 
     def __str__(self):
         return type(self).__name__ + ": " + str(self.__dict__)

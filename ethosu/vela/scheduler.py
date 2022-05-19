@@ -1312,6 +1312,7 @@ def _update_tensor_allocation(nng: Graph, arch: ArchitectureFeatures, options):
             tensor_allocator=options.tensor_allocator,
             verbose_allocation=options.verbose_allocation,
             cpu_tensor_alignment=options.cpu_tensor_alignment,
+            hillclimb_max_iterations=options.hillclimb_max_iterations,
         )
 
 

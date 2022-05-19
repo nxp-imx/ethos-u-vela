@@ -255,6 +255,20 @@ systems, as there is a hard limit on thread stack size.
 vela network.tflite --recursion-limit 2000
 ```
 
+### HillClimb Max Iterations
+
+Sets the maximum number of iterations the Hill Climb tensor allocator will run.
+This is a hard limit on the total number of iterations of the algorithm.
+Reducing this value is unlikely to reduce the compilation time of a working
+solution, and it may cause the algorithm to terminate before finding a workable
+solution.  
+**Type: Integer**  
+**Default: 99999**
+
+```bash
+vela network.tflite --hillclimb-max-iterations 1000
+```
+
 ## Verbose Print Options
 
 All of the options below are disabled by default and enabling them will add

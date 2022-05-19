@@ -37,6 +37,7 @@ from .api import API_VERSION
 from .debug_database import DebugDatabase
 from .errors import InputFileError
 from .errors import VelaError
+from .hillclimb_allocation import HillClimbAllocator
 from .nn_graph import NetworkType
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
@@ -439,6 +440,14 @@ def main(args=None):
             default=1000,
             help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
         )
+        parser.add_argument(
+            "--hillclimb-max-iterations",
+            type=int,
+            default=HillClimbAllocator.MAX_ITERATIONS,
+            help=(
+                "Set the maximum number of iterations the Hill Climb tensor allocator will run (default: %(default)s)"
+            ),
+        )
         args = parser.parse_args(args=args)
 
         # Generate the supported ops report and exit
@@ -523,6 +532,7 @@ def main(args=None):
             timing=args.timing,
             output_dir=args.output_dir,
             cpu_tensor_alignment=args.cpu_tensor_alignment,
+            hillclimb_max_iterations=args.hillclimb_max_iterations,
         )
 
         scheduler_options = scheduler.SchedulerOptions(

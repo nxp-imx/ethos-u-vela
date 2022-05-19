@@ -66,9 +66,11 @@ def linear_allocate_live_ranges(live_ranges, alloc_granularity=Tensor.Allocation
     return total_sz
 
 
-def hillclimb_allocate_live_ranges(live_ranges: LiveRangeGraph, alloc_granularity: int) -> int:
+def hillclimb_allocate_live_ranges(
+    live_ranges: LiveRangeGraph, alloc_granularity: int, max_iterations: int, mem_limit: int
+) -> int:
     # Allocates using the hill climb allocator
-    addresses = hillclimb_allocation.allocate_live_ranges(live_ranges.lrs)
+    addresses = hillclimb_allocation.allocate_live_ranges(live_ranges.lrs, max_iterations, mem_limit)
     # The result is a list containing the allocated addresses
     total_sz = 0
     for lr, address in zip(live_ranges.lrs, addresses):
@@ -144,7 +146,10 @@ def print_allocation(lrs, mem_area, mem_type_set, tensor_allocator, sg, actual_m
 
     memory_hist = memory_usage_histogram(lrs.lrs)
     min_mem_usage_for_alloc = max(memory_hist)
-    print("Start Time -   End Time: Start Addr -   End Addr: Tensor Size: Memory Usage:  Tensor Purpose: Tensor Name")
+    print(
+        f"{'Start Time':>10s} - {'End Time':>10s}: {'Start Addr':>10s} - {'End Addr':>10s}: {'Tensor Size':>11s}:"
+        f" {'Memory Usage':>12s}: {'Purpose':12s}: Name"
+    )
     for start_time, end_time, size, start_addr, end_addr, purpose, name in sorted(
         (
             lr.start_time,
@@ -159,7 +164,7 @@ def print_allocation(lrs, mem_area, mem_type_set, tensor_allocator, sg, actual_m
     ):
         print(
             f"{start_time:10d} - {end_time:10d}: {start_addr:#10x} - {end_addr:#10x}: {size:11d}:"
-            f" {memory_hist[start_time]:12d}: {purpose.display_name():15s}: {name:s}"
+            f" {memory_hist[start_time]:12d}: {purpose.display_name():12s}: {name:s}"
         )
 
     alloc_overhead_fraction = (actual_mem_usage_for_alloc - min_mem_usage_for_alloc) / min_mem_usage_for_alloc
@@ -194,6 +199,7 @@ def allocate(
     tensor_allocator=TensorAllocator.Greedy,
     lr_graph=None,
     cpu_tensor_alignment=Tensor.AllocationQuantum,
+    hillclimb_max_iterations=None,
 ):
     # Allocates addresses to tensors, returns False if tensors could not be fit within max_size
     lrs = live_range.extract_live_ranges_from_cascaded_passes(
@@ -207,12 +213,14 @@ def allocate(
     if lrs.ranges:
         tens_alloc = tensor_allocator
         if tens_alloc == TensorAllocator.Greedy:
-            total_sz = greedy_allocate_live_ranges(sg, arch, lrs, mem_area, cpu_tensor_alignment)
+            total_sz = greedy_allocate_live_ranges(lrs, cpu_tensor_alignment)
             verify_allocation(lrs, cpu_tensor_alignment)
         elif tens_alloc == TensorAllocator.LinearAlloc:
             total_sz = linear_allocate_live_ranges(lrs, cpu_tensor_alignment)
         elif tens_alloc == TensorAllocator.HillClimb:
-            total_sz = hillclimb_allocate_live_ranges(lrs, cpu_tensor_alignment)
+            mem_type = MemType.Scratch_fast if MemType.Scratch_fast in mem_type_set else list(mem_type_set)[0]
+            mem_size = arch.mem_type_size(mem_type)
+            total_sz = hillclimb_allocate_live_ranges(lrs, cpu_tensor_alignment, hillclimb_max_iterations, mem_size)
         else:
             assert 0
     return lrs, total_sz
@@ -228,6 +236,7 @@ def allocate_tensors(
     verbose_allocation=False,
     lr_graph=None,
     cpu_tensor_alignment=Tensor.AllocationQuantum,
+    hillclimb_max_iterations=None,
     max_size=None,
     dry_test=False,
 ):
@@ -240,6 +249,7 @@ def allocate_tensors(
         tensor_allocator=tensor_allocator,
         lr_graph=lr_graph,
         cpu_tensor_alignment=cpu_tensor_alignment,
+        hillclimb_max_iterations=hillclimb_max_iterations,
     )
 
     if lrs.ranges:

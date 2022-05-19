@@ -151,7 +151,7 @@ class CommandStreamEmitter:
 
             payload_mode = CmdMode(code & CmdMode.Mask)
 
-            s = f"0x{offset:06x}:"
+            s = f"{offset:#08x}:"
 
             if payload_mode == CmdMode.NoPayload:
                 s += f" {'':8}"
@@ -291,7 +291,11 @@ def check_mem_limits(memory_accesses: MemoryAccessSet, mem_limits: Dict[int, int
                     if offset < 0:
                         raise VelaError(f"Negative address offset: {offset}, region: {region}")
                     if offset > max:
-                        raise VelaError(f"Address offset out of range: {offset}, region: {region}, max: {max}")
+                        raise VelaError(
+                            f"Address offset out of range: {offset}, region: {region}, max: {max}. Perhaps try running"
+                            f" with the HillClimb tensor allocator and/or increasing the maximum iteration of that"
+                            f" allocator"
+                        )
 
 
 def quantise(value: float, quant: Optional[NpuQuantization]) -> int:

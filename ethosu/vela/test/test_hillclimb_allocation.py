@@ -54,10 +54,10 @@ def live_range(start_time, end_time, size):
 def test_allocate(lrs, expected_size):
     """Tests the search allocator"""
     lr_list = [live_range(start, end, size) for start, end, size in lrs]
-    res = allocate_live_ranges(lr_list)
+    res = allocate_live_ranges(lr_list, None, 1 << 32)
     assert len(res) == len(lrs)
     assert max(addr + lr[2] for addr, lr in zip(res, lrs)) == expected_size
 
 
 def test_allocate_empty_input():
-    assert [] == allocate_live_ranges([])
+    assert [] == allocate_live_ranges([], 0, 0)
