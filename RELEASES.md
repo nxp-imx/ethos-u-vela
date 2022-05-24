@@ -5,6 +5,33 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.4.0 - 24/05/2022
+
+**Main feature changes:**
+
+* Support hosting of third party system configuration files in ethosu/config_files/*
+  * New configs can be contributed by following the information in OPTIONS.md
+* Upgrade TensorFlow Lite support to version 2.8
+* Ethos-U65 performance optimisations
+* Improvements to HillClimb tensor allocator
+* Add mypy support to pre-commit checks
+* General bug fixes to functionality and improve stability
+* Lower Python requirement to Python 3.7 for greater compatibility with other tools
+
+**Interface changes:**
+
+* Addition of CLI options:
+  * `--list-config-files`, `--verbose-performance`, `--hillclimb-max-iterations`
+
+**Reported defect fixes:**
+
+* Splitting into multiple Ethos-U Custom operators (MLCE-800)
+* Layer-wise performance information (MLCE-759)
+* Unable to find a valid block config (MLCE-776)
+* LeakyReLU does not support negative alpha values (MLCE-817)
+* Command stream disassembly does not contain address (MLCE-823)
+* FULLY_CONNECTED does not implicitly reshape greather than rank-2 input tensor (MLCE-691)
+
 ## Release 3.3.0 - 25/02/2022
 
 **Main feature changes:**

@@ -40,7 +40,7 @@ class BuildExtension(build_ext):
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
-    tag = "3.3.0"
+    tag = "3.4.0"
     url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
     # Find all markdown links that match the format:  [text](link)
     for match, link in re.findall(r"(\[.+?\]\((.+?)\))", long_description):
