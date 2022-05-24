@@ -467,20 +467,29 @@ def main(args=None):
             if not config.endswith(".ini"):
                 raise InputFileError(config, "Configuration files must use the .ini extension")
 
-            if len(config.split(os.path.sep)) == 2 and not config.startswith(os.path.sep):
+            if (
+                len(config.split(os.path.sep)) == 2
+                and not config.startswith(os.path.sep)
+                and not config.startswith(".")
+                and not config.startswith("~")
+            ):
                 config_path = os.path.join(CONFIG_FILES_PATH, config)
             else:
-                print(
-                    f"Warning: Configuration file `{config}` is either not located in a folder directly under the "
-                    "`config_files` directory or has not been provided correctly. Note that the file depth from the "
-                    "`config_files` directory must be exactly 2 to be discovered via the --list-config-files "
-                    "mechanism (e.g. `directory_name/my_config_file.ini` located in the config_files directory). "
-                    "This config file will still be parsed however, and treated as an absolute path config instead."
-                )
+                # Check if the configuration file is correctly placed inside the config_files directory
+                if os.access(os.path.join(CONFIG_FILES_PATH, *config.split(os.path.sep)[-2:]), os.R_OK):
+                    rel_path = os.path.join(*config.split(os.path.sep)[-2:])
+                    print(
+                        f"Warning: Consider accessing the configuration by --config {rel_path} since it is located "
+                        "inside the config_files directory."
+                    )
                 config_path = config
 
             if not os.access(config_path, os.R_OK):
-                raise InputFileError(config_path, "File not found or is not readable")
+                raise InputFileError(
+                    config_path,
+                    "File not found or is not readable. The configuration file is either not located in a folder "
+                    "directly under the `config_files` directory or its path has not been provided correctly.",
+                )
 
             return config_path
 
