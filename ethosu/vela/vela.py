@@ -287,9 +287,10 @@ def generate_supported_ops():
 
 
 def list_config_files():
-    print("\nAvailable config files:\n")
+    print("Available config files:")
+    path_length = len(CONFIG_FILES_PATH + os.path.sep)
     for config in glob.glob(os.path.join(CONFIG_FILES_PATH, "*", "*.ini")):
-        print(config.lstrip(CONFIG_FILES_PATH + os.path.sep))
+        print(config[path_length:])
 
 
 def main(args=None):
@@ -470,11 +471,11 @@ def main(args=None):
                 config_path = os.path.join(CONFIG_FILES_PATH, config)
             else:
                 print(
-                    f"Warning: Configuration file `{config}` not located in a folder directly under the "
-                    "`config_files` directory. Note that the file depth from the `config_files` directory must be "
-                    "exactly 2 to be discovered via the --list-config-files mechanism "
-                    "(e.g. `config_files/directory_name/my_config_file.ini`). This config file will still be "
-                    "parsed however, and treated as an absolute path config instead."
+                    f"Warning: Configuration file `{config}` is either not located in a folder directly under the "
+                    "`config_files` directory or has not been provided correctly. Note that the file depth from the "
+                    "`config_files` directory must be exactly 2 to be discovered via the --list-config-files "
+                    "mechanism (e.g. `directory_name/my_config_file.ini` located in the config_files directory). "
+                    "This config file will still be parsed however, and treated as an absolute path config instead."
                 )
                 config_path = config
 
