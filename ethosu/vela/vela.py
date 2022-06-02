@@ -51,7 +51,7 @@ from .tosa_model_semantic import TosaSemantic
 from .tosa_supported_operators import TosaSupportedOperators
 from ethosu.vela.architecture_features import ArchitectureFeatures
 
-CONFIG_FILES_PATH = os.path.abspath(f"{__file__}/../../config_files")
+CONFIG_FILES_PATH = os.path.normpath(os.path.join(__file__, "..", "..", "config_files"))
 
 
 def process(input_name, enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options):
@@ -464,6 +464,9 @@ def main(args=None):
             parser.error("the following argument is required: NETWORK")
 
         def _parse_config(config):
+            # Make sure the correct separator is used depending on OS
+            config = os.path.normpath(config)
+
             if not config.endswith(".ini"):
                 raise InputFileError(config, "Configuration files must use the .ini extension")
 

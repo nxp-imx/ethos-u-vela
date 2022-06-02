@@ -741,6 +741,8 @@ class ArchitectureFeatures:
 
         # display the system configuration and memory mode
         if verbose_config:
+            print("Configuration files:")
+            print(f"   {vela_config_files}")
             print(f"System Configuration ({self.system_config}):")
             print(f"   core_clock = {self.core_clock}")
             print(f"   axi0_port = {self.axi0_port.name}")
