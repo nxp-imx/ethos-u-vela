@@ -394,6 +394,7 @@ class Padding(Enum):
     SAME = 0
     VALID = 1
     EXPLICIT = 2  # Padding is specified in a PAD operation (only used for NPU operations)
+    TILE = 3  # Uses hardware tiles to pad by 1 with edge values on two sides of the IFM specified in explicit_padding
 
 
 class ActivationFunction:
