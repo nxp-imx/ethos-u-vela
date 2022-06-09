@@ -250,6 +250,9 @@ def calc_padding_and_skirt(padding_type, kernel, input_shape, explicit_padding):
         top, left, bottom, right = explicit_padding
         top_pad, bottom_pad = calc_explicit_padding(int(input_shape.height), int(s_y), int(k_h), int(top), int(bottom))
         left_pad, right_pad = calc_explicit_padding(int(input_shape.width), int(s_x), int(k_w), int(left), int(right))
+    elif padding_type == Padding.TILE:
+        # The values in the explicit padding only represent the "direction" in which to pad
+        top_pad, left_pad, bottom_pad, right_pad = explicit_padding
     else:
         raise UnsupportedFeatureError(f"Unsupported padding = {padding_type} for padding calculation")
     padding = (top_pad, left_pad, bottom_pad, right_pad)

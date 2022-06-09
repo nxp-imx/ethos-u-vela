@@ -21,6 +21,7 @@ from collections import namedtuple
 from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
+from .operation import Padding
 from .shape4d import Shape4D
 
 non_cascadable_blocks = (
@@ -99,6 +100,7 @@ class CascadeBuilder:
             and sched_op.parent_op.read_offsets[1] is None
             and self.element_wise_cascading_conformity(sched_op)
             and not sched_op.parent_op.type.is_resize_op()
+            and sched_op.parent_op.attrs.get("padding", None) != Padding.TILE
         )
 
     def _is_mergeable(self, sched_op) -> bool:

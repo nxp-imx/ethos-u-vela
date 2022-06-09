@@ -37,6 +37,7 @@ from .api import NpuElementWiseOperation
 from .api import NpuFeatureMap
 from .api import NpuLayout
 from .api import NpuOperation
+from .api import NpuOperationType
 from .api import NpuPadding
 from .api import NpuPoolingOp
 from .api import NpuPoolingOperation
@@ -59,6 +60,7 @@ from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
+from .operation import Padding
 from .register_command_stream_generator import generate_command_stream
 from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
 from .register_command_stream_util import to_npu_kernel
@@ -148,7 +150,7 @@ def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
     return rounding_mode
 
 
-def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
+def create_padding(cmd: NpuStripe, primary_op: Operation, npu_op: NpuBlockOperation) -> NpuPadding:
     if primary_op.type.npu_block_type == NpuBlockType.VectorProduct:
         return NpuPadding(top=0, left=0, bottom=0, right=0)
     top, left, bottom, right = primary_op.attrs["explicit_padding"]
@@ -174,7 +176,89 @@ def create_padding(cmd: NpuStripe, primary_op: Operation) -> NpuPadding:
         left = 0
     if len(cmd.ifm_box.end_coord) >= 2 and cmd.ifm_box.end_coord[-2] < box_end_coord_max:
         right = 0
+
+    # If tile padding is selected, modify the tile base addresses and set NpuPadding to zero.
+    if primary_op.attrs.get("padding", None) == Padding.TILE:
+        assert cmd.ifm_tensor.format == TensorFormat.NHCWB16, "Tensor format NHCWB16 required to perform tile padding"
+        assert npu_op.op_type == NpuOperationType.ConvDepthWise, "Tile padding only supported for depthwise convolution"
+        assert npu_op.ifm is not None, "Feature map must be initialized to modify the tile addresses"
+        npu_op.ifm.tiles = modify_tile_addresses_for_padding(
+            npu_op.ifm.tiles,
+            primary_op.attrs.get("explicit_padding", None),
+            channels=cmd.ps.ifm_shapes[0].depth,
+            dtype=cmd.ifm_tensor.dtype,
+        )
+        top, left, bottom, right = 0, 0, 0, 0
     return NpuPadding(top=top, left=left, bottom=bottom, right=right)
+
+
+def modify_tile_addresses_for_padding(
+    tile_box: NpuTileBox, padding_direction: List[int], channels: int, dtype: DataType
+) -> NpuTileBox:
+    # Addresses are 16-bytes aligned when using the NHCWB16 format, which is required to utilize tiling
+    # Calculate the offset to top right, bottom left and bottom right element in the IFM (top left offset is 0)
+    """
+    Example: 4x4x1 IFM
+    |  a b c d | <-- Offset to TR ('d') is (w0-1) = 3
+    |  e f g h |
+    |  i j k l |
+    |  m n o p | <-- Offset to BL ('m') is (w0*(h0-1)) = 12 and to BR ('p') ((w0*h0)-1) = 15
+    """
+    h0, h1, w0, addresses = tile_box
+    elem_size = 2 if dtype == DataType.int16 else 1
+    tr_offset = (w0 - 1) * 16 * elem_size
+    bl_offset = w0 * (h0 - 1) * 16 * (round_up(channels, 16) // 16) * elem_size
+    br_offset = tr_offset + bl_offset
+
+    # Explicit padding order: (Top, Left, Bottom, Right)
+    if padding_direction == (1, 1, 0, 0):
+        # Pad top left corner
+        """
+                     | a a b |
+        |  a b  | -> | a a b |
+        |  c d  |    | c c d |
+        """
+        addresses = [addresses[0]] * 4
+        h0, h1, w0 = 1, 1, 1
+
+    elif padding_direction == (1, 0, 0, 1):
+        # Pad top right corner
+        """
+                     | a b b |
+        |  a b  | -> | a b b |
+        |  c d  |    | c d d |
+        """
+        addresses = [addresses[0], addresses[0] + tr_offset, addresses[0], addresses[0] + tr_offset]
+        h0, h1, w0 = 1, 1, w0
+
+    elif padding_direction == (0, 1, 1, 0):
+        # Pad bottom left corner
+        """
+        |  a b  |    | a a b |
+        |  c d  | -> | c c d |
+                     | c c d |
+        """
+        addresses = [addresses[0], addresses[0], addresses[0] + bl_offset, addresses[0] + bl_offset]
+        h0, h1, w0 = h0, h1, 1
+
+    elif padding_direction == (0, 0, 1, 1):
+        # Pad bottom right corner
+        """
+        |  a b  |    | a b b |
+        |  c d  | -> | c d d |
+                     | c d d |
+        """
+        addresses = [
+            addresses[0],
+            addresses[0] + tr_offset,
+            addresses[0] + bl_offset,
+            addresses[0] + br_offset,
+        ]
+        # h0, h1, w0 = h0, h1, w0
+    else:
+        assert 0, "Invalid padding direction for tile padding"
+
+    return NpuTileBox(height_0=h0, height_1=h1, width_0=w0, addresses=[int(addr) for addr in addresses])
 
 
 def get_region(mem_type: MemType, arch: ArchitectureFeatures) -> int:
@@ -277,9 +361,6 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_sh
     height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(
         box.start_coord, box.end_coord, op_shape4D
     )
-    for idx, addr in enumerate(addresses):
-        if addr is None:
-            addresses[idx] = 0
     fm.tiles = NpuTileBox(
         height_0=height_0, height_1=height_1, width_0=width_0, addresses=[int(addr) for addr in addresses]
     )
@@ -393,7 +474,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     npu_op.block_config = NpuShape3D(height=ps.block_config[0], width=ps.block_config[1], depth=ps.block_config[3])
 
     if not op.type.is_elementwise_op():
-        npu_op.padding = create_padding(cmd, op)
+        npu_op.padding = create_padding(cmd, op, npu_op)
         npu_op.kernel = to_npu_kernel(op.kernel)
     npu_op.ifm_upscale = resampling_mode_inv_map[op.ifm_resampling_mode]
     return npu_op

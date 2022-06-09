@@ -600,7 +600,7 @@ class Tensor:
                 1,
                 1,
                 1,
-                [self.address_for_coordinate(start_coord, op_shape4D=op_shape4D), None, None, None],
+                [self.address_for_coordinate(start_coord, op_shape4D=op_shape4D), 0, 0, 0],
             )
 
         if self.is_standard_fm:
@@ -617,7 +617,7 @@ class Tensor:
         box_height0 = crossing_y - start_coord[1]
         box_width = crossing_x - start_coord[2]
 
-        addresses: List = [None] * 4
+        addresses: List = [0] * 4
         addresses[0] = self.address_for_coordinate(start_coord, op_shape4D=op_shape4D)
 
         if end_coord[2] > crossing_x:
