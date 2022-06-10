@@ -546,6 +546,29 @@ class Scheduler:
 
         return npu_performance.measure_cycle_cost(self.arch, op.op_type, op.activation and op.activation.op_type, query)
 
+    def estimate_element_access(self, op: SchedulerOperation, block_config, ofm_depth):
+        query = npu_performance.PerformanceQuery(op.op_type.npu_block_type)
+        query.ifm_shape = op.ifm.shape
+        query.ifm_memory_area = op.ifm.mem_area
+        query.ifm_bits = op.ifm.dtype.size_in_bits()
+        query.ifm_format = op.ifm.format
+        query.ifm2_shape = op.ifm2 and op.ifm2.shape
+        query.ifm2_memory_area = op.ifm2 and op.ifm2.mem_area
+        query.ifm2_bits = op.ifm2 and op.ifm2.dtype.size_in_bits()
+        query.ifm2_format = op.ifm2 and op.ifm2.format
+        query.ofm_shape = op.ofm.shape.with_depth(ofm_depth)
+        query.ofm_memory_area = op.ofm.mem_area
+        query.ofm_bits = op.ofm.dtype.size_in_bits()
+        query.ofm_format = op.ofm.format
+        if op.parent_op.bias:
+            query.const_shape = Shape4D(1, 1, 1, op.ofm.shape.depth)
+            query.const_memory_area = self.arch.fast_storage_mem_area
+
+        query.kernel = op.kernel
+        query.config = block_config
+
+        return npu_performance.measure_element_access(self.arch, query)
+
     def propose_schedule_buffering(self, ref_schedule: Schedule, staging_limit_bytes):
         """Create a buffered schedule"""
         buffered_schedule = Schedule(self.sg, f"{ref_schedule.label}_BUFFERED")
@@ -1163,6 +1186,7 @@ class Scheduler:
                     base_mem_usage[lr.start_time : lr.end_time + 1] -= lr.size
                     break
         competing_lrs = []
+        competing_tens_access = {}
         for lr in curr_lrs:
             base_usage = max(base_mem_usage[lr.start_time : lr.end_time + 1])
             # If true, the lr will never fit and may thus be evicted
@@ -1177,10 +1201,33 @@ class Scheduler:
                 FastStorageComponentAllocator.keep(lr, base_mem_usage, staging_limit)
             else:
                 competing_lrs.append(lr)
+                for tens in lr.tensors:
+                    competing_tens_access[tens] = 0
+
         sz = len(competing_lrs)
         # All lrs and their tensors have been handled if sz is zero, we may thus return
         if sz == 0:
             return
+
+        # Estimate element access for all tensors that are competing for a place in fast-storage.
+        # This number is used when deciding which tensor that stays in fast-storage
+        for sched_op in self.sched_ops:
+            cost = schedule.cost_map[sched_op]
+
+            if competing_tens_access.get(sched_op.ifm.connection.parent_tens) is not None:
+                tens = sched_op.ifm.connection.parent_tens
+                access = self.estimate_element_access(sched_op, cost.block_config, sched_op.ofm.shape.depth)
+                competing_tens_access[tens] += access.ifm_read[0]
+
+            if sched_op.ifm2 and competing_tens_access.get(sched_op.ifm2.connection.parent_tens) is not None:
+                tens = sched_op.ifm2.connection.parent_tens
+                access = self.estimate_element_access(sched_op, cost.block_config, sched_op.ofm.shape.depth)
+                competing_tens_access[tens] += access.ifm_read[1]
+
+            if competing_tens_access.get(sched_op.ofm.connection.parent_tens) is not None:
+                tens = sched_op.ofm.connection.parent_tens
+                access = self.estimate_element_access(sched_op, cost.block_config, sched_op.ofm.shape.depth)
+                competing_tens_access[tens] += access.ofm_write
 
         competing_lrs = sorted(competing_lrs, key=lambda lr: (lr.start_time, lr.end_time + 1, lr.size))
         start = 0
@@ -1189,7 +1236,7 @@ class Scheduler:
         component_allocator = FastStorageComponentAllocator(base_mem_usage, max_mem_usage, staging_limit)
         # Build up components and then allocate each separately
         for i, lr in enumerate(competing_lrs):
-            if lr.start_time <= end_time and i - start < component_allocator.max_exhaustive_size:
+            if lr.start_time <= end_time and i - start < component_allocator.MAX_EXHAUSTIVE_LIFE_RANGE:
                 start_time = min(start_time, lr.start_time)
                 end_time = max(end_time, lr.end_time)
             else:
@@ -1200,6 +1247,7 @@ class Scheduler:
                     base_mem_usage,
                     staging_limit,
                     self.scratched_fms,
+                    competing_tens_access,
                 )
                 start = i
                 start_time = lr.start_time
@@ -1211,6 +1259,7 @@ class Scheduler:
             base_mem_usage,
             staging_limit,
             self.scratched_fms,
+            competing_tens_access,
         )
 
     def move_constant_data(self):
@@ -1317,6 +1366,8 @@ def _update_tensor_allocation(nng: Graph, arch: ArchitectureFeatures, options):
 
 
 class FastStorageComponentAllocator:
+    MAX_EXHAUSTIVE_LIFE_RANGE = 20
+
     def __init__(self, base_mem_usage, max_mem_usage, staging_limit):
         self.base_mem_usage = base_mem_usage
         self.max_mem_usage = list(max_mem_usage)
@@ -1325,13 +1376,14 @@ class FastStorageComponentAllocator:
         self.evicted = []
         self.curr_evicted = []
         self.remaining_total_size = []
-        self.best_allocated_size = 0
-        self.max_exhaustive_size = 20
+        self.best_score = 0
+        self.competing_tens_access = {}
 
-    def allocate_exhaustive(self, ix, alloc_size):
+    def allocate_exhaustive(self, ix, score):
+        # Favour tensors with highest element access (score)
         if ix >= len(self.lrs):
-            if alloc_size > self.best_allocated_size:
-                self.best_allocated_size = alloc_size
+            if score > self.best_score:
+                self.best_score = score
                 self.evicted = self.curr_evicted.copy()
             return
 
@@ -1349,13 +1401,15 @@ class FastStorageComponentAllocator:
         if can_fit or always_fits:
             self.curr_evicted[ix] = False
             self.base_mem_usage = self.update_mem_usage(self.base_mem_usage, lr, True)
-            self.allocate_exhaustive(ix + 1, alloc_size + lr.size)
+            tens = lr.tensors[0]
+            # Tensor is being included - add tensor element access to the score
+            self.allocate_exhaustive(ix + 1, score + self.competing_tens_access[tens])
             self.base_mem_usage = self.update_mem_usage(self.base_mem_usage, lr, False)
 
         if not always_fits:
             self.curr_evicted[ix] = True
             self.max_mem_usage = self.update_mem_usage(self.max_mem_usage, lr, False)
-            self.allocate_exhaustive(ix + 1, alloc_size)
+            self.allocate_exhaustive(ix + 1, score)
             self.max_mem_usage = self.update_mem_usage(self.max_mem_usage, lr, True)
 
     @staticmethod
@@ -1380,13 +1434,19 @@ class FastStorageComponentAllocator:
             base_mem_usage[t] += lr.size
             assert base_mem_usage[t] <= staging_limit
 
-    def allocate_component(self, allocator, lrs, max_mem, min_mem, staging_limit, scratched_fms):
+    def allocate_component(self, allocator, lrs, max_mem, min_mem, staging_limit, scratched_fms, competing_tens_access):
         sz = len(lrs)
         allocator.lrs = lrs
         allocator.evicted = [0] * len(lrs)
         allocator.curr_evicted = [0] * sz
-        allocator.best_allocated_size = -1
-        # Recursively evaluate all permutations of allocations of the lrs found in the component
+        allocator.best_score = -1
+        allocator.competing_tens_access = competing_tens_access
+        # Recursively evaluate all permutations of allocations of the lrs found in the component.
+        # For every permutation that fits within the staging_limit there is a score calculated.
+        # The permutation with the highest score will then be chosen. The score is calculated
+        # as the sum of the actual element access (ifm read and ofm write) for all the
+        # including tensors. So it is not necessary the tensor with the biggest size that ends up
+        # being included in the result.
         allocator.allocate_exhaustive(0, 0)
 
         # Optimal allocation has been found, move lrs accordingly
