@@ -329,7 +329,10 @@ def find_block_config(
                         ifm_fetch *= full_blocks.depth
 
                     # Scale relative to every output OFM element
-                    relative_cost = (ifm_fetch + weight_fetch) / ofm_shape.elements()
+                    if npu_op_type == NpuBlockType.ElementWise:
+                        relative_cost = ofm_shape.elements() / (height * width * depth)
+                    else:
+                        relative_cost = (ifm_fetch + weight_fetch) / ofm_shape.elements()
 
                     # If the entire IFM can be encompassed by both buffers, bias to prefer this configuration
                     if ifm_shape.elements() < ifm_block.elements() * 2:
