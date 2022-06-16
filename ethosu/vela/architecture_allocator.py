@@ -361,6 +361,7 @@ def find_block_config(
                             config.ofm_block = Shape4D(1, height, width, depth)
                 else:
                     wont_fit[(width, height)] = True
+                    break
 
         depth = depth + arch.ofm_ublock.depth
         if depth < ofm_shape.depth:
