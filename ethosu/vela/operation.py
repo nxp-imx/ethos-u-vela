@@ -436,9 +436,7 @@ def create_activation_function(op_type: Op, min=None, max=None) -> ActivationFun
     elif op_type == Op.Sigmoid:
         act.min = 0.0
         act.max = 1.0
-    elif op_type == Op.HardSwish:
-        act.min = 0.0
-    if op_type == Op.Clamp:
+    elif op_type == Op.Clamp:
         assert min is not None and max is not None
         act.min = min
         act.max = max
