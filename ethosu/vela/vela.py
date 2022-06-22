@@ -282,6 +282,68 @@ def generate_supported_ops():
         print(f"Report file: {filepath}")
 
 
+class Imx93ArchitectureFeatures(architecture_features.ArchitectureFeatures):
+
+    def _set_default_sys_config(self):
+        # Default Ethos-U65 system configuration
+        # Ethos-U65 High-End: SRAM (16 GB/s) and DRAM (3.75 GB/s)
+        from .tensor import BandwidthDirection
+        self.core_clock = 1e9
+        self.axi0_port = MemArea.Sram
+        self.axi1_port = MemArea.Dram
+        self.memory_clock_scales[MemArea.Sram] = 1.0
+        self.memory_clock_scales[MemArea.Dram] = 0.234375
+        self.memory_burst_length[MemArea.Sram] = 32
+        self.memory_burst_length[MemArea.Dram] = 128
+        self.memory_latency[MemArea.Sram][BandwidthDirection.Read] = 32
+        self.memory_latency[MemArea.Sram][BandwidthDirection.Write] = 32
+        self.memory_latency[MemArea.Dram][BandwidthDirection.Read] = 500
+        self.memory_latency[MemArea.Dram][BandwidthDirection.Write] = 250
+
+def convert(input_model_name):
+    sys.setrecursionlimit(1000)
+
+    if not os.path.exists(input_model_name):
+        raise InputFileError(input_model_name, "No such file")
+
+    arch = Imx93ArchitectureFeatures(
+        vela_config_files=None,
+        system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+        memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+        accelerator_config='ethos-u65-256',
+        max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
+        verbose_config=False,
+        arena_cache_size=384 * 1024,
+    )
+
+    compiler_options = compiler_driver.CompilerOptions(
+        tensor_allocator = TensorAllocator.HillClimb,
+        output_dir="output",
+    )
+
+    scheduler_options = scheduler.SchedulerOptions(
+        optimization_strategy=scheduler.OptimizationStrategy.Performance,
+        sram_target=arch.arena_cache_size,
+        verbose_schedule=False,
+    )
+
+    model_reader_options = model_reader.ModelReaderOptions()
+
+    os.makedirs(compiler_options.output_dir, exist_ok=True)
+    output_basename = os.path.join(compiler_options.output_dir,
+                                   os.path.splitext(os.path.basename(input_model_name))[0])
+
+    nng, network_type = model_reader.read_model(input_model_name, model_reader_options)
+    if not nng:
+        raise InputFileError(input_model_name, "Input file could not be read")
+
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type)
+
+    output_tfl_filename = output_basename + "_vela.tflite"
+    tflite_writer.write_tflite(nng, output_tfl_filename)
+
+    return output_tfl_filename
+
 def main(args=None):
     try:
         if args is None:
