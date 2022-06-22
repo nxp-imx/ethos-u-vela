@@ -298,6 +298,147 @@ def convert_resizebilinear_1x1_to_add(op):
 
     return op
 
+def convert_mean_to_depthwise_conv_workaround(op, arch, nng):
+    '''
+    Applied when shape[1] * shape[2] > 256 && DataType is int8,
+    And shape[1] * shape[2] > 4096 && DataType is uint8
+    otherwise, process with normal flow.
+    '''
+
+    if op.type == Op.Mean:
+        shape = op.ifm.shape
+        dtype = op.ifm.dtype
+    else:
+       return op
+
+    # skip when height * width <= 256
+    if shape[1] * shape[2] <= 256 and dtype == DataType.int8:
+        return op
+
+    if shape[1] * shape[2] <= 4096 and dtype == DataType.uint8:
+        return op
+
+    if op.type == Op.Mean and op.run_on_npu:
+        keep_dims = op.attrs.get("keep_dims", False)
+        inp, axis = op.inputs
+        ofm_shape = op.ofm.shape
+        dims = len(shape)
+        dims_ofm = len(ofm_shape)
+
+        # Height and width axes have different index depending on dimensions
+        if axis.shape == [] or axis.shape[0] == 1:  # single axis
+            axis = int(axis.values) if len(axis.shape) == 0 else int(axis.values[0])
+            if dims in (2, 3):
+                if axis == 0:
+                    h, w = shape[axis], 1
+                else:
+                    h, w = 1, shape[axis]
+            else:
+                if axis == 1:
+                    h, w = shape[axis], 1
+                else:
+                    h, w = 1, shape[axis]
+        else:  # multiple axes
+            axis = sorted(axis.values)
+            h, w = [shape[i] for i in axis]
+
+        # Set necessary depthwise attributes
+        op.attrs.update(
+            {
+                "padding": Padding.VALID,
+                "stride_h": 1,
+                "stride_w": 1,
+                "strides": (1, 1, 1, 1),
+                "depth_multiplier": 1,
+                "channel_multiplier": 1,
+                "dilation_h_factor": 1,
+                "dilation_w_factor": 1,
+                "dilation": (1, 1, 1, 1),
+            }
+        )
+        # Change op type
+        op.type = Op.DepthwiseConv2DBias
+        # Set IFM/OFM shapes after changing op type
+        op.set_ifm_ofm_shapes()
+
+        weight_scale, bias = 1, None
+        ofmq, ifmq = op.ofm.quantization, inp.quantization
+        # Set rounding mode, scaling and zero point based on which reference implementation to match
+        op.rounding_mode = NpuRoundingMode.NATURAL
+        weight_scale = 1 / (h * w)
+        # Input zero point is adjusted after mean calculation, so we emulate that with a bias
+        bias = -ifmq.zero_point * h * w
+        fiq = ifmq.clone()
+        fiq.zero_point = 0
+        op.forced_input_quantization = fiq
+
+        # Change dimensions to 4
+        def extend_dims(dim, in_shape):
+            if dim < 4:
+                in_shape = [1] + in_shape
+                if dim == 2:
+                    in_shape += [1]
+            return in_shape
+
+        if dims < 4 or dims_ofm < 4:
+            # Fix the ofm dimension when keep_dims is false
+            # e.g. IFM=1xHxWxC axis=2 OFM=1xHxC, the ofm_shape should be 1xHx1xC, not 1x1xHxC
+            if isinstance(axis, int) and dims_ofm + 1 == dims:
+                ofm_shape.insert(axis, 1)
+            elif isinstance(axis, list) and (dims_ofm + len(axis) == dims):
+                for i in axis:
+                    ofm_shape.insert(i, 1)
+            shape = extend_dims(dims, shape)
+            dims_ofm = len(ofm_shape)
+            ofm_shape = extend_dims(dims_ofm, ofm_shape)
+            op.set_ifm_ofm_shapes()
+
+        # If height is greater than max kernel height, reshape from HxW to 1x(HxW)
+        if (h > 64 and op.type == Op.DepthwiseConv2DBias):
+            shape = [shape[0], 1, h * w, shape[3]]
+            op.ifm_shapes[0] = Shape4D(shape)
+            if h > 256 and op.type == Op.AvgPool:
+                op.attrs.update({"ksize": (1, 1, h * w, 1), "filter_height": 1, "filter_width": h * w})
+
+
+        # Make unit weight tensor quantization
+        weight_quant = ifmq.clone()
+        weight_quant.min = 0
+        weight_quant.max = 255
+        weight_quant.scale_f32 = weight_scale
+        weight_quant.zero_point = 0
+
+        # Set weight shape to [H,W,C,B]
+        weight_shape = [h, w, shape[3], shape[0]]
+
+        # Add unit weight tensor
+        op.set_input_tensor(
+            create_const_tensor(
+                "weights",
+                weight_shape,
+                inp.dtype,
+                np.ones(weight_shape),
+                value_dtype=np.uint8,
+                quantization=weight_quant,
+            ),
+            1,
+        )
+        op.weights.values = np.reshape(op.inputs[1].values, weight_shape)
+
+        # Add None bias tensor
+        op.inputs.append(None)
+        # Add bias tensor
+        if bias:
+            bias_shape = [shape[-1]]
+            op.set_input_tensor(
+                create_const_tensor(
+                    "bias", bias_shape, inp.dtype, np.ones(bias_shape) * bias, value_dtype=np.int32, quantization=None,
+                ),
+                2,
+            )
+
+    return op
+
 
 # Convert ResizeBilinear to a number of 2x2 nearest neighbor upscaling and one avgpool op with kernel size dependent
 # on the upscaling factor. Avgpool kernel limit of 8x8 when padding is applied limits upscaling to 8x8.
@@ -1407,6 +1548,7 @@ def tflite_optimise_graph(nng, arch):
     # Rewrite of operators
     op_rewrite_list = [
         set_tensor_equivalence,
+        convert_mean_to_depthwise_conv_workaround,
         convert_mean_to_depthwise_conv_or_avgpool,
         convert_depthwise_to_conv,
         convert_conv_to_fc,
