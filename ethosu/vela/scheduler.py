@@ -1248,6 +1248,7 @@ class Scheduler:
                     staging_limit,
                     self.scratched_fms,
                     competing_tens_access,
+                    self.evicted_fms,
                 )
                 start = i
                 start_time = lr.start_time
@@ -1260,6 +1261,7 @@ class Scheduler:
             staging_limit,
             self.scratched_fms,
             competing_tens_access,
+            self.evicted_fms,
         )
 
     def move_constant_data(self):
@@ -1434,7 +1436,9 @@ class FastStorageComponentAllocator:
             base_mem_usage[t] += lr.size
             assert base_mem_usage[t] <= staging_limit
 
-    def allocate_component(self, allocator, lrs, max_mem, min_mem, staging_limit, scratched_fms, competing_tens_access):
+    def allocate_component(
+        self, allocator, lrs, max_mem, min_mem, staging_limit, scratched_fms, competing_tens_access, evicted_fms
+    ):
         sz = len(lrs)
         allocator.lrs = lrs
         allocator.evicted = [0] * len(lrs)
@@ -1453,8 +1457,12 @@ class FastStorageComponentAllocator:
         for i, e in enumerate(allocator.evicted):
             if e:
                 self.evict(lrs[i], max_mem, scratched_fms)
+                if lrs[i] not in evicted_fms:
+                    evicted_fms.append(lrs[i])
             else:
                 self.keep(lrs[i], min_mem, staging_limit)
+                if lrs[i] in evicted_fms:
+                    evicted_fms.remove(lrs[i])
 
 
 def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_options: SchedulerOptions):
