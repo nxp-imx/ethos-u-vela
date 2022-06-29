@@ -4,27 +4,27 @@
 
 import flatbuffers
 
-class SplitOptions(object):
+class UnsortedSegmentProdOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsSplitOptions(cls, buf, offset):
+    def GetRootAsUnsortedSegmentProdOptions(cls, buf, offset):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = SplitOptions()
+        x = UnsortedSegmentProdOptions()
         x.Init(buf, n + offset)
         return x
 
-    # SplitOptions
+    # UnsortedSegmentProdOptions
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # SplitOptions
-    def NumSplits(self):
+    # UnsortedSegmentProdOptions
+    def NumSegments(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def SplitOptionsStart(builder): builder.StartObject(1)
-def SplitOptionsAddNumSplits(builder, numSplits): builder.PrependInt32Slot(0, numSplits, 0)
-def SplitOptionsEnd(builder): return builder.EndObject()
+def UnsortedSegmentProdOptionsStart(builder): builder.StartObject(1)
+def UnsortedSegmentProdOptionsAddNumSegments(builder, numSegments): builder.PrependInt32Slot(0, numSegments, 0)
+def UnsortedSegmentProdOptionsEnd(builder): return builder.EndObject()

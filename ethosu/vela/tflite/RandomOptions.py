@@ -3,26 +3,16 @@
 # namespace: tflite
 
 import flatbuffers
-from flatbuffers.compat import import_numpy
-np = import_numpy()
 
 class RandomOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAs(cls, buf, offset=0):
+    def GetRootAsRandomOptions(cls, buf, offset):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = RandomOptions()
         x.Init(buf, n + offset)
         return x
-
-    @classmethod
-    def GetRootAsRandomOptions(cls, buf, offset=0):
-        """This method is deprecated. Please switch to GetRootAs."""
-        return cls.GetRootAs(buf, offset)
-    @classmethod
-    def RandomOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
     # RandomOptions
     def Init(self, buf, pos):
@@ -42,19 +32,7 @@ class RandomOptions(object):
             return self._tab.Get(flatbuffers.number_types.Int64Flags, o + self._tab.Pos)
         return 0
 
-def Start(builder): builder.StartObject(2)
-def RandomOptionsStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddSeed(builder, seed): builder.PrependInt64Slot(0, seed, 0)
-def RandomOptionsAddSeed(builder, seed):
-    """This method is deprecated. Please switch to AddSeed."""
-    return AddSeed(builder, seed)
-def AddSeed2(builder, seed2): builder.PrependInt64Slot(1, seed2, 0)
-def RandomOptionsAddSeed2(builder, seed2):
-    """This method is deprecated. Please switch to AddSeed2."""
-    return AddSeed2(builder, seed2)
-def End(builder): return builder.EndObject()
-def RandomOptionsEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def RandomOptionsStart(builder): builder.StartObject(2)
+def RandomOptionsAddSeed(builder, seed): builder.PrependInt64Slot(0, seed, 0)
+def RandomOptionsAddSeed2(builder, seed2): builder.PrependInt64Slot(1, seed2, 0)
+def RandomOptionsEnd(builder): return builder.EndObject()
