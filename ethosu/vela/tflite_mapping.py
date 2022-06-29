@@ -767,7 +767,7 @@ builtin_operator_map = {
     BuiltinOperator.SHAPE: (
         Op.Shape,
         OptionsSerializer("ShapeOptions", (("out_type", datatype_deserialize, datatype_serialize),)),
-        TFLITE_NO_INDICES,
+        TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.POW: (Op.Pow, OptionsSerializer("PowOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.ARG_MIN: (

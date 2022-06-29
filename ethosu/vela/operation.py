@@ -261,7 +261,7 @@ class Op(Enum):
     SegmentSum = OperatorInfo()
     Select = OperatorInfo()
     SelectV2 = OperatorInfo()
-    Shape = OperatorInfo()
+    Shape = OperatorInfo(indices=NNG_IFM_INDICES)
     Sigmoid = OperatorInfo(indices=NNG_IFM_INDICES)
     SignBit = OperatorInfo()
     Sin = OperatorInfo()

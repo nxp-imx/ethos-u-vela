@@ -250,13 +250,22 @@ def generate_supported_ops():
             "",
             f"### {network_type.name} Generic Constraints",
             "",
-            "This is a list of constraints that all NPU operators must satisfy in order to be scheduled on the NPU.",
-            "",
+            "This is a list of constraints most NPU operators must satisfy in order to be scheduled on the NPU.",
+            "(Operators excluded from certain constraints are shown in brackets [ ] )\n" "",
         ]
         for constraint in semantic_checker.generic_constraints:
             # Markdown needs two spaces at the end of a line to render it as a separate line
             reason = constraint.__doc__.replace("\n", "  \n")
-            lines.append(f"- {reason}")
+
+            exclude_list = TFLiteSemantic.get_generic_constraint_exclude_list().items()
+            constraints_excluded_names = [
+                op.name for op, exclude_constraint in exclude_list if constraint in exclude_constraint
+            ]
+            excluded_constraint_text = ""
+            if constraints_excluded_names:
+                excluded_constraint_text = f"- [{', '.join(constraints_excluded_names)}]"
+
+            lines.append(f"- {reason} {excluded_constraint_text}")
         for constraint in supported.generic_constraints:
             # Markdown needs two spaces at the end of a line to render it as a separate line
             reason = constraint.__doc__.replace("\n", "  \n")
