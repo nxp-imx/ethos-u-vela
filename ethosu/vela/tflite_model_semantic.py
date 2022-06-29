@@ -216,7 +216,12 @@ class TFLiteSemantic:
                 TFLiteSemantic.constraint_tens_quant_none_check,
                 TFLiteSemantic.constraint_tens_quant_scale,
                 TFLiteSemantic.constraint_quant_scale_inf,
-            ]
+            ],
+            Op.Quantize: [
+                TFLiteSemantic.constraint_tens_no_dynamic,
+                TFLiteSemantic.constraint_tens_output_scalar,
+                TFLiteSemantic.constraint_tens_input_scalar,
+            ],
         }
         return generic_constraints_exclude_list
 

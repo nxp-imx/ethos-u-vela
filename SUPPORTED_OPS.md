@@ -58,10 +58,10 @@ Please check the supported operator list for your chosen runtime for further inf
 This is a list of constraints most NPU operators must satisfy in order to be scheduled on the NPU.
 (Operators excluded from certain constraints are shown in brackets [ ] )
 
-- Input(s) and Output tensors must not be dynamic 
+- Input(s) and Output tensors must not be dynamic - [Quantize]
 - Input(s) and Output tensors must have a defined shape 
-- Output tensors cannot be scalar 
-- Scalar Input tensors are only valid for op type: ADD, EXPAND_DIMS, MAXIMUM, MEAN, MINIMUM, MUL, SPLIT, SPLIT_V, SUB 
+- Output tensors cannot be scalar - [Quantize]
+- Scalar Input tensors are only valid for op type: ADD, EXPAND_DIMS, MAXIMUM, MEAN, MINIMUM, MUL, SPLIT, SPLIT_V, SUB - [Quantize]
 - Input(s) and Output tensors must not be greater than 4D 
 - Input(s), Output and Weight tensors must have quantization parameters - [Shape]
 - Input(s), Output and Weight tensors with quantization scales must be finite - [Shape]
