@@ -44,6 +44,7 @@ from . import weight_compressor
 from .architecture_allocator import ArchitectureBlockConfig
 from .architecture_allocator import find_block_config
 from .architecture_allocator import get_ifm_area_required
+from .architecture_allocator import to_upscale
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .cascade_builder import CascadeBuilder
@@ -906,7 +907,8 @@ class Scheduler:
             striped_schedule.cost_map[sched_op] = cost
 
             # Calculate the preceeding Op's stripe
-            stripe = sched_op.ifm.shape.with_height(stripe.height * sched_op.kernel.stride.y)
+            height = stripe.height + stripe.height % to_upscale(sched_op.resampling_mode)
+            stripe = sched_op.ifm.shape.with_height(height * sched_op.kernel.stride.y)
 
         return striped_schedule
 

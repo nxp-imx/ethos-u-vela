@@ -185,13 +185,14 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                 if producer_op:
                     assert op_info.cascade != 0
                     assert op_info.cascade == schedule.cost_map[producer_op].cascade
-                    for prev_cmd in prev_cmd_gen:
-                        yield prev_cmd
-                        if prev_cmd.is_npu_pass_command() and prev_cmd.ps == producer_op.parent_ps:
-                            ifm_present.end_coord = prev_cmd.ofm_box.end_coord
-                            if ifm_required.is_subbox_of(ifm_present):
-                                # There is enough IFM data - exit loop
-                                break
+                    if not ifm_required.is_subbox_of(ifm_present):
+                        for prev_cmd in prev_cmd_gen:
+                            yield prev_cmd
+                            if prev_cmd.is_npu_pass_command() and prev_cmd.ps == producer_op.parent_ps:
+                                ifm_present.end_coord = prev_cmd.ofm_box.end_coord
+                                if ifm_required.is_subbox_of(ifm_present):
+                                    # There is enough IFM data - exit loop
+                                    break
 
                 # Information about the current stripe's location in the cascade
                 is_first_h_stripe = ofm_box_start.height == ofm_start.height
