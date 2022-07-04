@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -280,6 +280,12 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
             quantised_scales = [reduced_quantise_scale(scale) for scale in scales]
         else:
             quantised_scales = [quantise_scale(scale) for scale in scales]
+
+    # Check the output quantisation to see if the scale value needs increasing to the next one
+    if first_consumer_op.get_output_quantization().next_after:
+        for i, quant_scale in enumerate(quantised_scales):
+            q_scale, q_shift = quant_scale
+            quantised_scales[i] = (q_scale + 1, q_shift)
 
     # If only 1 quantised scale is used, repeat that value for the length of the biases
     if len(quantised_scales) == 1:

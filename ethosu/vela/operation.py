@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -474,7 +474,7 @@ class Operation:
 
     __slots__ = (
         "type",
-        "original_type",
+        "_original_type",
         "name",
         "op_index",
         "attrs",
@@ -501,12 +501,14 @@ class Operation:
         "write_offset",
         "write_shape",
         "ifm_resampling_mode",
+        "tile_base_offsets_ifm",
+        "tile_base_offsets_ofm",
         "ofm_stride_multiplier",
     )
 
     def __init__(self, op_type: Op, name: str):
         self.type = op_type
-        self.original_type = op_type
+        self._original_type = op_type  # the original type of the operation. once set this shouldn't be changed
         self.name = name
         self.attrs: Dict[str, Any] = {}
         self.inputs: List[Optional[Tensor]] = []
@@ -546,12 +548,19 @@ class Operation:
         # write_offset 0,9,0,0, write_shape 1,1,8,1
         self.write_shape: Optional[Shape4D] = None
         self.ifm_resampling_mode: resampling_mode = resampling_mode.NONE
+        # ifm (nhwc), ifm2 (nhwc)
+        self.tile_base_offsets_ifm: List[List[int]] = [[0, 0, 0, 0], [0, 0, 0, 0]]
+        # ofm (nhwc)
+        self.tile_base_offsets_ofm: List[int] = [0, 0, 0, 0]
         # For interleaved/sparse outputs - stride is multiplied with the stride factor of the corresponding axis
         # Order is [C, H, W] - default is no multiplication
         self.ofm_stride_multiplier: List[int] = [1, 1, 1]
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
+
+        # maintain the original type, in cases where the type was changed to something different
+        res._original_type = self._original_type
 
         res.attrs = dict(self.attrs)
         res.inputs = list(self.inputs)
@@ -567,11 +576,15 @@ class Operation:
         res.op_index = None  # not relevant as not part of input network
         res.read_offsets = list(self.read_offsets)
         res.read_shapes = list(self.read_shapes)
+        res.write_offset = Shape4D(*self.write_offset) if self.write_offset else None
+        res.write_shape = Shape4D(*self.write_shape) if self.write_shape else None
         res.rounding_mode = self.rounding_mode
         res.explicit_scaling = self.explicit_scaling
         res.low_precision_scaling = self.low_precision_scaling
         res.rescale = self.rescale
         res.ifm_resampling_mode = self.ifm_resampling_mode
+        res.tile_base_offsets_ifm = [_ifm.copy() for _ifm in self.tile_base_offsets_ifm]
+        res.tile_base_offsets_ofm = self.tile_base_offsets_ofm.copy()
         res.ofm_stride_multiplier = self.ofm_stride_multiplier.copy()
 
         return res
@@ -580,6 +593,10 @@ class Operation:
         return "<nng.Operation '{}' type={}>".format(self.name, self.type)
 
     __repr__ = __str__
+
+    @property
+    def original_type(self):
+        return self._original_type
 
     def get_kernel_size(self):
         weights = self.weights

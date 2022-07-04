@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -189,6 +189,7 @@ def create_padding(cmd: NpuStripe, primary_op: Operation, npu_op: NpuBlockOperat
             dtype=cmd.ifm_tensor.dtype,
         )
         top, left, bottom, right = 0, 0, 0, 0
+
     return NpuPadding(top=top, left=left, bottom=bottom, right=right)
 
 
@@ -297,6 +298,10 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
     """Checks if quantization should use 0 as zero point"""
     if tens.dtype == DataType.int32 and is_ifm_tensor:
         return True
+    # Force zero point to 0 for ResizeBilinear when converting to a DepthwiseConv since the reference kernel
+    # will ignore the zero point.
+    if ps.primary_op.original_type == Op.ResizeBilinear and ps.primary_op.type == Op.DepthwiseConv2DBias:
+        return True
     if ps.primary_op.type not in (Op.AvgPool, Op.CLZ, Op.SHL) and not ps.primary_op.type.is_resize_op():
         return False
     if ps.primary_op.type == Op.AvgPool and ps.primary_op.explicit_scaling:
@@ -352,6 +357,7 @@ def create_feature_map(
     box: Box,
     arch: ArchitectureFeatures,
     op_shape4D: Shape4D,
+    tile_base_offsets: List[int],
     stride_multiplier: Optional[List[int]] = None,
 ) -> NpuFeatureMap:
     """Creates feature map with common fields populated"""
@@ -380,6 +386,8 @@ def create_feature_map(
         box.start_coord, box.end_coord, strides, op_shape4D
     )
 
+    for idx, offset in enumerate(tile_base_offsets):
+        addresses[idx] += offset
     fm.tiles = NpuTileBox(
         height_0=height_0, height_1=height_1, width_0=width_0, addresses=[int(addr) for addr in addresses]
     )
@@ -475,12 +483,14 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     ifm_width = cmd.ps.ifm_shapes[0].width
     ifm_depth = get_ifm_depth(op.type.npu_block_type, cmd.ifm_box, cmd.ofm_box)
 
-    npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch, ps.ifm_shapes[0])
+    npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch, ps.ifm_shapes[0], op.tile_base_offsets_ifm[0])
     npu_op.ifm.shape = NpuShape3D(height=ifm_height, width=ifm_width, depth=ifm_depth)
     npu_op.ifm.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm_tensor)
 
     out_block = cmd.ofm_box.get_block()
-    npu_op.ofm = create_feature_map(cmd.ofm_tensor, cmd.ofm_box, arch, ps.ofm_shapes[0], op.ofm_stride_multiplier)
+    npu_op.ofm = create_feature_map(
+        cmd.ofm_tensor, cmd.ofm_box, arch, ps.ofm_shapes[0], op.tile_base_offsets_ofm, op.ofm_stride_multiplier
+    )
     npu_op.ofm.shape = NpuShape3D(height=out_block.height, width=out_block.width, depth=out_block.depth)
     npu_op.ofm.quantization = get_ofm_quantization(ps, cmd.ofm_tensor)
 
@@ -559,7 +569,13 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
             cmd.ifm_box, cmd.ifm2_box = cmd.ifm2_box, cmd.ifm_box
             ps.ifm_shapes[0], ps.ifm_shapes[1] = ps.ifm_shapes[1], ps.ifm_shapes[0]
             npu_op.reversed_operands = True
-        npu_op.ifm2 = create_feature_map(cmd.ifm2_tensor, cmd.ifm2_box, arch, ps.ifm_shapes[1])
+        npu_op.ifm2 = create_feature_map(
+            cmd.ifm2_tensor,
+            cmd.ifm2_box,
+            arch,
+            ps.ifm_shapes[1],
+            op.tile_base_offsets_ifm[1],
+        )
         npu_op.ifm2.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm2_tensor)
         if cmd.ifm2_tensor.shape == []:
             # scalar

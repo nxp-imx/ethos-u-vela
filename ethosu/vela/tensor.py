@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -213,6 +213,7 @@ class QuantizationParameters:
         "max",
         "num_bits",
         "narrow_range",
+        "next_after",
         "scale_f32",
         "zero_point",
         "quant_min",
@@ -233,6 +234,10 @@ class QuantizationParameters:
         self.num_bits = num_bits
         self.narrow_range = narrow_range
 
+        # Use the 'next after' float value of scale_f32 when converting to scale and shift. It can be combined with
+        # natural rounding to perform rounding away from zero. This only affects the ofm scale and bias tensor, it has
+        # no affect on global scaling i.e. the ofm_scale register
+        self.next_after = False
         self.scale_f32: Union[float, np.ndarray, None] = None
         self.zero_point: Union[int, np.ndarray, None] = None
         self.quant_min: Optional[float] = None
@@ -240,12 +245,9 @@ class QuantizationParameters:
         self.quant_dim: Optional[int] = None
 
     def __str__(self):
-        return "<nng.QuantizationParameters min=%s max=%s, num_bits=%s, scale=%s, zero_point=%s>" % (
-            self.min,
-            self.max,
-            self.num_bits,
-            self.scale_f32,
-            self.zero_point,
+        return (
+            f"<nng.QuantizationParameters min={self.min}, max={self.max}, num_bits={self.num_bits}, "
+            f"scale={self.scale_f32}, zero_point={self.zero_point}, next={self.next_after}>"
         )
 
     __repr__ = __str__
@@ -258,6 +260,7 @@ class QuantizationParameters:
         res.num_bits = self.num_bits
         res.narrow_range = self.narrow_range
 
+        res.next_after = self.next_after
         res.scale_f32 = self.scale_f32
         res.zero_point = self.zero_point
         res.quant_min = self.quant_min
