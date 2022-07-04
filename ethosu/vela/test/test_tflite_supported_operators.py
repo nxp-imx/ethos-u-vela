@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -383,11 +383,14 @@ def test_constraint_resize_attrs():
 
 def test_constraint_resize_half_pixel_centers():
     for resize_op in Op.op_set(Op.is_resize_op):
-        # Invalid case - half-pixel centers (not supported)
+        # Half-pixel centers is only supported for resize bilinear
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 8, 8, 8])
         op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
         op.attrs["half_pixel_centers"] = True
-        assert not support.is_operator_supported(op)
+        if resize_op == Op.ResizeBilinear:
+            assert support.is_operator_supported(op)
+        else:
+            assert not support.is_operator_supported(op)
 
 
 def test_constraint_concat_pass():

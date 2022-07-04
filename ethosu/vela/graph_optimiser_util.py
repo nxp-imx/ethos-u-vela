@@ -1,4 +1,4 @@
-# Copyright (C) 2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2021-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -110,6 +110,12 @@ def check_format_restrictions(tens, arch):
     # Shapes checking: check all producers/consumers are NHCWB16 compatible with tens.shape
     if _avoid_nhcwb16_for_shapes(tens):
         return
+
+    # Resize bilinear half pixel center implementation requires OFM with linear format to
+    # allow stride modification in H/W dimensions.
+    for op in tens.ops:
+        if op.original_type == Op.ResizeBilinear and op.type == Op.DepthwiseConv2DBias:
+            return
 
     for op in tens.consumer_list:
         if op.type == Op.ReduceSum and (
