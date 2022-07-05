@@ -1,4 +1,5 @@
 # Copyright (C) 2020 Arm Limited or its affiliates. All rights reserved.
+# Copyright 2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -61,7 +62,7 @@ mlw_module = Extension(
 
 setup(
     name="ethos-u-vela",
-    use_scm_version=True,
+    version="3.5.0",
     description="Neural network model compiler for Arm Ethos-U NPUs",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -94,11 +95,11 @@ setup(
     python_requires="~=3.7",
     install_requires=[
         "flatbuffers==1.12.0",
-        "numpy<=1.21.3",
+        "numpy>=1.16.6,<=1.22.0",
         "lxml>=4.5.1",
     ],
     entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
     ext_modules=[mlw_module],
     cmdclass={"build_ext": BuildExtension},  # type: ignore[dict-item]
-    setup_requires=["numpy<=1.21.3", "setuptools_scm"],
+    setup_requires=["numpy>=1.16.6,<=1.22.0", "setuptools_scm"],
 )
