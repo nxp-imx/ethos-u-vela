@@ -912,6 +912,66 @@ def convert_hardswish_to_lut(op, arch, nng):
         return convert_to_lut(op, values, "hardswish")
     return op
 
+def convert_prelu_to_mul_max(op, arch, nng):
+    # Converts P-Relu to Max(slope * IFM, identity * IFM)
+    if op.type != Op.Prelu:
+        return op
+
+    ifm, slope = op.inputs
+    _, ofm = op.get_ifm_ofm()
+
+    # Add multiplication with slope
+    mul_slope = Operation(Op.Mul, op.name + "_mul_slope")
+    mul_slope.add_input_tensor(ifm)
+
+    slope_tensor = slope.clone()
+    slope_shape = slope_tensor.shape
+    slope_tensor_shape = [1, slope_shape[0], slope_shape[1], slope_shape[2]]
+    slope_tensor.values = np.reshape(slope_tensor.values, slope_tensor_shape)
+    slope_tensor.set_all_shapes(slope_tensor_shape)
+
+    # Slope Const OP
+    const_op = Operation(Op.Const, op.name + "_slope_const")
+    const_op.set_output_tensor(slope_tensor)
+
+    mul_slope.add_input_tensor(slope_tensor)
+    fm_slope = ofm.clone(op.name + "_slope", set_unique=True)
+    mul_slope.set_output_tensor(fm_slope)
+    mul_slope.set_ifm_ofm_shapes()
+    DebugDatabase.add_optimised(op, mul_slope)
+
+    if check_quantized_tens_scaling_equal(ifm, ofm):
+        # No identity multiplication is needed
+        fm_id = ifm
+    else:
+        # Add multiplication with identity
+        mul_identity = Operation(Op.Mul, op.name + "_mul_identity")
+        mul_identity.add_input_tensor(ifm)
+        # Create const tensor containing identity as scalar
+        quantization = ifm.quantization.clone()
+        quantization.scale_f32 = np.float32(1)
+        quantization.zero_point = 0
+        identity_tens = create_const_tensor(
+            op.name + "_id_scalar", [], ifm.dtype, [1], np.uint8, quantization=quantization
+        )
+        mul_identity.add_input_tensor(identity_tens)
+        # Make sure that fm_id is allocated to a different address than fm_slope
+        fm_id = ofm.clone(op.name + "_id", set_unique=True)
+        mul_identity.set_output_tensor(fm_id)
+        mul_identity.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, mul_identity)
+
+    # Convert the Op to Max
+    op.type = Op.Maximum
+    op.name = op.name.replace("Prelu", "Maximum")
+    op.inputs = []
+    ifm.consumer_list.remove(op)
+    op.add_input_tensor(fm_slope)
+    op.add_input_tensor(fm_id)
+    op.set_ifm_ofm_shapes()
+
+    DebugDatabase.add_optimised(op, op)
+    return op
 
 def convert_lrelu_to_mul_max(op, arch):
     # Converts LeakyRelu to Max(alpha * IFM, identity * IFM)
@@ -1564,6 +1624,7 @@ def tflite_optimise_graph(nng, arch):
         fixup_bias_tensors,
         fixup_asymmetric_weights,
         convert_mul_max_to_abs_or_lrelu,
+        convert_prelu_to_mul_max,
         convert_lrelu,
         convert_tanh_sigmoid_to_lut,
         replace_pad_by_hw_pad,
