@@ -76,7 +76,7 @@ class TFLiteSemantic:
     )
     binary_elem_wise_main_ops = binary_elem_wise_min_max_ops | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
     elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
-    shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV, Op.Mean, Op.ExpandDims))
+    shapeless_input_ops = binary_elem_wise_main_ops | set((Op.Split, Op.SplitV, Op.Mean, Op.ExpandDims, Op.Quantize))
     reshape_ops = set(
         (
             Op.Reshape,
@@ -214,13 +214,10 @@ class TFLiteSemantic:
         generic_constraints_exclude_list = {
             Op.Shape: [
                 TFLiteSemantic.constraint_tens_quant_none_check,
-                TFLiteSemantic.constraint_tens_quant_scale,
-                TFLiteSemantic.constraint_quant_scale_inf,
             ],
             Op.Quantize: [
                 TFLiteSemantic.constraint_tens_no_dynamic,
                 TFLiteSemantic.constraint_tens_output_scalar,
-                TFLiteSemantic.constraint_tens_input_scalar,
             ],
         }
         return generic_constraints_exclude_list
@@ -314,7 +311,11 @@ class TFLiteSemantic:
         extra = []
         tensors = [tens for tens in op.get_ifm_ifm2_weights_ofm() if tens]
         for tens in tensors:
-            if (tens.quantization.scale_f32 is not None) and np.isinf(tens.quantization.scale_f32).any():
+            if (
+                tens.quantization
+                and tens.quantization.scale_f32 is not None
+                and np.isinf(tens.quantization.scale_f32).any()
+            ):
                 valid = False
                 extra.append(f"Tensor '{tens.name}' has quantization scale: {tens.quantization.scale_f32}")
         return valid, ", ".join(extra)
