@@ -292,7 +292,7 @@ class TFLiteSupportedOperators:
 
         # Pad specific checks:
         self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_pad_shape)
-        self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_padding_dimensions)
+        #self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_padding_dimensions)
         self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_pad_type)
 
         # Mean specific checks:
