@@ -1191,6 +1191,85 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
         op.set_ifm_ofm_shapes()
     return op
 
+# If the op pad channel and batch at the same time, we will split to two pad ops
+# one for channel and the other for batch, and then will convert pad to concat
+def split_pad_to_sub_pad(op, arch, nng):
+    if not op.type == Op.Pad or not op.run_on_npu:
+        return op
+
+    inp, pad_tensor = op.inputs
+    if len(pad_tensor.values) == 3 or sum(pad_tensor.values[-1, :]) == 0 or sum(pad_tensor.values[0, :]) == 0:
+        return op
+
+    pad_sub = op.clone("_sub")
+
+    dtype = op.outputs[0].dtype
+    out_shape = op.outputs[0].shape.copy()
+    out_shape[0] -= sum(pad_tensor.values[0])
+    pad_sub_out = Tensor(out_shape, dtype, f"{op.outputs[0].name}_sub")
+    pad_sub_out.quantization = op.outputs[0].quantization
+
+    pad_value = pad_tensor.values.copy()
+    pad_shape = list(pad_tensor.shape)
+    pad_dtype = pad_tensor.dtype
+    quantization = pad_tensor.quantization
+    pad_tensor2 = create_const_tensor(
+            f"{pad_tensor.name}_sub", pad_shape, pad_dtype, pad_value, np.int8, quantization=quantization)
+
+    pad_tensor.values[3] = [0, 0]
+    pad_tensor2.values[0] = [0, 0]
+
+    op.set_input_tensor(pad_sub_out, 0)
+    pad_sub.set_output_tensor(pad_sub_out)
+    pad_sub.set_input_tensor(pad_tensor2, 1)
+
+    op.set_ifm_ofm_shapes()
+    pad_sub.set_ifm_ofm_shapes()
+
+    return op
+
+# The pad tensor can only pad width and height, we use concat to replace
+def convert_pad_to_concat(op, arch, nng):
+    if not op.type == Op.Pad or not op.run_on_npu:
+        return op
+
+    inp, pad_tensor = op.inputs
+    if sum(pad_tensor.values[-1, :]) != 0:
+        axis = -1
+    elif sum(pad_tensor.values[0, :]) != 0:
+        axis = 0
+    else:
+        return op
+
+    outputs = op.outputs
+    dtype = op.ifm.dtype
+    quantization = inp.quantization
+    left_size, right_size = pad_tensor.values[axis, :]
+
+    input_tensors = [inp]
+    if left_size != 0:
+        shape = inp.shape.copy()
+        shape[axis] = left_size
+        pad_value = np.prod(shape) * [quantization.zero_point]
+        left_tens = create_const_tensor(
+                f"{op.name}_left", shape, dtype, pad_value, np.int8, quantization=quantization)
+        input_tensors.insert(0, left_tens)
+
+    if right_size !=0:
+        shape = inp.shape.copy()
+        shape[axis] = right_size
+        pad_value = np.prod(shape) * [quantization.zero_point]
+        right_tens = create_const_tensor(
+                f"{op.name}_right", shape, dtype, pad_value, np.int8, quantization=quantization)
+        input_tensors.append(right_tens)
+
+    op.type = Op.ConcatTFLite
+    op.name = f"{op.name}_concat"
+    op.attrs["axis"] = axis
+    op.inputs = input_tensors
+    op.set_ifm_ofm_shapes()
+
+    return op
 
 def convert_pad(op: Operation, arch, nng):
     """
@@ -1511,6 +1590,12 @@ def tflite_optimise_graph(nng, arch):
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
             nng, sg, arch, [], pre_process_list, rewrite_unsupported=False,
+        )
+
+    # Handle Pad ops
+    for idx, sg in enumerate(nng.subgraphs):
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
+            nng, sg, arch, [], [split_pad_to_sub_pad, convert_pad_to_concat], rewrite_unsupported=False,
         )
 
     # Handle Concat Ops
