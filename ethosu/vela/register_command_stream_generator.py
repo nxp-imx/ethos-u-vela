@@ -758,7 +758,6 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
                 shift = 0
             else:
                 ofm_scale, shift = scaling.elementwise_mul_scale(input_scale, input2_scale, output_scale)
-            emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)
         else:  # Add/Sub
             opa_scale: float
             opb_scale: float
@@ -809,13 +808,13 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
                         op_to_scale = scaling.OperandToScale.OPa
             emit.cmd1_with_offset(cmd1.NPU_SET_OPA_SCALE, opa_scale, opa_shift)
             emit.cmd1_with_offset(cmd1.NPU_SET_OPB_SCALE, opb_scale)
-            emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)
     elif npu_op.sub_op_type in (NpuElementWiseOp.LRELU, NpuElementWiseOp.ABS):
         output_scale = npu_op.ofm.quantization.scale_f32
         ofm_scale, shift = scaling.quantise_scale(output_scale)
-        emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)
     else:
-        emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, 1, 0)
+        ofm_scale = 1
+        shift = 0
+    emit.cmd1_with_offset(cmd1.NPU_SET_OFM_SCALE, ofm_scale, shift)
     return op_to_scale
 
 
