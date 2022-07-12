@@ -1,4 +1,5 @@
 # Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright 2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
