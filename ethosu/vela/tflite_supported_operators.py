@@ -75,7 +75,7 @@ class TFLiteSupportedOperators:
         set((Op.ReduceSum, Op.CLZ,)) | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
     )
 
-    relu_ops = set((Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Clip,))
+    relu_ops = set((Op.Relu, Op.Relu6, Op.ReluN1To1, Op.Clip, Op.Prelu))
     activation_ops = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.Softmax, Op.HardSwish))
     npu_post_ops = (
         # activation functions
