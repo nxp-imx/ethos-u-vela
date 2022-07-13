@@ -83,6 +83,7 @@ setup(
     ],
     keywords=["ethos-u", "vela compiler", "tflite", "npu"],
     packages=[
+        "ethosu",
         "ethosu.vela",
         "ethosu.vela.ethos_u55_regs",
         "ethosu.vela.tflite",
