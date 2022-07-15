@@ -21,6 +21,7 @@ NXP Files
 --------------------------------------------
 
 Sources:
+setup.py
 ethosu/vela/architecture_allocator.py
 ethosu/vela/tflite_graph_optimiser.py
 ethosu/vela/tflite_supported_operators.py
