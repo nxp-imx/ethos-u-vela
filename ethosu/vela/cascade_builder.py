@@ -16,6 +16,8 @@
 #
 # Description:
 # Groups Operators in a schedule together to form Cascades.
+from collections import namedtuple
+
 from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
@@ -98,6 +100,46 @@ class CascadeBuilder:
             and self.element_wise_cascading_conformity(sched_op)
         )
 
+    def _is_mergeable(self, sched_op) -> bool:
+        # Code based on merge_elementwise_op_ranges from live_range.py
+
+        if not sched_op.op_type.is_elementwise_op():
+            return False
+
+        elem_op = sched_op.parent_op
+
+        # Check if overwriting the inputs can be allowed
+        OpShapeTens = namedtuple("OpShapeTens", ["op_shape", "tens"])
+        outp = OpShapeTens(elem_op.ofm_shapes[0], elem_op.ofm)
+
+        # check output tensor only has one producer
+        if len(outp.tens.ops) != 1:
+            return False
+
+        inps = []
+        if elem_op.ifm is not None:
+            inps.append(OpShapeTens(elem_op.ifm_shapes[0], elem_op.ifm))
+        if elem_op.ifm2 is not None:
+            inps.append(OpShapeTens(elem_op.ifm_shapes[1], elem_op.ifm2))
+
+        # find an input tensor that can be overwritten by the output
+        for inp in inps:
+            if (
+                # check op input and output shapes allow overlapping
+                inp.op_shape == outp.op_shape
+                # check input tensor is valid
+                and inp.tens is not None
+                and inp.tens.shape != []
+                # check input and output tensors are compatible
+                and inp.tens.format == outp.tens.format
+                and inp.tens.dtype == outp.tens.dtype
+                # check input tensor only has one consumer
+                and len(inp.tens.consumer_list) == 1
+            ):
+                return True
+
+        return False
+
     def _estimate_sram_usage(self, sched_op, cost) -> int:
         """Estimate the SRAM required for the Op if all FeatureMaps are in SRAM"""
         ifm2_size = sched_op.ifm2_size_in_bytes()
@@ -114,6 +156,10 @@ class CascadeBuilder:
             ofm_size = (
                 cost.stripe.with_depth(round_up(cost.stripe.depth, 16)).elements() * sched_op.ofm.dtype.size_in_bytes()
             )
+
+        if self._is_mergeable(sched_op):
+            # ofm will use the ifm buffer to reduce SRAM usage, hence ofm_size = 0
+            ofm_size = 0
 
         return ifm_size + ifm2_size + ofm_size + self.non_local_mem_usage.get(sched_op, 0)
 
@@ -245,8 +291,52 @@ class CascadeBuilder:
                         # Both the existing cascade and current Op fits
                         break
 
-                    # Determine if current cascade is the best so far
-                    if cascade_size < best_cascade_size:
+                    """
+                    One of two conditions will update the best cascade:
+
+                    - cascade_size < best_cascade_size or
+                    - cascade_size < uncascaded_sram_usage
+
+                    The last condition is illustrated below, showing an example where it is
+                    better to choose a larger cascade_size (with more OPs) because it will
+                    use less total SRAM usage.
+
+                    For simplicity, all featuremaps have same size.
+
+                    Cascade OP1-OP2, OP3 is standalone
+
+                                ->  |OP1| -> roll buffer -> |OP2| -> FM -> |OP3| -> FM
+                               /
+                    |OP0| -> FM
+                               \
+                                ->  ....
+
+
+                    best_cascade_size    : FM + roll buffer + FM
+                    uncascaded_sram_usage: FM + FM + FM
+
+                    compared with:
+
+                    Cascade OP1-OP3
+
+                                ->  |OP1| -> roll buffer -> |OP2| -> roll buffer -> |OP3| -> FM
+                               /
+                    |OP0| -> FM
+                               \
+                                ->  ....
+
+
+                    cascade_size         : FM + roll buffer + roll buffer + FM
+
+
+                    So, for this use case the comparison will be
+
+                    (FM + roll buffer + roll buffer + FM) <  (FM + roll buffer + FM) or
+                    (FM + roll buffer + roll buffer + FM) <  (FM + FM + FM)
+
+                    hence, better to choose Cascade OP1-OP3 in this case.
+                    """
+                    if cascade_size < best_cascade_size or cascade_size < uncascaded_sram_usage:
                         best_cascade_size = cascade_ifm_size + cascade_buffers + op_full_ofm
                         ops_in_best_cascade = [op for op in ops_in_cascade]
 
