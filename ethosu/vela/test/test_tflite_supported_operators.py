@@ -306,30 +306,82 @@ def test_constraint_filter_product_height_range():
     assert not support.is_operator_supported(op)
 
 
-def test_constraint_resize():
+def test_constraint_bilinear_resize():
     # IFM W and H == 1
     op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 1, 1, 8], [1, 8, 8, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
     assert support.is_operator_supported(op)
+
     # IFM == OFM
     op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 8, 8, 8], [1, 8, 8, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
     assert support.is_operator_supported(op)
+
     # IFM x2 == OFM ; align_corners = False
     op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 8, 8, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
     assert support.is_operator_supported(op)
-    # IFM x2 -1 == OFM ; align_corners = True
+
+    # IFM x4 == OFM ; align_corners = False
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 16, 16, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [16, 16], np.int32))
+    assert support.is_operator_supported(op)
+
+    # IFM x8 == OFM ; align_corners = False
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 32, 32, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [32, 32], np.int32))
+    assert support.is_operator_supported(op)
+
+    # IFM -1 x2 == OFM -1 ; align_corners = True
     op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 7, 7, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [7, 7], np.int32))
     op.attrs["align_corners"] = True
     assert support.is_operator_supported(op)
-    # Invalid cases
-    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 20, 20, 8])
-    assert not support.is_operator_supported(op)
+
+    # IFM -1 x4 == OFM -1 ; align_corners = True
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 13, 13, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [13, 13], np.int32))
     op.attrs["align_corners"] = True
+    assert support.is_operator_supported(op)
+
+    # IFM -1 x8 == OFM -1 ; align_corners = True
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 25, 25, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [25, 25], np.int32))
+    op.attrs["align_corners"] = True
+    assert support.is_operator_supported(op)
+
+    # Invalid case - upscale size
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 17, 17, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [17, 17], np.int32))
+    assert not support.is_operator_supported(op)
+
+    # Invalid case - upscale size with align corners
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 15, 15, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [15, 15], np.int32))
+    op.attrs["align_corners"] = True
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_bilinear_resize_size():
+    # Invalid case - size != ofm size
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 8, 8, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [7, 7], np.int32))
     assert not support.is_operator_supported(op)
 
 
 def test_constraint_bilinear_resize_attrs():
-    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 1, 1, 8], [1, 8, 8, 8])
-    assert support.is_operator_supported(op)
+    # Invalid case - both align corners and half-pixel centers
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 8, 8, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
+    op.attrs["align_corners"] = True
+    op.attrs["half_pixel_centers"] = True
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_bilinear_resize_hpc():
+    # Invalid case - half-pixel centers (not supported)
+    op = testutil.create_op_with_quant_tensors(Op.ResizeBilinear, [1, 4, 4, 8], [1, 8, 8, 8])
+    op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
     op.attrs["half_pixel_centers"] = True
     assert not support.is_operator_supported(op)
 

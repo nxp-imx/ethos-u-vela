@@ -242,8 +242,10 @@ class TFLiteSupportedOperators:
 
         # Resizing specific checks:
         for op_type in TFLiteSupportedOperators.resizing_ops:
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_size)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_attrs)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_hpc)
 
         # Vector Product specific checks:
         for op_type in TFLiteSupportedOperators.fc_vector_products:
@@ -587,35 +589,72 @@ class TFLiteSupportedOperators:
         return True, "Op has padding=SAME"
 
     @staticmethod
-    def constraint_resize(op):
+    def constraint_bilinear_resize(op):
         """The width and height of the IFM and OFM must match one of the following criteria:
         IFM W and H must both be 1
         IFM must match OFM
-        OFM W and H must be equal and 2/4/8x IFM -1, if align_corners is True
-        OFM W and H must be equal and 2/4/8x IFM, if align_corners is False"""
+        OFM W and H must be equal and OFM W-1 and H-1 must be 2x/4x/8x IFM W-1 and H-1, if align_corners is True
+        OFM W and H must be equal and OFM W and H must be 2x/4x/8x IFM W and H, if align_corners is False"""
         # Easier to start with False condition as very few cases result in a supported resize
         valid = False
         ifm_shape = op.ifm.shape
+        ifm_shape_h = ifm_shape[1]
+        ifm_shape_w = ifm_shape[2]
         ofm_shape = op.ofm.shape
+        ofm_shape_h = ofm_shape[1]
+        ofm_shape_w = ofm_shape[2]
+
         align_corners = op.attrs.get("align_corners", False)
         if len(ifm_shape) == 4:
             # Valid if IFM W and H are both 1, or IFM and OFM shape are the same
-            if ((ifm_shape[1] == 1) and (ifm_shape[2] == 1)) or (ifm_shape == ofm_shape):
+            if ((ifm_shape_h == 1) and (ifm_shape_w == 1)) or (ifm_shape == ofm_shape):
                 valid = True
             else:
                 # Valid if OFM is 2/4/8x IFM (-1 for align corners)
-                w_upscale_factor = (ofm_shape[1] + 1) / ifm_shape[1] if align_corners else ofm_shape[1] / ifm_shape[1]
-                h_upscale_factor = (ofm_shape[2] + 1) / ifm_shape[2] if align_corners else ofm_shape[2] / ifm_shape[2]
+                if align_corners:
+                    h_upscale_factor = (ofm_shape_h - 1) / (ifm_shape_h - 1)
+                    w_upscale_factor = (ofm_shape_w - 1) / (ifm_shape_w - 1)
+                else:
+                    h_upscale_factor = ofm_shape_h / ifm_shape_h
+                    w_upscale_factor = ofm_shape_w / ifm_shape_w
 
-                valid = w_upscale_factor == h_upscale_factor and w_upscale_factor in [2, 4, 8]
+                # could use either height or width. save as int because it is more usable later in graph optimiser
+                op.attrs["upscale_factor"] = int(h_upscale_factor)
+                valid = h_upscale_factor == w_upscale_factor and h_upscale_factor in (2.0, 4.0, 8.0)
 
         return valid, f"Op has ifm_shape={ifm_shape}, ofm_shape={ofm_shape} and align_corners={align_corners}"
 
     @staticmethod
+    def constraint_bilinear_resize_size(op):
+        "The size tensor must match the output tensor shape"
+        valid = False
+        ofm_shape = op.ofm.shape
+        size_h, size_w = None, None
+        # check that the size tensor (the second input) exists, is not none, and has the correct values
+        if len(op.inputs) == 2 and op.inputs[1] is not None and len(op.inputs[1].values) == 2:
+            size_h, size_w = op.inputs[1].values
+            # check size and output size match
+            if size_h == ofm_shape[1] and size_w == ofm_shape[2]:
+                valid = True
+
+        return valid, f"Op has size={size_h}x{size_w} and ofm_shape={ofm_shape}."
+
+    @staticmethod
     def constraint_bilinear_resize_attrs(op):
+        "Both align_corners and half_pixel_centers can't be True"
+        valid = True
+        align_corners = op.attrs.get("align_corners", False)
+        half_pixel_centers = op.attrs.get("half_pixel_centers", False)
+
+        if align_corners and half_pixel_centers:
+            valid = False
+        return valid, "Op has both align_corners and half_pixel_centers set to True."
+
+    @staticmethod
+    def constraint_bilinear_resize_hpc(op):
         "half_pixel_centers are not supported"
         valid = True
-        if op.attrs.get("half_pixel_centers"):
+        if op.attrs.get("half_pixel_centers", False):
             valid = False
         return valid, f"Op has half_pixel_centers set to {not valid}."
 

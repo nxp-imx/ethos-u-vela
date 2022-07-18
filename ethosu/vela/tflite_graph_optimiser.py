@@ -303,26 +303,22 @@ def convert_resizebilinear_1x1_to_add(op):
 
 # Convert ResizeBilinear to a number of 2x2 nearest neighbor upscaling and one avgpool op with kernel size dependent
 # on the upscaling factor. Avgpool kernel limit of 8x8 when padding is applied limits upscaling to 8x8.
-def convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op):
+def convert_resizebilinear_to_upscale_and_average_pool(op):
     pre_op = op
     outputs = op.outputs
     dtype = op.ifm.dtype
     op.attrs.update({"strides": (1, 1, 1, 1), "ksize": (1, 1, 1, 1)})
-    if op.attrs["align_corners"]:
-        shape_modifier = 1
-        op.attrs["padding"] = Padding.VALID
-    else:
-        shape_modifier = 0
-        op.attrs["padding"] = Padding.SAME
+    op.attrs["padding"] = Padding.SAME  # doesn't really matter as the kernel is 1x1
     op.ifm_resampling_mode = resampling_mode.NEAREST
 
     upscaled_shape = np.array(op.ifm_shapes[0].get_hw_as_list())
-    out_shape = np.array(op.ofm_shapes[0].get_hw_as_list())
+
+    # Get upscale factor that was calculated in the supported operators check
+    upscale_factor = op.attrs["upscale_factor"]
 
     # Calculate how many times 2x2 upscaling needs to be performed
     # Force the result of round to be an integer. This is because the behaviour of rounding numpy.float64 values changed
     # between different versions of numpy. This consistency ensures that the kernel dimensions are kept integral
-    upscale_factor = int(round(out_shape[1] / upscaled_shape[1]))
     n = int(np.log2(upscale_factor))
 
     # Perform 2x2 upscaling n-1 times
@@ -333,7 +329,7 @@ def convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op):
             scaled_op.inputs[0] = pre_op.outputs[0]
 
         # Nearest neighbor 2x2 upscaling
-        upscaled_shape = upscaled_shape * 2 - shape_modifier
+        upscaled_shape = upscaled_shape * 2
         shape = op.ofm_shapes[0].as_list()
         shape[1:3] = upscaled_shape
         out_tens = Tensor(shape, dtype, f"{op.outputs[0].name}_{count}")
@@ -348,8 +344,11 @@ def convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op):
     if n > 1:
         scaled_op = op.clone(f"_{n-1}")
         scaled_op.inputs[0] = pre_op.outputs[0]
-    scaled_op.attrs["padding"] = Padding.EXPLICIT
-    scaled_op.attrs["explicit_padding"] = [0, 0, upscale_factor - 1, upscale_factor - 1]
+    if op.attrs["align_corners"]:
+        scaled_op.attrs["padding"] = Padding.VALID
+    else:
+        scaled_op.attrs["padding"] = Padding.EXPLICIT
+        scaled_op.attrs["explicit_padding"] = [0, 0, upscale_factor - 1, upscale_factor - 1]
     scaled_op.attrs.update({"ksize": (1, upscale_factor, upscale_factor, 1)})
     scaled_op.outputs = outputs
     scaled_op.outputs[0].ops = [scaled_op]
@@ -367,7 +366,7 @@ def fixup_resizebilinear(op, arch, nng):
         elif op.ifm_shapes[0].height == 1 and op.ifm_shapes[0].width == 1:
             convert_resizebilinear_1x1_to_add(op)
         else:
-            convert_resizebilinear_to_nearest_neighbor_upscaling_and_pool(op)
+            convert_resizebilinear_to_upscale_and_average_pool(op)
 
     return op
 
