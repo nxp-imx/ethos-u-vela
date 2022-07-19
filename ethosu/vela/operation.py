@@ -241,7 +241,6 @@ class Op(Enum):
     Rank = OperatorInfo()
     ReduceSum = OperatorInfo(block_type=NpuBlockType.ReduceSum, indices=NNG_IFM_INDICES)
     Relu = OperatorInfo(indices=NNG_IFM_INDICES)
-    Relu0To1 = OperatorInfo(indices=NNG_IFM_INDICES)
     Relu6 = OperatorInfo(indices=NNG_IFM_INDICES)
     ReluN1To1 = OperatorInfo(indices=NNG_IFM_INDICES)
     ReluN = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
@@ -320,7 +319,6 @@ class Op(Enum):
     Multinomial = OperatorInfo()
     Gelu = OperatorInfo()
     DynamicUpdateSlice = OperatorInfo()
-    UnsortedSegmentProd = OperatorInfo()
 
     @property
     def info(self):
