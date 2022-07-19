@@ -289,11 +289,13 @@ def create_linear_live_range_graph(sg, target_mem_area, target_mem_type_set, lr_
 def _extract_live_ranges_from_schedule(sg, target_mem_area, target_mem_type_set, lr_graph):
     time_for_cascade = {}
     for sched_op in sg.sched_ops:
-        merge_elementwise_op_ranges(sg, sched_op, lr_graph, target_mem_area, target_mem_type_set)
-
         op_info = sg.schedule.cost_map[sched_op]
         cascade = op_info.cascade
         cascade_info = sg.schedule.cascades.get(cascade, None)
+
+        if cascade_info is None:
+            # Op is not part of a cascade, check if the ifm can be overwritten by the ofm
+            merge_elementwise_op_ranges(sg, sched_op, lr_graph, target_mem_area, target_mem_type_set)
 
         time_to_set = time_for_cascade.get(cascade, lr_graph.current_time)
 
