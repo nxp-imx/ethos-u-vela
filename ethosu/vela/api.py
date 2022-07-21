@@ -374,7 +374,7 @@ class NpuPoolingOperation(NpuBlockOperation):
     def __init__(self, pooling_op_type: NpuPoolingOp):
         super().__init__(NpuOperationType.Pooling)
         self.sub_op_type: NpuPoolingOp = pooling_op_type
-        # Set to a float value for ResizeBilinear operations (affects scaling), else to None
+        # Set to a float value for ResizeBilinear/NearestNeighbor operations (affects scaling), else to None
         self.rescale: Optional[float] = None
 
 

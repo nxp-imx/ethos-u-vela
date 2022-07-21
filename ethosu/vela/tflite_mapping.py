@@ -799,7 +799,7 @@ builtin_operator_map = {
     BuiltinOperator.RESIZE_NEAREST_NEIGHBOR: (
         Op.ResizeNearestNeighbor,
         OptionsSerializer("ResizeNearestNeighborOptions", ("align_corners", "half_pixel_centers")),
-        TFLITE_NO_INDICES,
+        TFLITE_IFM_INDICES,
     ),
     BuiltinOperator.LEAKY_RELU: (Op.LeakyRelu, OptionsSerializer("LeakyReluOptions", ("alpha",)), TFLITE_IFM_INDICES),
     BuiltinOperator.SQUARED_DIFFERENCE: (

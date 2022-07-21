@@ -61,10 +61,9 @@ mac_main_ops = set(
         Op.AvgPool,
         Op.MaxPool,
         Op.ReduceSum,
-        # deconvolution
-        Op.ResizeBilinear,
     )
-)
+    # resize ops use pooling operations unless explicitly converted to other operations prior to pass packing
+) | Op.op_set(Op.is_resize_op)
 
 binary_elem_wise_main_ops = Op.op_set(Op.is_binary_elementwise_op)
 

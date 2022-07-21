@@ -85,7 +85,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
     upscaling = 1
     if sched_op.op_type == Op.Conv2DBackpropInputSwitchedBias:
         upscaling = ofm_shape.height // ifm.shape.height
-    elif sched_op.op_type == Op.ResizeBilinear:
+    elif sched_op.op_type.is_resize_op():
         upscaling = round_up_divide(ofm_shape.height, ifm.shape.height)
 
     # Get kernel height and height dilation

@@ -129,7 +129,7 @@ def ifm_ifm2_correct_order(ifm_shape: List[int], ifm2_shape: List[int]) -> bool:
 def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
     """Specifies type of rounding to be used"""
     rounding_mode = NpuRoundingMode.TFL
-    if op.type == Op.ResizeBilinear:
+    if op.type.is_resize_op():
         rounding_mode = NpuRoundingMode.NATURAL
     elif (
         op.type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)
@@ -201,17 +201,6 @@ def get_mem_limits_for_regions(arch: ArchitectureFeatures) -> Dict[int, int]:
     return mem_limits
 
 
-def get_upscale(op: Operation) -> NpuResamplingMode:
-    upscale = NpuResamplingMode.NONE
-    if op.type == Op.ResizeBilinear:
-        # perform nearest neighbor upscale
-        upscale = NpuResamplingMode.NEAREST
-    elif op.type == Op.Conv2DBackpropInputSwitchedBias:
-        # perform insert zero upscale
-        upscale = NpuResamplingMode.TRANSPOSE
-    return upscale
-
-
 def get_ifm_depth(npu_block_type: NpuBlockType, ifm_box: Box, ofm_box: Box) -> int:
     if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
         block = ifm_box.get_block()
@@ -224,7 +213,7 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
     """Checks if quantization should use 0 as zero point"""
     if tens.dtype == DataType.int32 and is_ifm_tensor:
         return True
-    if ps.primary_op.type not in (Op.AvgPool, Op.ResizeBilinear, Op.CLZ, Op.SHL):
+    if ps.primary_op.type not in (Op.AvgPool, Op.CLZ, Op.SHL) and not ps.primary_op.type.is_resize_op():
         return False
     if ps.primary_op.type == Op.AvgPool and ps.primary_op.explicit_scaling:
         return False
@@ -435,10 +424,9 @@ def create_npu_pool_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> NpuPooling
     """Converts the command to NpuPoolingOperation"""
     ps = cmd.ps
     op = ps.primary_op
-    pool_op = NpuPoolingOp.AVERAGE
     if op.type.is_maxpool_op():
         pool_op = NpuPoolingOp.MAX
-    elif op.type.is_avgpool_op() or op.type == Op.ResizeBilinear:
+    elif op.type.is_avgpool_op() or op.type.is_resize_op():
         pool_op = NpuPoolingOp.AVERAGE
     elif op.type == Op.ReduceSum:
         pool_op = NpuPoolingOp.REDUCE_SUM
@@ -485,18 +473,18 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
     set_common_op_fields(npu_op, cmd, arch)
     # Check if output scale needs to be overridden
     output_scale = None
-    if op.type == Op.Add and "resizebilinear" in op.attrs:
+    if op.type == Op.Add and op.original_type.is_resize_op():
         # Force output scale same as the input scale for
-        # resizebilinear 1x1 that is converted to add
+        # resizebilinear/nearestneighbor 1x1 that is converted to add
         output_scale = npu_op.ifm2.quantization.scale_f32
-    if op.type == Op.Abs:
+    elif op.type == Op.Abs:
         output_scale = npu_op.ifm.quantization.scale_f32 / npu_op.ofm.quantization.scale_f32
-    if op.type == Op.LeakyRelu:
+    elif op.type == Op.LeakyRelu:
         output_scale = op.attrs["alpha"]
-    if op.type in (Op.RescaleAdd, Op.RescaleMul):
+    elif op.type in (Op.RescaleAdd, Op.RescaleMul):
         assert op.rescale is not None, f"{op.type} must have rescale"
         npu_op.rescale = op.rescale
-    if op.type in (Op.Add, Op.Mul, Op.Sub):
+    elif op.type in (Op.Add, Op.Mul, Op.Sub):
         if op.activation is not None and op.activation.op_type in (Op.Sigmoid, Op.Tanh):
             output_scale = 1 / 0x3000
     if output_scale is not None:

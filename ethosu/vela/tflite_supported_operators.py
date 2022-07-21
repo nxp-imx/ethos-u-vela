@@ -58,7 +58,7 @@ class TFLiteSupportedOperators:
     max_pooling_ops = Op.op_set(Op.is_maxpool_op)
     avg_pooling_ops = Op.op_set(Op.is_avgpool_op)
     pooling_ops = set((Op.ReduceSum,)) | max_pooling_ops | avg_pooling_ops
-    resizing_ops = set((Op.ResizeBilinear,))
+    resizing_ops = Op.op_set(Op.is_resize_op)
     fc_vector_products = set(
         (
             Op.QuantizedMatMul,
@@ -242,10 +242,10 @@ class TFLiteSupportedOperators:
 
         # Resizing specific checks:
         for op_type in TFLiteSupportedOperators.resizing_ops:
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize)
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_size)
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_attrs)
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bilinear_resize_hpc)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize_size)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize_attrs)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize_half_pixel_centers)
 
         # Vector Product specific checks:
         for op_type in TFLiteSupportedOperators.fc_vector_products:
@@ -589,7 +589,7 @@ class TFLiteSupportedOperators:
         return True, "Op has padding=SAME"
 
     @staticmethod
-    def constraint_bilinear_resize(op):
+    def constraint_resize(op):
         """The width and height of the IFM and OFM must match one of the following criteria:
         IFM W and H must both be 1
         IFM must match OFM
@@ -625,7 +625,7 @@ class TFLiteSupportedOperators:
         return valid, f"Op has ifm_shape={ifm_shape}, ofm_shape={ofm_shape} and align_corners={align_corners}"
 
     @staticmethod
-    def constraint_bilinear_resize_size(op):
+    def constraint_resize_size(op):
         "The size tensor must match the output tensor shape"
         valid = False
         ofm_shape = op.ofm.shape
@@ -640,7 +640,7 @@ class TFLiteSupportedOperators:
         return valid, f"Op has size={size_h}x{size_w} and ofm_shape={ofm_shape}."
 
     @staticmethod
-    def constraint_bilinear_resize_attrs(op):
+    def constraint_resize_attrs(op):
         "Both align_corners and half_pixel_centers can't be True"
         valid = True
         align_corners = op.attrs.get("align_corners", False)
@@ -651,7 +651,7 @@ class TFLiteSupportedOperators:
         return valid, "Op has both align_corners and half_pixel_centers set to True."
 
     @staticmethod
-    def constraint_bilinear_resize_hpc(op):
+    def constraint_resize_half_pixel_centers(op):
         "half_pixel_centers are not supported"
         valid = True
         if op.attrs.get("half_pixel_centers", False):

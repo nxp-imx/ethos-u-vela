@@ -248,8 +248,9 @@ class Op(Enum):
     RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     RescaleMul = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     Reshape = OperatorInfo(indices=NNG_IFM_INDICES)
+    # resize ops map to pooling operations unless explicitly converted to other operations in the graph optimiser
     ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
-    ResizeNearestNeighbor = OperatorInfo()
+    ResizeNearestNeighbor = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
     ReverseSequence = OperatorInfo()
     ReverseV2 = OperatorInfo()
     Rnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
@@ -364,6 +365,9 @@ class Op(Enum):
     def is_concat_op(self):
         return self in (Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack)
 
+    def is_resize_op(self):
+        return self in (Op.ResizeBilinear, Op.ResizeNearestNeighbor)
+
     def needs_bias(self):
         return bool(self.info.indices.biases)
 
@@ -467,6 +471,7 @@ class Operation:
 
     __slots__ = (
         "type",
+        "original_type",
         "name",
         "op_index",
         "attrs",
@@ -497,6 +502,7 @@ class Operation:
 
     def __init__(self, op_type: Op, name: str):
         self.type = op_type
+        self.original_type = op_type
         self.name = name
         self.attrs: Dict[str, Any] = {}
         self.inputs: List[Optional[Tensor]] = []
