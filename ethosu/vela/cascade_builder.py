@@ -92,6 +92,8 @@ class CascadeBuilder:
         return (
             sched_op.op_type.npu_block_type not in non_cascadable_blocks
             and cost.stripe.height < sched_op.ofm.shape.height
+            and sched_op.parent_op.read_offsets[0] is None
+            and sched_op.parent_op.read_offsets[1] is None
         )
 
     def _estimate_sram_usage(self, sched_op, cost) -> int:
