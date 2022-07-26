@@ -299,6 +299,117 @@ def convert_resizebilinear_1x1_to_add(op):
 
     return op
 
+# Convert mean to several mean via split,  + concat + mean ensure kernel size is meet constraints
+def split_mean_to_sub_mean(op, arch, nng):
+    """
+    There are some input shape constraints for mean operation, to change it below graph
+    ensure mean operation be offloaded in ethosu.
+
+                    ---mean---
+    Input---split---|         |---concat---mean---output
+                    ---mean---
+
+    """
+    if not op.type == Op.Mean:
+        return op
+
+    outputs = op.outputs
+    dtype = op.ifm.dtype
+    inp, in_axis = op.inputs
+    shape = inp.shape
+    keep_dim = op.attrs["keep_dims"]
+    axis = 1
+    ofmq, ifmq = op.ofm.quantization, inp.quantization
+
+    # Don't need to split, NPU can process for H * W <= 4096
+    if shape[1] * shape[2] <= 4096:
+        return op
+
+    if shape[1] < shape[2]:
+       axis = 2
+
+    split_op = Operation(Op.Split, f"{op.name}_new_split")
+    split_op.attrs["num_splits"] = 2
+    split_op.attrs["axis"] = axis
+
+    mean_sub1 = op.clone("_sub_1")
+
+    mean_sub2 = op.clone("_sub_2")
+
+    concat_op = Operation(Op.ConcatTFLite, f"{op.name}_concat")
+    concat_op.attrs["axis"] = axis
+
+    mean_op = op.clone("_sub_3")
+
+    split_shape = shape.copy()
+    split_shape[axis] = int(shape[axis]/2)
+
+    mean_shape = shape.copy()
+    mean_shape[axis] = 1
+
+    concat_shape = shape.copy()
+    concat_shape[axis] = 2
+
+    quantization = QuantizationParameters()
+    quantization.scale_f32 = inp.quantization.scale_f32
+    quantization.zero_point = inp.quantization.zero_point
+
+    quantization2 = QuantizationParameters()
+    quantization2.scale_f32 = outputs[0].quantization.scale_f32
+    quantization2.zero_point = outputs[0].quantization.zero_point
+
+    split_out1 = Tensor(split_shape, dtype, f"{op.outputs[0].name}_1")
+    split_out1.quantization = quantization
+
+    split_out2 = Tensor(split_shape, dtype, f"{op.outputs[0].name}_2")
+    split_out2.quantization = quantization
+
+    mean_sub1_out = Tensor(mean_shape, dtype, f"{op.outputs[0].name}_3")
+    mean_sub1_out.quantization = quantization
+
+    mean_sub2_out = Tensor(mean_shape, dtype, f"{op.outputs[0].name}_4")
+    mean_sub2_out.quantization = quantization
+
+    concat_out = Tensor(concat_shape, dtype, f"{op.outputs[0].name}_5")
+    concat_out.quantization = quantization
+
+    axis_op = Operation(Op.Const, f"{op.name}_axis")
+
+    no_scale_quant = QuantizationParameters(0.0, 255.0)
+    no_scale_quant.scale_f32 = 1.0
+    no_scale_quant.zero_point = 0
+
+    axis_tens = create_const_tensor("one_const", [1], DataType.int32, [axis], np.int32, quantization=no_scale_quant)
+    axis_op.set_output_tensor(axis_tens)
+
+    split_op.add_input_tensor(axis_tens)
+    split_op.add_input_tensor(inp)
+    split_op.outputs = [split_out1, split_out2]
+
+    split_out1.ops = [split_op]
+    split_out2.ops = [split_op]
+    split_op.set_ifm_ofm_shapes()
+
+    mean_sub1.set_input_tensor(split_op.outputs[0], 0)
+    mean_sub1.set_output_tensor(mean_sub1_out)
+    mean_sub1.set_ifm_ofm_shapes()
+
+    mean_sub2.set_input_tensor(split_op.outputs[1], 0)
+    mean_sub2.set_output_tensor(mean_sub2_out)
+    mean_sub2.set_ifm_ofm_shapes()
+
+    concat_op.add_input_tensor(mean_sub1.outputs[0])
+    concat_op.add_input_tensor(mean_sub2.outputs[0])
+    concat_op.set_output_tensor(concat_out)
+    concat_op.set_ifm_ofm_shapes()
+
+    mean_op.set_input_tensor(concat_op.outputs[0], 0)
+    mean_op.outputs = outputs
+    mean_op.outputs[0].ops = [mean_op]
+    mean_op.set_ifm_ofm_shapes()
+
+    return op
+
 def convert_mean_to_depthwise_conv_workaround(op, arch, nng):
     '''
     Applied when shape[1] * shape[2] > 256 && DataType is int8,
@@ -1651,6 +1762,12 @@ def tflite_optimise_graph(nng, arch):
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
             nng, sg, arch, [], pre_process_list, rewrite_unsupported=False,
+        )
+
+    # Handle Mean ops
+    for idx, sg in enumerate(nng.subgraphs):
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
+            nng, sg, arch, [], [split_mean_to_sub_mean, split_mean_to_sub_mean], rewrite_unsupported=False,
         )
 
     # Handle Pad ops
