@@ -1,4 +1,5 @@
 # Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright 2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -142,6 +143,8 @@ class TFLiteSubgraph:
             if inputs[-1] and inputs[-1].values is not None:
                 # Since bias tensor is used for both bias and scale,
                 # a clone with a unique equivalence_id is needed
+                if op.type == Op.FullyConnected and len(inputs[-1].shape) > 1:
+                    inputs[-1].values = inputs[-1].values.reshape((np.prod(inputs[-1].shape,)))
                 inputs[-1] = clone_and_reshape_tensor(inputs[-1], (0,), True)
 
         if opt_serializer is not None:
