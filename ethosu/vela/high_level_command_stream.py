@@ -52,14 +52,14 @@ class Box:
         new_start_coord = np.subtract(new_start_coord, concat_offsets)
         new_end_coord = np.subtract(new_end_coord, concat_offsets)
 
-        if split_offset is not None and not split_offset.is_empty:
+        if split_offset is not None and not split_offset.is_empty():
             for idx in range(len(split_offset)):
                 new_start_coord[idx] += split_offset[idx]
                 new_end_coord[idx] += split_offset[idx]
 
         if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
             # these types of operations do a "dot product" or sum over the entire IFM
-            if split_offset is None or split_offset.is_empty:
+            if split_offset is None or split_offset.is_empty():
                 new_start_coord[-1] = 0
                 new_end_coord[-1] = ifm_shape.depth
             else:
