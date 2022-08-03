@@ -25,6 +25,7 @@ setup.py
 ethosu/vela/architecture_allocator.py
 ethosu/vela/tflite_graph_optimiser.py
 ethosu/vela/tflite_supported_operators.py
+ethosu/vela/high_level_command_stream.py
 ethosu/vela/vela.py
 ethosu/vela/tflite_reader.py
 
