@@ -1,4 +1,5 @@
 # Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright 2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -65,14 +66,14 @@ class Box:
         new_start_coord = np.subtract(new_start_coord, concat_offsets)
         new_end_coord = np.subtract(new_end_coord, concat_offsets)
 
-        if split_offset is not None:
+        if split_offset is not None and not split_offset.is_empty():
             for idx in range(len(split_offset)):
                 new_start_coord[idx] += split_offset[idx]
                 new_end_coord[idx] += split_offset[idx]
 
         if npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.VectorProduct, NpuBlockType.ReduceSum):
             # these types of operations do a "dot product" or sum over the entire IFM
-            if split_offset is None:
+            if split_offset is None or split_offset.is_empty():
                 new_start_coord[-1] = 0
                 new_end_coord[-1] = ifm_shape.depth
             else:
@@ -94,7 +95,7 @@ class Box:
                 stride = strides[2]
                 # if the current op was combined with a split slice read then the valid ifm range is given by the output
                 # of the split op (which is defined by the read offset and the read shape)
-                if split_offset is None:
+                if split_offset is None or split_offset.is_empty():
                     new_start_coord[-2] = max(new_start_coord[-2] * stride - skirt[1], 0)
                     new_end_coord[-2] = min(new_end_coord[-2] * stride + skirt[3], ifm_shape.width)
                 else:
