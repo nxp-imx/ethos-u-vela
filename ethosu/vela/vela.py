@@ -302,7 +302,7 @@ class Imx93ArchitectureFeatures(architecture_features.ArchitectureFeatures):
         self.memory_latency[MemArea.Dram][BandwidthDirection.Write] = 250
 
 def convert(input_model_name):
-    sys.setrecursionlimit(1000)
+    sys.setrecursionlimit(2000)
 
     if not os.path.exists(input_model_name):
         raise InputFileError(input_model_name, "No such file")
@@ -345,7 +345,7 @@ def convert(input_model_name):
 
     return output_tfl_filename
 
-def main_arm(args=None):
+def main(args=None):
     try:
         if args is None:
             args = sys.argv[1:]
@@ -411,7 +411,7 @@ def main_arm(args=None):
         parser.add_argument(
             "--accelerator-config",
             type=str,
-            default="ethos-u55-256",
+            default="ethos-u65-256",
             choices=list(architecture_features.Accelerator.member_list()),
             help="Accelerator configuration to use (default: %(default)s)",
         )
@@ -463,9 +463,10 @@ def main_arm(args=None):
         parser.add_argument(
             "--arena-cache-size",
             type=int,
+            default=384 * 1024,
             help=(
                 "Set the size of the arena cache memory area, in bytes. If specified, this option overrides the memory"
-                " mode attribute with the same name in a Vela configuration file"
+                " mode attribute with the same name in a Vela configuration file (default: %(default)s)"
             ),
         )
         parser.add_argument(
@@ -480,7 +481,7 @@ def main_arm(args=None):
         parser.add_argument(
             "--recursion-limit",
             type=int,
-            default=1000,
+            default=2000,
             help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
         )
         args = parser.parse_args(args=args)
@@ -504,13 +505,6 @@ def main_arm(args=None):
                 "Invalid argument to --cpu-tensor-alignment = {} (must be greater than or equal to 16 and a power of 2)"
                 "".format(args.cpu_tensor_alignment)
             )
-
-        if args.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
-            print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
-
-        if args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
-            print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
-
         if args.verbose_all:
             for v in vars(args):
                 if v.startswith("verbose") and v != "verbose_all":
@@ -518,16 +512,34 @@ def main_arm(args=None):
 
         sys.setrecursionlimit(args.recursion_limit)
 
-        arch = architecture_features.ArchitectureFeatures(
-            vela_config_files=args.config,
-            system_config=args.system_config,
-            memory_mode=args.memory_mode,
-            accelerator_config=args.accelerator_config,
-            max_blockdep=args.max_block_dependency,
-            verbose_config=args.verbose_config,
-            arena_cache_size=args.arena_cache_size,
-        )
+        # Use Imx93 Architecture by default(args.config is None)
+        if args.config is None and args.system_config == args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
+             arch = Imx93ArchitectureFeatures(
+                vela_config_files=args.config,
+                system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+                memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+                accelerator_config=args.accelerator_config,
+                max_blockdep=args.max_block_dependency,
+                verbose_config=args.verbose_config,
+                arena_cache_size=args.arena_cache_size,
+            )
 
+        else:
+            if args.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
+                print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
+
+            if args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
+                print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
+
+            arch = architecture_features.ArchitectureFeatures(
+                vela_config_files=args.config,
+                system_config=args.system_config,
+                memory_mode=args.memory_mode,
+                accelerator_config=args.accelerator_config,
+                max_blockdep=args.max_block_dependency,
+                verbose_config=args.verbose_config,
+                arena_cache_size=args.arena_cache_size,
+            )
         compiler_options = compiler_driver.CompilerOptions(
             verbose_graph=args.verbose_graph,
             verbose_quantization=args.verbose_quantization,
@@ -566,134 +578,3 @@ def main_arm(args=None):
         print(e.data)
         return 1
 
-def main(args=None):
-    try:
-        if args is None:
-            args = sys.argv[1:]
-
-        parser = argparse.ArgumentParser(prog="vela", description="Neural network model compiler for Arm Ethos-U NPUs")
-        parser.add_argument("--version", action="version", version=__version__)
-        parser.add_argument(
-            "--api-version", action="version", version=API_VERSION, help="Displays the version of the external API."
-        )
-        parser.add_argument(
-            "--supported-ops-report",
-            action="store_true",
-            help="Generate the SUPPORTED_OPS.md file in the current working directory and exit",
-        )
-
-        # set network nargs to be optional to allow the support-ops-report CLI option to be used standalone
-        parser.add_argument(
-            "network",
-            metavar="NETWORK",
-            type=str,
-            default=None,
-            nargs="?",
-            help="Filename of the input TensorFlow Lite for Microcontrollers network",
-        )
-        parser.add_argument(
-            "--output-dir", type=str, default="output", help="Output directory to write files to (default: %(default)s)"
-        )
-        parser.add_argument(
-            "--enable-debug-db",
-            action="store_true",
-            default=None,
-            help="Enables the calculation and writing of a network debug database to output directory",
-        )
-        parser.add_argument("--verbose-all", action="store_true", help="Enable all verbose options")
-        parser.add_argument(
-            "--verbose-config", action="store_true", help="Verbose system configuration and memory mode"
-        )
-        parser.add_argument("--verbose-graph", action="store_true", help="Verbose graph rewriter")
-        parser.add_argument("--verbose-quantization", action="store_true", help="Verbose quantization")
-        parser.add_argument("--verbose-packing", action="store_true", help="Verbose pass packing")
-        parser.add_argument("--verbose-tensor-purpose", action="store_true", help="Verbose tensor purpose")
-        parser.add_argument("--verbose-tensor-format", action="store_true", help="Verbose tensor format")
-        parser.add_argument("--verbose-schedule", action="store_true", help="Verbose schedule")
-        parser.add_argument("--verbose-allocation", action="store_true", help="Verbose tensor allocation")
-        parser.add_argument(
-            "--verbose-high-level-command-stream", action="store_true", help="Verbose high level command stream"
-        )
-        parser.add_argument(
-            "--verbose-register-command-stream", action="store_true", help="Verbose register command stream"
-        )
-        parser.add_argument("--verbose-operators", action="store_true", help="Verbose operator list")
-        parser.add_argument("--verbose-weights", action="store_true", help="Verbose weights information")
-        parser.add_argument(
-            "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
-        )
-        parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
-        parser.add_argument(
-            "--show-subgraph-io-summary",
-            action="store_true",
-            help="Shows a summary of all the subgraphs and their inputs and outputs",
-        )
-        parser.add_argument(
-            "--recursion-limit",
-            type=int,
-            default=2000,
-            help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
-        )
-        args = parser.parse_args(args=args)
-
-        # Generate the supported ops report and exit
-        if args.supported_ops_report:
-            generate_supported_ops()
-            return 0
-
-        if args.network is None:
-            parser.error("the following argument is required: NETWORK")
-
-        if args.verbose_all:
-            for v in vars(args):
-                if v.startswith("verbose") and v != "verbose_all":
-                    setattr(args, v, True)
-
-        sys.setrecursionlimit(args.recursion_limit)
-
-        arch = Imx93ArchitectureFeatures(
-            vela_config_files=None,
-            system_config=ArchitectureFeatures.DEFAULT_CONFIG,
-            memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
-            accelerator_config='ethos-u65-256',
-            max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
-            verbose_config=args.verbose_config,
-            arena_cache_size=384 * 1024,
-        )
-
-        compiler_options = compiler_driver.CompilerOptions(
-            verbose_graph=args.verbose_graph,
-            verbose_quantization=args.verbose_quantization,
-            verbose_packing=args.verbose_packing,
-            verbose_tensor_purpose=args.verbose_tensor_purpose,
-            verbose_tensor_format=args.verbose_tensor_format,
-            verbose_allocation=args.verbose_allocation,
-            verbose_high_level_command_stream=args.verbose_high_level_command_stream,
-            verbose_register_command_stream=args.verbose_register_command_stream,
-            verbose_operators=args.verbose_operators,
-            verbose_weights=args.verbose_weights,
-            show_cpu_operations=args.show_cpu_operations,
-            tensor_allocator = TensorAllocator.HillClimb,
-            timing=args.timing,
-            output_dir=args.output_dir,
-        )
-
-        scheduler_options = scheduler.SchedulerOptions(
-            optimization_strategy=scheduler.OptimizationStrategy.Performance,
-            sram_target=arch.arena_cache_size,
-            verbose_schedule=args.verbose_schedule,
-        )
-
-        model_reader_options = model_reader.ModelReaderOptions()
-
-        nng = process(
-            args.network, args.enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options
-        )
-
-        if args.show_subgraph_io_summary:
-            print_subgraph_io_summary(nng)
-
-        return 0
-    except VelaError as e:
-        print(e.data)
-        return 1
