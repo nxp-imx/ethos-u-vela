@@ -1,36 +1,12 @@
 NXP Software Content Register
 
-Release - ethos-u-vela
-
---------------------------------------------
-Reused external packages
---------------------------------------------
-
-Package:                     ethos-u/ethos-u-vela
-Outgoing License:            Apache License, Version 2.0 
-License File:                https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/tree/LICENSE.txt
-Package Category:            Ethos-U neural network model compiler
-Type of Content:             source code
-Description and comments:    This tool is used to compile a TensorFlow Lite model into an optimised
-                             version run on Arm Ethos-U NPU
-Origin:                      https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
-Release location: 
-
---------------------------------------------
-NXP Files
---------------------------------------------
-
-Sources:
-setup.py
-ethosu/vela/architecture_allocator.py
-ethosu/vela/tflite_graph_optimiser.py
-ethosu/vela/tflite_supported_operators.py
-ethosu/vela/high_level_command_stream.py
-ethosu/vela/vela.py
-ethosu/vela/tflite_reader.py
-
-Copyright:
-Copyright 2022 NXP
-
-License:
-Apache License, Version 2.0
+---------------------------------------------
+Package:                     ethos-u-vela.git
+Outgoing License:            Apache-2.0
+License File:                LICENSE.txt
+Package Category:            MachineLearning
+Type of Content:             source
+Description and comments:    Tool to compile a TensorFlow Lite for Microcontrollers neural network model
+Release Location:            https://github.com/nxpmicro/ethos-u-vela
+Origin:                      NXP (BSD-3-Clause)
+                             ARM Limited ethos-u-vela v22.02 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
