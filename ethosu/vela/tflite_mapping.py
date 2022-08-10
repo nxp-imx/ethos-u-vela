@@ -139,6 +139,7 @@ from .tflite import TransposeOptions
 from .tflite import UnidirectionalSequenceLSTMOptions
 from .tflite import UniqueOptions
 from .tflite import UnpackOptions
+from .tflite import UnsortedSegmentProdOptions
 from .tflite import VarHandleOptions
 from .tflite import WhereOptions
 from .tflite import WhileOptions
@@ -321,6 +322,7 @@ builtin_options_map = {
     BuiltinOptions.BucketizeOptions: BucketizeOptions.BucketizeOptions,
     BuiltinOptions.DynamicUpdateSliceOptions: DynamicUpdateSliceOptions.DynamicUpdateSliceOptions,
     BuiltinOptions.GeluOptions: GeluOptions.GeluOptions,
+    BuiltinOptions.UnsortedSegmentProdOptions: UnsortedSegmentProdOptions.UnsortedSegmentProdOptions,
 }
 
 
@@ -588,6 +590,7 @@ builtin_operator_map = {
     ),
     BuiltinOperator.MUL: (Op.Mul, OptionsSerializer("MulOptions", (fused_act,)), TFLITE_IFM_IFM2_INDICES),
     BuiltinOperator.RELU: (Op.Relu, None, TFLITE_IFM_INDICES),
+    BuiltinOperator.RELU_0_TO_1: (Op.Relu0To1, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RELU_N1_TO_1: (Op.ReluN1To1, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RELU6: (Op.Relu6, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RESHAPE: (
@@ -963,6 +966,11 @@ builtin_operator_map = {
     BuiltinOperator.DYNAMIC_UPDATE_SLICE: (
         Op.DynamicUpdateSlice,
         OptionsSerializer("DynamicUpdateSliceOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.UNSORTED_SEGMENT_PROD: (
+        Op.UnsortedSegmentProd,
+        OptionsSerializer("UnsortedSegmentProdOptions", ("numsegments",)),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),

@@ -155,4 +155,6 @@ class BuiltinOperator(object):
     MULTINOMIAL = 149
     GELU = 150
     DYNAMIC_UPDATE_SLICE = 151
+    RELU_0_TO_1 = 152
+    UNSORTED_SEGMENT_PROD = 153
 
