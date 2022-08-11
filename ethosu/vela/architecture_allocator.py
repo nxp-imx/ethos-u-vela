@@ -330,7 +330,7 @@ def find_block_config(
 
                     # Scale relative to every output OFM element
                     if npu_op_type == NpuBlockType.ElementWise:
-                        relative_cost = ofm_shape.elements() / (height * width * depth)
+                        relative_cost = max(ofm_shape.elements() / (height * width * depth), 1)
                     else:
                         relative_cost = (ifm_fetch + weight_fetch) / ofm_shape.elements()
 
