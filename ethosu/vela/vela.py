@@ -57,7 +57,7 @@ from ethosu.vela.architecture_features import ArchitectureFeatures
 CONFIG_FILES_PATH = os.path.normpath(os.path.join(__file__, "..", "..", "config_files"))
 
 
-def process(input_name, enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options):
+def process(input_name, enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options, subgraph_output):
     if compiler_options.timing:
         start = time.time()
 
@@ -78,7 +78,7 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         print("Model reading took %f s" % (stop - start))
         start = time.time()
 
-    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, output_basename)
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, output_basename, subgraph_output)
 
     summary_csv_file = "{0}_summary_{1}.csv".format(output_basename, arch.system_config)
     stats_writer.write_summary_metrics_csv(nng, summary_csv_file, arch)
@@ -439,6 +439,7 @@ def main(args=None):
             "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
         )
         parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
+        parser.add_argument("--subgraph-output", action="store_true", help="Generate files to reconstruct converted subgraph. Used by Model Tool to display it.")
         parser.add_argument(
             "--accelerator-config",
             type=str,
@@ -642,7 +643,7 @@ def main(args=None):
         model_reader_options = model_reader.ModelReaderOptions()
 
         nng = process(
-            args.network, args.enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options
+            args.network, args.enable_debug_db, arch, model_reader_options, compiler_options, scheduler_options, args.subgraph_output
         )
 
         if args.show_subgraph_io_summary:
