@@ -24,13 +24,13 @@ from .tflite_graph_optimiser import tflite_optimise_graph
 from .tosa_graph_optimiser import tosa_optimise_graph
 
 
-def optimise_graph(nng, arch, network_type, verbose_graph=False):
+def optimise_graph(nng, arch, network_type, verbose_graph=False, output_basename=None, subgraph_output=False):
     if verbose_graph:
         nng.print_graph("Before Graph Optimization")
 
     if network_type == NetworkType.TFLite:
         # TensorFlow Lite graph optimization
-        nng = tflite_optimise_graph(nng, arch)
+        nng = tflite_optimise_graph(nng, arch, output_basename, subgraph_output)
     else:
         # TOSA graph optimization
         nng = tosa_optimise_graph(nng, arch)
