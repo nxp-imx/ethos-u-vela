@@ -1860,11 +1860,15 @@ def replace_dilated_convolution(op, arch, nng=None):
     assert (pre_block == post_block).all
     assert len(np.array(pre_block).shape) == 1
     assert np.array(pre_block).shape[0] == 2
-
-    op.attrs.update({"dilation_h_factor": pre_block[0], "dilation_y_factor": pre_block[1], 'padding': Padding.SAME})
+    op.attrs.update({'padding': Padding.SAME, "dilation": (1, pre_block[0], pre_block[1], 1)})
     op.set_output_tensor(post_op.outputs[0])
     ppre_op = pre_op.inputs[0].ops[0]
     op.set_input_tensor(ppre_op.outputs[0], 0)
+    op.set_ifm_ofm_shapes()
+
+    if (pre_block[0] > 2 or pre_block[1] > 2):
+        op.run_on_npu = False
+
     return op
 
 def tflite_optimise_graph(nng, arch):
