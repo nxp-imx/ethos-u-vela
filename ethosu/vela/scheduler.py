@@ -1,4 +1,4 @@
-# Copyright (C) 2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -45,6 +45,7 @@ from .architecture_allocator import ArchitectureBlockConfig
 from .architecture_allocator import find_block_config
 from .architecture_allocator import get_ifm_area_required
 from .architecture_allocator import to_upscale
+from .architecture_allocator import is_nearest
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .cascade_builder import CascadeBuilder
@@ -906,8 +907,25 @@ class Scheduler:
             cost.cycles = self.estimate_op_performance(sched_op, cost.block_config, sched_op.ofm.shape.depth)
             striped_schedule.cost_map[sched_op] = cost
 
-            # Calculate the preceeding Op's stripe
-            height = stripe.height + stripe.height % to_upscale(sched_op.resampling_mode)
+            # Calculate the preceeding Op's stripe.
+
+            # In certain cases where an upscaling Op is cascaded,
+            # it may get instructed to produce an odd stripe height.
+            # Thus we need to force it back to even heights.
+            force_even_stripe_heights = False
+            for op in self.sched_ops:
+                # Check if the cascade has a Nearest Neighbor-op.
+                # If that is the case, force the stripes to be even.
+                if (
+                    ref_cost.get(op, None)
+                    and ref_cost.get(sched_op, None)
+                    and ref_cost[op].cascade == ref_cost[sched_op].cascade
+                    and is_nearest(op.resampling_mode)
+                ):
+                    force_even_stripe_heights = True
+                    break
+            upscaling_remainder = stripe.height % to_upscale(sched_op.resampling_mode)
+            height = stripe.height + (stripe.height % 2 if force_even_stripe_heights else upscaling_remainder)
             stripe = sched_op.ifm.shape.with_height(height * sched_op.kernel.stride.y)
 
         return striped_schedule
@@ -1012,7 +1030,6 @@ class Scheduler:
         possible_stripes = [
             final_ofm_shape.with_height(stripe_h) for stripe_h in range(1, final_ofm_shape.height // 2 + 1)
         ]
-
         # Propose different striping - the possible stripes are proposed similarly to a binary search
         best_schedule = None
         iteration = 0
