@@ -5,6 +5,27 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.5.0 - 23/08/2022
+
+**Main feature changes:**
+
+* New operator support: RESIZE_NEAREST_NEIGHBOR, SHAPE
+* Cascading support for elementwise operators
+* Ethos-U65 performance improvements
+* Upgrade TensorFlow Lite support to version 2.9
+  * Under certain circumstanced the optimised model may not match TensorFlow 2.9
+    for int16x8 CONV2D, TRANSPOSE_CONV2D and FULLY_CONNECTED, see
+    <https://github.com/tensorflow/tensorflow/issues/53763> for more information
+
+**Interface changes:**
+
+* None
+
+**Reported defect fixes:**
+
+* SRAM usage is higher than with old `--pareto-metric BwCycMemBlkH` option for some networks (MLCE-860)
+* Assert caused by CONCATENATION operator with invalid tensor shapes (MLCE-896)
+
 ## Release 3.4.0 - 24/05/2022
 
 **Main feature changes:**
