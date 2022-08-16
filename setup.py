@@ -62,7 +62,7 @@ mlw_module = Extension(
 
 setup(
     name="ethos-u-vela",
-    use_scm_version=True,
+    version="3.3.0",
     description="Neural network model compiler for Arm Ethos-U NPUs",
     long_description=long_description,
     long_description_content_type="text/markdown",
