@@ -21,16 +21,7 @@ This is also used to run the following test and coverage tools:
 
 ### Installation
 
-To install pre-commit, pytest and pytest-cov in the pipenv virtual environment
-use the following command:
-
-```bash
-pipenv install -e . --dev
-```
-
-The remaining tools will all be installed automatically upon first use.
-
-If a virtual environment is not used, the packages can instead be installed through:
+To install pre-commit, pytest and pytest-cov use the following command:
 
 ```bash
 pip install pre-commit
@@ -39,6 +30,8 @@ pip install pytest
 ...
 pip install pytest-cov
 ```
+
+The remaining tools will all be installed automatically upon first use.
 
 ### Add pre-commit hook (Automatically running the tools)
 

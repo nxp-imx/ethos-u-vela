@@ -88,13 +88,6 @@ command from the root directory of the repository:
 pip3 install .
 ```
 
-A `Pipfile` is maintained for the project, so users of the virtual environment
-tool `pipenv` may prefer the following command instead:
-
-```bash
-pipenv install .
-```
-
 #### Advanced Installation for Developers
 
 If you plan to modify the Vela codebase then it is recommended to install Vela
