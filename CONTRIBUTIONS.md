@@ -4,7 +4,7 @@ Contributions to Vela are very much welcomed!
 
 ## Coding Standard
 
-Vela is written using Python 3.6 language constructs in order to aid
+Vela is written using Python 3.7 language constructs in order to aid
 compatibility with other tools.  All code must also be run through the
 formatting and linting tools described in [Vela Testing](TESTING.md)
 

@@ -7,9 +7,11 @@ line length.  The following code formatting and linting tools are run on all the
 Python files (excluding the directories `ethosu/vela/tflite/` and
 `ethosu/vela/ethos_u55_regs` because they contain auto-generated code):
 
+* mypy (code linter)
 * reorder-python-import (code formatter)
 * black (code formatter)
 * flake8 (code linter)
+* pylint (code linter)
 
 These tools are run using the [pre-commit](https://pre-commit.com/) framework.
 This is also used to run the following test and coverage tools:
@@ -27,6 +29,16 @@ pipenv install -e . --dev
 ```
 
 The remaining tools will all be installed automatically upon first use.
+
+If a virtual environment is not used, the packages can instead be installed through:
+
+```bash
+pip install pre-commit
+...
+pip install pytest
+...
+pip install pytest-cov
+```
 
 ### Add pre-commit hook (Automatically running the tools)
 
@@ -49,11 +61,15 @@ All of the tools can be run individually by invoking them using the following
 pre-commit framework commands:
 
 ```bash
+$ pre-commit run mypy --all-files
+...
 $ pre-commit run reorder-python-imports --all-files
 ...
 $ pre-commit run black --all-files
 ...
 $ pre-commit run flake8 --all-files
+...
+$ pre-commit run pylint --all-files
 ...
 $ pre-commit run pytest
 ...
@@ -65,8 +81,10 @@ Alternatively, all of the commit stage hooks can be run using the command:
 
 ```bash
 $ pre-commit run --all-files
+mypy.....................................................................Passed
 Reorder python imports...................................................Passed
 black....................................................................Passed
 flake8...................................................................Passed
+pylint...................................................................Passed
 pytest...................................................................Passed
 ```
