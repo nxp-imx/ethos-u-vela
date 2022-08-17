@@ -1029,14 +1029,19 @@ class Scheduler:
 
         # Generate the possible stripings for the final Op in the sub-schedule
         final_ofm_shape = sub_schedule_ops[-1].ofm.shape
+
+        # Skip testing the min stripe used in the MIN schedule since that will be used
+        # anyway if no new cascades are created below
+        last_op = sub_schedule_ops[-1]
+        min_stripe_h = sub_schedule.cost_map[last_op].stripe.height + 1
+
         possible_stripes = [
-            final_ofm_shape.with_height(stripe_h) for stripe_h in range(1, final_ofm_shape.height // 2 + 1)
+            final_ofm_shape.with_height(stripe_h) for stripe_h in range(min_stripe_h, final_ofm_shape.height // 2 + 1)
         ]
-        # Propose different striping - the possible stripes are proposed similarly to a binary search
+        # Propose different striping
         best_schedule = None
-        iteration = 0
-        while len(possible_stripes) > 1:
-            proposed_stripe = possible_stripes[len(possible_stripes) // 2]
+        max_nbr_of_cascades = 0
+        for iteration, proposed_stripe in enumerate(possible_stripes):
             proposed_schedule = self.propose_schedule_striping(
                 proposed_stripe, f"OPTIMIZED_{iteration}", buffered_sub_schedule
             )
@@ -1045,18 +1050,22 @@ class Scheduler:
 
             # Check if proposal fits
             proposed_schedule_mem_usage = self.estimate_schedule_memory_usage(proposed_schedule, non_local_mem_usage)
-            if (proposed_schedule_mem_usage) <= memory_limit:
-                # Remove all possible stripes smaller than this
-                possible_stripes = possible_stripes[len(possible_stripes) // 2 :]
+
+            nbr_of_cascades = len(proposed_schedule.cascades)
+
+            if iteration == 0:
+                # First iteration - used as limit to prevent splitting up the cascades
+                # Long cascades are better in order to reduce IFM/IFM dram bandwidth
+                max_nbr_of_cascades = nbr_of_cascades
+
+            if (proposed_schedule_mem_usage) <= memory_limit and nbr_of_cascades <= max_nbr_of_cascades:
                 best_schedule = proposed_schedule
+
                 if not proposed_schedule.cascades:
                     # No cascading required - early exit
                     break
             else:
-                # Proposal doesn't fit within the limit - remove all possible stripes larger than this
-                possible_stripes = possible_stripes[: len(possible_stripes) // 2]
-
-            iteration += 1
+                break
 
         return best_schedule
 
