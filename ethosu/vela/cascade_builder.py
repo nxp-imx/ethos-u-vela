@@ -98,6 +98,7 @@ class CascadeBuilder:
             and sched_op.parent_op.read_offsets[0] is None
             and sched_op.parent_op.read_offsets[1] is None
             and self.element_wise_cascading_conformity(sched_op)
+            and not sched_op.parent_op.type.is_resize_op()
         )
 
     def _is_mergeable(self, sched_op) -> bool:
