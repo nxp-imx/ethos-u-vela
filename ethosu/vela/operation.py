@@ -229,7 +229,7 @@ class Op(Enum):
     PadV2 = OperatorInfo()
     Placeholder = OperatorInfo()  # Only used in CPU subgraphs
     Pow = OperatorInfo()
-    Prelu = OperatorInfo()
+    Prelu = OperatorInfo(indices=NNG_IFM_IFM2_INDICES)
     Prod = OperatorInfo()
     Quantize = OperatorInfo(indices=NNG_IFM_INDICES)
     QuantizedAvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)

@@ -732,7 +732,7 @@ builtin_operator_map = {
         ),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.PRELU: (Op.Prelu, None, TFLITE_NO_INDICES),
+    BuiltinOperator.PRELU: (Op.Prelu, None, TFLITE_IFM_IFM2_INDICES),
     BuiltinOperator.MAXIMUM: (Op.Maximum, OptionsSerializer("MaximumMinimumOptions"), TFLITE_IFM_IFM2_INDICES),
     BuiltinOperator.ARG_MAX: (
         Op.ArgMax,

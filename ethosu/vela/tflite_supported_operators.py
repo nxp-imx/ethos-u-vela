@@ -123,7 +123,15 @@ class TFLiteSupportedOperators:
             Op.Clip,
         )
     )
-    activation_ops = relu_ops | set((Op.Tanh, Op.Sigmoid, Op.Softmax, Op.HardSwish))
+    activation_ops = relu_ops | set(
+        (
+            Op.Tanh,
+            Op.Sigmoid,
+            Op.Softmax,
+            Op.HardSwish,
+            Op.Prelu,
+        )
+    )
     npu_post_ops = (
         # activation functions
         activation_ops
