@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -20,6 +20,7 @@
 # Called during scheduling to evaluate different proposals, as well as post-scheduling to provide a final performance
 # estimate.
 import copy
+import csv
 from enum import auto
 from enum import IntEnum
 from typing import Optional
@@ -759,6 +760,7 @@ def print_performance(
     macs: dict,
     cycles: dict,
     mem_usage: dict,
+    output_basename: str,
 ):
     if network_type == NetworkType.TFLite:
         nng_optype_to_input_op_type = tflite_optype_to_builtintype
@@ -793,41 +795,86 @@ def print_performance(
             f"Name:"
         )
 
-        for sched_op in sg.sched_ops:
-            # get source op name
-            sched_op_src_uid = DebugDatabase._optimisedUID[sched_op.parent_op][1]
-            if sched_op_src_uid == DebugDatabase.NULLREF:
-                src_op_type = None
-            else:
-                src_op_type = suid_inv_map[sched_op_src_uid].type
+        with open(output_basename + "_per-layer.csv", "w", encoding="UTF8") as f:
+            writer = csv.writer(f)
+            header = [
+                f"{network_type.name}_operator",
+                "NNG_operator",
+                "SRAM_usage",
+                "Peak",
+                "Op_cycles",
+                "Network",
+                "NPU",
+                "SRAM_AC",
+                "DRAM_AC",
+                "OnFlash_AC",
+                "OffFlash_AC",
+                "MAC_count",
+                "Network",
+                "Util",
+                "Name",
+            ]
+            writer.writerow(header)
 
-            src_op_name = nng_optype_to_input_op_type(src_op_type)
+            for sched_op in sg.sched_ops:
+                # get source op name
+                sched_op_src_uid = DebugDatabase._optimisedUID[sched_op.parent_op][1]
+                if sched_op_src_uid == DebugDatabase.NULLREF:
+                    src_op_type = None
+                else:
+                    src_op_type = suid_inv_map[sched_op_src_uid].type
 
-            max_macs = cycles[sched_op][PassCycles.Total] * arch.num_macs_per_cycle * arch.ncores
-            peak_sram = (
-                mem_usage[sched_op] / nng.memory_used[MemArea.Sram] * 100 if MemArea.Sram in nng.memory_used else 0
-            )
-            print(
-                f" {src_op_name:20s}"
-                f" {sched_op.op_type:20s}"
-                f" {mem_usage[sched_op]:10.0f}"
-                f" ({peak_sram:6.2f}%)"
-                f" {cycles[sched_op][PassCycles.Total]:10.0f}"
-                f" ({cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total] * 100:6.2f}%)"
-                f" ["
-                f" {cycles[sched_op][PassCycles.Npu]:10.0f}"
-                f" {cycles[sched_op][PassCycles.SramAccess]:10.0f}"
-                f" {cycles[sched_op][PassCycles.DramAccess]:10.0f}"
-                f" {cycles[sched_op][PassCycles.OnChipFlashAccess]:10.0f}"
-                f" {cycles[sched_op][PassCycles.OffChipFlashAccess]:10.0f}"
-                f" ]"
-                f" {macs[sched_op]:10d}"
-                f" ({macs[sched_op] / nng.macs * 100:6.2f}% / {macs[sched_op] / max_macs * 100:6.2f}%)"
-                f" {sched_op.name:s}"
-            )
+                src_op_name = nng_optype_to_input_op_type(src_op_type)
+
+                max_macs = cycles[sched_op][PassCycles.Total] * arch.num_macs_per_cycle * arch.ncores
+                peak_sram = (
+                    mem_usage[sched_op] / nng.memory_used[MemArea.Sram] * 100 if MemArea.Sram in nng.memory_used else 0
+                )
+                print(
+                    f" {src_op_name:20s}"
+                    f" {sched_op.op_type:20s}"
+                    f" {mem_usage[sched_op]:10.0f}"
+                    f" ({peak_sram:6.2f}%)"
+                    f" {cycles[sched_op][PassCycles.Total]:10.0f}"
+                    f" ({cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total] * 100:6.2f}%)"
+                    f" ["
+                    f" {cycles[sched_op][PassCycles.Npu]:10.0f}"
+                    f" {cycles[sched_op][PassCycles.SramAccess]:10.0f}"
+                    f" {cycles[sched_op][PassCycles.DramAccess]:10.0f}"
+                    f" {cycles[sched_op][PassCycles.OnChipFlashAccess]:10.0f}"
+                    f" {cycles[sched_op][PassCycles.OffChipFlashAccess]:10.0f}"
+                    f" ]"
+                    f" {macs[sched_op]:10d}"
+                    f" ({macs[sched_op] / nng.macs * 100:6.2f}% / {macs[sched_op] / max_macs * 100:6.2f}%)"
+                    f" {sched_op.name:s}"
+                )
+                data = [
+                    f"{src_op_name}",
+                    f"{sched_op.op_type}",
+                    f"{mem_usage[sched_op]}",
+                    f"{peak_sram}",
+                    f"{cycles[sched_op][PassCycles.Total]}",
+                    f"{cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total]}",
+                    f"{cycles[sched_op][PassCycles.Npu]}",
+                    f"{cycles[sched_op][PassCycles.SramAccess]}",
+                    f"{cycles[sched_op][PassCycles.DramAccess]}",
+                    f"{cycles[sched_op][PassCycles.OnChipFlashAccess]}",
+                    f"{cycles[sched_op][PassCycles.OffChipFlashAccess]}",
+                    f"{macs[sched_op]}",
+                    f"{macs[sched_op] / nng.macs}",
+                    f"{macs[sched_op] / max_macs}",
+                    f"{sched_op.name}",
+                ]
+                writer.writerow(x for x in data)
 
 
-def calc_new_performance_for_network(nng: Graph, arch, network_type: NetworkType, verbose_performance: bool):
+def calc_new_performance_for_network(
+    nng: Graph,
+    arch,
+    network_type: NetworkType,
+    verbose_performance: bool,
+    output_basename: str = "output/unnamed_network",
+):
     total_bws = make_bandwidth_array()
     total_macs = 0
     total_cycles = np.zeros(PassCycles.Size)
@@ -886,4 +933,4 @@ def calc_new_performance_for_network(nng: Graph, arch, network_type: NetworkType
     nng.total_npu_encoded_weights = total_encoded_weight_size
 
     if verbose_performance:
-        print_performance(nng, arch, network_type, bws, macs, cycles, mem_usage)
+        print_performance(nng, arch, network_type, bws, macs, cycles, mem_usage, output_basename)

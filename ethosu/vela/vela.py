@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -75,7 +75,7 @@ def process(input_name, enable_debug_db, arch, model_reader_options, compiler_op
         print("Model reading took %f s" % (stop - start))
         start = time.time()
 
-    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type)
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, output_basename)
 
     summary_csv_file = "{0}_summary_{1}.csv".format(output_basename, arch.system_config)
     stats_writer.write_summary_metrics_csv(nng, summary_csv_file, arch)

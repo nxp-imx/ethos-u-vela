@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -149,7 +149,7 @@ def _check_schedule(nng, arch, scheduler_options):
             )
 
 
-def compiler_driver(nng, arch, options, scheduler_options, network_type):
+def compiler_driver(nng, arch, options, scheduler_options, network_type, output_basename):
     assert verify_graph_health(nng)
 
     # Pre-optimisation operator tracking
@@ -254,4 +254,6 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type):
         cpu_tensor_alignment=options.cpu_tensor_alignment,
     )
 
-    npu_performance.calc_new_performance_for_network(nng, arch, network_type, options.verbose_performance)
+    npu_performance.calc_new_performance_for_network(
+        nng, arch, network_type, options.verbose_performance, output_basename
+    )
