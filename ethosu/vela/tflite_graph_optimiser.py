@@ -1224,12 +1224,14 @@ def convert_lrelu(op, arch, nng):
     return convert_lrelu_to_mul_max(op, arch)
 
 
-def convert_tanh_sigmoid_to_lut(op, arch, nng):
+def convert_tanh_sigmoid_exp_to_lut(op, arch, nng):
     # Converts int8/uint8 Sigmoid and Tanh to a LUT based solution
     if op.type == Op.Sigmoid:
         return convert_to_lut8(op, clamp_sigmoid, "sigmoid")
     elif op.type == Op.Tanh:
         return convert_to_lut8(op, math.tanh, "tanh")
+    elif op.type == Op.Exp:
+        return convert_to_lut8(op, math.exp, "exp")
     return op
 
 
@@ -1780,6 +1782,29 @@ def replace_dilated_convolution(op, arch, nng=None):
 
     return op
 
+def merge_dequant_exp_quant(op, arch, nng=None):
+    if op.type != Op.Quantize:
+        return op
+    post_op = op
+
+    exp_op = post_op.inputs[0].ops[0]
+    if exp_op.type != Op.Exp:
+        return op
+
+    pre_op = exp_op.inputs[0].ops[0]
+    if pre_op.type != Op.Dequantize:
+        return op
+
+    exp_op.set_input_tensor(pre_op.inputs[0], 0)
+    exp_op.set_output_tensor(post_op.outputs[0])
+
+    exp_op.set_ifm_ofm_shapes()
+
+    ifm, ofm = exp_op.get_ifm_ofm()
+    exp_op.run_on_npu = True
+
+    return op
+
 def tflite_optimise_graph(nng, arch):
     # Pre-processing step
     pre_process_list = [
@@ -1794,7 +1819,7 @@ def tflite_optimise_graph(nng, arch):
 
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
-            nng, sg, arch, [], [replace_dilated_convolution], rewrite_unsupported=True,
+            nng, sg, arch, [], [replace_dilated_convolution, merge_dequant_exp_quant], rewrite_unsupported=True,
         )
 
     # Handle Mean ops
@@ -1862,7 +1887,7 @@ def tflite_optimise_graph(nng, arch):
         convert_mul_max_to_abs_or_lrelu,
         convert_prelu_to_mul_max,
         convert_lrelu,
-        convert_tanh_sigmoid_to_lut,
+        convert_tanh_sigmoid_exp_to_lut,
         replace_pad_by_hw_pad,
     ]
 

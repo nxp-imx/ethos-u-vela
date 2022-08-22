@@ -175,7 +175,7 @@ class Op(Enum):
     EmbeddingLookup = OperatorInfo()
     EmbeddingLookupSparse = OperatorInfo()
     Equal = OperatorInfo()
-    Exp = OperatorInfo()
+    Exp = OperatorInfo(indices=NNG_IFM_INDICES)
     ExpandDims = OperatorInfo(indices=NNG_IFM_INDICES)
     FakeQuantWithMinMaxArgs = OperatorInfo()
     Fill = OperatorInfo()

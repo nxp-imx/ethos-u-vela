@@ -84,6 +84,8 @@ class TFLiteSupportedOperators:
         | set((Op.ConcatSliceWrite,))
         # Quantization
         | set((Op.Quantize,))
+        # Exp
+        | set((Op.Exp,))
     )
     split_ops = set((Op.Split, Op.SplitV, Op.StridedSlice, Op.Slice, Op.UnpackReshaped, Op.Unpack,))
     concat_ops = set((Op.Concat, Op.ConcatTFLite, Op.PackReshaped, Op.Pack,))
