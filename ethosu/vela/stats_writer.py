@@ -277,7 +277,7 @@ def print_performance_metrics_for_strat(
 
     n_cpu_operations = len(cpu_operations)
     n_npu_operations = len(npu_operations)
-    n_total_operations = n_cpu_operations + n_npu_operations
+    n_total_operations = max(n_cpu_operations + n_npu_operations, 1)  # avoid potential divide by zero
 
     def format_tens_list(lst):
         return " ".join(str(list(tens.shape)) for tens in lst)
