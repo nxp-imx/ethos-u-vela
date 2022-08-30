@@ -42,6 +42,7 @@ from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
 from .numeric_util import clamp_sigmoid
 from .numeric_util import round_away_zero
+from .numeric_util import round_up_to_int
 from .operation import create_activation_function
 from .operation import ExplicitScaling
 from .operation import NpuBlockType
@@ -1365,7 +1366,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                 fiq = ifmq.clone()
                 fiq.zero_point = 0
                 op.forced_input_quantization = fiq
-                bias_term = ofmq.zero_point - int(ifmq.zero_point * ifmq.scale_f32 / ofmq.scale_f32)
+                bias_term = ofmq.zero_point - round_up_to_int(ifmq.zero_point * ifmq.scale_f32 / ofmq.scale_f32)
                 # If the bias term is outside uint8 range, we need an Add op to apply it.
                 if bias_term < 0 or bias_term > 255:
                     intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
