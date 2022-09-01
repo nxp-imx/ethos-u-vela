@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# Copyright 2022 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -404,7 +405,7 @@ class ArchitectureFeatures:
         # IFM/OFM block size.
         ifm_block_max = self.get_ifm_block_size(32, self.ofm_block_max, Kernel(8, 8))
         self.block_config_map = dict()
-        self.generate_block_config_map(Block(ifm_block_max.width * 2, ifm_block_max.height, 128))
+        #self.generate_block_config_map(Block(ifm_block_max.width * 2, ifm_block_max.height, 128))
 
         # Setup supported operators and restriction checkers class
         self.tflite_supported_operators = TFLiteSupportedOperators()
