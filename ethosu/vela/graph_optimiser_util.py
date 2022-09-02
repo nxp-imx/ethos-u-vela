@@ -20,6 +20,7 @@ from typing import Tuple
 import numpy as np
 
 from . import lut
+from .architecture_features import Accelerator
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
@@ -111,7 +112,10 @@ def check_format_restrictions(tens, arch):
         return
 
     for op in tens.consumer_list:
-        if op.type == Op.ReduceSum and tens.dtype == DataType.int32:
+        if op.type == Op.ReduceSum and (
+            tens.dtype == DataType.int32 or arch.accelerator_config == Accelerator.Ethos_U65_512
+        ):
+            # ReduceSum requires NHWC input
             return
         if op.type == Op.Reshape:
             # Using NHCWB16 format for a no-op reshape is only an option if subsequent
