@@ -931,6 +931,19 @@ def generate_conv_depthwise_op(
 
 def generate_pooling_op(emit: CommandStreamEmitter, npu_op: NpuPoolingOperation, arch: ArchitectureFeatures):
     """Generates register commands for pooling operations"""
+    # check that reduce_sum input is NHWC
+    if npu_op.sub_op_type == NpuPoolingOp.REDUCE_SUM and npu_op.ifm.layout != NpuLayout.NHWC:
+        if npu_op.ifm.data_type == NpuDataType.INT32:
+            raise VelaError(
+                f"REDUCE_SUM ({npu_op.name}) with IFM data type of INT32 requires IFM layout to be NHWC"
+                f" ({npu_op.ifm.name} == {npu_op.ifm.layout})"
+            )
+        elif arch.accelerator_config == Accelerator.Ethos_U65_512:
+            raise VelaError(
+                f"REDUCE_SUM ({npu_op.name}) with accelerator config of Ethos_U65_512 requires IFM layout to be NHWC"
+                f" ({npu_op.ifm.name} == {npu_op.ifm.layout})"
+            )
+
     use_global_scale = (
         npu_op.sub_op_type in (NpuPoolingOp.AVERAGE, NpuPoolingOp.REDUCE_SUM) and sum(npu_op.padding) == 0
     )
