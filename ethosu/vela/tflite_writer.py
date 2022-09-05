@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2021 Arm Limited or its affiliates. All rights reserved.
+# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -71,13 +71,19 @@ def make_vector(v):
 
 
 class TFLiteSerialiser:
+
+    BUF_IDX_SCRATCH = 0  # Always assign scratch to buffer 0
+    BUF_IDX_SCRATCH_FAST = 1  # Always assign scratch_fast to buffer 1
+    BUF_IDX_START = 2  # Unique buffer id for every tensor in all subgraphs
+
     def __init__(self, nng):
         self.builder = flatbuffers.Builder(0)
         self.nng = nng
 
-        self.scratch_buf_id = 0  # Always assign scratch to buffer 0
-        self.scratch_fast_buf_id = 1  # Always assign scratch_fast to buffer 1
+        self.buf_idx = TFLiteSerialiser.BUF_IDX_START
         self.buffers_to_write = []  # have an empty array there
+        self.tensor_map_all = []  # Keep track of all subgraphs
+        self.tensor_map_sg = []  # Keep track of one subgraph
 
         self.ops_to_ignore = (Op.Const, Op.Placeholder, Op.SubgraphInput)
 
@@ -154,22 +160,20 @@ class TFLiteSerialiser:
 
         buffer_map = {}
 
-        buf_idx = 2
-
         for tens in tensors:
             # Set buffer ids depending on allocation
             if tens.is_allocated_in_tensor_arena(scratch_tensor_mem_area):
-                buffer_map[tens] = self.scratch_buf_id
+                buffer_map[tens] = TFLiteSerialiser.BUF_IDX_SCRATCH
             elif tens.mem_type == MemType.Scratch_fast:
                 # For Scratch_fast when not co-allocated with scratch in the TensorArena:
-                buffer_map[tens] = self.scratch_fast_buf_id
+                buffer_map[tens] = TFLiteSerialiser.BUF_IDX_SCRATCH_FAST
             else:
-                buffer_map[tens] = buf_idx
-                buf_idx += 1
+                buffer_map[tens] = self.buf_idx
+                self.buf_idx += 1
 
-        # Initialize buffers_to_write to a length equal to number of buffers so
+        # Initialize/extend buffers_to_write to a length equal to number of buffers so
         # they can be appended at the correct index during tensor serialization
-        self.buffers_to_write = [None] * (buf_idx)
+        self.buffers_to_write += [None] * (self.buf_idx)
 
         return buffer_map
 
@@ -281,13 +285,13 @@ class TFLiteSerialiser:
         builder = self.builder
 
         inputs_offset = self.write_int_vector(
-            [self.tensor_map[tens] if tens in self.tensor_map else -1 for tens in op.inputs]
+            [self.tensor_map_sg[tens] if tens in self.tensor_map_sg else -1 for tens in op.inputs]
         )
         outputs_offset = self.write_int_vector(
-            [self.tensor_map[tens] for tens in op.outputs if tens in self.tensor_map]
+            [self.tensor_map_sg[tens] for tens in op.outputs if tens in self.tensor_map_sg]
         )
         intermediates_offset = self.write_int_vector(
-            [self.tensor_map[tens] for tens in op.intermediates if tens in self.tensor_map]
+            [self.tensor_map_sg[tens] for tens in op.intermediates if tens in self.tensor_map_sg]
         )
 
         if op.type == Op.Custom:
@@ -331,9 +335,8 @@ class TFLiteSerialiser:
         Operator.OperatorAddMutatingVariableInputs(builder, mutating_variable_inputs_offset)
         return Operator.OperatorEnd(builder)
 
-    def serialise_subgraph(self, sg):
+    def serialise_subgraph(self, sg, name):
         builder = self.builder
-        tensor_set = set()
         all_ops = []
         placeholder_ops = []
 
@@ -343,6 +346,14 @@ class TFLiteSerialiser:
                     all_ops.append(op)
                 elif op.type == Op.Placeholder:
                     placeholder_ops.append(op)
+
+        # Make sure all original tensors are written back, special case for Ops
+        # with connected subgraphs. Even though not all inputs are used,
+        # the reference kernel expects all inputs to be in the tflite file.
+        # Since we traverse the graph starting with all outputs they are
+        # always added but if an input is not referenced it will not be added
+        # to an op.
+        tensor_set = set(sg.original_inputs)
 
         # Add the tensors from all valid ops, as well as the tensors from placeholder ops
         # This allows us to serialise tensors which arent attached to any specific ops,
@@ -362,18 +373,19 @@ class TFLiteSerialiser:
             assert len(scratch_tensors) == 1, "Multiple scratch tensors"
             scratch_tensor = scratch_tensors[0]
 
-        self.tensor_map = {tens: idx for idx, tens in enumerate(all_tensors)}
+        self.tensor_map_sg = {tens: idx for idx, tens in enumerate(all_tensors)}
         self.buffer_map = self.assign_buffers_to_tensors(all_tensors, scratch_tensor)
+        self.tensor_map_all.append(self.tensor_map_sg)
 
         tensors_offset = self.write_offset_vector([self.serialise_tensor(tens) for tens in all_tensors])
 
         # Make sure the input_tensors haven't been modified
         assert all(inp in sg.original_inputs for inp in sg.input_tensors)
-        inputs = [self.tensor_map[tens] for tens in sg.original_inputs if tens in self.tensor_map]
+        inputs = [self.tensor_map_sg[tens] for tens in sg.original_inputs if tens in self.tensor_map_sg]
 
         inputs_offset = self.write_int_vector(inputs)
         outputs_offset = self.write_int_vector(
-            [self.tensor_map[tens] for tens in sg.output_tensors if tens in self.tensor_map]
+            [self.tensor_map_sg[tens] for tens in sg.output_tensors if tens in self.tensor_map_sg]
         )
 
         operators_offset = self.write_offset_vector([self.serialise_operator(op) for op in all_ops])
@@ -384,6 +396,7 @@ class TFLiteSerialiser:
         SubGraph.SubGraphAddOutputs(builder, outputs_offset)
 
         SubGraph.SubGraphAddOperators(builder, operators_offset)
+        SubGraph.SubGraphAddName(builder, name)
 
         return SubGraph.SubGraphEnd(builder)
 
@@ -427,26 +440,32 @@ class TFLiteSerialiser:
 
         description = builder.CreateString("Vela Optimised")
 
-        subgraph_offset = self.write_offset_vector([self.serialise_subgraph(sg) for sg in self.subgraphs_to_write])
+        subgraph_offset = self.write_offset_vector(
+            [self.serialise_subgraph(sg, builder.CreateString(sg.name)) for sg in self.subgraphs_to_write]
+        )
 
         # Fill the metadata buffer
         version = np.int32(0)
-        subgraph_idx = np.int32(len(self.subgraphs_to_write))  # Only 1 supported currently
-        nbr_tensors = np.int32(len(self.tensor_map))
+        subgraph_idx = np.int32(len(self.subgraphs_to_write))
+
+        nbr_tensors_all = np.sum([len(tensor_map_sg) for tensor_map_sg in self.tensor_map_all], dtype=np.int32)
+
+        offlineAlloc = [version, subgraph_idx, nbr_tensors_all]
 
         if not any([name == b"OfflineMemoryAllocation" for name, _ in self.nng.metadata]):
-            # An offset of -1 indicates that the tensor will be allocated online by Tensorflow Lite Micro
-            offsets = [np.int32(-1)] * nbr_tensors
+            for tensor_map_sg in self.tensor_map_all:
+                nbr_tensors_sg = np.int32(len(tensor_map_sg))
+                # An offset of -1 indicates that the tensor will be allocated online by Tensorflow Lite Micro
+                offsets = [np.int32(-1)] * nbr_tensors_sg
+                # Ensure that the order of the offsets match the order of the tensors
+                for tens, idx in tensor_map_sg.items():
+                    # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
+                    if tens.mem_type in (MemType.Scratch, MemType.Scratch_fast):
+                        offsets[idx] = np.int32(tens.address) if tens.address is not None else np.int32(0)
 
-            # Ensure that the order of the offsets match the order of the tensors
-            for tens, idx in self.tensor_map.items():
-                # Set offsets for tensor allocated in Tensor Arena or in the scratch_fast area
-                if tens.mem_type in (MemType.Scratch, MemType.Scratch_fast):
-                    offsets[idx] = np.int32(tens.address) if tens.address is not None else np.int32(0)
+                offlineAlloc += offsets
 
-            self.nng.metadata.append(
-                ("OfflineMemoryAllocation", np.array([version, subgraph_idx, nbr_tensors] + offsets))
-            )
+            self.nng.metadata.append(("OfflineMemoryAllocation", np.array(offlineAlloc)))
 
         metadata_list = []
         for name, buffer in self.nng.metadata:

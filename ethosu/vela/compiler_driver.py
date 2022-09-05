@@ -233,7 +233,10 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
             sg, arch, scratch_tens, scratch_fast_tens, flash_tens
         )
 
-    npu_serialisation.rewrite_npu_call_ops(root_sg, arch)
+    # Create list of CPU subgraphs with same order as the list of all subgraphs
+    cpu_subgraphs = [sg for sg in nng.subgraphs if sg.placement == PassPlacement.Cpu]
+    for sg in cpu_subgraphs:
+        npu_serialisation.rewrite_npu_call_ops(sg, arch)
 
     # Set Scratch and Fast_scratch Tensor size
     if scratch_tens is not None:
