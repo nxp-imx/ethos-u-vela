@@ -347,7 +347,13 @@ def get_ofm_quantization(ps, tens: Tensor) -> Optional[NpuQuantization]:
     return NpuQuantization(scale_f32=ofm_quant.scale_f32, zero_point=zero_point)
 
 
-def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_shape4D: Shape4D) -> NpuFeatureMap:
+def create_feature_map(
+    tens: Tensor,
+    box: Box,
+    arch: ArchitectureFeatures,
+    op_shape4D: Shape4D,
+    stride_multiplier: Optional[List[int]] = None,
+) -> NpuFeatureMap:
     """Creates feature map with common fields populated"""
     fm = NpuFeatureMap()
     fm.region = get_region(tens.mem_type, arch)
@@ -358,13 +364,25 @@ def create_feature_map(tens: Tensor, box: Box, arch: ArchitectureFeatures, op_sh
         fm.layout = NpuLayout.NHCWB16
     else:
         assert 0, "Incorrect tensor format"
+
+    strides = tens.get_strides(op_shape4D)
+    assert strides is not None
+
+    if stride_multiplier and stride_multiplier != [1, 1, 1]:
+        assert (
+            tens.format == TensorFormat.NHWC
+        ), "Only default stride multiplier ([1, 1, 1]) supported for NHCWB16 format"
+        # Multiply strides for C/H/W (in that order) with corresponding stride factor
+        for i, stride_factor in enumerate(stride_multiplier, start=1):
+            strides[i] *= stride_factor
+
     height_0, height_1, width_0, addresses = tens.addresses_for_rolling_buffer(
-        box.start_coord, box.end_coord, op_shape4D
+        box.start_coord, box.end_coord, strides, op_shape4D
     )
+
     fm.tiles = NpuTileBox(
         height_0=height_0, height_1=height_1, width_0=width_0, addresses=[int(addr) for addr in addresses]
     )
-    strides = tens.get_strides(shape4D=op_shape4D)
     fm.strides = NpuShape3D(height=int(strides[2]), width=int(strides[3]), depth=int(strides[1]))
     fm.name = tens.name
     return fm
@@ -462,7 +480,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     npu_op.ifm.quantization = get_ifm_or_ifm2_quantization(ps, cmd.ifm_tensor)
 
     out_block = cmd.ofm_box.get_block()
-    npu_op.ofm = create_feature_map(cmd.ofm_tensor, cmd.ofm_box, arch, ps.ofm_shapes[0])
+    npu_op.ofm = create_feature_map(cmd.ofm_tensor, cmd.ofm_box, arch, ps.ofm_shapes[0], op.ofm_stride_multiplier)
     npu_op.ofm.shape = NpuShape3D(height=out_block.height, width=out_block.width, depth=out_block.depth)
     npu_op.ofm.quantization = get_ofm_quantization(ps, cmd.ofm_tensor)
 
@@ -595,9 +613,8 @@ def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
                     src_addr = cmd.in_tensor.address + weight_range.offset
                     dest_addr = cmd.out_tensor.address
     else:
-        start_coord = cmd.box.start_coord
-        src_addr = cmd.in_tensor.address_for_coordinate(start_coord)
-        dest_addr = cmd.out_tensor.address_for_coordinate(start_coord)
+        src_addr = cmd.in_tensor.address_for_coordinate(cmd.box.start_coord)
+        dest_addr = cmd.out_tensor.address_for_coordinate(cmd.box.start_coord)
         sz = cmd.in_tensor.address_for_coordinate(cmd.box.end_coord, is_top_box=True) - src_addr
     src = NpuAddressRange(src_region, int(src_addr), int(sz))
     dest = NpuAddressRange(dest_region, int(dest_addr), int(sz))
