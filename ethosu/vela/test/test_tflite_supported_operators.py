@@ -623,22 +623,6 @@ def test_mean_hw_product_int8():
     op = create_mean([1, 16, 17, 16], [1, 1, 1, 16], [1, 2], DataType.int8, {"keep_dims": True})
     assert not support.is_operator_supported(op)
 
-    # Create OP that will not saturate the accumulator
-    op = create_mean([1, 5, 14, 16], [1, 1, 1, 16], [1, 2], DataType.int8, {"keep_dims": True})
-    op.ifm.quantization.scale_f32 = 2.0
-    op.ifm.quantization.zero_point = 95
-    op.ofm.quantization.scale_f32 = 1.0
-    op.ofm.quantization.zero_point = 95
-    assert support.is_operator_supported(op)
-
-    # Create OP that can saturate the accumulator
-    op = create_mean([1, 6, 14, 16], [1, 1, 1, 16], [1, 2], DataType.int8, {"keep_dims": True})
-    op.ifm.quantization.scale_f32 = 2.0
-    op.ifm.quantization.zero_point = 95
-    op.ofm.quantization.scale_f32 = 1.0
-    op.ofm.quantization.zero_point = 95
-    assert not support.is_operator_supported(op)
-
 
 def test_mean_hw_product_avgpool():
     op = create_mean([1, 200, 200, 16], [1, 16], [1, 2], DataType.uint8, {"keep_dims": False})

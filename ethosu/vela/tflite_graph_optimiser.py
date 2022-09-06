@@ -1476,9 +1476,10 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                 # followed by a multiplication with 1/N to get the MEAN
                 weight_scale = 1
                 intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
-                intermediate.dtype = DataType.int16
+                intermediate.dtype = DataType.int32
                 mul_op = Operation(Op.Mul, op.name + "_mul")
                 mul_op.add_input_tensor(intermediate)
+                mul_op.set_output_tensor(op.ofm)
                 # Create scalar containing 1/N
                 quant = QuantizationParameters()
                 quant.zero_point = 0
@@ -1492,11 +1493,23 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                 n = int(h * w)
                 eps = 1 / (256 * (n + 1)) if n % 2 == 0 else 0
                 quant.scale_f32 = 1 / (n - eps)
+
+                # For int8/int16 we could use IFM/OFM scaling to do the division
+                # intermediate * 1 -> scale > round and shift.
+                #
+                # For int32 scaling is not supported so instead multiply with the scale
+                # intermediate * scale -> round and shift.
+                #
+                # Calculate the scale and shift value. const Tensor must be created
+                # with correct quantization since the scale and shift is calculated later
+                # in the command stream generator.
+                mul_scale, _ = scaling.elementwise_mul_scale(
+                    mul_op.ifm.quantization.scale_f32, quant.scale_f32, mul_op.ofm.quantization.scale_f32
+                )
                 scalar = create_const_tensor(
-                    op.name + "_scalar", [1, 1, 1, 1], DataType.uint8, [1], np.uint8, quantization=quant
+                    op.name + "_scalar", [1, 1, 1, 1], DataType.int32, [mul_scale], np.int32, quantization=quant
                 )
                 mul_op.add_input_tensor(scalar)
-                mul_op.set_output_tensor(op.ofm)
                 mul_op.set_ifm_ofm_shapes()
                 mul_op.rounding_mode = NpuRoundingMode.NATURAL
                 mul_op.activation = op.activation
