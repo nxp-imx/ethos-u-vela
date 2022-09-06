@@ -86,6 +86,17 @@ def remove_passthrough_tensor(tens, arch, nng):
         tens = tens.ops[0].inputs[0]
     return tens
 
+def set_concat_run_place(op, arch, nng=None):
+    """Plcae the Concat OP on CPU when preceding OP is from CPU"""
+    if op.type != Op.ConcatTFLite:
+        return op
+
+    inputs, axis = op.get_concat_inputs_axis()
+    if any (inp.ops[0].type not in (Op.Placeholder, Op.SubgraphInput, Op.Const) and
+              inp.ops[0].run_on_npu == False for inp in inputs):
+        op.run_on_npu = False
+        return op
+    return op
 
 def rewrite_concat_ops(op, arch):
     if not op.run_on_npu or not op.type.is_concat_op():
@@ -1819,7 +1830,8 @@ def tflite_optimise_graph(nng, arch):
 
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
-            nng, sg, arch, [], [replace_dilated_convolution, merge_dequant_exp_quant], rewrite_unsupported=True,
+            nng, sg, arch, [], [replace_dilated_convolution, merge_dequant_exp_quant,
+                                set_concat_run_place], rewrite_unsupported=True,
         )
 
     # Handle Mean ops
