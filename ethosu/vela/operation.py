@@ -501,6 +501,7 @@ class Operation:
         "write_offset",
         "write_shape",
         "ifm_resampling_mode",
+        "ofm_stride_multiplier",
     )
 
     def __init__(self, op_type: Op, name: str):
@@ -545,6 +546,9 @@ class Operation:
         # write_offset 0,9,0,0, write_shape 1,1,8,1
         self.write_shape: Optional[Shape4D] = None
         self.ifm_resampling_mode: resampling_mode = resampling_mode.NONE
+        # For interleaved/sparse outputs - stride is multiplied with the stride factor of the corresponding axis
+        # Order is [C, H, W] - default is no multiplication
+        self.ofm_stride_multiplier: List[int] = [1, 1, 1]
 
     def clone(self, suffix="_clone"):
         res = Operation(self.type, self.name + suffix)
@@ -568,6 +572,7 @@ class Operation:
         res.low_precision_scaling = self.low_precision_scaling
         res.rescale = self.rescale
         res.ifm_resampling_mode = self.ifm_resampling_mode
+        res.ofm_stride_multiplier = self.ofm_stride_multiplier.copy()
 
         return res
 
