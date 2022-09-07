@@ -161,9 +161,6 @@ class TFLiteSemantic:
         self.specific_constraints[Op.StridedSlice].append(TFLiteSemantic.constraint_axis_masks)
         self.specific_constraints[Op.StridedSlice].append(TFLiteSemantic.constraint_slice_ranges)
 
-        # LeakyRelu specific checks:
-        self.specific_constraints[Op.LeakyRelu].append(TFLiteSemantic.constraint_alpha_valid)
-
         # FullyConnected specific checks:
         self.specific_constraints[Op.FullyConnected].append(TFLiteSemantic.constraint_fc_output_2d)
         self.specific_constraints[Op.FullyConnected].append(TFLiteSemantic.constraint_keep_dim_ifm_ofm)
@@ -175,6 +172,7 @@ class TFLiteSemantic:
         # HardSwish specific checks:
         self.specific_constraints[Op.HardSwish].append(TFLiteSemantic.constraint_input_8bit)
         self.specific_constraints[Op.HardSwish].append(TFLiteSemantic.constraint_matching_in_out_types)
+
         # Mean specific checks:
         self.specific_constraints[Op.Mean].append(TFLiteSemantic.constraint_input_8bit)
         self.specific_constraints[Op.Mean].append(TFLiteSemantic.constraint_mean_input_dims)
@@ -556,14 +554,6 @@ class TFLiteSemantic:
         ofm_shape = op.ofm.shape
         valid = (ifm_shape == ofm_shape) or (ifm2_shape == ofm_shape)
         return valid, f"Op has ifm_shape={ifm_shape}, ifm2_shape={ifm2_shape} and ofm_shape={ofm_shape}"
-
-    @staticmethod
-    def constraint_alpha_valid(op):
-        "Alpha only allowed to be negative if IFM is int8 or uint8"
-        alpha = op.attrs["alpha"]
-        ifm_dtype = op.ifm.dtype
-        valid = ifm_dtype == DataType.int8 or ifm_dtype == DataType.uint8 or alpha >= 0
-        return valid, f"Op has alpha={alpha} and ifm_dtype={ifm_dtype} "
 
     @staticmethod
     def constraint_keep_dim_ifm_ofm(op):

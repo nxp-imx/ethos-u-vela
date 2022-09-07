@@ -1170,11 +1170,34 @@ def convert_lrelu_to_mul_max(op, arch):
     if ifm is None or ofm is None:
         return op
 
+    alpha = np.float32(op.attrs["alpha"])
+    use_mul_max = 0 < alpha < 1
+    if use_mul_max:
+        mul_ifm = ifm
+        new_op = Op.Maximum
+    else:
+        # Need to use a different approach for alpha > 1
+        no_scale_quant = ifm.quantization.clone()
+        no_scale_quant.scale_f32 = None
+        no_scale_quant.zero_point = 0
+        zero = create_const_tensor("zero_const", [], ifm.dtype, [0], quantization=no_scale_quant)
+
+        # Select values < 0
+        min_op = Operation(Op.Minimum, op.name + "_min")
+        min_op.add_input_tensor(ifm)
+        min_op.add_input_tensor(zero)
+        mul_ifm = ifm.clone(op.name + "_negative", set_unique=True)
+        mul_ifm.dtype = DataType.int32
+        min_op.set_output_tensor(mul_ifm)
+        min_op.set_ifm_ofm_shapes()
+        new_op = Op.RescaleAdd
+        op.rescale = (1, 0)  # No scale or shift
+        DebugDatabase.add_optimised(op, min_op)
+
     # Add multiplication with alpha
     mul_alpha = Operation(Op.Mul, op.name + "_mul_alpha")
-    mul_alpha.add_input_tensor(ifm)
+    mul_alpha.add_input_tensor(mul_ifm)
     # Create const tensor containing alpha as scalar
-    alpha = np.float32(op.attrs["alpha"])
     quantization = ifm.quantization.clone()
     quantization.min = 0
     quantization.max = alpha * (quantization.quant_max - quantization.quant_min)
@@ -1190,15 +1213,24 @@ def convert_lrelu_to_mul_max(op, arch):
         scalar = 0
     else:
         quantization.scale_f32 = alpha
-        scalar = 1
-    alpha_tens = create_const_tensor(op.name + "_alpha_scalar", [], ifm.dtype, [scalar], quantization=quantization)
+        scalar, _ = scaling.elementwise_mul_scale(ifm.quantization.scale_f32, alpha, ofm.quantization.scale_f32)
+    alpha_tens = create_const_tensor(
+        op.name + "_alpha_scalar", [1, 1, 1, 1], DataType.int32, [scalar], np.int32, quantization=quantization
+    )
     mul_alpha.add_input_tensor(alpha_tens)
     fm_alpha = ofm.clone(op.name + "_alpha", set_unique=True)
     mul_alpha.set_output_tensor(fm_alpha)
     mul_alpha.set_ifm_ofm_shapes()
     DebugDatabase.add_optimised(op, mul_alpha)
 
-    if check_quantized_tens_scaling_equal(ifm, ofm):
+    if not use_mul_max:
+        relu_op = Operation(Op.Relu, op.name + "_relu")
+        relu_op.add_input_tensor(ifm)
+        fm_id = ofm.clone(op.name + "_positive_scaled", set_unique=True)
+        relu_op.set_output_tensor(fm_id)
+        relu_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, relu_op)
+    elif check_quantized_tens_scaling_equal(ifm, ofm):
         # No identity multiplication is needed
         fm_id = ifm
     else:
@@ -1222,8 +1254,8 @@ def convert_lrelu_to_mul_max(op, arch):
         DebugDatabase.add_optimised(op, mul_identity)
 
     # Convert LeakyRelu to Max, add the results of the multiplication(s) as inputs
-    op.type = Op.Maximum
-    op.name = op.name.replace("LeakyRelu", "Maximum")
+    op.type = new_op
+    op.name = op.name.replace("LeakyRelu", new_op.name)
     op.inputs = []
     ifm.consumer_list.remove(op)
     op.add_input_tensor(fm_alpha)
@@ -1298,8 +1330,12 @@ def convert_lrelu(op, arch, nng):
     if ifm.dtype in (DataType.uint8, DataType.int8) and ifm.dtype == ofm.dtype:
         # use LUT for int8/uint8
         return convert_lrelu_to_lut(op, arch)
-    if check_quantized_tens_scaling_equal(ifm, ofm) and ifm.dtype == ofm.dtype == DataType.int16:
-        # use LeakyRelu unmodified for int16 with equal input/output scaling
+    if (
+        check_quantized_tens_scaling_equal(ifm, ofm)
+        and ifm.dtype == ofm.dtype == DataType.int16
+        and op.attrs["alpha"] >= 0
+    ):
+        # use LeakyRelu unmodified for int16 with equal input/output scaling and positive alpha
         return op
     return convert_lrelu_to_mul_max(op, arch)
 
