@@ -1202,20 +1202,25 @@ def convert_lrelu_to_mul_max(op, arch):
     quantization.min = 0
     quantization.max = alpha * (quantization.quant_max - quantization.quant_min)
     quantization.zero_point = 0
+    alpha_dtype = mul_ifm.dtype
     if "alpha_scaling" in op.attrs:
         # The LeakyRelu was the result from convert_prelu
         scalar, alpha_scale, alpha_shift = op.attrs["alpha_scaling"]
         mul_alpha.type = Op.RescaleMul
         mul_alpha.rescale = [alpha_scale, alpha_shift]
-    elif np.isinf(1 / alpha):
-        # Handling of alpha near zero
+    elif alpha == 0 or np.isinf(1 / alpha):
+        # Handling of alpha near or at zero
         quantization.scale_f32 = np.float32(1)
         scalar = 0
     else:
         quantization.scale_f32 = alpha
-        scalar, _ = scaling.elementwise_mul_scale(ifm.quantization.scale_f32, alpha, ofm.quantization.scale_f32)
+        if alpha_dtype == DataType.int32:
+            # When the datatype is int32 we need to do the scaling with the multiplication
+            scalar, _ = scaling.elementwise_mul_scale(ifm.quantization.scale_f32, alpha, ofm.quantization.scale_f32)
+        else:
+            scalar = 1
     alpha_tens = create_const_tensor(
-        op.name + "_alpha_scalar", [1, 1, 1, 1], DataType.int32, [scalar], np.int32, quantization=quantization
+        op.name + "_alpha_scalar", [1], alpha_dtype, [scalar], alpha_dtype.as_numpy_type(), quantization=quantization
     )
     mul_alpha.add_input_tensor(alpha_tens)
     fm_alpha = ofm.clone(op.name + "_alpha", set_unique=True)
