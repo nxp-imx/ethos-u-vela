@@ -1172,11 +1172,12 @@ def convert_lrelu_to_mul_max(op, arch):
 
     alpha = np.float32(op.attrs["alpha"])
     use_mul_max = 0 < alpha < 1
+    is_converted_prelu = "alpha_scaling" in op.attrs
     if use_mul_max:
         mul_ifm = ifm
         new_op = Op.Maximum
     else:
-        # Need to use a different approach for alpha > 1
+        # Need to use a different approach for alpha < 0 or alpha > 1
         no_scale_quant = ifm.quantization.clone()
         no_scale_quant.scale_f32 = None
         no_scale_quant.zero_point = 0
@@ -1187,7 +1188,10 @@ def convert_lrelu_to_mul_max(op, arch):
         min_op.add_input_tensor(ifm)
         min_op.add_input_tensor(zero)
         mul_ifm = ifm.clone(op.name + "_negative", set_unique=True)
-        mul_ifm.dtype = DataType.int32
+        if alpha < 0 and not is_converted_prelu:
+            # For negative alpha that is not from a converted PReLU we need to use
+            # int32 Mul below to perform the (negative) alpha scaling
+            mul_ifm.dtype = DataType.int32
         min_op.set_output_tensor(mul_ifm)
         min_op.set_ifm_ofm_shapes()
         new_op = Op.RescaleAdd
@@ -1203,8 +1207,8 @@ def convert_lrelu_to_mul_max(op, arch):
     quantization.max = alpha * (quantization.quant_max - quantization.quant_min)
     quantization.zero_point = 0
     alpha_dtype = mul_ifm.dtype
-    if "alpha_scaling" in op.attrs:
-        # The LeakyRelu was the result from convert_prelu
+    if is_converted_prelu:
+        # The LeakyRelu was the result from convert_prelu and the scaling is provided
         scalar, alpha_scale, alpha_shift = op.attrs["alpha_scaling"]
         mul_alpha.type = Op.RescaleMul
         mul_alpha.rescale = [alpha_scale, alpha_shift]
@@ -1215,7 +1219,7 @@ def convert_lrelu_to_mul_max(op, arch):
     else:
         quantization.scale_f32 = alpha
         if alpha_dtype == DataType.int32:
-            # When the datatype is int32 we need to do the scaling with the multiplication
+            # When the datatype is int32 (alpha negative) we need to do the scaling with the multiplication
             scalar, _ = scaling.elementwise_mul_scale(ifm.quantization.scale_f32, alpha, ofm.quantization.scale_f32)
         else:
             scalar = 1
@@ -1332,14 +1336,16 @@ def convert_lrelu(op, arch, nng):
     ifm, ofm = op.get_ifm_ofm()
     if ifm is None or ofm is None:
         return op
+    alpha = op.attrs["alpha"]
+    if alpha == 0:
+        # When alpha is 0 the opertion can be converted to a ReLU
+        op.type = Op.Relu
+        op.name = op.name.replace("LeakyRelu", op.type.name)
+        return op
     if ifm.dtype in (DataType.uint8, DataType.int8) and ifm.dtype == ofm.dtype:
         # use LUT for int8/uint8
         return convert_lrelu_to_lut(op, arch)
-    if (
-        check_quantized_tens_scaling_equal(ifm, ofm)
-        and ifm.dtype == ofm.dtype == DataType.int16
-        and op.attrs["alpha"] >= 0
-    ):
+    if check_quantized_tens_scaling_equal(ifm, ofm) and ifm.dtype == ofm.dtype == DataType.int16 and alpha > 0:
         # use LeakyRelu unmodified for int16 with equal input/output scaling and positive alpha
         return op
     return convert_lrelu_to_mul_max(op, arch)
@@ -2132,6 +2138,8 @@ def tflite_optimise_graph(nng, arch, output_basename=None, subgraph_output = Fal
         convert_conv_to_fc,
         convert_softmax,
         convert_prelu,
+        convert_mul_max_to_abs_or_lrelu,
+        convert_lrelu,
         optimise_strided_conv,
         convert_hardswish_to_lut,
         rewrite_fully_connected_input,
@@ -2142,8 +2150,6 @@ def tflite_optimise_graph(nng, arch, output_basename=None, subgraph_output = Fal
         fixup_resize,
         fixup_bias_tensors,
         fixup_asymmetric_weights,
-        convert_mul_max_to_abs_or_lrelu,
-        convert_lrelu,
         convert_tanh_sigmoid_exp_to_lut,
         replace_pad_by_hw_pad,
     ]
