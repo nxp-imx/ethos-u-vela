@@ -94,6 +94,9 @@ class TosaSupportedOperators:
         self.generic_constraints.append(TosaSupportedOperators.constraint_rank)  # TODO not supported for all ops yet
         self.generic_constraints.append(TosaSupportedOperators.constraint_batch)  # TODO not supported for all ops yet
 
+        # Setup generic constraint exceptions
+        self.generic_constraints_exceptions = defaultdict(list)
+
         # Setup specific constraints. Note: the order matters
         self.specific_constraints = defaultdict(list)
 

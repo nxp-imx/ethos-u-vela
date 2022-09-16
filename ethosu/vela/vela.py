@@ -45,6 +45,7 @@ from .tensor import Tensor
 from .tflite.Model import Model
 from .tflite_mapping import builtin_operator_map
 from .tflite_mapping import builtin_operator_name_map
+from .tflite_mapping import optype_to_builtintype
 from .tflite_model_semantic import TFLiteSemantic
 from .tflite_supported_operators import TFLiteSupportedOperators
 from .tosa_model_semantic import TosaSemantic
@@ -178,6 +179,12 @@ def generate_supported_ops():
     # To easily exclude NetworkType from generated documentation.
     exclude_generation_network_type_value = [NetworkType.TOSA.value]
 
+    def _exclude_list_names(constraint, exclude_list):
+        constraints_excluded_names = [
+            optype_to_builtintype(op) for op, exclude_constraint in exclude_list if constraint in exclude_constraint
+        ]
+        return f" - [{', '.join(sorted(constraints_excluded_names))}]" if constraints_excluded_names else ""
+
     lines = [
         "# Supported Ops",
         "",
@@ -256,20 +263,13 @@ def generate_supported_ops():
         for constraint in semantic_checker.generic_constraints:
             # Markdown needs two spaces at the end of a line to render it as a separate line
             reason = constraint.__doc__.replace("\n", "  \n")
-
             exclude_list = TFLiteSemantic.get_generic_constraint_exclude_list().items()
-            constraints_excluded_names = [
-                op.name for op, exclude_constraint in exclude_list if constraint in exclude_constraint
-            ]
-            excluded_constraint_text = ""
-            if constraints_excluded_names:
-                excluded_constraint_text = f"- [{', '.join(constraints_excluded_names)}]"
-
-            lines.append(f"- {reason} {excluded_constraint_text}")
+            lines.append(f"- {reason}{_exclude_list_names(constraint, exclude_list)}")
         for constraint in supported.generic_constraints:
             # Markdown needs two spaces at the end of a line to render it as a separate line
             reason = constraint.__doc__.replace("\n", "  \n")
-            lines.append(f"- {reason}")
+            exclude_list = supported.generic_constraints_exceptions.items()
+            lines.append(f"- {reason}{_exclude_list_names(constraint, exclude_list)}")
         for op, name in op_constraint_links:
             lines += [
                 "",
