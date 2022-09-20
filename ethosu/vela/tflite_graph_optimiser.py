@@ -385,7 +385,7 @@ def convert_resizenn_ac_to_depthwise_conv(op, upscale_factor):
     # need to append the bias tensor as resize ops only have 2 inputs
     assert len(op.inputs) == 2
     op.inputs.append(None)
-    fixup_bias_tensors(op, None, None)
+    fixup_bias_tensors(op, None, None, DataType.int32)
 
     # finally update the shape incase we've change the tensor shapes or connections
     op.set_ifm_ofm_shapes()
@@ -1324,7 +1324,7 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
             op.add_input_tensor(weight_tens)
             # Add bias tensor, all biases set to 0
             op.inputs.append(None)
-            fixup_bias_tensors(op, arch, nng)
+            fixup_bias_tensors(op, arch, nng, DataType.int32)
             # Add other inputs
             op.inputs.extend(other_inputs)
             op.rounding_mode = NpuRoundingMode.NATURAL
@@ -1407,12 +1407,22 @@ def convert_pad(op: Operation, arch, nng):
     return avgpool_op
 
 
-def fixup_bias_tensors(op, arch, nng):
+def fixup_bias_tensors(op, arch, nng, dtype=None):
     if op.type.needs_bias() and op.bias is None:
         # Op has no bias, add bias tensor filled with zeros
         nr_biases = op.inputs[1].shape[-1]
         bias_values = [0] * nr_biases
-        bias_tensor = create_const_tensor(op.name + "_bias", [nr_biases], DataType.int32, bias_values)
+        # The DataType of the bias tensor can be explicitly provided or deduced from the ifm
+        # DataType. Default is int32 bias for 8-bit ifms and int64 for int16 ifms.
+        # For int16 the selected bias DataType will have an impact on the scaling
+        # used when encoding the scales and biases later. The default mode will match the
+        # refence with reduced scaling for int64 bias.
+        # This means that in cases (in the graph optimiser) where DepthwiseConv2DBias
+        # is used to emulate average pool int32 bias should be selected for full precision
+        # int16 scaling.
+        if dtype is None:
+            dtype = DataType.int64 if op.ifm.dtype == DataType.int16 else DataType.int32
+        bias_tensor = create_const_tensor(op.name + "_bias", [nr_biases], dtype, bias_values)
         op.set_input_tensor(bias_tensor, op.type.info.indices.biases[0])
 
     return op
