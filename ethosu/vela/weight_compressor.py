@@ -275,7 +275,8 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
         quantised_scales = [(int(m), int(s)) for s, m in zip(explicit_scaling.shift, explicit_scaling.multiplier)]
     else:
         # quantise all of the weight scales into (scale_factor, shift)
-        if ifm_dtype == DataType.int16:
+        if ifm_dtype == DataType.int16 and bias_tens.dtype == DataType.int64:
+            # Reference uses reduced scaling for int16 with int64 bias
             quantised_scales = [reduced_quantise_scale(scale) for scale in scales]
         else:
             quantised_scales = [quantise_scale(scale) for scale in scales]
