@@ -654,7 +654,6 @@ class Tensor:
                 strides[i] = stride
                 stride *= augmented_shape[i]
         else:
-            assert len(strides) == 5
             strides[4] = stride
             strides[3] = 16 * stride  # STRIDE_X
             strides[1] = strides[3] * augmented_shape[2]  # STRIDE_C
@@ -756,17 +755,25 @@ class Tensor:
         op_shape4D: Optional[Shape4D] = None,
         is_top_box: bool = False,
     ) -> Optional[int]:
+
         address_offset = 0
         assert self.purpose != TensorPurpose.Weights
 
+        # Strides may be passed as an argument, for example when creating feature maps as the strides may be modified
+        # by the "ofm_stride_multiplier" operation attribute. If not, they are calculated here.
+        if not strides:
+            strides = self.get_strides(op_shape4D)
+
+        coord = orig_coord
+        if is_top_box:
+            coord = [c - 1 for c in orig_coord]
+            address_offset += 1 * strides[-1]  # one element
+
         if self.sub_purpose == TensorSubPurpose.Standard:
             shape = op_shape4D.as_list() if op_shape4D else self.shape
-            for idx, c in enumerate(orig_coord):
-                if is_top_box:
-                    assert c > 0 and c <= shape[idx]
-                else:
-                    assert c >= 0 and c < shape[idx]
-        coord = orig_coord
+            for _coord, _shape in zip(coord, shape):
+                assert _coord >= 0 and _coord < _shape
+
         if op_shape4D and self.is_standard_fm:
             storage_shape = self.get_4D_storage_shape_for_shape(op_shape4D).as_list()
             storage_size = self.storage_size_for_shape(storage_shape)
@@ -775,27 +782,15 @@ class Tensor:
             coord = coord[-len(storage_shape) :]
             storage_size = self.storage_size()
 
-        if is_top_box:
-            coord = [c - 1 for c in coord]
-
-        # handle wraparound for partial buffers. make sure to do this after subtracting top box:
-        coord = [c % storage_shape[idx] for idx, c in enumerate(coord)]
-
-        # Strides may be passed as an argument, for example when creating feature maps as the strides may be modified
-        # by the "ofm_stride_multiplier" operation attribute. If not, they are calculated here.
-        if not strides:
-            strides = self.get_strides(op_shape4D)
-
-        if is_top_box:
-            address_offset += 1 * strides[-1]  # one element
+        # Handle wraparound for partial buffers. Make sure to do this after subtracting top box
+        coord = [_coord % _shape for _coord, _shape in zip(coord, storage_shape)]
 
         augmented_coord = self.get_augmented_coord(coord)
         assert augmented_coord is not None
 
         address_offset += np.dot(augmented_coord, strides)
 
-        assert address_offset >= 0
-        assert address_offset <= storage_size
+        assert address_offset >= 0 and address_offset <= storage_size
         return self.address + address_offset
 
     def is_allocated_in_tensor_arena(self, scratch_tensor_mem_area: MemArea) -> bool:
