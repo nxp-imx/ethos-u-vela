@@ -674,12 +674,12 @@ class TFLiteSupportedOperators:
 
     @staticmethod
     def constraint_resize_half_pixel_centers(op):
-        """Half_pixel_centers are only supported for resize bilinear with IFM dtype int8 or uint8"""
-        valid = op.ifm.dtype in (DataType.int8, DataType.uint8)
+        """Half_pixel_centers are only supported for resize bilinear"""
+        valid = True
         half_pixel_centers = op.attrs.get("half_pixel_centers", False)
         if half_pixel_centers and op.type != Op.ResizeBilinear:
             valid = False
-        return valid, f"Op type={op.type}, ifm dtype={op.ifm.dtype} and half_pixel_centers={half_pixel_centers}"
+        return valid, f"Op type={op.type} and half_pixel_centers={half_pixel_centers}"
 
     @staticmethod
     def constraint_resizebi_half_pixel_centers_dims(op):

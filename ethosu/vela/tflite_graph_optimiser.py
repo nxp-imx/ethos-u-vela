@@ -739,7 +739,7 @@ def convert_resizebilinear_to_depthwise_convolutions(op, half_pixel_centers=True
                 # need to append the bias tensor as resize ops only have 2 inputs
                 assert len(dw_conv.inputs) == 2
                 dw_conv.inputs.append(None)
-                fixup_bias_tensors(dw_conv, None, None)
+                fixup_bias_tensors(dw_conv, None, None, dtype=DataType.int32)
 
                 dw_conv.set_ifm_ofm_shapes()
                 dw_conv = dw_conv.clone(f"_{index}")
