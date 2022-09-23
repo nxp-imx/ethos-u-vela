@@ -129,6 +129,7 @@ class TFLiteSupportedOperators:
             Op.Sigmoid,
             Op.Softmax,
             Op.HardSwish,
+            Op.LeakyRelu,
             Op.Prelu,
         )
     )
