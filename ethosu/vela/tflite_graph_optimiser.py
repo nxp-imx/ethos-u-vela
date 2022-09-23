@@ -1622,7 +1622,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         # Set IFM/OFM shapes after changing op type
         op.set_ifm_ofm_shapes()
 
-        weight_scale, bias = 1, None
+        weight_scale, bias = 1, 0
         ofmq, ifmq = op.ofm.quantization, inp.quantization
         # Set rounding mode, scaling and zero point based on which reference implementation to match
         if len(shape) == 4 and axis == [1, 2] and keep_dims:
@@ -1645,20 +1645,13 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                     # the bias can only effectively assume values in the range [-255, 255].
                     intermediate.dtype = DataType.int16
                     intermediate.quantization.zero_point = 0
-                    add_op = Operation(Op.Add, op.name + "_bias")
+                    add_op = Operation(Op.Add, f"{op.name}_bias")
                     add_op.forced_output_quantization = foq
                     add_op.add_input_tensor(intermediate)
                     quant = QuantizationParameters()
                     quant.zero_point = 0
-                    bias_term_tens = create_const_tensor(
-                        op.name + "_bias",
-                        [1, 1, 1, 1],
-                        DataType.int16,
-                        [bias_term],
-                        np.int16,
-                        quantization=quant,
-                    )
-                    add_op.add_input_tensor(bias_term_tens)
+                    bias_scalar = create_const_tensor(add_op.name, [], DataType.int16, [bias_term], quantization=quant)
+                    add_op.add_input_tensor(bias_scalar)
                     add_op.set_output_tensor(op.ofm)
                     add_op.set_ifm_ofm_shapes()
                     add_op.activation = op.activation
@@ -1793,22 +1786,9 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         )
         op.weights.values = np.reshape(op.inputs[1].values, weight_shape)
 
-        # Add None bias tensor
-        op.inputs.append(None)
         # Add bias tensor
-        if bias:
-            bias_shape = [shape[-1]]
-            op.set_input_tensor(
-                create_const_tensor(
-                    "bias",
-                    bias_shape,
-                    inp.dtype,
-                    np.ones(bias_shape) * bias,
-                    value_dtype=np.int32,
-                    quantization=None,
-                ),
-                2,
-            )
+        bias_shape = [shape[-1]]
+        op.inputs.append(create_const_tensor("bias", bias_shape, DataType.int32, np.ones(bias_shape) * bias))
 
     return op
 
