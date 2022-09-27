@@ -122,25 +122,6 @@ def create_add(
     )
 
 
-def create_rescale_add(
-    name: str,
-    ifm: Tensor,
-    ifm2: Tensor,
-    rescale: Tuple[int, int],
-    quantization: QuantizationParameters,
-    activation: Optional[ActivationFunction] = None,
-    dtype: Optional[DataType] = None,
-    attrs: Optional[dict] = None,
-    ifm_shape: Optional[Shape4D] = None,
-    ifm2_shape: Optional[Shape4D] = None,
-) -> Operation:
-    op = create_binary_elementwise(
-        Op.RescaleAdd, name, ifm, ifm2, quantization, activation, dtype, attrs, ifm_shape, ifm2_shape
-    )
-    op.rescale = rescale
-    return op
-
-
 def create_clz(
     name: str,
     ifm: Tensor,

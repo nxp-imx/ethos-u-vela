@@ -92,9 +92,7 @@ dtype_map = {
 # Maps an elementwise op type to an elementwise_mode enum value used by NPU_OP_ELEMENTWISE
 elementwise_op_map = {
     Op.Mul: NpuElementWiseOp.MUL,
-    Op.RescaleMul: NpuElementWiseOp.MUL,
     Op.Add: NpuElementWiseOp.ADD,
-    Op.RescaleAdd: NpuElementWiseOp.ADD,
     Op.Sub: NpuElementWiseOp.SUB,
     Op.Minimum: NpuElementWiseOp.MIN,
     Op.Maximum: NpuElementWiseOp.MAX,
@@ -312,11 +310,7 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
         (
             ps.primary_op.activation is None
             or forced_ofm_quantization is not None
-            or (
-                ps.primary_op.type.is_avgpool_op()
-                and ps.primary_op.activation.op_type.is_relu_op()
-                and not ps.primary_op.rescale
-            )
+            or (ps.primary_op.type.is_avgpool_op() and ps.primary_op.activation.op_type.is_relu_op())
         )
         and (ps.primary_op.memory_function != Op.ConcatSliceWrite)
         and not fused_quantize
@@ -461,7 +455,7 @@ def create_npu_activation(op: Operation) -> NpuActivation:
     act = NpuActivation(act_op)
     act.min = op.activation.min
     act.max = op.activation.max
-    if act_op is NpuActivationOp.NONE_OR_RELU and op.type.is_avgpool_op() and not op.rescale:
+    if act_op is NpuActivationOp.NONE_OR_RELU and op.type.is_avgpool_op() and not op.explicit_scaling:
         quant = op.ofm.quantization
         if quant and quant.zero_point:  # Zero point is not 0
             scale_f32 = 1 if quant.scale_f32 is None else quant.scale_f32
@@ -544,10 +538,8 @@ def create_npu_pool_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> NpuPooling
     npu_op = NpuPoolingOperation(pool_op)
     set_common_op_fields(npu_op, cmd, arch)
     # Pooling specific info
-    npu_op.rescale = op.rescale
     if op.explicit_scaling:
         # Note: reuse of rescale for explicit scaling to not expose this in the external API
-        assert npu_op.rescale is None
         npu_op.rescale = op.explicit_scaling
     return npu_op
 
@@ -588,7 +580,11 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
     set_common_op_fields(npu_op, cmd, arch)
     # Check if output scale needs to be overridden
     output_scale = None
-    if op.type == Op.Add and op.original_type.is_resize_op():
+    if op.explicit_scaling is not None:
+        assert not op.explicit_scaling.per_channel
+        assert op.type in (Op.Add, Op.Mul, Op.Sub)
+        npu_op.rescale = (op.explicit_scaling.multiplier[0], op.explicit_scaling.shift[0])
+    elif op.type == Op.Add and op.original_type.is_resize_op():
         # Force output scale same as the input scale for
         # resizebilinear/nearestneighbor 1x1 that is converted to add
         output_scale = npu_op.ifm2.quantization.scale_f32
@@ -596,9 +592,6 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
         output_scale = npu_op.ifm.quantization.scale_f32 / npu_op.ofm.quantization.scale_f32
     elif op.type == Op.LeakyRelu:
         output_scale = op.attrs["alpha"]
-    elif op.type in (Op.RescaleAdd, Op.RescaleMul):
-        assert op.rescale is not None, f"{op.type} must have rescale"
-        npu_op.rescale = op.rescale
     elif op.type in (Op.Add, Op.Mul, Op.Sub):
         if op.activation is not None and op.activation.op_type in (Op.Sigmoid, Op.Tanh):
             output_scale = 1 / 0x3000

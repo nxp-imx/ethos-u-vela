@@ -28,6 +28,7 @@ from .api import NpuRoundingMode
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .operation import ActivationFunction
+from .operation import ExplicitScaling
 from .operation import Op
 from .operation import Operation
 from .operation_util import create_add
@@ -35,7 +36,6 @@ from .operation_util import create_clz
 from .operation_util import create_depthwise_maxpool
 from .operation_util import create_mul
 from .operation_util import create_reduce_sum
-from .operation_util import create_rescale_add
 from .operation_util import create_shl
 from .operation_util import create_shr
 from .operation_util import create_sub
@@ -351,16 +351,15 @@ class SoftMax:
         f0_one_const = create_const_tensor(
             "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], np.int32, quantization=no_scale_quant
         )
-        half_denominator = add_op_get_ofm(
-            create_rescale_add(
-                f"{self.op.name}_add{pass_number}",
-                f0_one_const,
-                shifted_sum_minus_one,
-                (1, 1),  # Custom rescale
-                one_scale_quant,
-                activation,
-            )
+        add_op = create_add(
+            f"{self.op.name}_add{pass_number}",
+            f0_one_const,
+            shifted_sum_minus_one,
+            one_scale_quant,
+            activation,
         )
+        add_op.explicit_scaling = ExplicitScaling(False, shift=[1], multiplier=[1])  # Custom rescale
+        half_denominator = add_op_get_ofm(add_op)
 
         # PASS 11 - Multiply
         neg_32_over_17 = create_const_tensor(

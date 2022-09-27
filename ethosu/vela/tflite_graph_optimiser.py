@@ -871,7 +871,7 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             # Add explicit rescaling
             rescale = ifm.quantization.scale_f32 / ofm.quantization.scale_f32
             multiplier, shift = scaling.quantise_scale(rescale)
-            relu_fused_op.rescale = ExplicitScaling(False, [shift], [multiplier])
+            relu_fused_op.explicit_scaling = ExplicitScaling(False, [shift], [multiplier])
             # Tidy up and assign the ifm and ofm to the new op
             ifm.consumer_list.remove(op)
 
@@ -991,8 +991,8 @@ def convert_prelu(op, arch, nng):
         DebugDatabase.add_optimised(op, relu_op)
 
         # Add scaled and alpha multiplied values (without scaling)
-        add_op = Operation(Op.RescaleAdd, op.name + "_add")
-        add_op.rescale = (1, 0)  # No scale or shift
+        add_op = Operation(Op.Add, op.name + "_add")
+        add_op.explicit_scaling = ExplicitScaling(False, shift=[0], multiplier=[1])  # No scaling
         add_op.add_input_tensor(fm_alpha)
         add_op.add_input_tensor(fm_scaled)
         add_op.set_output_tensor(ofm)
@@ -1180,8 +1180,8 @@ def convert_lrelu_to_mul_max(op, arch):
             mul_ifm.dtype = DataType.int32
         min_op.set_output_tensor(mul_ifm)
         min_op.set_ifm_ofm_shapes()
-        new_op = Op.RescaleAdd
-        op.rescale = (1, 0)  # No scale or shift
+        new_op = Op.Add
+        op.explicit_scaling = ExplicitScaling(False, shift=[0], multiplier=[1])  # No scaling
         DebugDatabase.add_optimised(op, min_op)
 
     # Add multiplication with alpha
@@ -1196,8 +1196,7 @@ def convert_lrelu_to_mul_max(op, arch):
     if is_converted_prelu:
         # The LeakyRelu was the result from convert_prelu and the scaling is provided
         scalar, alpha_scale, alpha_shift = op.attrs["alpha_scaling"]
-        mul_alpha.type = Op.RescaleMul
-        mul_alpha.rescale = [alpha_scale, alpha_shift]
+        mul_alpha.explicit_scaling = ExplicitScaling(False, [alpha_shift], [alpha_scale])
     elif alpha == 0 or np.isinf(1 / alpha):
         # Handling of alpha near or at zero
         quantization.scale_f32 = np.float32(1)

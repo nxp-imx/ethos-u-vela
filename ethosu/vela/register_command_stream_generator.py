@@ -707,6 +707,7 @@ def generate_ofm_scaling_for_pooling(emit: CommandStreamEmitter, pool_op: NpuPoo
             shift = explicit_scaling.shift[0]
         else:
             # for ResizeBilinear/NearestNeighbor operations with rescale
+            # Note: this is not used, but part of the public API
             rescale = pool_op.rescale
             rescale_bits = len(bin(round_up_to_int(rescale))) - 2 + 1
             scale, shift = scaling.quantise_pooling_scale(kernel.height * kernel.width, rescale_bits)
@@ -759,25 +760,30 @@ def generate_scaling_for_elementwise(emit: CommandStreamEmitter, npu_op: NpuElem
             else:
                 ofm_scale, shift = scaling.elementwise_mul_scale(input_scale, input2_scale, output_scale)
         else:  # Add/Sub
-            opa_scale: float
-            opb_scale: float
+            # Default operand scaling is no scaling
+            opa_scale = opb_scale = 1
+            opa_shift = 0
             bitdepth = npu_op.ifm.data_type.size_in_bits()
             use_advanced_scaling = False
-            if None in (input_scale, input2_scale, output_scale):
-                opa_scale = opb_scale = ofm_scale = 1
-                opa_shift = shift = 0
-                if npu_op.rescale is not None:
-                    ofm_scale, shift = npu_op.rescale
+            if npu_op.rescale is not None:
+                # Explicit ofm scaling
+                ofm_scale, shift = npu_op.rescale
+            elif None in (input_scale, input2_scale, output_scale):
+                # No ofm scaling
+                ofm_scale = 1
+                shift = 0
             elif input_scale == input2_scale and bitdepth == 16:
+                # int16 same scaling
                 opa_scale, opb_scale, ofm_scale, shift = scaling.simplified_elementwise_add_sub_scale(
                     input_scale, input2_scale, output_scale
                 )
                 # align the double rounding with that of advanced scaling
-                opa_scale /= 2
-                opb_scale /= 2
+                opa_scale //= 2
+                opb_scale //= 2
                 shift -= 1
                 opa_shift = 0  # Unused for this case
             elif input_scale == input2_scale:
+                # Same scaling
                 opa_scale, opb_scale, ofm_scale, shift = scaling.simplified_elementwise_add_sub_scale(
                     input_scale, input2_scale, output_scale
                 )

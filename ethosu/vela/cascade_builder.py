@@ -18,6 +18,7 @@
 # Groups Operators in a schedule together to form Cascades.
 from collections import namedtuple
 
+from .high_level_command_to_npu_op import ifm_ifm2_correct_order
 from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
@@ -169,17 +170,14 @@ class CascadeBuilder:
     @staticmethod
     def element_wise_cascading_conformity(sched_op):
         """Check the inputs of the op to see if it's a candidate for cascading."""
-        # Cascading sub-operators of Softmax results in a crash when handling Sub and RescaleAdd ops
 
         ifm = sched_op.parent_op.ifm
         ifm2 = sched_op.parent_op.ifm2
 
-        if sched_op.op_type in [Op.RescaleAdd]:
-            return False
-
+        # Cascading elementwise operations with reverse operand order is not handled
         if sched_op.parent_op.type.is_binary_elementwise_op() and ifm and ifm2:
             # We cannot rule out cascadability if at least one IFM is constant
-            return Op.Const in (ifm.ops[0], ifm2.ops[0])
+            return Op.Const in (ifm.ops[0].type, ifm2.ops[0].type) and ifm_ifm2_correct_order(ifm.shape, ifm2.shape)
         else:
             # Either one IFM is not variable or it is not a binary elementwise op - we cannot rule out cascadability
             return True

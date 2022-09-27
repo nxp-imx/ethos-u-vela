@@ -50,7 +50,6 @@ class TosaSupportedOperators:
         (
             Op.Add,
             Op.Mul,
-            Op.RescaleMul,
             Op.Sub,
         )
     )

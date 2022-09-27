@@ -23,6 +23,7 @@ import numpy as np
 
 from .nn_graph import Graph
 from .nn_graph import Subgraph
+from .operation import ExplicitScaling
 from .operation import Op
 from .operation import Operation
 from .reader_util import align_tensor_indices_to_nng
@@ -183,8 +184,7 @@ class TosaSubgraph:
             if "shift" in op.attrs and op.type == Op.Mul:
                 shift = op.attrs["shift"]
                 if shift != 0:
-                    op.type = Op.RescaleMul
-                    op.rescale = [1, shift]
+                    op.explicit_scaling = ExplicitScaling(False, [shift], [1])
             if op.type.is_depthwise_conv2d_op():
                 op.attrs["depth_multiplier"] = op.weights.shape[3]
             if op.type == Op.SplitSliceRead:

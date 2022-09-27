@@ -27,7 +27,6 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import TYPE_CHECKING
-from typing import Union
 
 from .api import NpuRoundingMode
 from .errors import VelaError
@@ -247,8 +246,6 @@ class Op(Enum):
     ReluN1To1 = OperatorInfo(indices=NNG_IFM_INDICES)
     ReluN = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
     Rescale = OperatorInfo(indices=NNG_IFM_INDICES)  # TOSA specific
-    RescaleAdd = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
-    RescaleMul = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     Reshape = OperatorInfo(indices=NNG_IFM_INDICES)
     # resize ops map to pooling operations unless explicitly converted to other operations in the graph optimiser
     ResizeBilinear = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
@@ -535,9 +532,6 @@ class Operation:
         self._kernel = None
         self.ifm_shapes: List[Shape4D] = []
         self.ofm_shapes: List[Shape4D] = []
-        # If not none: contains rescale to be used as output scaling
-        # (which overrides the ofm tensor's scale)
-        self.rescale: Optional[Union[Tuple[int, int], ExplicitScaling]] = None
         self.read_offsets: List[Optional[Shape4D]] = [None, None]  # offset for [ifm, ifm2]
         self.read_shapes: List[Optional[Shape4D]] = [None, None]  # read shape for [ifm, ifm2]
         self.rounding_mode: Optional[NpuRoundingMode] = None
@@ -586,7 +580,6 @@ class Operation:
         res.rounding_mode = self.rounding_mode
         res.explicit_scaling = self.explicit_scaling
         res.low_precision_scaling = self.low_precision_scaling
-        res.rescale = self.rescale
         res.ifm_resampling_mode = self.ifm_resampling_mode
         res.tile_base_offsets_ifm = [_ifm.copy() for _ifm in self.tile_base_offsets_ifm]
         res.tile_base_offsets_ofm = self.tile_base_offsets_ofm.copy()
