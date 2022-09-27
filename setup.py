@@ -93,7 +93,7 @@ setup(
     package_data={"ethosu": ["config_files/*/*.ini"]},
     python_requires="~=3.7",
     install_requires=[
-        "flatbuffers==1.12.0",
+        "flatbuffers==2.0.7",
         "numpy<=1.21.3",
         "lxml>=4.5.1",
     ],

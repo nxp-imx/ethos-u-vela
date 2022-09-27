@@ -116,35 +116,35 @@ class TFLiteSerialiser:
         builder.StartVector(1, len(v), alignment)
         for e in v[::-1]:
             builder.PrependByte(e)
-        return builder.EndVector(len(v))
+        return builder.EndVector()
 
     def write_int_vector(self, v):
         builder = self.builder
         builder.StartVector(4, len(v), 4)
         for e in v[::-1]:
             builder.PrependInt32(e)
-        return builder.EndVector(len(v))
+        return builder.EndVector()
 
     def write_long_vector(self, v):
         builder = self.builder
         builder.StartVector(8, len(v), 8)
         for e in v[::-1]:
             builder.PrependInt64(e)
-        return builder.EndVector(len(v))
+        return builder.EndVector()
 
     def write_float_vector(self, v):
         builder = self.builder
         builder.StartVector(4, len(v), 4)
         for e in v[::-1]:
             builder.PrependFloat32(e)
-        return builder.EndVector(len(v))
+        return builder.EndVector()
 
     def write_offset_vector(self, v):
         builder = self.builder
         builder.StartVector(4, len(v), 4)
         for e in v[::-1]:
             builder.PrependUOffsetTRelative(e)
-        return builder.EndVector(len(v))
+        return builder.EndVector()
 
     def assign_buffers_to_tensors(self, tensors, scratch_tensor):
         if scratch_tensor is not None:
@@ -389,13 +389,15 @@ class TFLiteSerialiser:
 
     def write_aligned_bytes(self, buf):
         builder = self.builder
+        builder.assertNotNested()
         builder.nested = True
         data = bytes(buf)
         length_bytes = UOffsetTFlags.py_type(len(data))
+        builder.vectorNumElems = length_bytes
         builder.Prep(16, length_bytes)  # Reserve aligned storage
         builder.head = UOffsetTFlags.py_type(builder.Head() - length_bytes)  # Update FlatBuffer internal pointer
         builder.Bytes[builder.Head() : builder.Head() + length_bytes] = data  # Assign bytes to aligned area
-        return builder.EndVector(length_bytes)
+        return builder.EndVector()
 
     def serialise_buffer(self, buf):
         builder = self.builder

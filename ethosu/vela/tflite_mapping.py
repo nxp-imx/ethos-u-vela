@@ -32,6 +32,7 @@ from .tflite import AddOptions
 from .tflite import ArgMaxOptions
 from .tflite import ArgMinOptions
 from .tflite import AssignVariableOptions
+from .tflite import ATan2Options
 from .tflite import BatchMatMulOptions
 from .tflite import BatchToSpaceNDOptions
 from .tflite import BidirectionalSequenceLSTMOptions
@@ -118,6 +119,7 @@ from .tflite import SelectOptions
 from .tflite import SelectV2Options
 from .tflite import SequenceRNNOptions
 from .tflite import ShapeOptions
+from .tflite import SignOptions
 from .tflite import SkipGramOptions
 from .tflite import SliceOptions
 from .tflite import SoftmaxOptions
@@ -139,7 +141,10 @@ from .tflite import TransposeOptions
 from .tflite import UnidirectionalSequenceLSTMOptions
 from .tflite import UniqueOptions
 from .tflite import UnpackOptions
+from .tflite import UnsortedSegmentMaxOptions
+from .tflite import UnsortedSegmentMinOptions
 from .tflite import UnsortedSegmentProdOptions
+from .tflite import UnsortedSegmentSumOptions
 from .tflite import VarHandleOptions
 from .tflite import WhereOptions
 from .tflite import WhileOptions
@@ -323,6 +328,11 @@ builtin_options_map = {
     BuiltinOptions.DynamicUpdateSliceOptions: DynamicUpdateSliceOptions.DynamicUpdateSliceOptions,
     BuiltinOptions.GeluOptions: GeluOptions.GeluOptions,
     BuiltinOptions.UnsortedSegmentProdOptions: UnsortedSegmentProdOptions.UnsortedSegmentProdOptions,
+    BuiltinOptions.UnsortedSegmentMaxOptions: UnsortedSegmentMaxOptions.UnsortedSegmentMaxOptions,
+    BuiltinOptions.UnsortedSegmentMinOptions: UnsortedSegmentMinOptions.UnsortedSegmentMinOptions,
+    BuiltinOptions.UnsortedSegmentSumOptions: UnsortedSegmentSumOptions.UnsortedSegmentSumOptions,
+    BuiltinOptions.ATan2Options: ATan2Options.ATan2Options,
+    BuiltinOptions.SignOptions: SignOptions.SignOptions,
 }
 
 
@@ -369,14 +379,14 @@ def write_byte_vector(builder, v):
     builder.StartVector(1, len(v), 1)
     for e in v[::-1]:
         builder.PrependByte(e)
-    return builder.EndVector(len(v))
+    return builder.EndVector()
 
 
 def write_int_vector(builder, v):
     builder.StartVector(4, len(v), 4)
     for e in v[::-1]:
         builder.PrependInt32(e)
-    return builder.EndVector(len(v))
+    return builder.EndVector()
 
 
 class OptionsSerializer:
@@ -519,6 +529,7 @@ builtin_operator_map = {
         ),
         TFLITE_IFM_INDICES,
     ),
+    BuiltinOperator.ATAN2: (Op.Atan2, OptionsSerializer("ATan2Options", ()), TFLITE_IFM_IFM2_INDICES),
     BuiltinOperator.CONCATENATION: (
         Op.ConcatTFLite,
         OptionsSerializer("ConcatenationOptions", ("axis", fused_act)),
@@ -754,6 +765,7 @@ builtin_operator_map = {
         OptionsSerializer("TransposeConvOptions", (padding, "stride_h", "stride_w")),
         TFLITE_CONV2D_BACKPROP_INDICES,
     ),
+    BuiltinOperator.SIGN: (Op.Sign, OptionsSerializer("SignOptions"), TFLITE_IFM_INDICES),
     BuiltinOperator.SPARSE_TO_DENSE: (
         Op.SparseToDense,
         OptionsSerializer("SparseToDenseOptions", ("validate_indices",)),
@@ -970,7 +982,22 @@ builtin_operator_map = {
     ),
     BuiltinOperator.UNSORTED_SEGMENT_PROD: (
         Op.UnsortedSegmentProd,
-        OptionsSerializer("UnsortedSegmentProdOptions", ("numsegments",)),
+        OptionsSerializer("UnsortedSegmentProdOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.UNSORTED_SEGMENT_MAX: (
+        Op.UnsortedSegmentMax,
+        OptionsSerializer("UnsortedSegmentMaxOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.UNSORTED_SEGMENT_MIN: (
+        Op.UnsortedSegmentMin,
+        OptionsSerializer("UnsortedSegmentMinOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.UNSORTED_SEGMENT_SUM: (
+        Op.UnsortedSegmentSum,
+        OptionsSerializer("UnsortedSegmentSumOptions"),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),

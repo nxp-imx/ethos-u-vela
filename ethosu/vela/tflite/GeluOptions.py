@@ -3,16 +3,26 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class GeluOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsGeluOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = GeluOptions()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsGeluOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def GeluOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
     # GeluOptions
     def Init(self, buf, pos):
@@ -26,5 +36,11 @@ class GeluOptions(object):
         return False
 
 def GeluOptionsStart(builder): builder.StartObject(1)
+def Start(builder):
+    return GeluOptionsStart(builder)
 def GeluOptionsAddApproximate(builder, approximate): builder.PrependBoolSlot(0, approximate, 0)
+def AddApproximate(builder, approximate):
+    return GeluOptionsAddApproximate(builder, approximate)
 def GeluOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return GeluOptionsEnd(builder)

@@ -3,28 +3,34 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class UnsortedSegmentProdOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsUnsortedSegmentProdOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = UnsortedSegmentProdOptions()
         x.Init(buf, n + offset)
         return x
 
+    @classmethod
+    def GetRootAsUnsortedSegmentProdOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def UnsortedSegmentProdOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
+
     # UnsortedSegmentProdOptions
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # UnsortedSegmentProdOptions
-    def NumSegments(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return 0
-
-def UnsortedSegmentProdOptionsStart(builder): builder.StartObject(1)
-def UnsortedSegmentProdOptionsAddNumSegments(builder, numSegments): builder.PrependInt32Slot(0, numSegments, 0)
+def UnsortedSegmentProdOptionsStart(builder): builder.StartObject(0)
+def Start(builder):
+    return UnsortedSegmentProdOptionsStart(builder)
 def UnsortedSegmentProdOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return UnsortedSegmentProdOptionsEnd(builder)

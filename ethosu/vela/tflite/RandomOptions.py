@@ -3,16 +3,26 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class RandomOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsRandomOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = RandomOptions()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsRandomOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def RandomOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
     # RandomOptions
     def Init(self, buf, pos):
@@ -33,6 +43,14 @@ class RandomOptions(object):
         return 0
 
 def RandomOptionsStart(builder): builder.StartObject(2)
+def Start(builder):
+    return RandomOptionsStart(builder)
 def RandomOptionsAddSeed(builder, seed): builder.PrependInt64Slot(0, seed, 0)
+def AddSeed(builder, seed):
+    return RandomOptionsAddSeed(builder, seed)
 def RandomOptionsAddSeed2(builder, seed2): builder.PrependInt64Slot(1, seed2, 0)
+def AddSeed2(builder, seed2):
+    return RandomOptionsAddSeed2(builder, seed2)
 def RandomOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return RandomOptionsEnd(builder)

@@ -136,6 +136,7 @@ class Op(Enum):
     ArgMax = OperatorInfo()
     ArgMin = OperatorInfo()
     AvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
+    Atan2 = OperatorInfo(indices=NNG_IFM_IFM2_INDICES)
     BatchMatMul = OperatorInfo()
     BatchToSpaceND = OperatorInfo()
     BidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
@@ -265,6 +266,7 @@ class Op(Enum):
     SelectV2 = OperatorInfo()
     Shape = OperatorInfo(indices=NNG_IFM_INDICES)
     Sigmoid = OperatorInfo(indices=NNG_IFM_INDICES)
+    Sign = OperatorInfo(indices=NNG_IFM_INDICES)
     SignBit = OperatorInfo()
     Sin = OperatorInfo()
     SkipGram = OperatorInfo()
@@ -322,6 +324,9 @@ class Op(Enum):
     Gelu = OperatorInfo()
     DynamicUpdateSlice = OperatorInfo()
     UnsortedSegmentProd = OperatorInfo()
+    UnsortedSegmentMax = OperatorInfo()
+    UnsortedSegmentMin = OperatorInfo()
+    UnsortedSegmentSum = OperatorInfo()
 
     @property
     def info(self):

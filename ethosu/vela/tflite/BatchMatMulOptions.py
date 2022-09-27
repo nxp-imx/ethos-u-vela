@@ -3,16 +3,26 @@
 # namespace: tflite
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class BatchMatMulOptions(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsBatchMatMulOptions(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = BatchMatMulOptions()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsBatchMatMulOptions(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def BatchMatMulOptionsBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x46\x4C\x33", size_prefixed=size_prefixed)
 
     # BatchMatMulOptions
     def Init(self, buf, pos):
@@ -40,7 +50,17 @@ class BatchMatMulOptions(object):
         return False
 
 def BatchMatMulOptionsStart(builder): builder.StartObject(3)
+def Start(builder):
+    return BatchMatMulOptionsStart(builder)
 def BatchMatMulOptionsAddAdjX(builder, adjX): builder.PrependBoolSlot(0, adjX, 0)
+def AddAdjX(builder, adjX):
+    return BatchMatMulOptionsAddAdjX(builder, adjX)
 def BatchMatMulOptionsAddAdjY(builder, adjY): builder.PrependBoolSlot(1, adjY, 0)
+def AddAdjY(builder, adjY):
+    return BatchMatMulOptionsAddAdjY(builder, adjY)
 def BatchMatMulOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs): builder.PrependBoolSlot(2, asymmetricQuantizeInputs, 0)
+def AddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs):
+    return BatchMatMulOptionsAddAsymmetricQuantizeInputs(builder, asymmetricQuantizeInputs)
 def BatchMatMulOptionsEnd(builder): return builder.EndObject()
+def End(builder):
+    return BatchMatMulOptionsEnd(builder)
