@@ -319,7 +319,6 @@ class TFLiteSupportedOperators:
 
         # Reshape specific checks:
         self.specific_constraints[Op.Reshape].append(TFLiteSupportedOperators.constraint_reshape_shape_constant)
-        self.specific_constraints[Op.Reshape].append(TFLiteSupportedOperators.constraint_reshape_before_mean)
 
     def is_operator_supported(self, op):
         ext_type = optype_to_builtintype(op.type)
@@ -880,11 +879,3 @@ class TFLiteSupportedOperators:
         extra = ", ".join(extra)
 
         return valid, f"Op has non-const input(s): {extra}"
-
-    @staticmethod
-    def constraint_reshape_before_mean(op):
-        "Reshape on NPU not supported before MEAN operator"
-        for next_op in op.outputs[0].consumers():
-            if next_op is not None and next_op.type == Op.Mean:
-                return False, ""
-        return True, ""
