@@ -271,7 +271,7 @@ static void create_palette( int freq[512],
         pal_cnt+=cnt;
     }
     if (i==1)
-        i++;    // palette size of 1 is not supported, make it 2
+        p->lut[i++] = 0; // palette size of 1 is not supported, make it 2
 
     // Heuristic for when to use the palette. If more than half of the
     // weights are in the palette then we use it. This ensures we don't
@@ -349,6 +349,7 @@ static void create_inverse_palette( palette_t *p) {
         int sign = val&1;
         int mag  = val>>1;
         int weight = sign ? -mag : mag;
+        assert(weight+256 >= 0 && weight+256 < 512);
         if (weight+256 < 512)
             p->inv_lut[ weight+256 ] = i;
     }
