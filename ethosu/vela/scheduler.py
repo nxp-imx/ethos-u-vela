@@ -1281,9 +1281,9 @@ class Scheduler:
                 for tens in lr.tensors:
                     competing_tens_access[tens] = 0
 
-        sz = len(competing_lrs)
-        # All lrs and their tensors have been handled if sz is zero, we may thus return
-        if sz == 0:
+        competing_lrs_sz = len(competing_lrs)
+        # All lrs and their tensors have been handled if competing_lrs_sz is zero, we may thus return
+        if competing_lrs_sz == 0:
             return
 
         # Estimate element access for all tensors that are competing for a place in fast-storage.
@@ -1307,16 +1307,52 @@ class Scheduler:
                 competing_tens_access[tens] += access.ofm_write
 
         competing_lrs = sorted(competing_lrs, key=lambda lr: (lr.start_time, lr.end_time + 1, lr.size))
+
+        # Remove lrs that have a live range that is too long compared to others.
+        # They are causing problems for the HillClimb Allocator when it has to
+        # change the allocation indices, in order to fit all the allocations into SRAM.
+        # This problem only occur in larger networks with complex graphs.
+        #
+        # Limit the number of items for allocate_component to work with max MAX_EXHAUSTIVE_ITEMS
+        # at the time. Too many will give too long compilation time
+        #
+        # Too long is currently decided to be (based on experience, analyzing many networks):
+        # Compare lr at postion i with lr at position i + MAX_EXHAUSTIVE_ITEMS.
+        # If end time differs by at least MAX_EXHAUSTIVE_LIFE_RANGE then do not include lr at position i.
+        if competing_lrs_sz > FastStorageComponentAllocator.MAX_EXHAUSTIVE_ITEMS:
+            # create a copy of the original list to iterate over because the original version is modified in-loop
+            competing_lrs_copy = competing_lrs.copy()
+            for i, lr in enumerate(competing_lrs_copy):
+                lr_time = lr.end_time - lr.start_time
+                if lr_time < FastStorageComponentAllocator.MAX_EXHAUSTIVE_LIFE_RANGE:
+                    # Skip small ranges
+                    continue
+
+                # Compare current lr with lr at position lr + MAX_EXHAUSTIVE_ITEMS
+                cmp_pos = min(i + FastStorageComponentAllocator.MAX_EXHAUSTIVE_ITEMS, competing_lrs_sz - 1)
+
+                # Compare end times + plus a margin by MAX_EXHAUSTIVE_LIFE_RANGE
+                if (
+                    lr.end_time
+                    > competing_lrs_copy[cmp_pos].end_time + FastStorageComponentAllocator.MAX_EXHAUSTIVE_LIFE_RANGE
+                ):
+                    # Current lr live time stands out, remove it. No use adding it to the
+                    # evicted_fms list since the lr should not be included in the fast storage allocation
+                    FastStorageComponentAllocator.evict(lr, max_mem_usage, self.scratched_fms)
+                    competing_lrs.remove(lr)
+
         start = 0
-        start_time = competing_lrs[0].start_time
         end_time = competing_lrs[0].end_time
+        competing_lrs_sz = len(competing_lrs)
         component_allocator = FastStorageComponentAllocator(base_mem_usage, max_mem_usage, staging_limit)
         # Build up components and then allocate each separately
         for i, lr in enumerate(competing_lrs):
-            if lr.start_time <= end_time and i - start < component_allocator.MAX_EXHAUSTIVE_LIFE_RANGE:
-                start_time = min(start_time, lr.start_time)
+            nbr_items = i - start
+            if lr.start_time <= end_time and (nbr_items < FastStorageComponentAllocator.MAX_EXHAUSTIVE_ITEMS):
                 end_time = max(end_time, lr.end_time)
             else:
+                # Number items reached max items or current lr's start time
+                # does not overlap with previous lr's end time
                 component_allocator.allocate_component(
                     component_allocator,
                     competing_lrs[start:i],
@@ -1328,11 +1364,10 @@ class Scheduler:
                     self.evicted_fms,
                 )
                 start = i
-                start_time = lr.start_time
                 end_time = lr.end_time
         component_allocator.allocate_component(
             component_allocator,
-            competing_lrs[start:sz],
+            competing_lrs[start:competing_lrs_sz],
             max_mem_usage,
             base_mem_usage,
             staging_limit,
@@ -1446,6 +1481,7 @@ def _update_tensor_allocation(nng: Graph, arch: ArchitectureFeatures, options):
 
 class FastStorageComponentAllocator:
     MAX_EXHAUSTIVE_LIFE_RANGE = 20
+    MAX_EXHAUSTIVE_ITEMS = 20
 
     def __init__(self, base_mem_usage, max_mem_usage, staging_limit):
         self.base_mem_usage = base_mem_usage
