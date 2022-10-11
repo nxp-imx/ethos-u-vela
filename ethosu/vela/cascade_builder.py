@@ -101,6 +101,7 @@ class CascadeBuilder:
             and sched_op.parent_op.read_offsets[1] is None
             and self.element_wise_cascading_conformity(sched_op)
             and not sched_op.parent_op.type.is_resize_op()
+            and not sched_op.parent_op.type == Op.Conv2DBackpropInputSwitchedBias
             and sched_op.parent_op.attrs.get("padding", None) != Padding.TILE
         )
 
@@ -177,7 +178,8 @@ class CascadeBuilder:
         # Cascading elementwise operations with reverse operand order is not handled
         if sched_op.parent_op.type.is_binary_elementwise_op() and ifm and ifm2:
             # We cannot rule out cascadability if at least one IFM is constant
-            return Op.Const in (ifm.ops[0].type, ifm2.ops[0].type) and ifm_ifm2_correct_order(ifm.shape, ifm2.shape)
+            ifm2_const = ifm2.ops != [] and ifm2.ops[0].type == Op.Const
+            return ifm_ifm2_correct_order(ifm.shape, ifm2.shape) and ifm2_const
         else:
             # Either one IFM is not variable or it is not a binary elementwise op - we cannot rule out cascadability
             return True
