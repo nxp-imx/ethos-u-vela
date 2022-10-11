@@ -182,6 +182,7 @@ class SchedulerOperation:
         self.activation = ps.primary_op.activation
         self.kernel = ps.primary_op.kernel
         self.resampling_mode = ps.primary_op.ifm_resampling_mode
+        self.reversed_operands = False
         self.uses_scalar = ps.primary_op.ifm2 is not None and (
             ps.primary_op.ifm.shape == [] or ps.primary_op.ifm2.shape == []
         )
@@ -239,6 +240,7 @@ class SchedulerOperation:
                 # The non-broadcasted IFM should be the primary input
                 or (ifm1.shape != ofm.shape and ifm2.shape == ofm.shape)
             ):
+                self.reversed_operands = True
                 self.ifm, self.ifm2 = self.ifm2, self.ifm
 
                 self.parent_ps.ifm_shapes = self.parent_ps.ifm_shapes[::-1]

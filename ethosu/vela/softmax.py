@@ -353,8 +353,8 @@ class SoftMax:
         )
         add_op = create_add(
             f"{self.op.name}_add{pass_number}",
-            f0_one_const,
             shifted_sum_minus_one,
+            f0_one_const,
             one_scale_quant,
             activation,
         )

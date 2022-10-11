@@ -210,6 +210,7 @@ class NpuStripe(Command):
         ifm2_box=None,
         pad_top=0,
         pad_bottom=0,
+        reversed_operands=False,
     ):
         self.ps = ps
         self.block_config = block_config
@@ -226,6 +227,7 @@ class NpuStripe(Command):
         self.weight_box = weight_box
         self.pad_top = pad_top
         self.pad_bottom = pad_bottom
+        self.reversed_operands = reversed_operands
         for i in range(len(self.ofm_box.end_coord)):
             assert self.ofm_box.end_coord[i] <= ps.ofm_shapes[0][i]
 

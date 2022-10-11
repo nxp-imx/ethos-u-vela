@@ -175,11 +175,12 @@ class CascadeBuilder:
         ifm = sched_op.parent_op.ifm
         ifm2 = sched_op.parent_op.ifm2
 
-        # Cascading elementwise operations with reverse operand order is not handled
         if sched_op.parent_op.type.is_binary_elementwise_op() and ifm and ifm2:
             # We cannot rule out cascadability if at least one IFM is constant
+            ifm_const = ifm.ops != [] and ifm.ops[0].type == Op.Const
             ifm2_const = ifm2.ops != [] and ifm2.ops[0].type == Op.Const
-            return ifm_ifm2_correct_order(ifm.shape, ifm2.shape) and ifm2_const
+            correct_order = ifm_ifm2_correct_order(ifm.shape, ifm2.shape)
+            return (ifm_const and (ifm.shape == ifm2.shape or not correct_order)) or (ifm2_const and correct_order)
         else:
             # Either one IFM is not variable or it is not a binary elementwise op - we cannot rule out cascadability
             return True

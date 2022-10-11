@@ -555,7 +555,10 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
     if elemwise_op not in UNARY_ELEMWISE_OPS:
         ifm_shape = [] if cmd.ifm_tensor.shape == [] else ps.ifm_shapes[0].as_list()
         ifm2_shape = [] if cmd.ifm2_tensor.shape == [] else ps.ifm_shapes[1].as_list()
-        if not ifm_ifm2_correct_order(ifm_shape, ifm2_shape):
+        if cmd.reversed_operands:
+            assert ifm_ifm2_correct_order(ifm_shape, ifm2_shape)
+            npu_op.reversed_operands = True
+        elif not ifm_ifm2_correct_order(ifm_shape, ifm2_shape):
             # The scalar/broadcasted feature map has to be the ifm2 tensor so switch the ifms
             cmd.ifm_tensor, cmd.ifm2_tensor = cmd.ifm2_tensor, cmd.ifm_tensor
             cmd.ifm_box, cmd.ifm2_box = cmd.ifm2_box, cmd.ifm_box

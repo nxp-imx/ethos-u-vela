@@ -74,6 +74,8 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
         _,
         _,
     ) = parent_op.get_ifm_ifm2_weights_biases_ofm()
+    if sched_op.reversed_operands:
+        ifm2_tensor, ifm_tensor = ifm_tensor, ifm2_tensor
     ifm = sched_op.ifm
     ifm2 = sched_op.ifm2
     ofm_shape = sched_op.ofm.shape
@@ -236,4 +238,5 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                     ifm2_box=ifm2_box,
                     pad_top=pad_top,
                     pad_bottom=pad_bottom,
+                    reversed_operands=sched_op.reversed_operands,
                 )
