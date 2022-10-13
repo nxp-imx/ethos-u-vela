@@ -879,10 +879,8 @@ class Operation:
             else:
                 # Special case, handled in graph optimization
                 self.ifm_shapes.append(Shape4D(ifm_tensor.get_full_shape()))
-            if len(self.ofm.shape) == 2:
-                self.ofm_shapes.append(Shape4D([self.ofm.shape[0], 1, 1, self.ofm.shape[1]]))
-            else:
-                self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
+            self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
+
         elif self.type == Op.Softmax:
             self.ifm_shapes.append(Shape4D(ifm_tensor.get_full_shape()))
             self.ofm_shapes.append(Shape4D(ofm_tensor.get_full_shape()))
