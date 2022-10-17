@@ -381,18 +381,6 @@ def test_constraint_resize_attrs():
         assert not support.is_operator_supported(op)
 
 
-def test_constraint_resize_half_pixel_centers():
-    for resize_op in Op.op_set(Op.is_resize_op):
-        # Half-pixel centers is only supported for resize bilinear
-        op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 8, 8, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
-        op.attrs["half_pixel_centers"] = True
-        if resize_op == Op.ResizeBilinear:
-            assert support.is_operator_supported(op)
-        else:
-            assert not support.is_operator_supported(op)
-
-
 def test_constraint_concat_pass():
     # A working concat
     op = testutil.create_op_with_quant_tensors(Op.Concat, [1, 1, 1, 4], [1, 1, 1, 8])

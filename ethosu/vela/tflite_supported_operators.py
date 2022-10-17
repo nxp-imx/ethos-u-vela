@@ -264,7 +264,6 @@ class TFLiteSupportedOperators:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize_size)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize_attrs)
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_resize_half_pixel_centers)
 
         # Resize Bilinear specific checks:
         self.specific_constraints[Op.ResizeBilinear].append(
@@ -680,15 +679,6 @@ class TFLiteSupportedOperators:
         if align_corners and half_pixel_centers:
             valid = False
         return valid, "Op has both align_corners and half_pixel_centers set to True."
-
-    @staticmethod
-    def constraint_resize_half_pixel_centers(op):
-        """Half_pixel_centers are only supported for resize bilinear"""
-        valid = True
-        half_pixel_centers = op.attrs.get("half_pixel_centers", False)
-        if half_pixel_centers and op.type != Op.ResizeBilinear:
-            valid = False
-        return valid, f"Op type={op.type} and half_pixel_centers={half_pixel_centers}"
 
     @staticmethod
     def constraint_resizebi_half_pixel_centers_dims(op):

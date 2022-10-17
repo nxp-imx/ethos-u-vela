@@ -454,7 +454,9 @@ def convert_resize_to_upscale_and_average_pool(op):
             # use depthwise conv to select the correct value
             scaled_op = convert_resizenn_ac_to_depthwise_conv(scaled_op, upscale_factor)
         else:
-            # keep 1x1 kernel and average pool
+            # Keep 1x1 kernel and average pool, this applies both when
+            # half-pixel-centers is True and False. Calculations are the
+            # same in the reference.
             pass
 
     scaled_op.outputs = outputs
