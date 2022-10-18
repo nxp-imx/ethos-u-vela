@@ -235,14 +235,17 @@ class TFLiteSupportedOperators:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_limit)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_type)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_40bit)
-        # Depthwise Conv specific checks:
-        for op_type in TFLiteSupportedOperators.depthwise_convolution_ops:
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_depth_multiplier)
+        # Remove stride contraint from Transpose Conv because it has a specific one (see below)
+        for op_type in TFLiteSupportedOperators.transpose_convolution_ops:
+            self.specific_constraints[op_type].remove(TFLiteSupportedOperators.constraint_stride_range)
         # Transpose Conv specific checks:
         for op_type in TFLiteSupportedOperators.transpose_convolution_ops:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_tconv_stride)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_tconv_same)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_tconv_valid)
+        # Depthwise Conv specific checks:
+        for op_type in TFLiteSupportedOperators.depthwise_convolution_ops:
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_depth_multiplier)
 
         # Pooling checks:
         for op_type in TFLiteSupportedOperators.pooling_ops:
