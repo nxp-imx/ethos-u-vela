@@ -14,7 +14,8 @@ In order to submit a contribution push your patch to the
 [Vela Gerrit Server](https://review.mlplatform.org/q/project:ml%252Fethos-u%252Fethos-u-vela)
 using the address `ssh://<GITHUB_USER_ID>@review.mlplatform.org:29418/ml/ethos-u/ethos-u-vela`.
 To do this you will need to sign-in to the platform using a GitHub account and
-add your SSH key under your settings.  
+add your SSH key under your settings. If there is a problem adding the SSH key make sure
+there is a valid email address in the Email Addresses field.  
 In the commit message please include a Change-Id and a Signed-off-by (described
 below).
 
