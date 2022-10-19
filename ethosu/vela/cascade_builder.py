@@ -98,7 +98,7 @@ class CascadeBuilder:
             and cost.stripe.height < sched_op.ofm.shape.height
             and sched_op.parent_op.read_offsets[0] is None
             and sched_op.parent_op.read_offsets[1] is None
-            and self.element_wise_cascading_conformity(sched_op)
+            and self.elementwise_cascading_correct_order(sched_op)
             and not sched_op.parent_op.type.is_resize_op()
             and not sched_op.parent_op.type == Op.Conv2DBackpropInputSwitchedBias
             and sched_op.parent_op.attrs.get("padding", None) != Padding.TILE
@@ -127,20 +127,32 @@ class CascadeBuilder:
         return ifm_size + ifm2_size + ofm_size + self.non_local_mem_usage.get(sched_op, 0)
 
     @staticmethod
-    def element_wise_cascading_conformity(sched_op):
+    def elementwise_cascading_conformity(sched_op):
         """Check the inputs of the op to see if it's a candidate for cascading."""
 
-        ifm = sched_op.parent_op.ifm
-        ifm2 = sched_op.parent_op.ifm2
-
-        if sched_op.parent_op.type.is_binary_elementwise_op() and ifm and ifm2:
+        if sched_op.parent_op.type.is_binary_elementwise_op():
             # We cannot rule out cascadability if at least one IFM is constant
+            ifm = sched_op.parent_op.ifm
+            ifm2 = sched_op.parent_op.ifm2
             ifm_const = ifm.ops != [] and ifm.ops[0].type == Op.Const
             ifm2_const = ifm2.ops != [] and ifm2.ops[0].type == Op.Const
-            correct_order = ifm_ifm2_correct_order(ifm.shape, ifm2.shape)
-            return (ifm_const and (ifm.shape == ifm2.shape or not correct_order)) or (ifm2_const and correct_order)
+            return ifm_const or ifm2_const
         else:
             # Either one IFM is not variable or it is not a binary elementwise op - we cannot rule out cascadability
+            return True
+
+    @staticmethod
+    def elementwise_cascading_correct_order(sched_op):
+        """Check the inputs of the op to see ifm and ifm2 has correct order."""
+
+        if sched_op.parent_op.type.is_binary_elementwise_op():
+            ifm2 = sched_op.parent_op.ifm2
+            ifm2_const = ifm2.ops != [] and ifm2.ops[0].type == Op.Const
+
+            # ifm_ifm2_correct_order needs full shape
+            correct_order = ifm_ifm2_correct_order(sched_op.ifm.shape, sched_op.ifm2.shape)
+            return ifm2_const and correct_order
+        else:
             return True
 
     def build_cascades(self, ref_schedule, fallback_schedule, guiding_mem_limit):

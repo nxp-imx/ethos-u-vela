@@ -227,7 +227,7 @@ class SchedulerOperation:
         # Perform an IFM swap for certain binary elementwise operators
         # in order to enable cascading, if the SchedOp conforms to
         # Elementwise cascading rules.
-        if self.op_type.is_binary_elementwise_op() and CascadeBuilder.element_wise_cascading_conformity(self):
+        if self.op_type.is_binary_elementwise_op() and CascadeBuilder.elementwise_cascading_conformity(self):
             ifm1 = ps.ifm_tensor
             ifm2 = ps.ifm2_tensor
             ofm = ps.ofm_tensor

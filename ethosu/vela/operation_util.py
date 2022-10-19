@@ -242,8 +242,8 @@ def create_binary_elementwise(
     if ifm2 is None:
         ofm_shape = ifm_shape
     else:
-        in_shape = [] if ifm.shape == [] else ifm_shape.as_list()
-        in2_shape = [] if ifm2.shape == [] else ifm2_shape.as_list()
+        in_shape = None if ifm.shape == [] else ifm_shape
+        in2_shape = None if ifm2.shape == [] else ifm2_shape
         ofm_shape = ifm_shape if ifm_ifm2_correct_order(in_shape, in2_shape) else ifm2_shape
 
     ofm = Tensor(ofm_shape.as_list(), dtype, f"{op.name}_tens0")
