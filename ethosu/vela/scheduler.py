@@ -227,19 +227,17 @@ class SchedulerOperation:
         # Perform an IFM swap for certain binary elementwise operators
         # in order to enable cascading, if the SchedOp conforms to
         # Elementwise cascading rules.
-        if self.op_type.is_binary_elementwise_op() and CascadeBuilder.elementwise_cascading_conformity(self):
-            ifm1 = ps.ifm_tensor
-            ifm2 = ps.ifm2_tensor
-            ofm = ps.ofm_tensor
-            assert ifm1.elements() > 0
-            assert ifm2.elements() > 0
+        # The non-constant/non-scalar/non-broadcast IFM should be the primary input
+        if self.op_type.is_binary_elementwise_op():
+            ifm = self.parent_op.ifm
+            ifm2 = self.parent_op.ifm2
+            ofm = self.parent_op.ofm
 
-            if (
-                # The non-constant IFM should be the primary input
-                (ifm1.ops[0].type == Op.Const and ifm2.ops[0].type != Op.Const)
-                # The non-broadcasted IFM should be the primary input
-                or (ifm1.shape != ofm.shape and ifm2.shape == ofm.shape)
-            ):
+            ifm_can_be_primary = not (ifm.is_const or ifm.is_scalar or ifm.is_broadcast(ofm))
+            ifm2_can_be_primary = not (ifm2.is_const or ifm2.is_scalar or ifm2.is_broadcast(ofm))
+
+            if not ifm_can_be_primary and ifm2_can_be_primary:
+                # IFM2 is the primary input
                 self.reversed_operands = True
                 self.ifm, self.ifm2 = self.ifm2, self.ifm
 

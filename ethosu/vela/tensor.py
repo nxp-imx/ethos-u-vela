@@ -436,6 +436,17 @@ class Tensor:
     def is_standard_fm(self) -> bool:
         return self.sub_purpose == TensorSubPurpose.Standard and self.purpose == TensorPurpose.FeatureMap
 
+    @property
+    def is_const(self) -> bool:
+        return self.ops != [] and self.ops[0].type == Op.Const
+
+    @property
+    def is_scalar(self) -> bool:
+        return self.shape == [] and self.elements() == 1
+
+    def is_broadcast(self, ofm) -> bool:
+        return self.shape != ofm.shape
+
     def element_size(self) -> int:
         if self.element_size_bytes == 0:
             return self.dtype.size_in_bits() // 8

@@ -16,7 +16,6 @@
 #
 # Description:
 # Groups Operators in a schedule together to form Cascades.
-from .high_level_command_to_npu_op import ifm_ifm2_correct_order
 from .live_range import ofm_can_reuse_ifm
 from .numeric_util import round_up
 from .operation import NpuBlockType
@@ -98,7 +97,7 @@ class CascadeBuilder:
             and cost.stripe.height < sched_op.ofm.shape.height
             and sched_op.parent_op.read_offsets[0] is None
             and sched_op.parent_op.read_offsets[1] is None
-            and self.elementwise_cascading_correct_order(sched_op)
+            and self.elementwise_cascadable(sched_op)
             and not sched_op.parent_op.type.is_resize_op()
             and not sched_op.parent_op.type == Op.Conv2DBackpropInputSwitchedBias
             and sched_op.parent_op.attrs.get("padding", None) != Padding.TILE
@@ -127,31 +126,21 @@ class CascadeBuilder:
         return ifm_size + ifm2_size + ofm_size + self.non_local_mem_usage.get(sched_op, 0)
 
     @staticmethod
-    def elementwise_cascading_conformity(sched_op):
-        """Check the inputs of the op to see if it's a candidate for cascading."""
+    def elementwise_cascadable(sched_op):
+        """Check if the elementwise can be cascaded."""
 
         if sched_op.parent_op.type.is_binary_elementwise_op():
-            # We cannot rule out cascadability if at least one IFM is constant
             ifm = sched_op.parent_op.ifm
             ifm2 = sched_op.parent_op.ifm2
-            ifm_const = ifm.ops != [] and ifm.ops[0].type == Op.Const
-            ifm2_const = ifm2.ops != [] and ifm2.ops[0].type == Op.Const
-            return ifm_const or ifm2_const
-        else:
-            # Either one IFM is not variable or it is not a binary elementwise op - we cannot rule out cascadability
-            return True
+            ofm = sched_op.parent_op.ofm
 
-    @staticmethod
-    def elementwise_cascading_correct_order(sched_op):
-        """Check the inputs of the op to see ifm and ifm2 has correct order."""
+            # IFM must be non-constant/non-scalar/non-broadcast
+            ifm_cascadable = not (ifm.is_const or ifm.is_scalar or ifm.is_broadcast(ofm))
 
-        if sched_op.parent_op.type.is_binary_elementwise_op():
-            ifm2 = sched_op.parent_op.ifm2
-            ifm2_const = ifm2.ops != [] and ifm2.ops[0].type == Op.Const
+            # IFM2 must be constant or scalar
+            ifm2_cascadable = ifm2.is_const or ifm2.is_scalar
 
-            # ifm_ifm2_correct_order needs full shape
-            correct_order = ifm_ifm2_correct_order(sched_op.ifm.shape, sched_op.ifm2.shape)
-            return ifm2_const and correct_order
+            return ifm_cascadable and ifm2_cascadable
         else:
             return True
 
