@@ -762,10 +762,8 @@ class Operation:
             offset_end = [0] * len(input_tens.shape)
 
             for idx in range(len(begin_tens.values)):
-                # Check if the op should slice in dimension idx
-                if size_tens.values[idx] != input_tens.shape[idx]:
-                    offset_start[idx] = begin_tens.values[idx]
-                    offset_end[idx] = size_tens.values[idx] + offset_start[idx]
+                offset_start[idx] = begin_tens.values[idx]
+                offset_end[idx] = size_tens.values[idx] + offset_start[idx]
 
         elif self.type == Op.StridedSlice:
             input_tens, begin_tens, end_tens, strides_tens = self.inputs
