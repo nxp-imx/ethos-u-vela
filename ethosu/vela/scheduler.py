@@ -233,10 +233,10 @@ class SchedulerOperation:
             ifm2 = self.parent_op.ifm2
             ofm = self.parent_op.ofm
 
-            ifm_can_be_primary = not (ifm.is_const or ifm.is_scalar or ifm.is_broadcast(ofm))
+            ifm_can_swap = ifm.is_const or ifm.is_scalar
             ifm2_can_be_primary = not (ifm2.is_const or ifm2.is_scalar or ifm2.is_broadcast(ofm))
 
-            if not ifm_can_be_primary and ifm2_can_be_primary:
+            if ifm_can_swap and ifm2_can_be_primary:
                 # IFM2 is the primary input
                 self.reversed_operands = True
                 self.ifm, self.ifm2 = self.ifm2, self.ifm
