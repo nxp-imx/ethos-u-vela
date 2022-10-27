@@ -608,13 +608,6 @@ def test_mean_hw_product():
     assert not support.is_operator_supported(op)
 
 
-def test_mean_hw_product_int8():
-    op = create_mean([1, 16, 16, 16], [1, 1, 1, 16], [1, 2], DataType.int8, {"keep_dims": True})
-    assert support.is_operator_supported(op)
-    op = create_mean([1, 16, 17, 16], [1, 1, 1, 16], [1, 2], DataType.int8, {"keep_dims": True})
-    assert not support.is_operator_supported(op)
-
-
 def test_mean_hw_product_avgpool():
     op = create_mean([1, 200, 200, 16], [1, 16], [1, 2], DataType.uint8, {"keep_dims": False})
     assert support.is_operator_supported(op)

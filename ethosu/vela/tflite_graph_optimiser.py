@@ -42,7 +42,6 @@ from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
 from .numeric_util import clamp_sigmoid
 from .numeric_util import round_away_zero
-from .numeric_util import round_up_to_int
 from .operation import create_activation_function
 from .operation import ExplicitScaling
 from .operation import NpuBlockType
@@ -1586,7 +1585,6 @@ def fixup_asymmetric_weights(op, arch, nng):
 
 def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
     if op.type == Op.Mean and op.run_on_npu:
-        keep_dims = op.attrs.get("keep_dims", False)
         inp, axis = op.inputs
         shape = inp.shape
         ofm_shape = op.ofm.shape
@@ -1631,91 +1629,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
 
         weight_scale, bias = 1, 0
         ofmq, ifmq = op.ofm.quantization, inp.quantization
-        # Set rounding mode, scaling and zero point based on which reference implementation to match
-        if len(shape) == 4 and axis == [1, 2] and keep_dims:
-            if inp.dtype == DataType.uint8:
-                # This attribute means a different scaling calculation is used in order to match reference
-                op.low_precision_scaling = True
-                weight_scale = h * w
-                # Set zero points to 0 as they will be adjusted for with bias term
-                foq = ofmq.clone()
-                foq.zero_point = 0
-                fiq = ifmq.clone()
-                fiq.zero_point = 0
-                op.forced_input_quantization = fiq
-                bias_term = ofmq.zero_point - round_up_to_int(ifmq.zero_point * ifmq.scale_f32 / ofmq.scale_f32)
-                # If the bias term is outside uint8 range, we need an Add op to apply it.
-                if bias_term < 0 or bias_term > 255:
-                    intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
-                    # Bias term has higher bitness (i32) than input/output (u8).
-                    # 16 bits is enough since the bias is added/subtracted from a u8 value,
-                    # the bias can only effectively assume values in the range [-255, 255].
-                    intermediate.dtype = DataType.int16
-                    intermediate.quantization.zero_point = 0
-                    add_op = Operation(Op.Add, f"{op.name}_bias")
-                    add_op.forced_output_quantization = foq
-                    add_op.add_input_tensor(intermediate)
-                    quant = QuantizationParameters()
-                    quant.zero_point = 0
-                    bias_scalar = create_const_tensor(add_op.name, [], DataType.int16, [bias_term], quantization=quant)
-                    add_op.add_input_tensor(bias_scalar)
-                    add_op.set_output_tensor(op.ofm)
-                    add_op.set_ifm_ofm_shapes()
-                    add_op.activation = op.activation
-                    op.activation = None
-                    op.set_output_tensor(intermediate)
-                    op.set_ifm_ofm_shapes()
-                # If not, we can just do it with the OFM zero point.
-                else:
-                    foq.zero_point = bias_term
-                    op.forced_output_quantization = foq
-            else:
-                assert inp.dtype == DataType.int8
-                # Use a depthwise to calculate the sum,
-                # followed by a multiplication with 1/N to get the MEAN
-                weight_scale = 1
-                intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
-                intermediate.dtype = DataType.int32
-                mul_op = Operation(Op.Mul, op.name + "_mul")
-                mul_op.add_input_tensor(intermediate)
-                mul_op.set_output_tensor(op.ofm)
-                # Create scalar containing 1/N
-                quant = QuantizationParameters()
-                quant.zero_point = 0
-                # The reference rounds negative numbers downwards, e.g. -1.5 is rounded to -2,
-                # while rounding mode NATURAL would round this to -1.
-                # This can only occur if N is even, and can be emulated by
-                # multiplying with a number that is slightly smaller than 1/N.
-                # It must be so small that other roundings are not affected;
-                # the calculated value is based on worst case,
-                # which is sum 256 * N (the maximum sum that can occur with int8)
-                n = int(h * w)
-                eps = 1 / (256 * (n + 1)) if n % 2 == 0 else 0
-                quant.scale_f32 = 1 / (n - eps)
-
-                # For int8/int16 we could use IFM/OFM scaling to do the division
-                # intermediate * 1 -> scale > round and shift.
-                #
-                # For int32 scaling is not supported so instead multiply with the scale
-                # intermediate * scale -> round and shift.
-                #
-                # Calculate the scale and shift value. const Tensor must be created
-                # with correct quantization since the scale and shift is calculated later
-                # in the command stream generator.
-                mul_scale, _ = scaling.elementwise_mul_scale(
-                    mul_op.ifm.quantization.scale_f32, quant.scale_f32, mul_op.ofm.quantization.scale_f32
-                )
-                scalar = create_const_tensor(
-                    op.name + "_scalar", [1, 1, 1, 1], DataType.int32, [mul_scale], np.int32, quantization=quant
-                )
-                mul_op.add_input_tensor(scalar)
-                mul_op.set_ifm_ofm_shapes()
-                mul_op.rounding_mode = NpuRoundingMode.NATURAL
-                mul_op.activation = op.activation
-                op.activation = None
-                op.set_output_tensor(intermediate)
-                op.set_ifm_ofm_shapes()
-        elif ifmq.zero_point == ofmq.zero_point and ifmq.scale_f32 == ofmq.scale_f32:
+        if ifmq.is_scaling_equal(ofmq):
             # Here we can just use a simple AvgPool with truncating rounding,
             # as we're emulating simple integer division.
             op.rounding_mode = NpuRoundingMode.TRUNCATE

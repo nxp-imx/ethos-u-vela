@@ -197,7 +197,6 @@ class TFLiteSupportedOperators:
     filter_height_range = (1, 256)
     filter_product_range = (1, 256 * 256)
     mean_kernel_product = 64 * 64
-    mean_kernel_product_int8 = 16 * 16
     mean_kernel_product_avgpool = 256 * 256
 
     def __init__(self):
@@ -314,7 +313,6 @@ class TFLiteSupportedOperators:
         # Mean specific checks:
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product_avgpool)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product)
-        self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product_int8)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_single_axis)
 
         # Reshape specific checks:
@@ -807,31 +805,6 @@ class TFLiteSupportedOperators:
         hi = 0 if len(shape) < 4 else 1
         h, w = shape[hi : hi + 2]
         max_prod = cls.mean_kernel_product
-        return h * w <= max_prod, f"Product of height and width is {h * w}"
-
-    @classmethod
-    @docstring_format_args([mean_kernel_product_int8])
-    def constraint_mean_height_width_product_int8(cls, op):
-        """Product of IFM height and width must be no greater than {} when:
-        The IFM shape has 4 dimensions; and
-        The axis indices specify reduction across 2 dimensions; and
-        The axis indices correspond to the width and height dimensions of the IFM; and
-        'keep_dims' is True; and
-        IFM datatype is int8"""
-        shape = op.ifm.shape
-        axis = int(op.inputs[1].values) if op.inputs[1].shape == [] else list(op.inputs[1].values)
-        # doesn't apply, size is checked by constraint_mean_height_width_product_avgpool
-        # and constraint_mean_height_width_product
-        if (
-            len(shape) != 4
-            or op.ifm.dtype != DataType.int8
-            or not op.attrs.get("keep_dims")
-            or axis not in ([1, 2], [2, 1])
-        ):
-            return True, ""
-        h = shape[-3]
-        w = shape[-2]
-        max_prod = cls.mean_kernel_product_int8
         return h * w <= max_prod, f"Product of height and width is {h * w}"
 
     @classmethod
