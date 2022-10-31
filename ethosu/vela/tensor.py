@@ -340,6 +340,7 @@ class TensorAddressMap:
 class Tensor:
     __slots__ = (
         "shape",
+        "_original_shape",
         "storage_shape",
         "bandwidth_shape",
         "dtype",
@@ -379,6 +380,7 @@ class Tensor:
 
     def __init__(self, shape: Shape, dtype: DataType, name: str):
         self.shape = shape
+        self._original_shape = shape
         self.storage_shape = shape
         self.bandwidth_shape = shape
         self.dtype = dtype
@@ -423,6 +425,10 @@ class Tensor:
 
         # Reference to parent-tensor if this tensor is a clone
         self.src_tensor: Optional[Tensor] = None
+
+    @property
+    def original_shape(self):
+        return self._original_shape
 
     @property
     def address(self) -> int:

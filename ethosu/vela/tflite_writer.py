@@ -26,6 +26,7 @@ from .nn_graph import PassPlacement
 from .operation import Op
 from .reader_util import align_inputs_indices
 from .tensor import MemType
+from .tensor import shape_num_elements
 from .tensor import TensorPurpose
 from .tflite import Buffer
 from .tflite import Metadata
@@ -248,7 +249,12 @@ class TFLiteSerialiser:
 
     def serialise_tensor(self, tens):
         builder = self.builder
-        tens_shape = tens.shape
+        if shape_num_elements(tens.original_shape) != shape_num_elements(tens.shape):
+            # shapes have changed size, therefore assume that the latest (modified) shape is correct
+            tens_shape = tens.shape
+        else:
+            # shapes have not changed size, therefore the original shape is valid
+            tens_shape = tens.original_shape
         values = tens.values
 
         if values is None:
