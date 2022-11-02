@@ -76,10 +76,10 @@ def create_avg_pool_for_concat(concat_op, name, ifm, ifm_shape: Shape4D, write_o
     avgpool_op.write_offset = write_offset
     avgpool_op.write_shape = ifm_shape
     ofm.ops.append(avgpool_op)
-    DebugDatabase.add_optimised(concat_op, avgpool_op)
     avgpool_op.ifm_shapes.append(ifm_shape)
     avgpool_op.ofm_shapes.append(concat_op.ofm_shapes[0])
     avgpool_op.memory_function = Op.ConcatSliceWrite
+    DebugDatabase.add_optimised(concat_op, avgpool_op)
     return avgpool_op
 
 
@@ -279,6 +279,7 @@ def fixup_conv2d_backprop(op, arch, nng):
 
         # Update strides
         op.attrs.update({"stride_w": 1, "stride_h": 1, "strides": (1, 1, 1, 1)})
+        DebugDatabase.add_optimised(op, op)
 
     return op
 
@@ -301,6 +302,7 @@ def convert_resize_1x1_to_add(op):
     op.inputs[1] = op.inputs[0]
     op.inputs[0] = tens
     op.set_ifm_ofm_shapes()
+    DebugDatabase.add_optimised(op, op)
 
     return op
 
@@ -390,6 +392,7 @@ def convert_resizenn_ac_to_depthwise_conv(op, upscale_factor):
 
     # finally update the shape incase we've change the tensor shapes or connections
     op.set_ifm_ofm_shapes()
+    DebugDatabase.add_optimised(op, op)
 
     return op
 
@@ -433,6 +436,7 @@ def convert_resize_to_upscale_and_average_pool(op):
         pre_op = scaled_op
 
         scaled_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, scaled_op)
 
     # Last x2 upscaling
     if n > 1:
@@ -463,6 +467,7 @@ def convert_resize_to_upscale_and_average_pool(op):
     scaled_op.outputs = outputs
     scaled_op.outputs[0].ops = [scaled_op]
     scaled_op.set_ifm_ofm_shapes()
+    DebugDatabase.add_optimised(op, scaled_op)
 
     return op
 
@@ -531,6 +536,7 @@ def convert_resizebilinear_to_depthwise_convolutions(op, half_pixel_centers=True
         avgpool_op.add_input_tensor(ifm)
         avgpool_op.set_output_tensor(intermediate_tens)
         avgpool_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, op)
 
         dw_conv = Operation(Op.DepthwiseConv2DBias, "depthwise_conv")
         dw_conv._original_type = Op.ResizeBilinear
@@ -592,6 +598,8 @@ def convert_resizebilinear_to_depthwise_convolutions(op, half_pixel_centers=True
                 fixup_bias_tensors(dw_conv, None, None, dtype=DataType.int32)
 
                 dw_conv.set_ifm_ofm_shapes()
+                DebugDatabase.add_optimised(op, dw_conv)
+
                 dw_conv = dw_conv.clone(f"_{index}")
         return op
 
@@ -674,6 +682,7 @@ def unfuse_activation_function(op):
         act_op.add_input_tensor(intermediate_tens)
         op.set_output_tensor(intermediate_tens)
         act_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, act_op)
 
 
 def rewrite_stridedslice_output(op, arch, nng):
@@ -955,6 +964,7 @@ def convert_prelu(op, arch, nng):
                     fm_id = ofm.clone(op.name + "_id", set_unique=True)
                     mul_identity.set_output_tensor(fm_id)
                     mul_identity.set_ifm_ofm_shapes()
+                    DebugDatabase.add_optimised(op, mul_identity)
 
                 # Combine scaled and alpha multiplied values
                 max_op = Operation(Op.Maximum, op.name + "_max")
@@ -1389,7 +1399,7 @@ def fuse_activation_function_with_prev(op, arch, nng):
         prev_op.set_activation_lut(op.activation_lut)
     # Bypass op
     prev_op.set_output_tensor(ofm)
-    DebugDatabase.add_optimised(op, prev_op)
+    DebugDatabase.add_optimised(prev_op, prev_op)
     return op
 
 
@@ -1482,6 +1492,8 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
         op.attrs["padding"] = Padding.EXPLICIT
         op.attrs["explicit_padding"] = (top, left, bottom, right)
         op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, op)
+
     return op
 
 
@@ -1682,6 +1694,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
 
         # If the AvgPool version is used, we don't need to do anything else
         if op.type == Op.AvgPool:
+            DebugDatabase.add_optimised(op, op)
             return op
 
         # Make unit weight tensor quantization
@@ -1712,6 +1725,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         # Add bias tensor
         bias_shape = [shape[-1]]
         op.inputs.append(create_const_tensor("bias", bias_shape, DataType.int32, np.ones(bias_shape) * bias))
+        DebugDatabase.add_optimised(op, op)
 
     return op
 
@@ -1803,7 +1817,6 @@ def convert_shape_op_to_constant_tensor(op: Operation, arch, nng):
 
         # Convert this SHAPE op to const
         op.type = Op.Const
-        DebugDatabase.add_optimised(op, op)
 
         # Add size calculation to shape output tensors
         ofm.values = np.array(ifm.shape)

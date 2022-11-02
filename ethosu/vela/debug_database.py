@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -61,39 +61,58 @@ class DebugDatabase:
             [uid, str(op.type), op.kernel.width, op.kernel.height, ofm_shape[-2], ofm_shape[-3], ofm_shape[-1]]
         )
 
+    # Ops are added when their type changes, and after optimisation. If an op was already 
+    # added before optimisation was finished it will only be added again if it's entry
+    # has changed in any way from it's previous entry.
     @classmethod
     def add_optimised(cls, parent: Operation, op: Operation):
         assert isinstance(parent, Operation) and isinstance(op, Operation)
+        if parent not in cls._sourceUID:
+            # If the parent wasn't in the source network try to look it
+            # up in the optimised network and use that op's source parent.
+            if parent in cls._optimisedUID:
+                src_uid = cls._optimisedUID[parent][1]
+            else:
+                if DebugDatabase.show_warnings:
+                    print("Debug Database: Associated parent '{0}' not in network".format(parent.type))
+                src_uid = DebugDatabase.NULLREF
+        else:
+            src_uid = cls._sourceUID[parent]
+
+        # correction for missing shapes
+        if len(op.ofm_shapes) == 0:
+            ofm_shape = Shape4D(op.outputs[0].shape)
+        else:
+            ofm_shape = op.ofm_shapes[0]
+
+        next_uid = len(cls._optimisedTable)  # required because no longer 1:1 UID->table correspondence
+        opt_uid = cls._optimisedUID.get(op, (next_uid, 0))[0]  # already seen or next uid (if not seen)
+
+        opt_table_entry = [
+            opt_uid,
+            src_uid,
+            str(op.type),
+            op.kernel.width,
+            op.kernel.height,
+            ofm_shape.width,
+            ofm_shape.height,
+            ofm_shape.depth,
+        ]
+
         if op not in cls._optimisedUID:
-            if parent not in cls._sourceUID:
-                # The the parent wasn't in the source network try to look it
-                # up in the optimised network and use that op's source parent.
-                if parent in cls._optimisedUID:
-                    src_uid = cls._optimisedUID[parent][1]
-                else:
-                    if DebugDatabase.show_warnings:
-                        print("Debug Database: Associated parent '{0}' not in network".format(parent.type))
-                    src_uid = DebugDatabase.NULLREF
-            else:
-                src_uid = cls._sourceUID[parent]
-            uid = len(cls._optimisedUID)
-            cls._optimisedUID[op] = (uid, src_uid)
-            if len(op.ofm_shapes) == 0:
-                ofm_shape = Shape4D(op.outputs[0].shape)
-            else:
-                ofm_shape = op.ofm_shapes[0]
-            cls._optimisedTable.append(
-                [
-                    uid,
-                    src_uid,
-                    str(op.type),
-                    op.kernel.width,
-                    op.kernel.height,
-                    ofm_shape.width,
-                    ofm_shape.height,
-                    ofm_shape.depth,
-                ]
-            )
+            # optimised op does not exist
+            cls._optimisedUID[op] = (next_uid, src_uid)
+            cls._optimisedTable.append(opt_table_entry)
+        else:
+            # optimised op already exists
+            existing_entry = cls._optimisedTable[
+                cls._optimisedUID[op][0]
+            ]  # Existing entry is where the 'op' object was last inserted
+            if opt_table_entry != existing_entry:
+                # only add again if it's changed in any way
+                opt_table_entry[0] = next_uid  # give it a new unique id (required)
+                cls._optimisedUID[op] = (next_uid, src_uid)
+                cls._optimisedTable.append(opt_table_entry)
 
     @classmethod
     def add_stream(cls, key):

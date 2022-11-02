@@ -134,7 +134,7 @@ def next_sram_factor(alloc_results):
 
 
 def _record_operator(op, arch):
-    if op.type != Op.Const:
+    if op.type not in (Op.Const, Op.Placeholder):
         DebugDatabase.add_source(op)
 
 

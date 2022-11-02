@@ -257,7 +257,6 @@ def move_splitsliceread_to_consumer(op, cons_op):
         cons_op.read_shapes[1] = op.read_shapes[0]
         cons_op.set_input_tensor(op.ifm, cons_op.type.info.indices.ifms[1])
         cons_op.ifm_shapes[1] = op.ifm_shapes[0]
-
     op.ofm.consumer_list.remove(cons_op)
     op.ofm.ops = []
     op.ifm.consumer_list.remove(op)
@@ -270,7 +269,7 @@ def check_memory_only_removed(op, arch):
 
 
 def record_optimised(op, arch):
-    if op.type != Op.Const:
+    if op.type not in (Op.Const, Op.Placeholder):
         DebugDatabase.add_optimised(op, op)
 
 
@@ -392,12 +391,12 @@ def convert_depthwise_to_conv(op, arch, nng):
 
             weight_tensor.values = np.transpose(weight_tensor.values, (0, 1, 3, 2))
             weight_tensor.set_all_shapes(list(weight_tensor.values.shape))
+            DebugDatabase.add_optimised(op, op)
         else:
             raise UnsupportedFeatureError(
                 f"Unsupported 'DEPTHWISE_CONV_2D' with depth_multiplier = {op.attrs['depth_multiplier']},",
                 f" ifm channels = {ifm_shape.depth}, ofm channels = {ofm_shape.depth}",
             )
-        DebugDatabase.add_optimised(op, op)
     return op
 
 
@@ -426,4 +425,5 @@ def convert_to_lut(op, lut_values, lut_name):
     lut_tensor = lut.create_lut_tensor(op.name + "_values", lut_values, DataType.int8)
     op.set_activation_lut(lut_tensor)
     op.set_ifm_ofm_shapes()
+    DebugDatabase.add_optimised(op, op)
     return op
