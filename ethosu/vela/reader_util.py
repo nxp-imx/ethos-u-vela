@@ -15,8 +15,6 @@
 # limitations under the License.
 # Description:
 # Utlity function for reading .tosa and .tflite files
-import numpy as np
-
 from .operation import Op
 from .operation import Operation
 
@@ -30,19 +28,13 @@ def decode_str(s):
 def clone_and_reshape_tensor(src_tens, reorder, set_unique):
     tens = src_tens.clone("_reshape", set_unique)
     if reorder is None:
-        # 1D shape requested
-        tens.shape = [np.prod(src_tens.shape)]
+        # reorder of None is a special case meaning 1D shape requested
+        tens.as_1D()
     else:
-        tens.shape = [src_tens.shape[idx] for idx in reorder]
+        tens.transpose(reorder)
+
     tens.bandwidth_shape = tens.shape
     tens.storage_shape = tens.shape
-
-    if tens.values is not None:
-        if reorder is None:
-            # 1D shape requested
-            tens.values = tens.values.reshape(tens.shape)
-        else:
-            tens.values = tens.values.transpose(reorder)
 
     op = Operation(Op.Const, tens.name)
     op.set_output_tensor(tens)

@@ -484,6 +484,17 @@ class Tensor:
         res.src_tensor = self
         return res
 
+    def as_1D(self):
+        self.shape = [np.prod(self.shape)]
+        if self.values is not None:
+            self.values = self.values.reshape(self.shape)
+
+    def transpose(self, reorder):
+        self.shape = [self.shape[idx] for idx in reorder]
+        self._original_shape = [self._original_shape[idx] for idx in reorder]
+        if self.values is not None:
+            self.values = self.values.transpose(reorder)
+
     def copy_compressed_weight_info(self, src_tens: "Tensor"):
         # Copies compressed values + all related weight compression info from the given tensor
         self.equivalence_id = src_tens.equivalence_id
