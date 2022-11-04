@@ -49,7 +49,6 @@ from .api import NpuOperationType
 from .api import NpuPadding
 from .api import NpuPoolingOp
 from .api import NpuPoolingOperation
-from .api import NpuQuantization
 from .api import NpuResamplingMode
 from .api import NpuRoundingMode
 from .api import NpuShape3D
@@ -69,7 +68,6 @@ from .ethos_u55_regs.ethos_u55_regs import elementwise_mode
 from .ethos_u55_regs.ethos_u55_regs import pooling_mode
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .ethos_u55_regs.ethos_u55_regs import rounding
-from .numeric_util import quantise_float32
 from .numeric_util import round_away_zero
 from .numeric_util import round_up_to_int
 from .operation import ExplicitScaling
@@ -81,7 +79,9 @@ from .register_command_stream_util import get_dma_memory_accesses
 from .register_command_stream_util import get_op_memory_accesses
 from .register_command_stream_util import get_strides
 from .register_command_stream_util import get_wait_dependency
+from .register_command_stream_util import get_zero_point
 from .register_command_stream_util import has_ifm2
+from .register_command_stream_util import quantise
 from .register_command_stream_util import shape3d_to_block
 from .register_command_stream_util import to_kernel
 from .register_command_stream_util import UNARY_ELEMWISE_OPS
@@ -298,13 +298,6 @@ def check_mem_limits(memory_accesses: MemoryAccessSet, mem_limits: Dict[int, int
                         )
 
 
-def quantise(value: float, quant: Optional[NpuQuantization]) -> int:
-    """Quantizes the given value"""
-    scale = 1 if quant is None or quant.scale_f32 is None else quant.scale_f32
-    zp = 0 if quant is None else quant.zero_point
-    return quantise_float32(value, scale, zp)
-
-
 def generate_padding(emit: CommandStreamEmitter, padding: NpuPadding):
     """Generates IFM_PAD registers"""
     emit.cmd0_with_param(cmd0.NPU_SET_IFM_PAD_TOP, padding.top)
@@ -440,7 +433,7 @@ def generate_ifm(emit: CommandStreamEmitter, ifm: NpuFeatureMap):
     )
     emit.cmd0_with_param(cmd0.NPU_SET_IFM_DEPTH_M1, ifm.shape.depth - 1)
     generate_strides(emit, ifm, cmd1.NPU_SET_IFM_STRIDE_C, cmd1.NPU_SET_IFM_STRIDE_Y, cmd1.NPU_SET_IFM_STRIDE_X)
-    emit.cmd0_with_param(cmd0.NPU_SET_IFM_ZERO_POINT, int(ifm.quantization.zero_point))
+    emit.cmd0_with_param(cmd0.NPU_SET_IFM_ZERO_POINT, get_zero_point(ifm))
 
 
 def generate_ifm2(emit: CommandStreamEmitter, ifm2: NpuFeatureMap, has_scalar: bool):
@@ -457,7 +450,7 @@ def generate_ifm2(emit: CommandStreamEmitter, ifm2: NpuFeatureMap, has_scalar: b
             emit, [cmd0.NPU_SET_IFM2_HEIGHT0_M1, cmd0.NPU_SET_IFM2_HEIGHT1_M1, cmd0.NPU_SET_IFM2_WIDTH0_M1], ifm2.tiles
         )
         generate_strides(emit, ifm2, cmd1.NPU_SET_IFM2_STRIDE_C, cmd1.NPU_SET_IFM2_STRIDE_Y, cmd1.NPU_SET_IFM2_STRIDE_X)
-    emit.cmd0_with_param(cmd0.NPU_SET_IFM2_ZERO_POINT, int(ifm2.quantization.zero_point))
+    emit.cmd0_with_param(cmd0.NPU_SET_IFM2_ZERO_POINT, get_zero_point(ifm2))
 
 
 def generate_ofm(emit: CommandStreamEmitter, ofm: NpuFeatureMap):
@@ -476,7 +469,7 @@ def generate_ofm(emit: CommandStreamEmitter, ofm: NpuFeatureMap):
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_WIDTH_M1, ofm.shape.width - 1)
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_DEPTH_M1, ofm.shape.depth - 1)
     generate_strides(emit, ofm, cmd1.NPU_SET_OFM_STRIDE_C, cmd1.NPU_SET_OFM_STRIDE_Y, cmd1.NPU_SET_OFM_STRIDE_X)
-    emit.cmd0_with_param(cmd0.NPU_SET_OFM_ZERO_POINT, int(ofm.quantization.zero_point))
+    emit.cmd0_with_param(cmd0.NPU_SET_OFM_ZERO_POINT, get_zero_point(ofm))
 
 
 def generate_kernel(emit: CommandStreamEmitter, kernel: NpuKernel, block_traversal: NpuBlockTraversal):

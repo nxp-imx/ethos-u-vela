@@ -32,6 +32,7 @@ from .api import NpuLayout
 from .api import NpuOperation
 from .api import NpuOperationType
 from .api import NpuPadding
+from .api import NpuQuantization
 from .api import NpuShape3D
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
@@ -78,6 +79,17 @@ def shape3d_to_rect(shape: NpuShape3D) -> Rect:
 
 def shape3d_to_block(shape: NpuShape3D) -> Block:
     return Block(shape.width, shape.height, shape.depth)
+
+
+def get_zero_point(fm: NpuFeatureMap):
+    return int(fm.quantization.zero_point if fm.quantization else 0)
+
+
+def quantise(value: float, quant: Optional[NpuQuantization]) -> int:
+    """Quantizes the given value"""
+    scale = 1 if quant is None or quant.scale_f32 is None else quant.scale_f32
+    zp = 0 if quant is None else quant.zero_point
+    return numeric_util.quantise_float32(value, scale, zp)
 
 
 # -------------------------------------------------------------------

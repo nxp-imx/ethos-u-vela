@@ -240,11 +240,11 @@ def extract_live_ranges_from_cascaded_passes(
             rng = lr_graph.get_or_create_range(tens, cpu_tensor_alignment)
             rng.mark_usage(time_for_pass)
 
-        op_subgraph = cps.passes[0].ops[0].attrs.get("subgraph", None)
-        op_type = cps.passes[0].ops[0].type
+        op = cps.passes[0].ops[0] if cps.passes[0].ops else None
+        op_subgraph = op.attrs.get("subgraph", None) if op else None
 
         if op_subgraph is not None and MemType.Permanent_CPU not in target_mem_type_set:
-            if op_type == Op.CustomNpuOp:
+            if op.type == Op.CustomNpuOp:
                 # If the primary-op is an NpuOp that means this is where an Npu subgraph
                 # is called. Go into said subgraph and extract live ranges before continuing.
                 # Use default allocation alignment of 16 for Npu tensors

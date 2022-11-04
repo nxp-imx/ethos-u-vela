@@ -48,6 +48,7 @@ from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
 from .operation import Padding
+from .operation_util import create_add_nop
 from .operation_util import create_avgpool_nop
 from .operation_util import get_pad_values_from_input
 from .scaling import quantise_scale
@@ -1801,6 +1802,7 @@ def convert_shape_op_to_constant_tensor(op: Operation, arch, nng):
 
         # Convert this SHAPE op to const
         op.type = Op.Const
+        DebugDatabase.add_optimised(op, op)
 
         # Add size calculation to shape output tensors
         ofm.values = np.array(ifm.shape)
@@ -1934,5 +1936,24 @@ def tflite_optimise_graph(nng, arch):
     for sg in nng.subgraphs:
         rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [remove_SplitSliceRead])
         sg.refresh_after_modification()
+
+    # Make sure that const optimisations on subgraph outputs are handled correctly
+    for sg in nng.subgraphs:
+        for ofm in sg.output_tensors:
+            if ofm.is_const and ofm.ops[0].type_changed:
+                # Subgraph output cannot be const - insert a memory copy
+                op = ofm.ops[0]
+                ofm_clone = ofm.clone()
+                ofm_clone.values = ofm.values
+                ofm.values = None
+                np_dtype = ofm.dtype.as_numpy_type()
+                zero = create_const_tensor("zero", [1], ofm.dtype, [0], np_dtype, quantization=ofm.quantization)
+                memcpy = create_add_nop(f"{ofm.name}_copy")
+                memcpy.add_input_tensor(ofm_clone)
+                memcpy.add_input_tensor(zero)
+                memcpy.set_output_tensor(ofm)
+                memcpy.set_ifm_ofm_shapes()
+                op.set_output_tensor(ofm_clone)
+                DebugDatabase.add_optimised(op, memcpy)
 
     return nng

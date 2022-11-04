@@ -596,6 +596,10 @@ class Operation:
     def original_type(self):
         return self._original_type
 
+    @property
+    def type_changed(self):
+        return self.type != self.original_type
+
     def get_kernel_size(self):
         weights = self.weights
         if weights and self.type.npu_block_type in (NpuBlockType.ConvolutionDepthWise, NpuBlockType.ConvolutionMxN):
