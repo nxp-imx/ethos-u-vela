@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 # Description:
 # The TFLiteSupportedOperators class which is a collection of all TFLite supported operators and parameter checks.
 from collections import defaultdict

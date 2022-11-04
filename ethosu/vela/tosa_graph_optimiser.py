@@ -1,4 +1,4 @@
-# Copyright (C) 2021 Arm Limited or its affiliates. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2021-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 # Description:
 # Early optimisation of the TOSA based network graph, using the rewrite_graph module to do the traversal of the graph.
 import numpy as np

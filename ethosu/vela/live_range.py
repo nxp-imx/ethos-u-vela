@@ -1,4 +1,4 @@
-# Copyright (C) 2020-2022 Arm Limited or its affiliates. All rights reserved.
+# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 # Description:
 # Build a live range graph for tensors in one or more subgraphs. Used for tensor allocation as well as in the scheduler.
 # Can work with either a pass packed subgraph or a scheduled subgraph.
