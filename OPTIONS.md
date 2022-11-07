@@ -332,6 +332,16 @@ Verbose pass packing.
 vela network.tflite --verbose-packing
 ```
 
+### Verbose Performance
+
+Verbose per-layer Performance. Please see
+[Vela Performance Estimation Summary](PERFORMANCE.md)
+for a detailed explanation.  
+
+```bash
+vela network.tflite --verbose-performance
+```
+
 ### Verbose Tensor Purpose
 
 Verbose tensor purpose.  

@@ -1,7 +1,8 @@
 # Vela Performance Estimation Summary
 
 This is a description of the performance estimation summary that Vela prints
-after each compilation.
+after each compilation.  This summary is also printed to a csv in the output
+directory.
 
 The following is an example of the output.
 ```
@@ -64,8 +65,8 @@ Design peak Off-chip Flash bandwidth             0.50 GB/s
 
 ### Accelerator configuration
 
-This shows the selected accelerator configuration. It identifies the Embedded
-NPU that the compiler is targeting. **NOTE: It is extremely important to select
+This shows the selected accelerator configuration.  It identifies the Embedded
+NPU that the compiler is targeting.  **NOTE: It is crucial to select
 the correct device, otherwise a run-time check in the driver will fail.**
 To select a different accelerator configuration use the CLI option
 `--accelerator-config`, see [OPTIONS.md](OPTIONS.md#Accelerator-Configuration).
@@ -73,21 +74,21 @@ To select a different accelerator configuration use the CLI option
 ### System configuration
 
 The selected system configuration from the provided configuration file or
-`internal-default`. **NOTE: It is very important to select a system
-configuration that correctly describes the target embedded system.** This is
+`internal-default`.  **NOTE: It is very important to select a system
+configuration that correctly describes the target embedded system.  ** This is
 because the compiler makes some of its optimization decisions based upon this
-information. Failing to select the correct configuration could result in
+information.  Failing to select the correct configuration could result in
 run-time errors, bit-inexact operation, or suboptimal operation of the Embedded
-NPU. To select a different system configuration use the CLI option
+NPU.  To select a different system configuration use the CLI option
 `--system-config`, see [OPTIONS.md](OPTIONS.md#System-Config).
 
 ### Memory mode
 
 The selected memory mode from the provided configuration file or
-internal-default. **NOTE: It is very important to select a memory
-mode that correctly describes the target embedded system.** This is
+internal-default.  **NOTE: It is very important to select a memory
+mode that correctly describes the target embedded system.  ** This is
 because the compiler makes some of its optimization decisions based upon this
-information. To select a different memory mode use the CLI option
+information.  To select a different memory mode use the CLI option
 `--memory-mode`, see [OPTIONS.md](OPTIONS.md#Memory-Mode).
 
 ### Accelerator clock
@@ -193,8 +194,8 @@ encoded for the NPU.
 
 ## Estimated performance
 
-The final sections show the estimated required compute power and performance for
-the network.
+The final sections show the estimated required compute power and performance
+for the network.
 
 ```
 Neural network macs                             86952 MACs/batch
@@ -212,7 +213,7 @@ Batch Inference time                 0.23 ms, 4382.18 inferences/s (batch size 1
 
 ### Neural network MACs
 
-This shows the estimated number of MACs in the network per batch. This number
+This shows the estimated number of MACs in the network per batch.  This number
 includes MACs from convolutions, vector products and pooling operations.
 It does not include MACs from elementwise or any other type of operation.
 
@@ -223,17 +224,17 @@ representation of [Neural network MACs](#Neural-network-MACs)
 
 ### Cycles
 
-This shows the estimated number of cycles per batch for NPU, memory accesses and
-in total. The total is the sum of the single action that consumes the most
-cycles per pass, i.e. if memory access consumes the most cycles for a pass only
-that will account for the pass cycles in the total.  
+This shows the estimated number of cycles per batch for NPU, memory accesses
+and in total. The total is the sum of the single action that consumes the most
+cycles per pass, i.e. if memory access consumes the most cycles for a pass
+only that will account for the pass cycles in the total.  
 To clarify: for each type of cycle counts, the number of cycles per batch is the
 sum of cycle counts for each layer, where each layer's cycle count is based on
-the maximal processing path. A layer consists of a feature map and an operator.  
-For example, if the DMA transfer for a feature map requires less cycles than the
-cycles for the operation, then the DMA cycles will not contribute to the layer
-cycle count. As a result, it will not be part of the summed SRAM or DRAM access
-cycles.  
+the maximal processing path.  
+A layer consists of a feature map and an operator. For example, if the DMA
+transfer for a feature map requires less cycles than the cycles for the
+operation, then the DMA cycles will not contribute to the layer cycle count.
+As a result, it will not be part of the summed SRAM or DRAM access cycles.  
 Looking at the example above in [Estimated performance](#Estimated-performance),
 the zero cycle count for DRAM Access cycles means that either there was no DRAM
 access or, like in our previously described example, the DMA cycles were fewer
@@ -244,3 +245,73 @@ than for the operation for every layer that required a DMA transfer.
 This shows the estimated inference time and inferences per second per batch.
 **NOTE: This is just an estimate, for more accurate numbers we recomend to run
 the compiled network in the software model.**
+
+# Vela Performance Estimation Per-Layer
+
+This section describes the per-layer performance output that is printed when the
+--verbose-performance option is used. This is also printed to a csv file in the
+output directory.
+
+The following is an example of the output:
+
+```
+################################################################################
+Performance for NPU Subgraph _split_1
+TFLite_operator      NNG Operator         SRAM Usage  Peak%  Op Cycles Network%        NPU    SRAM AC    DRAM AC OnFlash AC OffFlash AC  MAC Count Network%  Util% Name
+-------------------- -------------------- ---------- ------ ---------- -------- ---------- ---------- ---------- ---------- ----------- ---------- -------- ------ --------------------
+CONV_2D              Conv2DBias               629616  86.18    1889913    46.80    1889913      21504          0          0           0   99090432    49.99  20.48 ResNet18/activation_32/Relu;ResNet18/batch_normalization_32/FusedBatchNormV3;ResNet18/conv2d_38/BiasAdd/ReadVariableOp/resource;ResNet18/conv2d_38/BiasAdd;ResNet18/conv2d_39/Conv2D;ResNet18/conv2d_38/Conv2D1
+CONV_2D              Conv2DBias               730624 100.00    2127584    52.69    2127584      21504          0          0           0   99090432    49.99  18.19 ResNet18/batch_normalization_33/FusedBatchNormV3;ResNet18/conv2d_39/BiasAdd/ReadVariableOp/resource;ResNet18/conv2d_39/BiasAdd;ResNet18/conv2d_39/Conv2D
+ADD                  Add                       43008   5.89      16128     0.40      16128       8064          0          0           0          0     0.00   0.00 ResNet18/activation_33/Relu;ResNet18/add_15/add
+AVERAGE_POOL_2D      AvgPool                   27648   3.78       4224     0.10       2200       4224          0          0           0      24576     0.01   2.27 ResNet18/average_pooling2d_1/AvgPool
+```
+
+The columns in the above output have the following meaning:
+
+## TFLite Operator
+
+Shows the original type of the operator that the scheduled operator corresponds
+to.  This column may not contain all of the operators that are in the input
+network because some compiler optimisations may end up removing some operators.
+
+## NNG Operator
+
+Shows the operator used by Vela's internal representation at the layer-level.
+There is a direct mapping between type of operator in Vela's internal
+representation and the type of those that are run on the hardware.
+However, there may be a multiple number of operators that are run
+on the hardware for every one of Vela's internal representation.
+
+## SRAM Usage
+
+Shows the SRAM usage in terms of bytes and as a fraction (%) of peak usage,
+where peak usage is the usage of the op with the largest usage.
+
+## Op Cycles
+
+Shows the total cycle estimation for the operator in terms of cycles and as a
+fraction (%) of the estimated total cycles of the entire network.
+
+The cycle counts are then broken down into NPU, SRAM AC, DRAM AC, OnFlash AC
+and OffFlashAC:
+
+### NPU
+
+The estimated number of total cycles for the entire NPU.
+
+### SRAM AC, DRAM AC, OnFlash AC, OffFlash AC
+
+Estimated number of Access cycles for respective memory
+
+## Mac Count
+
+Shows the total MAC count in terms of actual count and as a fraction of the
+total MACs.  Note that this is not an estimation.
+
+### MAC Util
+
+Shows the estimated Macs/cycle as a fraction of the theoretical maximum
+MACs/cycle.
+
+## Name
+
+Shows the name of the operator in Vela.

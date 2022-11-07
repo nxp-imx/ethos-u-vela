@@ -61,7 +61,7 @@ class DebugDatabase:
             [uid, str(op.type), op.kernel.width, op.kernel.height, ofm_shape[-2], ofm_shape[-3], ofm_shape[-1]]
         )
 
-    # Ops are added when their type changes, and after optimisation. If an op was already 
+    # Ops are added when their type changes, and after optimisation. If an op was already
     # added before optimisation was finished it will only be added again if it's entry
     # has changed in any way from it's previous entry.
     @classmethod
