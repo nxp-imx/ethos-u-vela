@@ -59,7 +59,6 @@ def write_summary_metrics_csv(nng, summary_filename, arch):
         ]
         labels += [area.identifier_name() + "_memory_used" for area in mem_areas]
         labels += ["total_original_weights"]
-        labels += ["total_npu_weights"]
         labels += ["total_npu_encoded_weights"]
 
         for mem_area in mem_areas:
