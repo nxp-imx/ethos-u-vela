@@ -358,7 +358,7 @@ def convert(input_model_name):
     if not nng:
         raise InputFileError(input_model_name, "Input file could not be read")
 
-    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type)
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, output_basename)
 
     output_tfl_filename = output_basename + "_vela.tflite"
     tflite_writer.write_tflite(nng, output_tfl_filename)
