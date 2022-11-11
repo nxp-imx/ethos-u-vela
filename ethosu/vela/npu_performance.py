@@ -762,6 +762,13 @@ def print_performance(
     mem_usage: dict,
     output_basename: str,
 ):
+    def _percentage(part, whole):
+        # desired behaviour is for division by zero to return 100%
+        if whole == 0:
+            return 100.0
+        else:
+            return part / whole * 100.0
+
     if network_type == NetworkType.TFLite:
         nng_optype_to_input_op_type = tflite_optype_to_builtintype
     else:
@@ -769,103 +776,105 @@ def print_performance(
 
     suid_inv_map = {v: k for k, v in DebugDatabase._sourceUID.items()}
 
+    # the header is a list (one entry per column) of tuples (column name, alignment, width, precision)
+    header = [
+        (f"{network_type.name}_operator", "<", 20, -1),
+        ("NNG Operator", "<", 20, -1),
+        ("SRAM Usage", ">", 10, 0.0),
+        ("Peak%", ">", 6, 0.2),
+        ("Op Cycles", ">", 10, 0.0),
+        ("Network%", ">", 8, 0.2),
+        ("NPU", ">", 10, 0.0),
+        ("SRAM AC", ">", 10, 0.0),
+        ("DRAM AC", ">", 10, 0.0),
+        ("OnFlash AC", ">", 10, 0.0),
+        ("OffFlash AC", ">", 11, 0.0),
+        ("MAC Count", ">", 10, 0.0),
+        ("Network%", ">", 8, 0.2),
+        ("Util%", ">", 6, 0.2),
+        ("Name", "<", 20, -1),
+    ]
+
+    # open the csv
+    csv_file = open(output_basename + "_per-layer.csv", "w", encoding="UTF8")
+    writer = csv.writer(csv_file)
+
     for sg in nng.subgraphs:
 
         if sg.placement != PassPlacement.Npu:
             continue
 
-        print(f"\n{str('#') * 80}")
-        print(f"Performance for NPU Subgraph {sg.name}")
-        print(
-            f" {network_type.name + str(' Operator:'):20s}"
-            f" {str('NNG Operator:'):20s}"
-            f" {str('SRAM Usage'):>10s}"
-            f" ({str('Peak'):>6s}%):"
-            f"{str('Op Cycles'):>10s}"
-            f" ({str('Netwrk'):>6s}%)"
-            f" ["
-            f" {str('NPU'):>10s}"
-            f" {str('SRAM AC'):>10s}"
-            f" {str('DRAM AC'):>10s}"
-            f" {str('OnFlash AC'):>10s}"
-            f" {str('OffFlashAC'):>10s}"
-            f" ]:"
-            f"{str('MAC Count'):>10s}"
-            f" ({str('Netwrk'):>6s}% / {str('Util'):>6s}%):"
-            f"Name:"
-        )
+        sg_seperator_text = f"\n{str('#') * 80}\nPerformance for NPU Subgraph {sg.name}"
 
-        with open(output_basename + "_per-layer.csv", "w", encoding="UTF8") as f:
-            writer = csv.writer(f)
-            header = [
-                f"{network_type.name}_operator",
-                "NNG_operator",
-                "SRAM_usage",
-                "Peak",
-                "Op_cycles",
-                "Network",
-                "NPU",
-                "SRAM_AC",
-                "DRAM_AC",
-                "OnFlash_AC",
-                "OffFlash_AC",
-                "MAC_count",
-                "Network",
-                "Util",
-                "Name",
-            ]
-            writer.writerow(header)
+        # the data is a list (one entry per op) of lists (matching the header columns)
+        data = []
+        for sched_op in sg.sched_ops:
+            # get source op name
+            sched_op_src_uid = DebugDatabase._optimisedUID[sched_op.parent_op][1]
+            if sched_op_src_uid == DebugDatabase.NULLREF:
+                src_op_type = None
+            else:
+                src_op_type = suid_inv_map[sched_op_src_uid].original_type
 
-            for sched_op in sg.sched_ops:
-                # get source op name
-                sched_op_src_uid = DebugDatabase._optimisedUID[sched_op.parent_op][1]
-                if sched_op_src_uid == DebugDatabase.NULLREF:
-                    src_op_type = None
-                else:
-                    src_op_type = suid_inv_map[sched_op_src_uid].type
+            src_op_name = nng_optype_to_input_op_type(src_op_type)
 
-                src_op_name = nng_optype_to_input_op_type(src_op_type)
+            max_macs = cycles[sched_op][PassCycles.Total] * arch.num_macs_per_cycle * arch.ncores
+            peak_sram = (
+                _percentage(mem_usage[sched_op], nng.memory_used[MemArea.Sram])
+                if MemArea.Sram in nng.memory_used
+                else 0
+            )
 
-                max_macs = cycles[sched_op][PassCycles.Total] * arch.num_macs_per_cycle * arch.ncores
-                peak_sram = (
-                    mem_usage[sched_op] / nng.memory_used[MemArea.Sram] * 100 if MemArea.Sram in nng.memory_used else 0
-                )
-                print(
-                    f" {src_op_name:20s}"
-                    f" {sched_op.op_type:20s}"
-                    f" {mem_usage[sched_op]:10.0f}"
-                    f" ({peak_sram:6.2f}%)"
-                    f" {cycles[sched_op][PassCycles.Total]:10.0f}"
-                    f" ({cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total] * 100:6.2f}%)"
-                    f" ["
-                    f" {cycles[sched_op][PassCycles.Npu]:10.0f}"
-                    f" {cycles[sched_op][PassCycles.SramAccess]:10.0f}"
-                    f" {cycles[sched_op][PassCycles.DramAccess]:10.0f}"
-                    f" {cycles[sched_op][PassCycles.OnChipFlashAccess]:10.0f}"
-                    f" {cycles[sched_op][PassCycles.OffChipFlashAccess]:10.0f}"
-                    f" ]"
-                    f" {macs[sched_op]:10d}"
-                    f" ({macs[sched_op] / nng.macs * 100:6.2f}% / {macs[sched_op] / max_macs * 100:6.2f}%)"
-                    f" {sched_op.name:s}"
-                )
-                data = [
-                    f"{src_op_name}",
-                    f"{sched_op.op_type}",
-                    f"{mem_usage[sched_op]}",
-                    f"{peak_sram}",
-                    f"{cycles[sched_op][PassCycles.Total]}",
-                    f"{cycles[sched_op][PassCycles.Total] / nng.cycles[PassCycles.Total]}",
-                    f"{cycles[sched_op][PassCycles.Npu]}",
-                    f"{cycles[sched_op][PassCycles.SramAccess]}",
-                    f"{cycles[sched_op][PassCycles.DramAccess]}",
-                    f"{cycles[sched_op][PassCycles.OnChipFlashAccess]}",
-                    f"{cycles[sched_op][PassCycles.OffChipFlashAccess]}",
-                    f"{macs[sched_op]}",
-                    f"{macs[sched_op] / nng.macs}",
-                    f"{macs[sched_op] / max_macs}",
-                    f"{sched_op.name}",
+            data.append(
+                [
+                    src_op_name,
+                    sched_op.op_type,
+                    mem_usage[sched_op],
+                    peak_sram,
+                    cycles[sched_op][PassCycles.Total],
+                    _percentage(cycles[sched_op][PassCycles.Total], nng.cycles[PassCycles.Total]),
+                    cycles[sched_op][PassCycles.Npu],
+                    cycles[sched_op][PassCycles.SramAccess],
+                    cycles[sched_op][PassCycles.DramAccess],
+                    cycles[sched_op][PassCycles.OnChipFlashAccess],
+                    cycles[sched_op][PassCycles.OffChipFlashAccess],
+                    macs[sched_op],
+                    _percentage(macs[sched_op], nng.macs),
+                    _percentage(macs[sched_op], max_macs),
+                    sched_op.name,
                 ]
-                writer.writerow(x for x in data)
+            )
+
+        # print to console
+        print(sg_seperator_text)
+        line = ""
+        line2 = ""
+        for col_name, align, width, _ in header:
+            line_data = f"{col_name:{align}{width}}"
+            line += line_data + " "
+            line2 += "-" * len(line_data) + " "
+        print(line)
+        print(line2)
+
+        for op_data in data:
+            line = ""
+            for idx, item in enumerate(op_data):
+                _, align, width, precision = header[idx]
+                if precision == -1:
+                    w = str(width)
+                else:
+                    w = str(width + precision) + "f"
+                line += f"{item:{align}{w}}" + " "
+            print(line)
+
+        # print to csv
+        writer.writerow((sg_seperator_text,))
+        writer.writerow(col_name for col_name, _, _, _ in header)
+        for op_data in data:
+            writer.writerow(op_data)
+
+    # close the csv
+    csv_file.close()
 
 
 def calc_new_performance_for_network(
