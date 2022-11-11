@@ -111,13 +111,6 @@ def test_constraint_stride_range():
     assert not support.is_operator_supported(op)
 
 
-def test_constraint_dilation_range():
-    # Dilation width and height must lie within a certain range
-    op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 1, "stride_h": 1, "dilation_w_factor": 0, "dilation_h_factor": 20}
-    assert not support.is_operator_supported(op)
-
-
 def test_constraint_dilated_height_range():
     # Dilated kernel height must lie within a certain range
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 8, 8, 8], [1, 8, 8, 8], weights_shape=[65, 64, 1, 1])

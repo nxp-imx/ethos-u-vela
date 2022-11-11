@@ -189,7 +189,6 @@ class TFLiteSupportedOperators:
     # Defined ranges for allowed values:
     tens_dim_range = (1, 65535)
     stride_range = (1, 3)
-    dilation_range = (1, 2)
     dilated_height_range = (1, 64)
     dilated_product_range = (1, 64 * 64)
     weights_limit = 127 * 65536
@@ -225,8 +224,10 @@ class TFLiteSupportedOperators:
 
         # Conv-like checks:
         for op_type in TFLiteSupportedOperators.convolution_like_ops:
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_stride_range)
-            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_dilation_range)
+            if op_type not in TFLiteSupportedOperators.transpose_convolution_ops:
+                # Transpose Conv has a specific stride constraint (see constraint_tconv_stride below)
+                self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_stride_range)
+
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_dilated_height_range)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_dilated_product_range)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_type)
@@ -234,9 +235,6 @@ class TFLiteSupportedOperators:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_limit)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_type)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_40bit)
-        # Remove stride contraint from Transpose Conv because it has a specific one (see below)
-        for op_type in TFLiteSupportedOperators.transpose_convolution_ops:
-            self.specific_constraints[op_type].remove(TFLiteSupportedOperators.constraint_stride_range)
         # Transpose Conv specific checks:
         for op_type in TFLiteSupportedOperators.transpose_convolution_ops:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_tconv_stride)
@@ -432,15 +430,6 @@ class TFLiteSupportedOperators:
         stride_min, stride_max = cls.stride_range
         valid = (stride_min <= w <= stride_max) and (stride_min <= h <= stride_max)
         return valid, f"Op has stride WxH as: {w}x{h}"
-
-    @classmethod
-    @docstring_format_args(dilation_range)
-    def constraint_dilation_range(cls, op):
-        "Dilation factor values for both width and height must be in the range [{}, {}]"
-        w, h = op.get_kernel_dilation()
-        dilation_min, dilation_max = cls.dilation_range
-        valid = (dilation_min <= w <= dilation_max) and (dilation_min <= h <= dilation_max)
-        return valid, f"Op has dilation factor WxH as: {w}x{h}"
 
     @classmethod
     @docstring_format_args(dilated_height_range)

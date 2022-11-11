@@ -106,7 +106,9 @@ class TFLiteSemantic:
         # Conv-like checks:
         for op_type in TFLiteSemantic.convolution_like_ops:
             self.specific_constraints[op_type].append(TFLiteSemantic.constraint_stride_type)
-            self.specific_constraints[op_type].append(TFLiteSemantic.constraint_dilation_type)
+            if op_type not in TFLiteSemantic.transpose_convolution_ops:
+                # Transpose Conv does not contain dilation
+                self.specific_constraints[op_type].append(TFLiteSemantic.constraint_dilation_type)
 
         # Pooling checks:
         for op_type in TFLiteSemantic.pooling_ops:

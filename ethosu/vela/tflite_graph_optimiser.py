@@ -1810,6 +1810,53 @@ def convert_shape_op_to_constant_tensor(op: Operation, arch, nng):
     return op
 
 
+def fixup_dilation_gt2(op, arch, nng):
+    assert op.run_on_npu
+    if op.type == Op.Conv2DBias or op.type == Op.DepthwiseConv2DBias:
+        dilation_w, dilation_h = op.get_kernel_dilation()
+
+        # if dilation in either axis is greater than that supported by the hardware then we must manually dilate the
+        # kernel
+        if dilation_w > 2 or dilation_h > 2:
+            kernel_w, kernel_h = op.get_kernel_size()
+            kernel_ic = op.weights.shape[-2]
+            kernel_oc = op.weights.shape[-1]
+
+            # if the dilation is a multiple of 2 then the hardware dialtion can be enabled to provide that multiple
+            # of 2. this allows the kernel size to be reduced (via the scaled dilation) by half in that dimension.
+            # odd = 1, even = 2
+            hw_dilation_h = 1 if (dilation_h & 1) else 2
+            hw_dilation_w = 1 if (dilation_w & 1) else 2
+
+            scale_dilation_h = dilation_h // hw_dilation_h
+            scale_dilation_w = dilation_w // hw_dilation_w
+
+            # create new empty kernel (HWIO format)
+            new_kernel_h = (kernel_h - 1) * scale_dilation_h + 1
+            new_kernel_w = (kernel_w - 1) * scale_dilation_w + 1
+
+            new_kernel_shape = [new_kernel_h, new_kernel_w, kernel_ic, kernel_oc]
+            new_kernel_values = np.zeros(new_kernel_shape, dtype=op.weights.values.dtype)
+
+            # copy the original kernel values into the new sparse kernel
+            for h in range(0, kernel_h):
+                for w in range(0, kernel_w):
+                    new_h = h * scale_dilation_h
+                    new_w = w * scale_dilation_w
+                    new_kernel_values[new_h, new_w, :, :] = op.weights.values[h, w, :, :]
+
+            # update the weight tensor with the new dilated kernel
+            op.weights.shape = new_kernel_shape
+            op.weights.values = new_kernel_values
+
+            # enable(=2) / disable(=1) hardware dilation
+            op.attrs["dilation"] = (1, hw_dilation_h, hw_dilation_w, 1)  # nhwc format
+            op.attrs["dilation_h_factor"] = hw_dilation_h
+            op.attrs["dilation_w_factor"] = hw_dilation_w
+
+    return op
+
+
 def supported_operator_check(op, arch, nng):
     op.run_on_npu = arch.tflite_supported_operators.is_operator_supported(op)
     return op
@@ -1909,6 +1956,7 @@ def tflite_optimise_graph(nng, arch):
         fixup_asymmetric_weights,
         convert_tanh_sigmoid_to_lut,
         replace_pad_by_hw_pad,
+        fixup_dilation_gt2,
     ]
 
     for idx, sg in enumerate(nng.subgraphs):
