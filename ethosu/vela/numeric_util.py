@@ -64,7 +64,7 @@ def round_to_int(v):
 # n.b. This is identical to C++11 std::round()
 def round_away_zero(f):
     r = -0.5 if (f < 0) else 0.5
-    return np.trunc(f + r)
+    return int(np.trunc(f + r))
 
 
 def quantise_float32(f, scale=1.0, zero_point=0):
