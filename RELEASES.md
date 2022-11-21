@@ -5,6 +5,34 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.6.0 - 23/11/2022
+
+** Main feature changes:**
+
+* New operator support: RESIZE_BILINEAR (Half-Pixel Centers), RESIZE_NEAREST_NEIGHBOR
+  (Half-Pixel Centers), PReLU
+* Add support for dilation >2 for CONV_2D and DEPTHWISE_CONV_2D kernels
+* Improve per-layer performance estimation reporting and documentation
+* Ethos-U65 performance improvements
+* Fixed SIGSEGV crash from weight codec
+* Fixed installation problems on AArch64 with Python 3.8
+* Upgrade TensorFlow Lite support to version 2.10
+  * Under certain circumstanced the optimised model may not match TensorFlow 2.10
+    for int16x8 CONV2D, TRANSPOSE_CONV2D and FULLY_CONNECTED, see
+    <https://github.com/tensorflow/tensorflow/issues/53763> for more information
+
+**Interface changes:**
+
+* None
+
+**Reported defect fixes:**
+
+* Add support for multiple TFLite subgraphs (MLCE-907)
+* Add missing operators in Vela debug DB (MLCE-913)
+* Optimize fast storage for feature maps (MLCE-929)
+* Reshape bias tensor as 1D (MLCE-944)
+* Update offset calculation for Slice (MLCE-945)
+
 ## Release 3.5.0 - 23/08/2022
 
 **Main feature changes:**
