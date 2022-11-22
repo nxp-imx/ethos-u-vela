@@ -18,13 +18,13 @@
 
 #include <stdint.h>
 
-#ifndef __MLW_DECODE_H__
-#define __MLW_DECODE_H__
+#ifndef MLW_DECODE_H
+#define MLW_DECODE_H
 
 #ifdef _MSC_VER
-  #define EXPORTED __declspec(dllexport)
+  #define MLW_DECODE_EXPORTED __declspec(dllexport)
 #else
-  #define EXPORTED __attribute__((visibility("default")))
+  #define MLW_DECODE_EXPORTED __attribute__((visibility("default")))
 #endif
 
 #if __cplusplus
@@ -32,7 +32,7 @@ extern "C"
 {
 #endif
 
-EXPORTED
+MLW_DECODE_EXPORTED
 int mlw_decode(uint8_t *inbuf, int inbuf_size, int16_t **outbuf, int verbose);
 
 #if __cplusplus

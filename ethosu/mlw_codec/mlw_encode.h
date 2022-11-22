@@ -18,13 +18,13 @@
 
 #include <stdint.h>
 
-#ifndef __MLW_ENCODE_H__
-#define __MLW_ENCODE_H__
+#ifndef MLW_ENCODE_H
+#define MLW_ENCODE_H
 
 #ifdef _MSC_VER
-  #define EXPORTED __declspec(dllexport)
+  #define MLW_ENCODE_EXPORTED __declspec(dllexport)
 #else
-  #define EXPORTED __attribute__((visibility("default")))
+  #define MLW_ENCODE_EXPORTED __attribute__((visibility("default")))
 #endif
 
 #if __cplusplus
@@ -32,13 +32,13 @@ extern "C"
 {
 #endif
 
-EXPORTED
+MLW_ENCODE_EXPORTED
 int mlw_encode(int16_t *inbuf, int inbuf_size, uint8_t **outbuf, int verbose);
 
-EXPORTED
+MLW_ENCODE_EXPORTED
 void mlw_free_outbuf(uint8_t *outbuf);
 
-EXPORTED
+MLW_ENCODE_EXPORTED
 int mlw_reorder_encode(
     int ifm_ublock_depth,
     int ofm_ublock_depth,

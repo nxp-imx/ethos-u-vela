@@ -28,6 +28,8 @@
 #include "mlw_encode.h"
 #include "mlw_decode.h"
 
+#define UNCHECKED(call) (void)call
+
 static void fatal_error(const char *format, ...) {
   va_list ap;
   va_start (ap, format);
@@ -49,17 +51,20 @@ static void print_usage(void) {
 }
 
 // Read file into allocated buffer. Return length in bytes.
-static int read_file( FILE *f, uint8_t **buf) {
-
-    fseek(f, 0, SEEK_END);
-    int size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+static size_t read_file( FILE *f, uint8_t **buf) {
+    size_t rsize = 0;
+    UNCHECKED(fseek(f, 0, SEEK_END));
+    long size = ftell(f);
+    size = size < 0 ? 0 : size;
+    UNCHECKED(fseek(f, 0, SEEK_SET));
     *buf = malloc(size);
-    assert(*buf);
-    int rsize = fread(*buf, 1, size, f);
-    assert(rsize==size);
-    fclose(f);
-    return size;
+    if (*buf)
+    {
+        rsize = fread(*buf, 1, size, f);
+        assert(rsize==size);
+    }
+    UNCHECKED(fclose(f));
+    return rsize;
 }
 
 
@@ -155,12 +160,12 @@ int main(int argc, char *argv[])
                     outbuf[i] = weights[i];
             }
             free(weights);
-            printf("Input size %d output size %d bpw %4.2f\n", inbuf_size, n, inbuf_size*8.0/n);
+            printf("Input size %d output size %d bpw %4.2f\n", inbuf_size, n, n ? inbuf_size*8.0/n : 0);
 
         }
 
         if (outfile) {
-            fwrite(outbuf, 1, outbuf_size, outfile);
+            UNCHECKED(fwrite(outbuf, 1, outbuf_size, outfile));
         }
 
         if (inbuf)
@@ -170,7 +175,7 @@ int main(int argc, char *argv[])
     }
 
     if (outfile) {
-        fclose(outfile);
+        UNCHECKED(fclose(outfile));
     }
 
     return 0;

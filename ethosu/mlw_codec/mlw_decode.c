@@ -28,6 +28,7 @@
 #include "mlw_common.h"
 #include "mlw_decode.h"
 
+#define CHECKED_MALLOC(var, size) { if ( !(var = malloc(size)) ) break; }
 
 /////////////////////////////// Read from bitstream
 
@@ -97,8 +98,10 @@ int mlw_decode( uint8_t *inbuf, int inbuf_size, int16_t **outbuf, int verbose) {
     bitbuf_t bitbuf_s, *bb=&bitbuf_s;
     bitbuf_init( bb, inbuf, inbuf_size, (verbose&2)?1:0 );
 
+    int *w_value = NULL;
+    int *z_value = NULL;
     // Loop over all slices
-    while(1) {
+    do {
         // Decode slice header
         z_grc_div = bitbuf_get( bb, "ZDIV", 3 );
         while(z_grc_div==ZDIV_EOS) {                    // TODO: change to ZDIV_PAD
@@ -169,8 +172,9 @@ int mlw_decode( uint8_t *inbuf, int inbuf_size, int16_t **outbuf, int verbose) {
 
         // Decode the slice
         int z_nvalues = nvalues + (new_palette?1:0);
-        int *w_value = malloc( nvalues*sizeof(int) );
-        int *z_value = malloc( z_nvalues*sizeof(int) );
+        CHECKED_MALLOC( w_value, nvalues*sizeof(int) );
+        CHECKED_MALLOC( z_value, z_nvalues*sizeof(int) );
+        z_value[0] = 0;
         int w_pos=0, z_pos=0;
         int w_prev_pos=0, z_prev_pos=0;
         int w_unary0=0, w_unary1=0, w_unary1_len=0, w_q[12]={0}, w_carry=0;
@@ -262,39 +266,49 @@ int mlw_decode( uint8_t *inbuf, int inbuf_size, int16_t **outbuf, int verbose) {
         // Interleave non-zero and zeros into the outbut buffer
         // Increase the outbuffer to fit the new slice
         *outbuf = realloc( *outbuf, (outbuf_size + nvalues + total_zcnt)*sizeof(int16_t));
+        if (*outbuf)
+        {
+            int k=outbuf_size;
 
-        int k=outbuf_size;
-
-        // Insert initial zeros
-        // (slices redefining the palette may start with zeros)
-        if (new_palette && use_zero_run) {
-            for(j=0; j<z_value[0]; j++) {
-                (*outbuf)[k++] = 0;
-            }
-        }
-
-        // Loop over all weights and insert zeros in-between
-        for(i=0; i<nvalues; i++) {
-            int val;
-            assert(w_value[i]<512); // HW supports 9bit
-            if (w_value[i]<palsize) {
-                val = palette[w_value[i]];
-            } else {
-                val = w_value[i]-palsize+direct_offset;
-            }
-            int sign = val&1;
-            int mag  = val>>1;
-            (*outbuf)[k++] = sign ? -mag : mag;
-            if (use_zero_run) {
-                for(j=0; j<z_value[i+(new_palette?1:0)]; j++) {
+            // Insert initial zeros
+            // (slices redefining the palette may start with zeros)
+            if (new_palette && use_zero_run) {
+                for(j=0; j<z_value[0]; j++) {
                     (*outbuf)[k++] = 0;
                 }
             }
-        }
 
-        outbuf_size = k;
+            // Loop over all weights and insert zeros in-between
+            for(i=0; i<nvalues; i++) {
+                int val;
+                assert(w_value[i]<512); // HW supports 9bit
+                if (w_value[i]<palsize) {
+                    val = palette[w_value[i]];
+                } else {
+                    val = w_value[i]-palsize+direct_offset;
+                }
+                int sign = val&1;
+                int mag  = val>>1;
+                (*outbuf)[k++] = sign ? -mag : mag;
+                if (use_zero_run) {
+                    for(j=0; j<z_value[i+(new_palette?1:0)]; j++) {
+                        (*outbuf)[k++] = 0;
+                    }
+                }
+            }
+
+            outbuf_size = k;
+        } else {
+            outbuf_size = 0;
+        }
         free(w_value);
         free(z_value);
-    }
+        w_value = NULL;
+        z_value = NULL;
+    } while(*outbuf);
+
+    free(w_value);
+    free(z_value);
+
     return outbuf_size;
 }

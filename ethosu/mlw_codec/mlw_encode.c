@@ -40,6 +40,8 @@
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
 
+#define CHECKED_MALLOC(var, size) { if ( !(var = malloc(size)) ) break; }
+
 typedef struct palette {
     int16_t lut[32];
     int16_t inv_lut[512];
@@ -53,6 +55,16 @@ typedef struct palette {
 
 static int is_power_of_two( int x ) {
     return ((x-1) & x)==0;
+}
+
+static int round_up_divide(int num, int den)
+{
+    return (num + den - 1) / den;
+}
+
+static int round_up(int num, int den)
+{
+    return round_up_divide(num, den) * den;
 }
 
 static int get_palette_index_bits( int size ) {
@@ -69,10 +81,14 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
     int i,j,got_palette,restart_i,palette_size=0, last_restart_idx, zero_cnt;
     int prev_idx[512];  // For each value, keep track of the index of the previous occurence
     int *restart_pos;
-    int max_palettes = (size+63)/64;
+    int max_palettes = round_up_divide(size, 64);
+    *palette_restart_positions = NULL;
 
     // Preliminary allocation of sufficient size
     restart_pos = (int*)malloc( max_palettes*sizeof(int) );
+    if (!restart_pos) {
+        return 0;
+    }
     last_restart_idx=0;
     got_palette=0;
     restart_i=1;
@@ -96,6 +112,9 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
                         if (restart_i == max_palettes) {
                             max_palettes = max_palettes*2;
                             restart_pos = (int*)realloc( restart_pos, max_palettes*sizeof(int) );
+                            if (!restart_pos) {
+                                return 0;
+                            }
                         }
                         DPRINTF("restart %d pos %d\n", restart_i, i);
                         restart_pos[restart_i++] = i;
@@ -164,6 +183,9 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
                         if (restart_i == max_palettes) {
                             max_palettes = max_palettes*2;
                             restart_pos = (int*)realloc( restart_pos, max_palettes*sizeof(int) );
+                            if (!restart_pos) {
+                                return 0;
+                            }
                         }
                         restart_pos[restart_i++] = last_restart_idx;
                     }
@@ -177,7 +199,7 @@ static int search_palette_sections( int16_t *buf, int size, int **palette_restar
     }
     // Reallocate to actual size
     *palette_restart_positions = (int*)realloc( restart_pos, restart_i*sizeof(int) );
-    return restart_i;
+    return *palette_restart_positions ? restart_i : 0;
 }
 
 // Calculate frequency table
@@ -190,8 +212,8 @@ static void calc_freq( const int16_t *buf, int size, int freq[512] ) {
 }
 
 static int cmp_uint64(const void * a, const void * b) {
-   uint64_t aa = *(uint64_t*)a;
-   uint64_t bb = *(uint64_t*)b;
+   uint64_t aa = *(const uint64_t*)a;
+   uint64_t bb = *(const uint64_t*)b;
    return  aa>bb ? -1 : aa<bb ? 1 : 0;
 }
 
@@ -221,7 +243,7 @@ static void create_palette( int freq[512],
         all_cnt+=freq[i+256];
 
         if (freq[i+256]>0) {
-          all_max_val = max(all_max_val, palval);
+            all_max_val = max(all_max_val, palval);
         }
     }
 
@@ -260,7 +282,8 @@ static void create_palette( int freq[512],
     }
 
     // Setup the 32 entry palette
-    int palette_max_val = 0, val, cnt, pal_cnt=0;
+    int16_t palette_max_val = 0, val;
+    int cnt, pal_cnt=0;
     for(i=0; i<max_palette_size; i++) {
         cnt = (int)(freq64[i]>>16);
         val = freq64[i]&0xffff;
@@ -341,17 +364,19 @@ static void create_inverse_palette( palette_t *p) {
         int sign = val&1;
         int mag  = val>>1;
         int weight = sign ? -mag : mag;
-        if (weight+256 < 512)
-            p->inv_lut[ weight+256 ] = i + p->palsize - p->direct_offset;
+        int index = weight+256;
+        if (index >= 0 && index < 512)
+            p->inv_lut[ index ] = i + p->palsize - p->direct_offset;
     }
     for(i=0; i<p->palsize; i++) {
         int val = p->lut[i];
         int sign = val&1;
         int mag  = val>>1;
         int weight = sign ? -mag : mag;
-        assert(weight+256 >= 0 && weight+256 < 512);
-        if (weight+256 < 512)
-            p->inv_lut[ weight+256 ] = i;
+        int index = weight+256;
+        assert(index >= 0 && index < 512);
+        if (index >= 0 && index < 512)
+            p->inv_lut[ index ] = i;
     }
 }
 
@@ -366,8 +391,8 @@ typedef struct search_state {
 } search_state_t;
 
 // (trunc<<4) | div, 0x20 means uncompressed
-static const char w_grc_params[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x20 };
-static const char z_grc_params[] = { 0x00, 0x01, 0x02, 0x03, 0x04 };
+static const uint8_t w_grc_params[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x20 };
+static const uint8_t z_grc_params[] = { 0x00, 0x01, 0x02, 0x03, 0x04 };
 
 
 
@@ -387,7 +412,7 @@ static int search_grc_params( const int *inval_buf,
                               int *bitcnt )
 {
     int n_cfg = zrun_mode ? NZCFG : NWCFG;
-    const char *grc_params = zrun_mode ? z_grc_params : w_grc_params;
+    const uint8_t *grc_params = zrun_mode ? z_grc_params : w_grc_params;
     int i,j;
 
     search_state_t *state[MAX_ZWCFG];
@@ -504,12 +529,12 @@ static void bitbuf_init( bitbuf_t *bb, uint8_t *buf, int size, int log_symbols )
     bb->log_symbols = log_symbols;
 }
 
-static void bitbuf_putbit( bitbuf_t *bb, int bit) {
+static void bitbuf_putbit( bitbuf_t *bb, uint8_t bit) {
     int byte_pos = bb->pos>>3;
-    int bit_pos = bb->pos&7;
+    uint8_t bit_pos = bb->pos&7;
     assert( byte_pos >= 0 );
     assert( byte_pos < bb->buf_size );
-    bb->buf[ byte_pos ] = (bb->buf[ byte_pos ] & ~(1<<bit_pos)) | (bit<<bit_pos);
+    bb->buf[ byte_pos ] = ((bb->buf[ byte_pos ] & ~(1U<<bit_pos)) | ((bit<<bit_pos) & 0xff)) & 0xff;
     bb->pos += 1;
 }
 
@@ -519,7 +544,7 @@ static void bitbuf_put( bitbuf_t *bb, const char *name, int len, int data) {
         if (bb->log_symbols)
             printf("bitbuf: pos %3d %7s len %d data %x\n", bb->pos, name, len, data);
         for(i=0; i<len; i++) {
-            bitbuf_putbit(bb, (data>>i)&1);
+            bitbuf_putbit(bb, (uint8_t)((data>>i)&1));
         }
     }
 }
@@ -544,6 +569,8 @@ static int encode_slice( const int *w_value,
     bb->pos = bitpos;
 
     assert(nvalues<32768);
+    if (w_cfg < 0 || z_cfg < 0)
+        return bitpos;
     // GRC parameters for this slice
     int w_grc_div       = w_grc_params[w_cfg] & 15;
     int w_grc_trunc     = (w_grc_params[w_cfg] >> 4)==1;
@@ -690,7 +717,6 @@ static int encode_slice( const int *w_value,
     return bb->pos;
 }
 
-
 // return new bitpos
 static int encode_section( const int16_t *inbuf,
                            int size,
@@ -717,92 +743,96 @@ static int encode_section( const int16_t *inbuf,
         uncompressed_bits = 100;
     }
 
-    int *weight_values = malloc( size*sizeof(int) );
-    int *zrun_values = malloc( size*sizeof(int) );
-
-    // Get weights (or weight indicies) AND zero-runs from the input weight stream.
-    int i=0, n_weights = 0, zcnt;
-    while(1) {
-        if (p->use_zero_runs) {
-            zcnt=0;
-            // Count zero run
-            // Special case: if all weights in the section are zero, we must
-            // still ensure we have one coded weight so the the slice length
-            // doesn't become 0. Therefore we skip the first zero run and code
-            // the zero explicitly as a weight value instead
-            if (!p->only_zeros || i>0) {
-                while( i<size && inbuf[i]==0) {
-                    zcnt++;
-                    i++;
-                }
-            }
-            zrun_values[n_weights] = zcnt;
-        }
-        if (i==size)
-            break;
-        int value = p->inv_lut[inbuf[i]+256];
-        weight_values[n_weights] = value;
-        n_weights++;
-        i++;
-    }
-
-    // Search for good GRC parameters for the weight stream
-    int n_w_slice, w_bitcnt;
-    uint8_t *w_slice_cfg;
-    int *w_slice_pos;
-    w_slice_cfg = malloc( size );
-    w_slice_pos = malloc( size*sizeof(int) );
-    n_w_slice = search_grc_params( weight_values, n_weights, 0, uncompressed_bits, w_slice_cfg, w_slice_pos, size, 0, 0, &w_bitcnt);
-    if (n_weights==0)
-        n_w_slice = 0;
-
-    // Search for good GRC parameters for the zrun stream
-    int n_z_slice=0, z_bitcnt=0;
+    uint8_t *w_slice_cfg=0;
     uint8_t *z_slice_cfg=0;
+    int *w_slice_pos=0;
     int *z_slice_pos=0;
-    if (p->use_zero_runs) {
-        z_slice_cfg = malloc( size );
-        z_slice_pos = malloc( size*sizeof(int) );
-        n_z_slice = search_grc_params( zrun_values, n_weights+1, 1, 0, z_slice_cfg, z_slice_pos, size, w_slice_pos, n_w_slice, &z_bitcnt);
-    }
+    int *weight_values =0;
+    int *zrun_values = 0;
+    do {
+        CHECKED_MALLOC( weight_values, size*sizeof(int) );
+        CHECKED_MALLOC( zrun_values, size*sizeof(int) );
 
-    // Encode bitstream slice
-    int pos=0, i_w_slice=0, i_z_slice=0, new_palette=1;
-    while(pos<n_weights || new_palette) {
-        int endpos=pos+32767;   // max slice length
-
-        if (i_w_slice<n_w_slice && w_slice_pos[i_w_slice]<endpos) {
-            endpos = w_slice_pos[i_w_slice];
+        // Get weights (or weight indicies) AND zero-runs from the input weight stream.
+        int i=0, n_weights = 0, zcnt;
+        while(1) {
+            if (p->use_zero_runs) {
+                zcnt=0;
+                // Count zero run
+                // Special case: if all weights in the section are zero, we must
+                // still ensure we have one coded weight so the the slice length
+                // doesn't become 0. Therefore we skip the first zero run and code
+                // the zero explicitly as a weight value instead
+                if (!p->only_zeros || i>0) {
+                    while( i<size && inbuf[i]==0) {
+                        zcnt++;
+                        i++;
+                    }
+                }
+                zrun_values[n_weights] = zcnt;
+            }
+            if (i==size)
+                break;
+            int value = p->inv_lut[inbuf[i]+256];
+            weight_values[n_weights] = value;
+            n_weights++;
+            i++;
         }
 
-        if (i_z_slice<n_z_slice && z_slice_pos[i_z_slice]<endpos) {
-            endpos = z_slice_pos[i_z_slice];
+        // Search for good GRC parameters for the weight stream
+        int n_w_slice, w_bitcnt;
+        CHECKED_MALLOC( w_slice_cfg, size );
+        CHECKED_MALLOC( w_slice_pos, size*sizeof(int) );
+        n_w_slice = search_grc_params( weight_values, n_weights, 0, uncompressed_bits, w_slice_cfg, w_slice_pos, size, 0, 0, &w_bitcnt);
+        if (n_weights==0)
+            n_w_slice = 0;
+
+        // Search for good GRC parameters for the zrun stream
+        int n_z_slice=0, z_bitcnt=0;
+        if (p->use_zero_runs) {
+            CHECKED_MALLOC( z_slice_cfg, size );
+            CHECKED_MALLOC( z_slice_pos, size*sizeof(int) );
+            n_z_slice = search_grc_params( zrun_values, n_weights+1, 1, 0, z_slice_cfg, z_slice_pos, size, w_slice_pos, n_w_slice, &z_bitcnt);
         }
 
-        if (n_weights < endpos) {
-            endpos = n_weights;
-        }
+        // Encode bitstream slice
+        int pos=0, i_w_slice=0, i_z_slice=0, new_palette=1;
+        while(pos<n_weights || new_palette) {
+            int endpos=pos+32767;   // max slice length
 
-        // The first slice (when new_palette is 1) encodes zero runs both at the
-        // beginning and end (i.e. number of zero runs are len+1).
-        // The following slices only encode zero runs at the end (there cannot be
-        // any zeros in the beginning since they are encoded by the previous slice)
-        int len = endpos - pos;
-        int *zrun_buf = p->use_zero_runs ? zrun_values+pos+(!new_palette) : 0;
-        bitpos = encode_slice( weight_values+pos, zrun_buf, len,
-                               p, new_palette, uncompressed_bits,
-                               w_slice_cfg[i_w_slice], p->use_zero_runs ? z_slice_cfg[i_z_slice] : 0,
-                               bitbuf, bitbuf_size, bitpos, verbose );
-        new_palette = 0;
+            if (i_w_slice<n_w_slice && w_slice_pos[i_w_slice]<endpos) {
+                endpos = w_slice_pos[i_w_slice];
+            }
 
-        if (i_w_slice<n_w_slice && w_slice_pos[i_w_slice]==endpos) {
-            i_w_slice++;
+            if (i_z_slice<n_z_slice && z_slice_pos[i_z_slice]<endpos) {
+                endpos = z_slice_pos[i_z_slice];
+            }
+
+            if (n_weights < endpos) {
+                endpos = n_weights;
+            }
+
+            // The first slice (when new_palette is 1) encodes zero runs both at the
+            // beginning and end (i.e. number of zero runs are len+1).
+            // The following slices only encode zero runs at the end (there cannot be
+            // any zeros in the beginning since they are encoded by the previous slice)
+            int len = endpos - pos;
+            int *zrun_buf = p->use_zero_runs ? zrun_values+pos+(!new_palette) : 0;
+            bitpos = encode_slice( weight_values+pos, zrun_buf, len,
+                                p, new_palette, uncompressed_bits,
+                                w_slice_cfg[i_w_slice], p->use_zero_runs ? z_slice_cfg[i_z_slice] : 0,
+                                bitbuf, bitbuf_size, bitpos, verbose );
+            new_palette = 0;
+
+            if (i_w_slice<n_w_slice && w_slice_pos[i_w_slice]==endpos) {
+                i_w_slice++;
+            }
+            if (i_z_slice<n_z_slice && z_slice_pos[i_z_slice]==endpos) {
+                i_z_slice++;
+            }
+            pos = endpos;
         }
-        if (i_z_slice<n_z_slice && z_slice_pos[i_z_slice]==endpos) {
-            i_z_slice++;
-        }
-        pos = endpos;
-    }
+    } while(false);
 
     // Free temporary buffers
     free(w_slice_cfg);
@@ -839,10 +869,14 @@ int mlw_encode( int16_t *inbuf, int inbuf_size, uint8_t **outbuf, int verbose) {
     int bitbuf_size = inbuf_size*2+1024;
     assert(*outbuf == NULL);
     *outbuf = malloc( bitbuf_size );
+    if (!*outbuf)
+    {  // Failed to allocate buffer
+        return -1;
+    }
 
     // Analyse input data to find palette re-programming points
     int n_restarts;
-    int *palette_restart_pos;
+    int *palette_restart_pos = NULL;
     n_restarts = search_palette_sections( inbuf, inbuf_size, &palette_restart_pos);
 
     // Compress each section (using a single palette) separately
@@ -851,7 +885,7 @@ int mlw_encode( int16_t *inbuf, int inbuf_size, uint8_t **outbuf, int verbose) {
         palette_t palette;
         int pos, size;
         pos = palette_restart_pos[i];
-        size   = (i<n_restarts-1 ? palette_restart_pos[i+1] : inbuf_size) - pos;
+        size = (i<n_restarts-1 ? palette_restart_pos[i+1] : inbuf_size) - pos;
         find_palette( inbuf+pos, size, &palette);
         create_inverse_palette( &palette);
         bitpos = encode_section( inbuf+pos, size, &palette,
@@ -879,22 +913,12 @@ int mlw_encode( int16_t *inbuf, int inbuf_size, uint8_t **outbuf, int verbose) {
 
     free(palette_restart_pos);
 
-    return outbuf_size;
+    return *outbuf ? outbuf_size : -1;
 }
 
 void mlw_free_outbuf( uint8_t *outbuf ) {
     if (outbuf)
         free(outbuf);
-}
-
-static int round_up_divide(int num, int den)
-{
-    return (num + den - 1) / den;
-}
-
-static int round_up(int num, int den)
-{
-    return round_up_divide(num, den) * den;
 }
 
 struct brick_buf_s
@@ -941,14 +965,19 @@ static int16_t* reorder(
     int decomp_w,
     int64_t* padded_length)
 {
+    *padded_length = 0;
     /* Size unknown. Start with one page at least */
-    *padded_length = round_up(max(1, sizeof(int16_t)*
+    int64_t length = round_up(max(1, sizeof(int16_t)*
         ofm_depth*
         kernel_height*
         kernel_width*
         ifm_depth),
     4*1024) / sizeof(int16_t);
-    int16_t* weights = (int16_t*)malloc(*padded_length * sizeof(int16_t));
+    int16_t* weights = (int16_t*)malloc(length * sizeof(int16_t));
+    if (!weights)
+    { // Alloc failed, so exit
+        return NULL;
+    }
 
     brick_buf_t brick_buf;
     brick_buf.buf = inbuf;
@@ -1038,11 +1067,15 @@ static int16_t* reorder(
                                                 weights[weight_cnt] = 0;
                                             }
                                             weight_cnt++;
-                                            if (weight_cnt == *padded_length)
+                                            if (weight_cnt == length)
                                             {
                                                 // Reallocate by doubling the buffer size as needed
-                                                *padded_length *= 2;
-                                                weights = (int16_t*)realloc(weights, *padded_length * sizeof(int16_t));
+                                                length *= 2;
+                                                weights = (int16_t*)realloc(weights, length * sizeof(int16_t));
+                                                if (!weights)
+                                                { // Realloc failed, so exit
+                                                    return NULL;
+                                                }
                                             }
                                         }
                                     }
@@ -1055,8 +1088,10 @@ static int16_t* reorder(
         }
     }
 
-    *padded_length = weight_cnt;
-    weights = (int16_t*)realloc(weights, *padded_length * sizeof(int16_t));
+
+    weights = (int16_t*)realloc(weights, weight_cnt * sizeof(int16_t));
+    *padded_length = weights ? weight_cnt : 0;
+
     return weights;
 }
 

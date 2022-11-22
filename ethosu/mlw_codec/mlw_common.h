@@ -18,8 +18,8 @@
 
 #include <stdint.h>
 
-#ifndef __MLW_COMMON_H__
-#define __MLW_COMMON_H__
+#ifndef MLW_COMMON_H
+#define MLW_COMMON_H
 
 #define ZDIV_DISABLE        6   // not alternating mode
 #define ZDIV_EOS            7   // indicates end of stream
