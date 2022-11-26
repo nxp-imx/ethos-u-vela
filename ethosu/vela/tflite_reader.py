@@ -243,17 +243,25 @@ class TFLiteSubgraph:
 
 
 class TFLiteGraph:
-    def __init__(self, filename, batch_size, feed_dict, output_node_names, initialisation_nodes):
+    def __init__(self, data, batch_size, feed_dict, output_node_names, initialisation_nodes):
 
         self.op_times = {}
         if batch_size is None:
             batch_size = 1
         self.batch_size = batch_size
-        self.name = os.path.splitext(os.path.basename(filename))[0]
         self.initialisation_nodes = initialisation_nodes
 
-        with open(filename, "rb") as f:
-            buf = bytearray(f.read())
+        buf = None
+        if type(data) == str:
+            self.name = os.path.splitext(os.path.basename(data))[0]
+            with open(data, "rb") as f:
+                buf = bytearray(f.read())
+        elif type(data) == bytearray:
+            self.name = "delegate_model"
+            buf = data
+        elif type(data) == memoryview:
+            self.name = "delegate_model"
+            buf = data.tobytes()
 
         try:
             parsing_step = "parsing root"
