@@ -521,3 +521,8 @@ def write_tflite(nng, filename):
 
     with open(filename, "wb") as f:
         f.write(buf)
+
+def write_tflite_buffer(nng):
+    writer = TFLiteSerialiser(nng)
+    buf = writer.serialise()
+    return buf
