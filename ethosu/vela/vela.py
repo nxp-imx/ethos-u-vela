@@ -391,6 +391,41 @@ def convert(input_model_name):
 
     return output_tfl_filename
 
+def convert_bytes(data):
+    sys.setrecursionlimit(2000)
+
+    arch = Imx93ArchitectureFeatures(
+        vela_config_files=None,
+        system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+        memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+        accelerator_config='ethos-u65-256',
+        max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
+        verbose_config=False,
+        arena_cache_size=384 * 1024,
+    )
+
+    compiler_options = compiler_driver.CompilerOptions(
+        tensor_allocator = TensorAllocator.HillClimb,
+        output_dir="output",
+    )
+
+    scheduler_options = scheduler.SchedulerOptions(
+        optimization_strategy=scheduler.OptimizationStrategy.Performance,
+        sram_target=arch.arena_cache_size,
+        verbose_schedule=False,
+    )
+
+    model_reader_options = model_reader.ModelReaderOptions()
+
+    nng, network_type = model_reader.read_tflite_model(data, model_reader_options)
+    if not nng:
+        raise InputFileError(input_model_name, "Invalid data")
+
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, "data_model")
+
+    buf = tflite_writer.write_tflite_buffer(nng)
+    return memoryview(buf)
+
 def main(args=None):
     try:
         if args is None:

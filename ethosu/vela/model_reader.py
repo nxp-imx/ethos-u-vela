@@ -33,6 +33,17 @@ class ModelReaderOptions:
 
     __repr__ = __str__
 
+def read_tflite_model(data, options, feed_dict=None, output_node_names=None, initialisation_nodes=None):
+    nng = tflite_reader.read_tflite(
+        data,
+        options.batch_size,
+        feed_dict=feed_dict,
+        output_node_names=output_node_names,
+        initialisation_nodes=initialisation_nodes,
+    )
+    nng = tflite_model_semantic.tflite_semantic_checker(nng)
+
+    return (nng, NetworkType.TFLite)
 
 def read_model(fname, options, feed_dict=None, output_node_names=None, initialisation_nodes=None):
     if fname.endswith(".tflite"):
