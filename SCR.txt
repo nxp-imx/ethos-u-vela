@@ -7,6 +7,6 @@ License File:                LICENSE.txt
 Package Category:            MachineLearning
 Type of Content:             source
 Description and comments:    Tool to compile a TensorFlow Lite for Microcontrollers neural network model
-Release Location:            https://github.com/nxpmicro/ethos-u-vela
+Release Location:            https://github.com/nxp-imx/ethos-u-vela
 Origin:                      NXP (BSD-3-Clause)
-                             ARM Limited ethos-u-vela (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
+                             ARM Limited ethos-u-vela v3.5 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
