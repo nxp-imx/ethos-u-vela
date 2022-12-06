@@ -105,7 +105,11 @@ class CascadeBuilder:
 
     def _estimate_sram_usage(self, sched_op, cost) -> int:
         """Estimate the SRAM required for the Op if all FeatureMaps are in SRAM"""
-        ifm2_size = sched_op.ifm2_size_in_bytes()
+        if sched_op.parent_op.type.is_binary_elementwise_op():
+            # ifm2 is scalar or constant and will always persist in permanent memory
+            ifm2_size = 0
+        else:
+            ifm2_size = sched_op.ifm2_size_in_bytes()
         if sched_op.requires_full_ifm:
             ifm_size = sched_op.ifm_size_in_bytes()
         else:

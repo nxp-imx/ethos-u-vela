@@ -57,6 +57,7 @@ from .nn_graph import Pass
 from .nn_graph import PassPlacement
 from .nn_graph import SchedulingStrategy
 from .nn_graph import Subgraph
+from .live_range import ofm_can_reuse_ifm
 from .numeric_util import round_down
 from .numeric_util import round_up
 from .operation import NpuBlockType
@@ -974,9 +975,11 @@ class Scheduler:
                 op_mem_usage = 0
             else:
                 # Min schedule only have ifm and ofm in SRAM (no buffered weigth tensors)
-                op_mem_usage = sched_op.ifm_size_in_bytes() + sched_op.ofm_size_in_bytes()
+                ofm_size = 0 if ofm_can_reuse_ifm(sched_op) else sched_op.ofm_size_in_bytes()
+                op_mem_usage = sched_op.ifm_size_in_bytes() + ofm_size
 
             non_local_mem_usage[sched_op] = min_schedule.memory_snapshot[time_index] - op_mem_usage
+            assert non_local_mem_usage[sched_op] >= 0
 
         # Crate cascades for Min schedule
         cascade_builder = CascadeBuilder(self.sched_ops, self.arch.is_spilling_enabled(), non_local_mem_usage)
