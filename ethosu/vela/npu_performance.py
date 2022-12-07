@@ -705,14 +705,15 @@ def estimate_full_op_performance(
     )
 
     # IFM read
-    ifm = op.parent_op.ifm
+    ifm = op.parent_op.ifm2 if op.reversed_operands else op.parent_op.ifm
     bw = access.ifm_read[0] * ifm.element_size()
     bws[ifm.mem_area][ifm.purpose][BandwidthDirection.Read] += bw
     scaled_bws[ifm.mem_area][ifm.purpose][BandwidthDirection.Read] += _estimate_memory_transfer_efficiency(
         arch, True, query.ifm_memory_area, ifm.format, query.ifm_bits, query.config.ifm_block, query.ifm_shape, bw
     )
+
     if query.ifm2_shape:
-        ifm2 = op.parent_op.ifm2
+        ifm2 = op.parent_op.ifm if op.reversed_operands else op.parent_op.ifm2
         bw = access.ifm_read[1] * ifm2.element_size()
         bws[ifm2.mem_area][ifm2.purpose][BandwidthDirection.Read] += bw
         scaled_bws[ifm2.mem_area][ifm2.purpose][BandwidthDirection.Read] += _estimate_memory_transfer_efficiency(
