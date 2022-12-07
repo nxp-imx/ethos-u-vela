@@ -234,6 +234,7 @@ class TFLiteSupportedOperators:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_type)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_const)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_limit)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_shape)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_type)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_40bit)
         # Transpose Conv specific checks:
@@ -275,6 +276,7 @@ class TFLiteSupportedOperators:
         for op_type in TFLiteSupportedOperators.fc_vector_products:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_type)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_weights_const)
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_shape)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_type)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_bias_40bit)
 
@@ -473,6 +475,15 @@ class TFLiteSupportedOperators:
         limit = np.amax(np.sum(np.absolute(values), axis=(0, 1, 2)))
         valid = limit <= cls.weights_limit
         return valid, f"Tensor '{weights.name}' has the sum of weights: {limit}"
+
+    @staticmethod
+    def constraint_bias_shape(op):
+        "Optional Bias tensor must be of shape: 1D"
+        bias = op.bias
+        if bias:
+            valid = len(bias.shape) == 1
+            return valid, f"Tensor '{bias.name}' has shape: {bias.shape}"
+        return True, "Op has no bias tensor"
 
     @classmethod
     @docstring_format_args([list_formatter(supported_bias_dtypes)])

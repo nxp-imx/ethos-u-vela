@@ -62,7 +62,7 @@ def test_constraint_tens_quant_per_axis_not_supp():
 
 def test_constraint_tens_quant_per_axis_is_supp():
     op = testutil.create_op_with_quant_tensors(
-        Op.Conv2DBias, [1, 1, 1, 3], [1, 1, 1, 3], weights_shape=[1, 1, 1, 3], bias_shape=[1, 1, 1, 3]
+        Op.Conv2DBias, [1, 1, 1, 3], [1, 1, 1, 3], weights_shape=[1, 1, 1, 3], bias_shape=[3]
     )
     op.attrs = {"stride_w": 1, "stride_h": 1}
     assert support.is_operator_supported(op)
