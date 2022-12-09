@@ -975,8 +975,13 @@ class Scheduler:
                 op_mem_usage = 0
             else:
                 # Min schedule only have ifm and ofm in SRAM (no buffered weigth tensors)
+                # Only include IFM's that are in the scratch area
+                ifm = sched_op.ifm.connection.parent_tens
+                ifm_size = (
+                    0 if ifm.mem_type not in (MemType.Scratch, MemType.Scratch_fast) else sched_op.ifm_size_in_bytes()
+                )
                 ofm_size = 0 if ofm_can_reuse_ifm(sched_op) else sched_op.ofm_size_in_bytes()
-                op_mem_usage = sched_op.ifm_size_in_bytes() + ofm_size
+                op_mem_usage = ifm_size + ofm_size
 
             non_local_mem_usage[sched_op] = min_schedule.memory_snapshot[time_index] - op_mem_usage
             assert non_local_mem_usage[sched_op] >= 0
