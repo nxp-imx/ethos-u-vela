@@ -134,7 +134,7 @@ class Op(Enum):
     Add = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     AddN = OperatorInfo()
     Any = OperatorInfo()
-    ArgMax = OperatorInfo()
+    ArgMax = OperatorInfo(indices=NNG_IFM_INDICES)
     ArgMin = OperatorInfo()
     AvgPool = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
     Atan2 = OperatorInfo(indices=NNG_IFM_IFM2_INDICES)
