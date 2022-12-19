@@ -58,7 +58,7 @@ datatype_map = {
 }
 
 datatype_map_numpy = {
-    DType.BOOL: np.bool,
+    DType.BOOL: bool,
     DType.UINT8: np.uint8,
     DType.INT8: np.int8,
     DType.INT16: np.int16,

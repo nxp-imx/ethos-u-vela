@@ -918,8 +918,8 @@ def convert_prelu(op, arch, nng):
             alpha_zp = alpha.quantization.zero_point
             alpha_scale = alpha.quantization.scale_f32
             # If all alpha values are the same the PReLU can be converted to LeakyRelu
-            alpha_min = (alpha.values.min().astype(np.int) - alpha_zp) * alpha_scale
-            alpha_max = (alpha.values.max().astype(np.int) - alpha_zp) * alpha_scale
+            alpha_min = (alpha.values.min().astype(int) - alpha_zp) * alpha_scale
+            alpha_max = (alpha.values.max().astype(int) - alpha_zp) * alpha_scale
             if alpha_min == alpha_max:
                 # or even a Relu
                 if alpha_min == 0:

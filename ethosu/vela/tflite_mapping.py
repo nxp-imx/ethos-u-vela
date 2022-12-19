@@ -201,7 +201,7 @@ datatype_map_numpy = {
     TensorType.FLOAT16: np.float16,
     TensorType.FLOAT32: np.float32,
     TensorType.FLOAT64: np.float64,
-    TensorType.BOOL: np.bool,
+    TensorType.BOOL: bool,
     TensorType.COMPLEX64: np.complex64,
     TensorType.COMPLEX128: np.complex128,
     TensorType.STRING: np.uint8,
