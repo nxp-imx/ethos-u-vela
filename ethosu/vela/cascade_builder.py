@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2021-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2021-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -222,7 +222,6 @@ class CascadeBuilder:
                     break
 
                 # Get the size of the FeatureMap buffers between current and neighbouring Ops
-                op_full_ifm = current_op.ifm_size_in_bytes()
                 op_full_ofm = current_op.ofm_size_in_bytes()
                 _, op_ifm_buffer = buffers.get_buffer(producer, current_op, ref_cost)
 
@@ -230,7 +229,7 @@ class CascadeBuilder:
                 op_weight_buffer = sum(tens.storage_size() for tens in ref_cost[current_op].buffered_weight_tensors)
 
                 # Calculate the uncascaded memory requirement for current Op
-                uncascaded_sram_usage = op_full_ifm + op_full_ofm + self.non_local_mem_usage.get(current_op, 0)
+                uncascaded_sram_usage = self._estimate_sram_usage(current_op, fallback_cost[current_op])
 
                 # Add current Op to cascade
                 ops_in_cascade.append(current_op)
