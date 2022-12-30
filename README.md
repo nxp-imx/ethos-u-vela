@@ -244,3 +244,9 @@ Additional useful information:
 ## License
 
 Vela is licensed under [Apache License 2.0](LICENSE.txt).
+
+## Inclusive language commitment
+
+This product conforms to Arm’s inclusive language policy and, to the best of
+our knowledge, does not contain any non-inclusive language. If you find
+something that concerns you, email terms@arm.com.
