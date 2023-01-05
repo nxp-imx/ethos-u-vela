@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2021-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2021-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -312,6 +312,19 @@ def fix_sg_input_output(op, arch, nng):
     if not op.run_on_npu or op.type not in memory_only_ops:
         return op
 
+    prev_op = op.ifm.ops[0]
+    while prev_op is not None and prev_op.run_on_npu and prev_op.type in memory_only_ops:
+        # Current op is preceded by another memory only op.
+        # Replace current op's ifm with the preceding op's ifm. By doing
+        # this the preceding op is removed from current path.
+        next_prev_op = prev_op.ifm.ops[0]
+        if next_prev_op is not None and next_prev_op.run_on_npu and next_prev_op.type in memory_only_ops:
+            # Preceding op also have a preceding memory only op
+            prev_op = next_prev_op
+        else:
+            op.set_input_tensor(prev_op.ifm, 0)
+            break
+
     # For the memory only operators we want to remove, tensors are removed.
     # But in order to to do this, they cannot be outputs of the sg,
     # this need to be fixed prior to the removal.
@@ -359,6 +372,8 @@ def fix_sg_input_output(op, arch, nng):
             # IFM need to persist due to multiple consumers and copy op is needed
             # OFM will replace IFM for the memory only op
             insert_copy_op_before_op(op)
+            # One copy added so no need to check for another copy further down
+            return op
         elif not (ofm_is_sg_ofm or ofm_is_cpu_consumed):
             # Only one consumer and OFM is not subgraph output or cpu consumed,
             # safe to replace ifm.shape by ofm.shape
