@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -409,9 +409,9 @@ class Scheduler:
         self.evicted_fms: List[live_range.LiveRange] = []
 
     def avoid_nhcwb16_for_ofm(self, tens, ps, arch):
-        # Only run this check for opt strategy Size
-        if self.scheduler_options.optimization_strategy == OptimizationStrategy.Performance:
-            return False
+        """For elementwise ops when ifm is in nhwc format and not brick format aligned (16),
+        then if the ofm can overwrite the ifm it is better to enforce ofm format to nhwc in
+        order to reduce memory transactions"""
 
         op = ps.primary_op
         if not op.type.is_elementwise_op():
