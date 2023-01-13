@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2021-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2021-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -164,7 +164,6 @@ def insert_add_copy_for_const(op, ifm_ofm_shape):
         [1],
         copy_tens.dtype,
         [0],
-        copy_tens.dtype.as_numpy_type(),
         quantization=copy_tens.quantization,
     )
     copy_op = create_add_nop(name)
@@ -190,7 +189,6 @@ def insert_add_copy_op_after_tens(tens, ifm_ofm_shape):
         [1],
         copy_tens.dtype,
         [0],
-        copy_tens.dtype.as_numpy_type(),
         quantization=copy_tens.quantization,
     )
     copy_op = create_add_nop(name)
@@ -267,9 +265,7 @@ def fix_sg_input_output_tosa(op, arch, nng):
 def create_add_for_concat(concat_op, name, ifm, ifm_shape: Shape4D, write_offset: Shape4D):
     """Creates an add op for the given concat op/input feature map"""
     ofm = concat_op.ofm
-    ifm2 = create_const_tensor(
-        name + "_zero_scalar", [1], ofm.dtype, [0], ofm.dtype.as_numpy_type(), quantization=ofm.quantization
-    )
+    ifm2 = create_const_tensor(name + "_zero_scalar", [1], ofm.dtype, [0], quantization=ofm.quantization)
     add_op = create_add_nop(name)
 
     add_op.inputs = [ifm, ifm2]
@@ -306,9 +302,7 @@ def remove_splitsliceread(op, arch):
         else:
             name = op.name + "_add"
             ofm = op.ofm
-            ifm2 = create_const_tensor(
-                name + "_zero_scalar", [1], ofm.dtype, [0], ofm.dtype.as_numpy_type(), quantization=ofm.quantization
-            )
+            ifm2 = create_const_tensor(name + "_zero_scalar", [1], ofm.dtype, [0], quantization=ofm.quantization)
             add_op = create_add_nop(name)
             add_op.inputs = [op.ifm, ifm2]
             add_op.outputs = [ofm]
@@ -476,14 +470,14 @@ def convert_pad_in_width(op):
     if left > 0:
         shape = Shape4D(1, ifm_shape.height, left, ofm_shape.depth)
         zero_tens = create_const_tensor(
-            op.name + "_left", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+            op.name + "_left", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], quantization=quant
         )
         zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
         create_add_for_concat(op, op.name + "_left", zero_tens, shape, shp0)
     if right > 0:
         shape = Shape4D(1, ifm_shape.height, right, ofm_shape.depth)
         zero_tens = create_const_tensor(
-            op.name + "_right", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+            op.name + "_right", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], quantization=quant
         )
         zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
         create_add_for_concat(op, op.name + "_right", zero_tens, shape, shp0.with_width(ofm_shape.width - right))
@@ -816,9 +810,7 @@ def decomp_rewrite_pad(op, arch):
                 new_pad_tens = op.inputs[1].clone("_dim_{dim}")
 
                 name = op.inputs[1].name + f"_dim_{dim}"
-                new_pad_tens = create_const_tensor(
-                    name, list(new_pad_input.shape), DataType.int32, new_pad_input, np.int32
-                )
+                new_pad_tens = create_const_tensor(name, list(new_pad_input.shape), DataType.int32, new_pad_input)
                 pad_op.add_input_tensor(new_pad_tens)
 
                 new_ofm_shape = new_ifm_shape.copy()

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -343,17 +343,10 @@ def convert_resizenn_ac_to_depthwise_conv(op, upscale_factor):
     weight_quant.zero_point = 0
     weight_quant.quant_dim = 0
     ofm_dtype = ofm.dtype
-    if ofm_dtype == DataType.uint8:
-        weight_value_dtype = np.uint8
+    if ofm_dtype.type == BaseType.UnsignedInt:
         weight_quant.quant_min = 0
         weight_quant.quant_max = (1 << ofm_dtype.bits) - 1
     else:
-        if ofm_dtype == DataType.int8:
-            weight_value_dtype = np.int8
-        else:
-            assert ofm_dtype == DataType.int16
-            weight_value_dtype = np.int16
-
         weight_quant.quant_min = -(1 << (ofm_dtype.bits - 1))
         weight_quant.quant_max = (1 << (ofm_dtype.bits - 1)) - 1
 
@@ -376,9 +369,8 @@ def convert_resizenn_ac_to_depthwise_conv(op, upscale_factor):
         create_const_tensor(
             "weights",
             weight_shape,
-            ofm.dtype,
+            ofm_dtype,
             np.array(weight_values).reshape(weight_shape),
-            value_dtype=weight_value_dtype,
             quantization=weight_quant,
         ),
         1,  # inputs tensor weight index
@@ -586,7 +578,6 @@ def convert_resizebilinear_to_depthwise_convolutions(op, half_pixel_centers=True
                         shape,
                         intermediate_tens.dtype,
                         np.array(kernel).reshape(shape),
-                        value_dtype=np.int8,
                         quantization=quant,
                     ),
                 )
@@ -1227,9 +1218,7 @@ def convert_lrelu_to_mul_max(op, arch):
             scalar, _ = scaling.elementwise_mul_scale(ifm.quantization.scale_f32, alpha, ofm.quantization.scale_f32)
         else:
             scalar = 1
-    alpha_tens = create_const_tensor(
-        op.name + "_alpha_scalar", [1], alpha_dtype, [scalar], alpha_dtype.as_numpy_type(), quantization=quantization
-    )
+    alpha_tens = create_const_tensor(op.name + "_alpha_scalar", [1], alpha_dtype, [scalar], quantization=quantization)
     mul_alpha.add_input_tensor(alpha_tens)
     fm_alpha = ofm.clone(op.name + "_alpha", set_unique=True)
     mul_alpha.set_output_tensor(fm_alpha)
@@ -1256,9 +1245,7 @@ def convert_lrelu_to_mul_max(op, arch):
         quantization.max = quantization.quant_max - quantization.quant_min
         quantization.scale_f32 = np.float32(1)
         quantization.zero_point = 0
-        identity_tens = create_const_tensor(
-            op.name + "_id_scalar", [], ifm.dtype, [1], np.uint8, quantization=quantization
-        )
+        identity_tens = create_const_tensor(op.name + "_id_scalar", [], ifm.dtype, [1], quantization=quantization)
         mul_identity.add_input_tensor(identity_tens)
         # Make sure that fm_id is allocated to a different address than fm_alpha
         fm_id = ofm.clone(op.name + "_id", set_unique=True)
@@ -1470,7 +1457,6 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
                 shape,
                 op.ifm.dtype,
                 weights,
-                np.uint8,
                 purpose=TensorPurpose.Weights,
                 quantization=quantization,
             )
@@ -1526,7 +1512,7 @@ def convert_pad(op: Operation, arch, nng):
     if top > 0:
         shape = Shape4D(1, top, ofm_shape.width, ofm_shape.depth)
         zero_tens = create_const_tensor(
-            op.name + "_top", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+            op.name + "_top", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], quantization=quant
         )
         # If top/bottom or left/right are equal, the const tensors can be allocated to the same address
         zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
@@ -1538,7 +1524,6 @@ def convert_pad(op: Operation, arch, nng):
             shape.as_list(),
             ofm.dtype,
             shape.elements() * [pad_value],
-            np.uint8,
             quantization=quant,
         )
         zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
@@ -1548,14 +1533,14 @@ def convert_pad(op: Operation, arch, nng):
     if left > 0:
         shape = Shape4D(1, ifm_shape.height, left, ofm_shape.depth)
         zero_tens = create_const_tensor(
-            op.name + "_left", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+            op.name + "_left", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], quantization=quant
         )
         zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
         create_avg_pool_for_concat(op, op.name + "_left", zero_tens, shape, shp_top)
     if right > 0:
         shape = Shape4D(1, ifm_shape.height, right, ofm_shape.depth)
         zero_tens = create_const_tensor(
-            op.name + "_right", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], np.uint8, quantization=quant
+            op.name + "_right", shape.as_list(), ofm.dtype, shape.elements() * [pad_value], quantization=quant
         )
         zero_tens.equivalence_id = create_equivalence_id(tuple(zero_tens.values))
         create_avg_pool_for_concat(
@@ -1715,7 +1700,6 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                 weight_shape,
                 inp.dtype,
                 np.ones(weight_shape),
-                value_dtype=np.uint8,
                 quantization=weight_quant,
             ),
             1,
@@ -2008,8 +1992,7 @@ def tflite_optimise_graph(nng, arch):
                 ofm_clone = ofm.clone()
                 ofm_clone.values = ofm.values
                 ofm.values = None
-                np_dtype = ofm.dtype.as_numpy_type()
-                zero = create_const_tensor("zero", [1], ofm.dtype, [0], np_dtype, quantization=ofm.quantization)
+                zero = create_const_tensor("zero", [1], ofm.dtype, [0], quantization=ofm.quantization)
                 memcpy = create_add_nop(f"{ofm.name}_copy")
                 memcpy.add_input_tensor(ofm_clone)
                 memcpy.add_input_tensor(zero)

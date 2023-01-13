@@ -429,7 +429,7 @@ def convert_to_lut(op, lut_values, lut_name):
     quantization = QuantizationParameters(0.0, 255.0)
     quantization.scale_f32 = ifm.quantization.scale_f32
     quantization.zero_point = 0
-    tens = create_const_tensor(op.inputs[0].name + "_scalar0", [], ifm.dtype, [0], np.uint8, quantization=quantization)
+    tens = create_const_tensor(op.inputs[0].name + "_scalar0", [], ifm.dtype, [0], quantization=quantization)
     op.add_input_tensor(tens)
     op.ifm_shapes.append(Shape4D(tens.shape))  # TODO no shape?
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -303,55 +303,55 @@ def test_constraint_resize():
     for resize_op in Op.op_set(Op.is_resize_op):
         # IFM W and H == 1
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 1, 1, 8], [1, 8, 8, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8]))
         assert support.is_operator_supported(op)
 
         # IFM == OFM
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 8, 8, 8], [1, 8, 8, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8]))
         assert support.is_operator_supported(op)
 
         # IFM x2 == OFM ; align_corners = False
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 8, 8, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8]))
         assert support.is_operator_supported(op)
 
         # IFM x4 == OFM ; align_corners = False
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 16, 16, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [16, 16], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [16, 16]))
         assert support.is_operator_supported(op)
 
         # IFM x8 == OFM ; align_corners = False
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 32, 32, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [32, 32], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [32, 32]))
         assert support.is_operator_supported(op)
 
         # IFM -1 x2 == OFM -1 ; align_corners = True
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 7, 7, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [7, 7], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [7, 7]))
         op.attrs["align_corners"] = True
         assert support.is_operator_supported(op)
 
         # IFM -1 x4 == OFM -1 ; align_corners = True
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 13, 13, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [13, 13], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [13, 13]))
         op.attrs["align_corners"] = True
         assert support.is_operator_supported(op)
 
         # IFM -1 x8 == OFM -1 ; align_corners = True
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 25, 25, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [25, 25], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [25, 25]))
         op.attrs["align_corners"] = True
         assert support.is_operator_supported(op)
 
         # Invalid case - upscale size
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 17, 17, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [17, 17], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [17, 17]))
         assert not support.is_operator_supported(op)
 
         # Invalid case - upscale size with align corners
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 15, 15, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [15, 15], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [15, 15]))
         op.attrs["align_corners"] = True
         assert not support.is_operator_supported(op)
 
@@ -360,7 +360,7 @@ def test_constraint_resize_size():
     for resize_op in Op.op_set(Op.is_resize_op):
         # Invalid case - size != ofm size
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 8, 8, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [7, 7], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [7, 7]))
         assert not support.is_operator_supported(op)
 
 
@@ -368,7 +368,7 @@ def test_constraint_resize_attrs():
     for resize_op in Op.op_set(Op.is_resize_op):
         # Invalid case - both align corners and half-pixel centers
         op = testutil.create_op_with_quant_tensors(resize_op, [1, 4, 4, 8], [1, 8, 8, 8])
-        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8], np.int32))
+        op.add_input_tensor(create_const_tensor("size", [2], DataType.int32, [8, 8]))
         op.attrs["align_corners"] = True
         op.attrs["half_pixel_centers"] = True
         assert not support.is_operator_supported(op)
@@ -395,7 +395,8 @@ def create_pad_op(
     qp = testutil.default_quant_params()
     in0 = Tensor(in_shape, in_dtype, "in")
     in0.quantization = qp
-    pad_tensor = create_const_tensor(name="pad", shape=list(np.shape(padding)), values=padding, dtype=pad_dtype)
+    shape = [] if padding == [] else list(np.shape(padding))
+    pad_tensor = create_const_tensor(name="pad", shape=shape, values=padding, dtype=pad_dtype)
     out = Tensor(out_shape, out_dtype, "out")
     out.quantization = qp.clone()
     op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
@@ -587,9 +588,9 @@ def create_mean(input_shape, output_shape, axis, datatype, attrs):
     ofm = Tensor(output_shape, datatype, "out")
     ofm.quantization = testutil.default_quant_params()
     if type(axis) is list:
-        indices = create_const_tensor("indices", [len(axis)], DataType.int32, axis, np.uint8)
+        indices = create_const_tensor("indices", [len(axis)], DataType.int32, axis)
     elif type(axis) is int:
-        indices = create_const_tensor("indices", [], DataType.int32, axis, np.uint8)
+        indices = create_const_tensor("indices", [], DataType.int32, axis)
     op = testutil.create_op(Op.Mean, [ifm, indices], ofm, attrs)
     return op
 

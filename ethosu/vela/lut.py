@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -88,8 +88,7 @@ def create_lut_tensor(name, values, dtype):
     # address in constant memory, and unnecessary DMA operations can be avoided.
     sz = len(values)
     assert sz in (256, 512)
-    ntype = np.uint8 if dtype.size_in_bytes() == 1 else np.uint32
-    tens = create_const_tensor(name, [1, 1, 1, sz], dtype, values, ntype, TensorPurpose.LUT)
+    tens = create_const_tensor(name, [1, 1, 1, sz], dtype, values, TensorPurpose.LUT)
     tens.equivalence_id = create_equivalence_id(tuple(values))
     return tens
 

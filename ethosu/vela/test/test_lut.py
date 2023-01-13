@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,8 +18,6 @@
 # Unit tests for LUT support
 import random
 
-import numpy as np
-
 from ethosu.vela import lut
 from ethosu.vela import mark_tensors
 from ethosu.vela import pass_packing
@@ -37,9 +35,7 @@ from ethosu.vela.test import testutil
 def set_256_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
-    lut_tensor = create_const_tensor(
-        op.name + "_lut", [1, 1, 1, 256], DataType.int8, values, np.uint8, TensorPurpose.LUT
-    )
+    lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 256], DataType.int8, values, TensorPurpose.LUT)
     scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
     op.set_activation_lut(scratch_lut_tensor)
 
@@ -47,9 +43,7 @@ def set_256_lut(op, key, arch):
 def set_1K_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
-    lut_tensor = create_const_tensor(
-        op.name + "_lut", [1, 1, 1, 256], DataType.int32, values, np.uint32, TensorPurpose.LUT
-    )
+    lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 256], DataType.int32, values, TensorPurpose.LUT)
     scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
     op.set_activation_lut(scratch_lut_tensor)
 
@@ -57,9 +51,7 @@ def set_1K_lut(op, key, arch):
 def set_2K_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(512), k=512)
-    lut_tensor = create_const_tensor(
-        op.name + "_lut", [1, 1, 1, 512], DataType.int32, values, np.uint32, TensorPurpose.LUT
-    )
+    lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 512], DataType.int32, values, TensorPurpose.LUT)
     scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
     op.set_activation_lut(scratch_lut_tensor)
 

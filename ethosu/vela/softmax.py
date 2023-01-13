@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 #
@@ -270,9 +270,7 @@ class SoftMax:
             ifm2_shape=ifm_max_shape,
         )
         sub_op.set_activation_lut(
-            create_const_tensor(
-                f"{sub_op.name}_exp_lut", [1, 1, 1, 256], DataType.int32, exp_lut, np.int32, TensorPurpose.LUT
-            )
+            create_const_tensor(f"{sub_op.name}_exp_lut", [1, 1, 1, 256], DataType.int32, exp_lut, TensorPurpose.LUT)
         )
         ifm_exp = add_op_get_ofm(sub_op)
         # Note: activation.min/max are non-quantized values
@@ -281,9 +279,7 @@ class SoftMax:
 
         # PASS 2 - SHR
         name = f"{self.op.name}_shr{pass_number}"
-        shift = create_const_tensor(
-            f"{name}_const", [1, 1, 1, 1], DataType.int32, [12], np.int32, quantization=no_scale_quant
-        )
+        shift = create_const_tensor(f"{name}_const", [1, 1, 1, 1], DataType.int32, [12], quantization=no_scale_quant)
         shr_op = create_shr(name, ifm_exp, shift, no_scale_quant, activation)
         shr_op.rounding_mode = NpuRoundingMode.NATURAL
         rescaled_exp = add_op_get_ofm(shr_op)
@@ -304,7 +300,6 @@ class SoftMax:
             [1, 1, 1, 1],
             DataType.int32,
             [12 + 31 - 8],
-            np.int32,
             quantization=no_scale_quant,
         )
         right_shift = add_op_get_ofm(
@@ -318,7 +313,7 @@ class SoftMax:
         )
 
         # PASS 6 - Sub
-        one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant)
+        one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], quantization=no_scale_quant)
         headroom = add_op_get_ofm(
             create_sub(f"{self.op.name}_sub{pass_number}", headroom_plus_one, one, no_scale_quant, activation)
         )
@@ -330,7 +325,7 @@ class SoftMax:
 
         # PASS 8 - Sub
         shifted_one = create_const_tensor(
-            "shifted_one_const", [1, 1, 1, 1], DataType.int32, [1 << 30], np.int32, quantization=no_scale_quant
+            "shifted_one_const", [1, 1, 1, 1], DataType.int32, [1 << 30], quantization=no_scale_quant
         )
         shifted_sum_minus_one = add_op_get_ofm(
             create_sub(f"{self.op.name}_sub{pass_number}", shifted_sum, shifted_one, no_scale_quant, activation)
@@ -349,7 +344,7 @@ class SoftMax:
 
         # PASS 10 - Add
         f0_one_const = create_const_tensor(
-            "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], np.int32, quantization=no_scale_quant
+            "F0_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 31) - 1], quantization=no_scale_quant
         )
         add_op = create_add(
             f"{self.op.name}_add{pass_number}",
@@ -363,7 +358,7 @@ class SoftMax:
 
         # PASS 11 - Multiply
         neg_32_over_17 = create_const_tensor(
-            "neg_32_over_17_const", [1, 1, 1, 1], DataType.int32, [-1010580540], np.int32, quantization=one_scale_quant
+            "neg_32_over_17_const", [1, 1, 1, 1], DataType.int32, [-1010580540], quantization=one_scale_quant
         )
         rescaled = add_op_get_ofm(
             create_mul(
@@ -377,7 +372,7 @@ class SoftMax:
 
         # PASS 12 - Add
         const_48_over_17 = create_const_tensor(
-            "48_over_17_const", [1, 1, 1, 1], DataType.int32, [1515870810], np.int32, quantization=no_scale_quant
+            "48_over_17_const", [1, 1, 1, 1], DataType.int32, [1515870810], quantization=no_scale_quant
         )
         rescale_w_offset = add_op_get_ofm(
             create_add(
@@ -392,11 +387,9 @@ class SoftMax:
         # PASS 13 - 27
         nr_x = rescale_w_offset
         F2_one = create_const_tensor(
-            "F2_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 29)], np.int32, quantization=no_scale_quant
+            "F2_one_const", [1, 1, 1, 1], DataType.int32, [(1 << 29)], quantization=no_scale_quant
         )
-        four = create_const_tensor(
-            "four_const", [1, 1, 1, 1], DataType.int32, [4], np.int32, quantization=no_scale_quant
-        )
+        four = create_const_tensor("four_const", [1, 1, 1, 1], DataType.int32, [4], quantization=no_scale_quant)
         for _ in range(3):
             # PASS 13, 18, 23 - MUL
             half_denominator_times_x = add_op_get_ofm(
@@ -438,7 +431,7 @@ class SoftMax:
             )
 
         # PASS 28 - Multiply
-        two = create_const_tensor("two_const", [1, 1, 1, 1], DataType.int32, [2], np.int32, quantization=no_scale_quant)
+        two = create_const_tensor("two_const", [1, 1, 1, 1], DataType.int32, [2], quantization=no_scale_quant)
         scale_factor = add_op_get_ofm(
             create_mul(f"{self.op.name}_mul{pass_number}", nr_x, two, one_scale_quant, activation)
         )
@@ -502,20 +495,18 @@ class SoftMax:
         mul2_quant = ofm.quantization.clone()
         mul2_quant.scale_f32 = mul2_out_range
         scale = create_const_tensor(
-            f"{name}_scale_const", [1, 1, 1, 1], DataType.int32, [mul2_scale], np.int32, quantization=scale_quant
+            f"{name}_scale_const", [1, 1, 1, 1], DataType.int32, [mul2_scale], quantization=scale_quant
         )
         mul2_ofm = add_op_get_ofm(create_mul(name, sub1_ofm, scale, mul2_quant))
 
         # PASS 3 - Add+LUT(exp)
         name = f"{self.op.name}_add{pass_number}"
         const_add = create_const_tensor(
-            f"{name}_const", [1, 1, 1, 1], DataType.int32, [32767], np.int32, quantization=no_scale_quant
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [32767], quantization=no_scale_quant
         )
         add_op = create_add(name, mul2_ofm, const_add, mul2_ofm.quantization.clone(), dtype=DataType.int16)
         add_op.set_activation_lut(
-            create_const_tensor(
-                f"{name}_exp_lut", [1, 1, 1, 512], DataType.int32, self.EXP_LUT, np.int32, TensorPurpose.LUT
-            )
+            create_const_tensor(f"{name}_exp_lut", [1, 1, 1, 512], DataType.int32, self.EXP_LUT, TensorPurpose.LUT)
         )
         ifm_exp = add_op_get_ofm(add_op)
 
@@ -529,13 +520,11 @@ class SoftMax:
 
         # PASS 6 - Sub
         name = f"{self.op.name}_sub{pass_number}"
-        const_31 = create_const_tensor(
-            f"{name}_const", [1, 1, 1, 1], DataType.int32, [31], np.int32, quantization=no_scale_quant
-        )
+        const_31 = create_const_tensor(f"{name}_const", [1, 1, 1, 1], DataType.int32, [31], quantization=no_scale_quant)
         reciprocal_right_shift = add_op_get_ofm(create_sub(name, const_31, headroom_plus_one, no_scale_quant))
 
         # PASS 7 - SHL
-        one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], np.int32, quantization=no_scale_quant)
+        one = create_const_tensor("one_const", [1, 1, 1, 1], DataType.int32, [1], quantization=no_scale_quant)
         constant_one = add_op_get_ofm(
             create_shl(f"{self.op.name}_shl{pass_number}", one, reciprocal_right_shift, no_scale_quant)
         )
@@ -552,15 +541,13 @@ class SoftMax:
 
         # PASS 10 - SHR
         name = f"{self.op.name}_shr{pass_number}"
-        shift = create_const_tensor(
-            f"{name}_const", [1, 1, 1, 1], DataType.int32, [15], np.int32, quantization=no_scale_quant
-        )
+        shift = create_const_tensor(f"{name}_const", [1, 1, 1, 1], DataType.int32, [15], quantization=no_scale_quant)
         shifted_sum_minus_one_16 = add_op_get_ofm(create_shr(name, shifted_sum_minus_one, shift, no_scale_quant))
 
         # PASS 11 - Sub+LUT(one over one plus x)
         name = f"{self.op.name}_sub{pass_number}"
         sub11_const = create_const_tensor(
-            f"{name}_const", [1, 1, 1, 1], DataType.int32, [32768], np.int32, quantization=no_scale_quant
+            f"{name}_const", [1, 1, 1, 1], DataType.int32, [32768], quantization=no_scale_quant
         )
         sub11_op = create_sub(name, shifted_sum_minus_one_16, sub11_const, no_scale_quant, dtype=DataType.int16)
         sub11_op.set_activation_lut(
@@ -569,7 +556,6 @@ class SoftMax:
                 [1, 1, 1, 512],
                 DataType.int32,
                 self.ONE_OVER_ONE_PLUS_X_LUT,
-                np.uint32,
                 TensorPurpose.LUT,
             )
         )

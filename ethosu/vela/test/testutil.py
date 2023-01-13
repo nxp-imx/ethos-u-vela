@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -53,21 +53,13 @@ def create_elemwise_op(
     ofm_quant=default_quant_params(),
 ):
     # Creates elementwise operation with constant IFM/IFM2
-    if datatype.size_in_bytes() == 1:
-        np_type = np.uint8
-    elif datatype.size_in_bytes() == 2:
-        np_type = np.int16
-    else:
-        np_type = np.int32
     op = Operation(op_type, name)
     op.add_input_tensor(
-        create_const_tensor(name + "_ifm", ifm_shape, datatype, np.zeros(ifm_shape), np_type, quantization=ifm_quant)
+        create_const_tensor(name + "_ifm", ifm_shape, datatype, np.zeros(ifm_shape), quantization=ifm_quant)
     )
     if ifm2_shape is not None:
         op.add_input_tensor(
-            create_const_tensor(
-                name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), np_type, quantization=ifm2_quant
-            )
+            create_const_tensor(name + "_ifm2", ifm2_shape, datatype, np.zeros(ifm2_shape), quantization=ifm2_quant)
         )
     ofm = Tensor(ofm_shape, datatype, name + "_ofm")
     ofm.quantization = ofm_quant
@@ -89,25 +81,17 @@ def create_op_with_quant_tensors(
     op.set_output_tensor(ofm)
     # Optional weight tensor
     if weights_shape is not None:
-        if datatype.size_in_bytes() == 1:
-            np_type = np.uint8
-        elif datatype.size_in_bytes() == 2:
-            np_type = np.int16
-        else:
-            np_type = np.int32
         qp = default_quant_params()
         if op.type is not Op.FullyConnected:
             qp.zero_point = np.zeros(weights_shape)
-        weights = create_const_tensor(
-            "weights", weights_shape, datatype, np.zeros(weights_shape), np_type, quantization=qp
-        )
+        weights = create_const_tensor("weights", weights_shape, datatype, np.zeros(weights_shape), quantization=qp)
         op.add_input_tensor(weights)
     # Optional bias tensor
     if bias_shape is not None:
         qp = default_quant_params()
         if op.type is not Op.FullyConnected:
             qp.zero_point = np.zeros(bias_shape)
-        bias = create_const_tensor("bias", bias_shape, DataType.int32, np.zeros(bias_shape), np.int32, quantization=qp)
+        bias = create_const_tensor("bias", bias_shape, DataType.int32, np.zeros(bias_shape), quantization=qp)
         op.add_input_tensor(bias)
 
     if set_ifm_ofm_shapes:

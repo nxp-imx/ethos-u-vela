@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -40,9 +40,9 @@ from ethosu.vela.tflite_graph_optimiser import rewrite_fully_connected_input
 def test_convert_batched_fc():
     """Tests shape conversion of batched fully connected"""
     ifm_shape = [4, 8]
-    ifm = create_const_tensor("test_in", ifm_shape, np.uint8, np.zeros(ifm_shape))
+    ifm = create_const_tensor("test_in", ifm_shape, DataType.uint8, np.zeros(ifm_shape))
     w_shape = [8, 4]
-    weights = create_const_tensor("weight_in", w_shape, np.uint8, np.zeros(w_shape))
+    weights = create_const_tensor("weight_in", w_shape, DataType.uint8, np.zeros(w_shape))
     ofm = Tensor(ifm.shape, np.uint8, "test_out")
     op = testutil.create_op(Op.FullyConnected, [ifm, weights], ofm)
 
@@ -132,7 +132,8 @@ def create_pad_and_conv2d(
     qp = testutil.default_quant_params()
     in0 = Tensor(in_shape, in_dtype, "in")
     in0.quantization = qp
-    pad_tensor = create_const_tensor(name="pad", shape=list(np.shape(padding)), values=padding, dtype=pad_dtype)
+    shape = [] if padding == [] else list(np.shape(padding))
+    pad_tensor = create_const_tensor(name="pad", shape=shape, values=padding, dtype=pad_dtype)
     out = Tensor(out_shape, out_dtype, "out")
     out.quantization = qp.clone()
     op = testutil.create_op(Op.Pad, [in0, pad_tensor], out)
@@ -543,9 +544,7 @@ def test_quant_static_optimisations():
     Tests if the quant value at vela compile time is calculated correctly
     """
 
-    quant_ifm = create_const_tensor(
-        "const_quant_ifm", values=np.array(127), value_dtype=np.int8, shape=[], dtype=DataType.int8
-    )
+    quant_ifm = create_const_tensor("const_quant_ifm", values=np.array(127), shape=[], dtype=DataType.int8)
     quant_ifm.quantization = testutil.default_quant_params()
     quant_ifm.quantization.scale_f32 = 0.15748031
     quant_ifm.quantization.quant_min = -128
@@ -568,9 +567,7 @@ def test_quant_static_optimisations():
 
     assert op.ofm.values == 127
 
-    quant_ifm = create_const_tensor(
-        "const_quant_ifm", values=np.array(127), value_dtype=np.int8, shape=[], dtype=DataType.int8
-    )
+    quant_ifm = create_const_tensor("const_quant_ifm", values=np.array(127), shape=[], dtype=DataType.int8)
     quant_ifm.quantization = testutil.default_quant_params()
     quant_ifm.quantization.scale_f32 = 0.15748031
     quant_ifm.quantization.quant_min = -128
@@ -600,9 +597,7 @@ def test_optimise_quantize_multiple_values():
     when passing multiple values to quantize node
     """
 
-    quant_ifm = create_const_tensor(
-        "const_quant_ifm", values=np.array([127, 127]), value_dtype=np.int8, shape=[], dtype=DataType.int8
-    )
+    quant_ifm = create_const_tensor("const_quant_ifm", values=np.array([127, 127]), shape=[], dtype=DataType.int8)
     quant_ifm.quantization = testutil.default_quant_params()
     quant_ifm.quantization.scale_f32 = 0.15748031
     quant_ifm.quantization.quant_min = -128

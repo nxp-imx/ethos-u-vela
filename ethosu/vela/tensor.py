@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -300,17 +300,31 @@ class QuantizationParameters:
 def create_const_tensor(
     name: str,
     shape: Shape,
-    dtype: DataType,
-    values: np.ndarray,
-    value_dtype: np.dtype = None,
+    dtype: DataType,  # datatype of the tensor
+    values: Optional[Union[np.ndarray, list]],  # list-like data of some type, or scalar (skip mypy), or None
     purpose: TensorPurpose = TensorPurpose.Unknown,
-    quantization: QuantizationParameters = None,
+    quantization: Optional[QuantizationParameters] = None,
 ):
+    assert isinstance(dtype, DataType)
+
     # Tensor
     const_tensor = Tensor(shape, dtype, name + "_0")
     const_tensor.purpose = purpose
     const_tensor.quantization = quantization
-    const_tensor.values = np.array(values, dtype=value_dtype)
+
+    # if the tensor datatype does not match that of the values then np.array() will perform a cast operation. this can
+    # result in undefined behaviour if casting from a numpy float to a numpy unsigned integer. therefore, we need to
+    # avoid this undefined behaviour by converting the numpy floats to python floats as these give the desired behaviour
+    # when casting to unsigned integers
+    if (
+        values is not None
+        and shape != []  # values are not a scalar
+        and isinstance(values[0], np.floating)
+        and dtype.type == BaseType.Unsigned
+    ):
+        values = [float(v) for v in values]
+
+    const_tensor.values = np.array(values, dtype=dtype.as_numpy_type())
     # Operator
     const_op = Operation(Op.Const, name)
     const_op.set_output_tensor(const_tensor)

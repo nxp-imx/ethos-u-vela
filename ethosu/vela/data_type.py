@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -110,7 +110,7 @@ class DataType:
             BaseType.Complex: "c",
         }
         assert self.type in numpy_dtype_code, f"Failed to interpret {self} as a numpy dtype"
-        return np.dtype(numpy_dtype_code[self.type] + str(self.size_in_bytes()))
+        return np.dtype(numpy_dtype_code[self.type] + str(self.size_in_bytes())).type
 
     stem_name = {
         BaseType.UnsignedInt: ("uint%s", True),
