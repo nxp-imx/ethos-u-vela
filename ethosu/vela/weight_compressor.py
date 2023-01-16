@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -37,7 +37,28 @@ from .scaling import reduced_quantise_scale
 from .tensor import Tensor
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
-from ethosu import mlw_codec
+
+# Handle any errors thrown by NumPy while importing mlw_codec module
+try:
+    from ethosu import mlw_codec
+except RuntimeError as ex:
+    if "mlw_codec error: module compiled against API version" in str(ex):
+        # Extract API versions from error message
+        matches = [s for s in str(ex).split() if "0x" in s]
+        if len(matches) == 2:
+            # Raise new exception with more detailed message
+            raise ImportError(  # pylint: disable=W0707
+                "NumPy C API version mismatch "
+                f"(Build-time version: {matches[0]}, "
+                f"Run-time version: {matches[1]})"
+                "\nThis is a known issue most likely caused by a change in the API "
+                "version in NumPy after installing ethos-u-vela.\nYou can find more "
+                "information about the issue and possible solutions in the "
+                "'Known Issues' section at https://review.mlplatform.org/"
+                "plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/heads/main/"
+                "README.md#known-issues"
+            )
+    raise
 
 
 # Contains meta info for a weight compression. If two tensors have identical weight compression config,

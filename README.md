@@ -189,6 +189,66 @@ Some example networks that contain quantised operators which can be compiled by
 Vela to run on the Ethos-U NPU can be found at:
 <https://tfhub.dev/s?deployment-format=lite&q=quantized>
 
+## Known Issues
+
+### 1. NumPy C API version change
+
+Once ethos-u-vela is installed, the user might want to install a different NumPy
+version that is still within the dependency constraints defined in pyproject.toml.
+
+In some scenarios, doing so might prevent ethos-u-vela from functioning as
+expected due to incompatibilities between the installed NumPy C headers used in
+the mlw_codec and the current version of NumPy.
+
+**Example scenario:**
+
+In the ethos-u-vela source directory, run:
+
+```bash
+virtualenv -p 3.8 venv
+. venv/bin/activate
+pip install ethos-u-vela
+```
+
+Next, install a different NumPy version (e.g. 1.21.3)
+
+```bash
+pip install numpy==1.21.3 --force
+```
+
+Finally, run ethos-u-vela. You might get an error similar to this:
+
+```
+ImportError: NumPy C API version mismatch
+(Build-time version: 0x10, Run-time version: 0xe)
+This is a known issue most likely caused by a change in the API version in
+NumPy after installing ethos-u-vela.
+```
+
+#### Solution
+
+In order for ethos-u-vela to work with an older version of NumPy that uses
+different C APIs, you will need to install the desired NumPy version first, and
+then build ethos-u-vela with that specific NumPy version:
+
+1) Uninstall ethos-u-vela and install the desired version of NumPy
+   ```
+   pip uninstall ethos-u-vela
+   pip install numpy==1.21.3 --force
+   ```
+
+2) Install required build dependencies
+   ```
+   pip install "setuptools_scm[toml]<6" wheel
+   ```
+
+3) Install ethos-u-vela without build isolation. Not using build isolation
+   ensures that the correct version of NumPy is used when copying the C headers
+   in mlw_codec during the build process.
+   ```
+   pip install ethos-u-vela --no-build-isolation --no-cache-dir
+   ```
+
 ## APIs
 
 Please see [Vela External APIs](API.md).

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <numpy/ndarrayobject.h>
@@ -307,7 +306,19 @@ static struct PyModuleDef mlw_codecmodule = {
 
 PyMODINIT_FUNC PyInit_mlw_codec(void)
 {
+    PyObject *ptype, *pvalue, *ptraceback;
     PyObject* ret = PyModule_Create(&mlw_codecmodule);
-    import_array();
+    if (_import_array() < 0)
+    {
+      // Fetch currently set error
+      PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+      // Extract the error message
+      const char *pStrErrorMessage = PyUnicode_AsUTF8(pvalue);
+      // Re-format error message to start with "mlw_codec Error: " so it is
+      // clearer it comes from mlw_codec.
+      PyErr_Format(PyExc_RuntimeError, "mlw_codec error: %s", pStrErrorMessage);
+      return NULL;
+    }
+
     return ret;
 }
