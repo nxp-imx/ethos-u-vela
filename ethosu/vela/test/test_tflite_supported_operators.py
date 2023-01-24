@@ -17,6 +17,7 @@
 # Description:
 # Unit tests for tflite support_operators
 import numpy as np
+import pytest
 
 from ethosu.vela.data_type import DataType
 from ethosu.vela.operation import ActivationFunction
@@ -104,11 +105,15 @@ def test_constraint_conv_pass():
     assert support.is_operator_supported(op)
 
 
-def test_constraint_stride_range():
+@pytest.mark.parametrize(
+    "stride_w, stride_h, supported",
+    [[0, 20, False], [4, 4, True], [4, 5, False], [5, 4, False], [3, 3, True], [1, 1, True], [2, 4, True]],
+)
+def test_constraint_stride_range(stride_w: int, stride_h: int, supported: bool):
     # Stride width and height must lie within a certain range
-    op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 8, 8, 8], [1, 8, 8, 8])
-    op.attrs = {"stride_w": 0, "stride_h": 20}
-    assert not support.is_operator_supported(op)
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, [1, 8, 8, 8], [1, 8, 8, 8], [1, 1, 1, 1])
+    op.attrs = {"stride_w": stride_w, "stride_h": stride_h}
+    assert support.is_operator_supported(op) == supported
 
 
 def test_constraint_dilated_height_range():

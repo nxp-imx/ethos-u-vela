@@ -790,28 +790,39 @@ def reorder_depthwise_weights(op, arch, nng):
     return op
 
 
-def optimise_strided_conv(op, arch, nng):
-    if op.type != Op.Conv2DBias or op.op_index != 0:
+def fixup_strided_conv(op, arch, nng):
+    if op.type != Op.Conv2DBias:
         return op
     stride_x, stride_y = op.get_kernel_stride()
     weight_tensor = op.weights
     ifm_shape = op.ifm_shapes[0]
 
+    # Do not optimize if op is not the first in the network and stride is
+    # supported by the hardware
+    if op.op_index != 0 and stride_x < 4:
+        return op
+    op.ifm.needs_linear_format = True
+
     if (
-        stride_x == 2
+        (stride_x == 2 or stride_x == 4)
         and ifm_shape.depth <= 4
         and ifm_shape.width % 2 == 0
         and weight_tensor is not None
         and weight_tensor.shape[1] >= 2
     ):
         k_w, _ = op.get_kernel_size()
-        curr_padding_x = needed_total_padding(ifm_shape.width, 2, k_w)
-        optimised_padding_x = needed_total_padding(ifm_shape.width // 2, 1, (k_w + 1) // 2)
-        if curr_padding_x != optimised_padding_x:
+        curr_padding_x = needed_total_padding(ifm_shape.width, stride_x, k_w)
+        optimised_padding_x = needed_total_padding(ifm_shape.width // stride_x, 1, (k_w + 1) // stride_x)
+        padding_type = op.attrs.get("padding", None)
+
+        # If padding is enabled, check if current padding matches optimised padding
+        if not padding_type or (padding_type != Padding.VALID and curr_padding_x != optimised_padding_x):
             # Horizontal padding would become different after optimisation; this would not work
             return op
         # IFM
-        op.ifm_shapes[0] = Shape4D([ifm_shape.batch, ifm_shape.height, ifm_shape.width // 2, ifm_shape.depth * 2])
+        op.ifm_shapes[0] = Shape4D(
+            [ifm_shape.batch, ifm_shape.height, ifm_shape.width // stride_x, ifm_shape.depth * stride_x]
+        )
 
         # Weights
         weight_shape = weight_tensor.shape
@@ -826,8 +837,11 @@ def optimise_strided_conv(op, arch, nng):
                     ]
                 )
             weight_tensor.values = padded_array
-        weight_shape[1] //= 2
-        weight_shape[2] *= 2
+
+        # Change weight shape based on stride_x
+        weight_shape[1] //= stride_x
+        weight_shape[2] *= stride_x
+
         weight_tensor.values = np.reshape(weight_tensor.values, weight_shape)
         weight_tensor.set_all_shapes(weight_shape)
         # If multiple copies of the weights are used, we could avoid
@@ -1942,7 +1956,7 @@ def tflite_optimise_graph(nng, arch):
         convert_prelu,
         convert_mul_max_to_abs_or_lrelu,
         convert_lrelu,
-        optimise_strided_conv,
+        fixup_strided_conv,
         convert_hardswish_to_lut,
         rewrite_fully_connected_input,
         convert_batched_fc_shape,
