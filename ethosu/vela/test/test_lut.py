@@ -35,7 +35,7 @@ from ethosu.vela.test import testutil
 def set_256_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
-    lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 256], DataType.int8, values, TensorPurpose.LUT)
+    lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 256], DataType.uint8, values, TensorPurpose.LUT)
     scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
     op.set_activation_lut(scratch_lut_tensor)
 

@@ -270,7 +270,7 @@ class SoftMax:
             ifm2_shape=ifm_max_shape,
         )
         sub_op.set_activation_lut(
-            create_const_tensor(f"{sub_op.name}_exp_lut", [1, 1, 1, 256], DataType.int32, exp_lut, TensorPurpose.LUT)
+            create_const_tensor(f"{sub_op.name}_exp_lut", [1, 1, 1, 256], DataType.uint32, exp_lut, TensorPurpose.LUT)
         )
         ifm_exp = add_op_get_ofm(sub_op)
         # Note: activation.min/max are non-quantized values
@@ -505,8 +505,10 @@ class SoftMax:
             f"{name}_const", [1, 1, 1, 1], DataType.int32, [32767], quantization=no_scale_quant
         )
         add_op = create_add(name, mul2_ofm, const_add, mul2_ofm.quantization.clone(), dtype=DataType.int16)
+        # lut activation values are int32 type however they are defined as Python ints. If these are converted to
+        # numpy.int32 it could result in an overflow error. Therefore, they are forced to uint32 to avoid this
         add_op.set_activation_lut(
-            create_const_tensor(f"{name}_exp_lut", [1, 1, 1, 512], DataType.int32, self.EXP_LUT, TensorPurpose.LUT)
+            create_const_tensor(f"{name}_exp_lut", [1, 1, 1, 512], DataType.uint32, self.EXP_LUT, TensorPurpose.LUT)
         )
         ifm_exp = add_op_get_ofm(add_op)
 
@@ -550,11 +552,13 @@ class SoftMax:
             f"{name}_const", [1, 1, 1, 1], DataType.int32, [32768], quantization=no_scale_quant
         )
         sub11_op = create_sub(name, shifted_sum_minus_one_16, sub11_const, no_scale_quant, dtype=DataType.int16)
+        # lut activation values are int32 type however they are defined as Python ints. If these are converted to
+        # numpy.int32 it could result in an overflow error. Therefore, they are forced to uint32 to avoid this
         sub11_op.set_activation_lut(
             create_const_tensor(
                 f"{name}_one_over_one_plus_x_lut",
                 [1, 1, 1, 512],
-                DataType.int32,
+                DataType.uint32,
                 self.ONE_OVER_ONE_PLUS_X_LUT,
                 TensorPurpose.LUT,
             )
