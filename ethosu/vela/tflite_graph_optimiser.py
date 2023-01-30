@@ -17,6 +17,8 @@
 # Description:
 # Early optimisation of a TensorFlow Lite based network graph, using the rewrite_graph module
 # to do the traversal of the graph.
+from __future__ import annotations
+
 import math
 import uuid
 
@@ -949,15 +951,16 @@ def reorder_depthwise_weights(op, arch, nng):
     return op
 
 
-def fixup_strided_conv(op: Operation, arch, nng):
+def fixup_strided_conv(op: Operation, arch, nng) -> Operation:
     """Optimize or fixup strided Conv2DBias
     Optimization:
-        Reduce, when possible, the Conv2DBias stride from 2 to 1 by re-shaping
-        both IFM and filter.
+        Reduce, when possible, the Conv2DBias stride from N with 1 > N > 4 to 1
+        by re-shaping both IFM and filter.
 
     Fixup:
-        Introduce software support for Conv2DBias with stride_width = 4 by
-        reducing it to 1 when possible by re-shaping both IFM and filter.
+        Introduce software support for Conv2DBias with stride_width > 4 by
+        reducing it to 1, 2 or 3 (HW supported strides) when possible by
+        re-shaping both IFM and filter.
     """
     if op.type != Op.Conv2DBias:
         return op
@@ -970,44 +973,123 @@ def fixup_strided_conv(op: Operation, arch, nng):
     if op.op_index != 0 and stride_x < 4:
         return op
 
-    if (
-        (stride_x == 2 or stride_x == 4)
-        and ifm_shape.depth <= 4
-        and ifm_shape.width % 2 == 0
-        and weight_tensor is not None
-        and weight_tensor.shape[1] >= 2
-    ):
-        k_w, _ = op.get_kernel_size()
-        curr_padding_x = needed_total_padding(ifm_shape.width, stride_x, k_w)
-        optimised_padding_x = needed_total_padding(ifm_shape.width // stride_x, 1, (k_w + 1) // stride_x)
-        padding_type = op.attrs.get("padding", None)
+    def calc_resize_factor(ifm_width: int, stride_x: int) -> tuple[int, int]:
+        """Compute resize factor for strided Conv2D optimization"""
+        # Define strides that are supported by HW
+        hw_supported_strides = (2, 3)
+        resize_factor = stride_x
 
-        # If padding is enabled, check if current padding matches optimised padding
-        if not padding_type or (padding_type != Padding.VALID and curr_padding_x != optimised_padding_x):
-            # Horizontal padding would become different after optimisation; this would not work
+        if ifm_width % resize_factor != 0:
+            # In case it is not divisible, check if the resize factor is
+            # divisible by any of the hw_supported_strides. If it is, re-compute
+            # the resize factor to be the value that leads us to
+            # reach a hw supported stride.
+            # E.g.: IFM width = 133, stride = 14, filter width = 7 can be
+            #       optimised to IFM width = 19, stride = 2, filter width = 7 using
+            #       a resize factor of 7. The final stride is 2 which is
+            #       supported by the hardware.
+            supported_final_strides = (x for x in hw_supported_strides if resize_factor % x == 0)
+            new_resize_factor = resize_factor // next(supported_final_strides, 1)
+            resize_factor = new_resize_factor if resize_factor != new_resize_factor else 1
+
+        optimised_stride = stride_x // resize_factor
+
+        return resize_factor, optimised_stride
+
+    resize_factor, final_stride = calc_resize_factor(ifm_shape.width, stride_x)
+
+    def calc_filter_padding(
+        ifm_padding_type: Padding | None,
+        ifm_current_padding_x: int,
+        post_op_stride: int,
+        opt_resize_factor: int,
+        filter_width: int,
+    ) -> tuple[int, int, int, int]:
+        """Calculate zero padding to be added to the filter.
+
+        Parameters
+        ----------
+        ifm_padding_type : Padding or None
+            The padding type that is applied to the IFM.
+        ifm_current_padding_x : int
+            Padding amount that is added to the IFM before optimization.
+        post_op_stride : int
+            The final stride once optimization is performed.
+        opt_resize_factor : int
+            The factor by which the stride will be reduced.
+            E.g. opt_resize_factor = 2 on a stride of 4 will produce
+            a stride of 2 after the optimization
+        filter_width : int
+            Width of the filter before optimization.
+
+        Returns
+        -------
+        padding : tuple[int, int, int, int]
+            A tuple with the ammount of padding on each side (top, left, bottom, right)
+        """
+        padding_size = 0
+        padding = (0, 0, 0, 0)
+        if ifm_padding_type and ifm_padding_type != Padding.VALID:
+            padding_size = (ifm_current_padding_x + post_op_stride) * opt_resize_factor - filter_width
+            # Distribute padding between left and right side of the filter
+            padding_left = padding_size // 2
+            padding = (0, padding_left, 0, padding_size - padding_left)
+
+        # Check if filter width is divisible by the stride width (required for optimization)
+        # If padding was already added above, the filter width is already divisible by
+        # resize factor, so this should be skipped.
+        if padding_size == 0 and filter_width % opt_resize_factor != 0:
+            padding_size = opt_resize_factor - (filter_width % opt_resize_factor)
+            # Add padding zeros to the right
+            padding = (0, 0, 0, padding_size)
+
+        return padding
+
+    # Compute the depth of the IFM once the strided Conv2D is optimised
+    post_opt_ifm_depth = ifm_shape.depth * resize_factor
+
+    if stride_x > 1 and (post_opt_ifm_depth <= 8 or stride_x > 3) and resize_factor != 1 and weight_tensor is not None:
+        k_w, _ = op.get_kernel_size()
+        weight_shape = weight_tensor.shape
+
+        padding_type = op.attrs.get("padding", None)
+        if padding_type in (None, Padding.EXPLICIT, Padding.TILE):
             return op
-        # IFM
+        # Compute current padding as if IFM padding is SAME
+        curr_padding_x = needed_total_padding(ifm_shape.width, stride_x, k_w)
+        # Compute the padding needed on the filter for the optimisation
+        _, left_filter_padding, _, right_filter_padding = calc_filter_padding(
+            padding_type, curr_padding_x, final_stride, resize_factor, k_w
+        )
+        total_horizontal_padding = left_filter_padding + right_filter_padding
+        # If IFM padding is enabled, check if pre-opt and post-opt padding is
+        # the same while taking into consideration the extra filter padding.
+        if padding_type == Padding.SAME:
+            optimised_padding_x = needed_total_padding(
+                ifm_shape.width // resize_factor, final_stride, (k_w + 1 + total_horizontal_padding) // resize_factor
+            )
+            if curr_padding_x != optimised_padding_x:
+                # Horizontal padding would become different after optimisation; this would not work
+                return op
+
+        # Resize IFM
         op.ifm_shapes[0] = Shape4D(
-            [ifm_shape.batch, ifm_shape.height, ifm_shape.width // stride_x, ifm_shape.depth * stride_x]
+            [ifm_shape.batch, ifm_shape.height, ifm_shape.width // resize_factor, ifm_shape.depth * resize_factor]
         )
 
-        # Weights
-        weight_shape = weight_tensor.shape
-        if weight_shape[1] % 2 != 0:
-            weight_shape[1] = weight_shape[1] + 1
-            padded_array = np.zeros(weight_shape)
-            for i in range(weight_shape[0]):
-                padded_array[i] = np.vstack(
-                    [
-                        weight_tensor.values[i],
-                        np.full((1, weight_shape[2], weight_shape[3]), weight_tensor.quantization.zero_point),
-                    ]
-                )
-            weight_tensor.values = padded_array
-
+        # Compute list of 0 padding for each dimensions of the filter
+        filter_dimension_padding = [(0, 0) for _ in weight_tensor.shape]
+        # Update padding for filter width with computed padding
+        filter_dimension_padding[1] = (left_filter_padding, right_filter_padding)
+        # Add padding to the filter
+        zero_point = weight_tensor.quantization.zero_point
+        padding_constant = zero_point if np.isscalar(zero_point) else 0
+        padded_filter_tensor = np.pad(weight_tensor.values, filter_dimension_padding, constant_values=padding_constant)
+        weight_shape[1] = padded_filter_tensor.shape[1]
+        weight_tensor.values = padded_filter_tensor
         # Change weight shape based on stride_x
-        weight_shape[1] //= stride_x
-        weight_shape[2] *= stride_x
+        weight_shape[1] //= resize_factor
+        weight_shape[2] *= resize_factor
 
         weight_tensor.values = np.reshape(weight_tensor.values, weight_shape)
         weight_tensor.set_all_shapes(weight_shape)
@@ -1016,7 +1098,7 @@ def fixup_strided_conv(op: Operation, arch, nng):
         weight_tensor.value_id = uuid.uuid4()
 
         # Strides
-        stride_x = 1
+        stride_x = final_stride
         op.attrs.update({"stride_w": stride_x, "stride_h": stride_y, "strides": (1, stride_y, stride_x, 1)})
 
     return op

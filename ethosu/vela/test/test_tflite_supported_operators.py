@@ -109,15 +109,15 @@ def test_constraint_conv_pass():
     "stride_w, stride_h, supported",
     [
         [0, 20, False],
-        [4, 1, True],
-        [4, 2, True],
-        [2, 2, True],
-        [4, 4, False],
+        [20, 0, False],
+        [4, 3, True],
         [4, 5, False],
-        [5, 4, False],
+        [4, 9, False],
         [3, 3, True],
         [1, 1, True],
-        [2, 4, False],
+        [20, 2, True],
+        [6, 3, True],
+        [8, 1, True],
     ],
 )
 def test_constraint_stride_range(stride_w: int, stride_h: int, supported: bool):

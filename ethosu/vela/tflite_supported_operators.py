@@ -542,12 +542,11 @@ class TFLiteSupportedOperators:
 
     @staticmethod
     def constraint_conv_stride(op):
-        "Stride values for height must be between 1 and 3 and for width between 1 and 4"
+        "Stride width must be greater than or equal to 1 and stride height must be between 1 and 3"
         w, h = op.get_kernel_stride()
-        stride_min_w_h = 1
-        stride_max_w = 4
+        stride_min = 1
         stride_max_h = 3
-        valid = (stride_min_w_h <= w <= stride_max_w) and (stride_min_w_h <= h <= stride_max_h)
+        valid = (stride_min <= w) and (stride_min <= h <= stride_max_h)
         return valid, f"Op has stride WxH as: {w}x{h}"
 
     @staticmethod
