@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2021-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2021-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -154,6 +154,10 @@ class TFLiteSemantic:
         self.specific_constraints[Op.Softmax].append(TFLiteSemantic.constraint_matching_shapes)
         self.specific_constraints[Op.Softmax].append(TFLiteSemantic.constraint_matching_in_out_types)
         self.specific_constraints[Op.Softmax].append(TFLiteSemantic.constraint_beta_value_range)
+
+        # Split specific checks:
+        self.specific_constraints[Op.Split].append(TFLiteSemantic.constraint_split_axis)
+        self.specific_constraints[Op.Split].append(TFLiteSemantic.constraint_split_num_splits)
 
         # SplitV specific checks:
         self.specific_constraints[Op.SplitV].append(TFLiteSemantic.constraint_splitv_inferred)
@@ -394,6 +398,29 @@ class TFLiteSemantic:
         ofm_shape = op.ofm.shape
         valid = ifm_shape == ofm_shape
         return valid, f"Op has ifm_shape={ifm_shape} and ofm_shape={ofm_shape}"
+
+    @staticmethod
+    def constraint_split_axis(op):
+        "Axis value must be in the range [-RANK(IFM) to +RANK(IFM))"
+        axis_tens = op.inputs[0]
+        input_tens = op.inputs[1]
+        dims = len(input_tens.shape)
+        axis = int(axis_tens.values)
+        axis += dims if axis < 0 else 0
+        valid = 0 <= axis < dims
+        return valid, f"Op has ifm_dimensions={dims} and axis value is: {axis}"
+
+    @staticmethod
+    def constraint_split_num_splits(op):
+        "Axis must be divisible by number of splits"
+        num_splits = op.attrs.get("num_splits")
+        axis_tens = op.inputs[0]
+        input_tens = op.inputs[1]
+        dims = len(input_tens.shape)
+        axis = int(axis_tens.values)
+        axis += dims if axis < 0 else 0
+        valid = input_tens.shape[axis] % num_splits == 0
+        return valid, f"Op has ifm shape={input_tens.shape} axis={axis} num_splits={num_splits}"
 
     @staticmethod
     def constraint_splitv_inferred(op):
