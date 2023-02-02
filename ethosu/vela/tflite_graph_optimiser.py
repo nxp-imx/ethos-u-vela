@@ -35,7 +35,6 @@ from .graph_optimiser_util import bypass_memory_only_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
 from .graph_optimiser_util import convert_to_lut
-from .graph_optimiser_util import fix_sg_input_output
 from .graph_optimiser_util import memory_only_ops
 from .graph_optimiser_util import move_splitsliceread_to_consumer
 from .graph_optimiser_util import needed_total_padding
@@ -1362,11 +1361,6 @@ def convert_tanh_sigmoid_to_lut(op, arch, nng):
     return op
 
 
-def remove_memory_only_ops(op, arch):
-    if op.run_on_npu and op.type in memory_only_ops:
-        bypass_memory_only_ops(op)
-
-
 def fuse_activation_function_with_prev(op, arch, nng):
     # if op is a no-op: attempts to move the activation function to the preceding op
     if not op.attrs.get("is_nop", False) or op.activation is None:
@@ -1954,21 +1948,16 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
             rewrite_unsupported=False,
         )
 
-    # Handle sg input output
+    # Bypass or rewrite memory only operators
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
             nng,
             sg,
             arch,
             [],
-            [fix_sg_input_output],
+            [bypass_memory_only_ops],
             rewrite_unsupported=False,
         )
-
-    # Removal of memory only operators
-    for sg in nng.subgraphs:
-        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [remove_memory_only_ops])
-        sg.refresh_after_modification()
 
     # Rewrite of operators
     op_rewrite_list = [
