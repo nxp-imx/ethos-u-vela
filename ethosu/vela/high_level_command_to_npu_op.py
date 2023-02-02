@@ -54,6 +54,7 @@ from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .high_level_command_stream import Box
 from .high_level_command_stream import Command
 from .high_level_command_stream import DMA
+from .high_level_command_stream import NOP
 from .high_level_command_stream import NpuStripe
 from .numeric_util import quantise_float32
 from .numeric_util import round_up
@@ -627,7 +628,8 @@ def create_dma_op(cmd: DMA, arch: ArchitectureFeatures) -> NpuDmaOperation:
     else:
         src_addr = cmd.in_tensor.address_for_coordinate(cmd.box.start_coord)
         dest_addr = cmd.out_tensor.address_for_coordinate(cmd.box.start_coord)
-        sz = cmd.in_tensor.address_for_coordinate(cmd.box.end_coord, is_top_box=True) - src_addr
+        # DMA must use 16 bytes alignment (tensors are always aligned but the sz calculation uses actual size)
+        sz = round_up(cmd.in_tensor.address_for_coordinate(cmd.box.end_coord, is_top_box=True) - src_addr, 16)
     src = NpuAddressRange(src_region, int(src_addr), int(sz))
     dest = NpuAddressRange(dest_region, int(dest_addr), int(sz))
     return NpuDmaOperation(src, dest)
@@ -663,6 +665,9 @@ def generate_register_command_stream_for_sg(nng, sg, arch, verbose=False):
     for cmd in sg.high_level_command_stream:
         if isinstance(cmd, NpuStripe) and cmd.ps.npu_block_type == NpuBlockType.Default:
             print("Warning: Skipping register command stream generation for", cmd.ps)
+        elif isinstance(cmd, NOP):
+            # NOP should not generate anything
+            continue
         else:
             npu_op = convert_command_to_npu_op(cmd, arch)
             npu_op_list.append(npu_op)

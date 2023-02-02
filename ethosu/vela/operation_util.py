@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -47,6 +47,12 @@ def create_avgpool_nop(name: str) -> Operation:
 
 def create_add_nop(name: str) -> Operation:
     op = Operation(Op.Add, name)
+    op.run_on_npu = True
+    return op
+
+
+def create_memcpy(name: str) -> Operation:
+    op = Operation(Op.Memcpy, name)
     op.run_on_npu = True
     return op
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,6 +18,7 @@
 # Generate a high-level command stream from a schedule
 from .high_level_command_stream import Box
 from .high_level_command_stream import DMA
+from .high_level_command_stream import NOP
 from .high_level_command_stream import NpuStripe
 from .numeric_util import round_up_divide
 from .operation import create_activation_function
@@ -31,6 +32,19 @@ def dma_if_necessary(ps, box, tensor):
     src_tensor = tensor.src_tensor
     if src_tensor and tensor.mem_area != src_tensor.mem_area:
         yield DMA(ps, src_tensor, tensor, box)
+
+
+def dma_feature_map_if_necessary(ps, src_tensor, dst_tensor):
+    box = Box([0] * len(src_tensor.shape), list(src_tensor.shape))
+    src_addr = src_tensor.address_for_coordinate(box.start_coord)
+    dst_addr = dst_tensor.address_for_coordinate(box.start_coord)
+
+    if src_addr != dst_addr or src_tensor.mem_area != dst_tensor.mem_area:
+        yield DMA(ps, src_tensor, dst_tensor, box)
+    else:
+        # Source and destination is the same so no need for a DMA transaction
+        # Create a NOP for visibility when printing the high_level_command_stream
+        yield NOP(ps, src_tensor, dst_tensor)
 
 
 def generate_high_level_command_stream_for_schedule(nng, sg, arch, verbose_high_level_command_stream):
@@ -224,21 +238,24 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                     lut_dma_done = True
                     yield from dma_if_necessary(sched_op.parent_ps, lut_box, lut_tensor)
 
-                yield NpuStripe(
-                    sched_op.parent_ps,
-                    block_config.old_style_representation(),
-                    is_first_h_stripe,
-                    is_last_h_stripe,
-                    ifm_tensor,
-                    ifm_box,
-                    ofm_tensor,
-                    ofm_box,
-                    weight_tensor,
-                    weight_box,
-                    scale_tensor,
-                    ifm2_tensor=ifm2_tensor,
-                    ifm2_box=ifm2_box,
-                    pad_top=pad_top,
-                    pad_bottom=pad_bottom,
-                    reversed_operands=sched_op.reversed_operands,
-                )
+                if parent_op.type == Op.Memcpy:
+                    yield from dma_feature_map_if_necessary(sched_op.parent_ps, ifm_tensor, ofm_tensor)
+                else:
+                    yield NpuStripe(
+                        sched_op.parent_ps,
+                        block_config.old_style_representation(),
+                        is_first_h_stripe,
+                        is_last_h_stripe,
+                        ifm_tensor,
+                        ifm_box,
+                        ofm_tensor,
+                        ofm_box,
+                        weight_tensor,
+                        weight_box,
+                        scale_tensor,
+                        ifm2_tensor=ifm2_tensor,
+                        ifm2_box=ifm2_box,
+                        pad_top=pad_top,
+                        pad_bottom=pad_bottom,
+                        reversed_operands=sched_op.reversed_operands,
+                    )

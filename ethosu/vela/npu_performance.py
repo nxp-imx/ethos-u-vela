@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -472,6 +472,10 @@ def measure_cycle_cost(arch, op_type: Op, faf_type: Op, query: PerformanceQuery)
             _estimate_output_cycles_per_element(arch, op_type, faf_type, query)
             * Shape4D.round_up(query.ofm_shape, ofm_rounding).elements()
         )
+    # DMA cycle calculation
+    elif query.npu_block_type == NpuBlockType.Dma:
+        # Return 0 since this is not an actual NPU op
+        cycles.op_cycles = 0
     else:
         assert False
 
@@ -541,6 +545,10 @@ def measure_element_access(arch, query: PerformanceQuery):
                 elif query.ifm2_bits > 8:
                     # ifm2 is a non 8-bit scalar
                     access.ifm_read[1] = Shape4D.round_up(query.ifm2_shape, ifm_rounding).elements()
+    # DMA
+    elif query.npu_block_type == NpuBlockType.Dma:
+        # Return empty access since this is not an actual NPU op
+        return access
     # Unknown
     else:
         assert False
@@ -646,17 +654,27 @@ def estimate_full_op_performance(
 
     # LUT Transfer
     parent_op = op.parent_op
-    lut_transfer_cycles = 0
+    dma_transfer_cycles = 0
     if parent_op.activation_lut:
         lut_tensor = [tens for tens in parent_op.inputs if tens.purpose == TensorPurpose.LUT][0]
         src_tensor = lut_tensor.src_tensor
         if src_tensor and lut_tensor.mem_area != src_tensor.mem_area:
             bw = src_tensor.storage_size()
-            lut_transfer_cycles = measure_mem2mem_cycles(arch, src_tensor.mem_area, lut_tensor.mem_area, bw)
+            dma_transfer_cycles += measure_mem2mem_cycles(arch, src_tensor.mem_area, lut_tensor.mem_area, bw)
 
             bws[src_tensor.mem_area][lut_tensor.purpose][BandwidthDirection.Read] += bw
             # LUT read from SHRAM TODO remove?
             scaled_bws[lut_tensor.mem_area][lut_tensor.purpose][BandwidthDirection.Read] += bw
+
+    # DMA Transfer
+    if parent_op.type == Op.Memcpy:
+        src_tensor = parent_op.ifm
+        dst_tensor = parent_op.ofm
+        if src_tensor.mem_area != dst_tensor.mem_area:
+            bw = src_tensor.storage_size()
+            dma_transfer_cycles += measure_mem2mem_cycles(arch, src_tensor.mem_area, dst_tensor.mem_area, bw)
+            bws[src_tensor.mem_area][src_tensor.purpose][BandwidthDirection.Read] += bw
+            bws[dst_tensor.mem_area][src_tensor.purpose][BandwidthDirection.Write] += bw
 
     if cost.npu_weights_tensor and cost.buffered_weight_tensors:
         # DMA Weight Transfer
@@ -690,11 +708,11 @@ def estimate_full_op_performance(
                 cycles.op_cycles + cost.full_weight_transfer_cycles - min(ws_first_transfer_cycles, slack_cycles)
             )
 
-        # Add cycles for LUT Transfer
-        cycles_a[PassCycles.Npu] += lut_transfer_cycles
+        # Add cycles for LUT + mempcy op Transfer
+        cycles_a[PassCycles.Npu] += dma_transfer_cycles
     else:
-        # Add cycles for LUT Transfer
-        cycles_a[PassCycles.Npu] += max(lut_transfer_cycles - slack_cycles, 0)
+        # Add cycles for LUT + mempcy op Transfer
+        cycles_a[PassCycles.Npu] += max(dma_transfer_cycles - slack_cycles, 0)
 
     # OFM write
     ofm = op.parent_op.ofm

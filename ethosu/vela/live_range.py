@@ -165,16 +165,11 @@ def tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
 
 
 def _get_ifm_to_fuse(sched_op, target_mem_area=None, target_mem_type_set=None):
-    def _tensor_should_be_ignored(tens):
-        if tens.ifm_write_protected:
-            return True
-        return tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set)
-
-    # Check if possible to merge ifm/ofm live ranges of elementwise op
     ifm_tens = None
     if sched_op.op_type.is_elementwise_op():
+        # Check if possible to merge ifm/ofm live ranges of elementwise op
         elem_op = sched_op.parent_op
-        if not _tensor_should_be_ignored(elem_op.ofm):
+        if not tensor_should_be_ignored(elem_op.ofm, target_mem_area, target_mem_type_set):
             # Check if overwriting the inputs can be allowed
             OpShapeTens = namedtuple("OpShapeTens", ["op_shape", "tens"])
             outp = OpShapeTens(elem_op.ofm_shapes[0], elem_op.ofm)
@@ -183,7 +178,6 @@ def _get_ifm_to_fuse(sched_op, target_mem_area=None, target_mem_type_set=None):
                 inps.append(OpShapeTens(elem_op.ifm_shapes[0], elem_op.ifm))
             if elem_op.ifm2 is not None:
                 inps.append(OpShapeTens(elem_op.ifm_shapes[1], elem_op.ifm2))
-
             # find an input tensor that can be overwritten by the output
             for inp in inps:
                 if (
@@ -192,7 +186,8 @@ def _get_ifm_to_fuse(sched_op, target_mem_area=None, target_mem_type_set=None):
                     # check input tensor is valid
                     and inp.tens is not None
                     and inp.tens.shape != []
-                    and not _tensor_should_be_ignored(inp.tens)
+                    and not inp.tens.ifm_write_protected
+                    and not tensor_should_be_ignored(inp.tens, target_mem_area, target_mem_type_set)
                     # check input and output tensors are compatible
                     and inp.tens.format == outp.tens.format
                     and inp.tens.dtype == outp.tens.dtype
@@ -203,6 +198,17 @@ def _get_ifm_to_fuse(sched_op, target_mem_area=None, target_mem_type_set=None):
                 ):
                     ifm_tens = inp.tens
                     break
+    elif sched_op.op_type == Op.Memcpy:
+        # Check if possible to merge ifm/ofm live ranges of dma op
+        dma_op = sched_op.parent_op
+        ifm = dma_op.ifm
+        ofm = dma_op.ofm
+        if not (
+            tensor_should_be_ignored(ifm, target_mem_area, target_mem_type_set)
+            or tensor_should_be_ignored(ofm, target_mem_area, target_mem_type_set)
+        ):
+            # Currently DMA only used when bypassing memory only ops so ok to reuse ifm
+            ifm_tens = ifm
 
     return ifm_tens
 

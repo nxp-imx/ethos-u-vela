@@ -27,7 +27,7 @@ from .debug_database import DebugDatabase
 from .errors import UnsupportedFeatureError
 from .errors import VelaError
 from .operation import Op
-from .operation_util import create_avgpool_nop
+from .operation_util import create_memcpy
 from .shape4d import Shape4D
 from .tensor import create_const_tensor
 from .tensor import QuantizationParameters
@@ -89,6 +89,11 @@ def _avoid_nhcwb16_for_shapes(tens):
     return False
 
 
+def _avoid_nhcwb16_for_memory_only(tens):
+    # check all producers/consumers to see if any op is preventing NHCWB16
+    return any(op.type == Op.Memcpy for op in (tens.consumer_list + tens.ops))
+
+
 # Check if non linear format can be used
 def check_format_restrictions(tens, arch):
     if len(tens.ops) < 1:
@@ -114,6 +119,10 @@ def check_format_restrictions(tens, arch):
 
     # Shapes checking: check all producers/consumers are NHCWB16 compatible with tens.shape
     if _avoid_nhcwb16_for_shapes(tens):
+        return
+
+    # Memory only ifm/ofm exception: DMA ops must use NHCW
+    if _avoid_nhcwb16_for_memory_only(tens):
         return
 
     # Resize bilinear half pixel center implementation requires OFM with linear format to
@@ -274,10 +283,10 @@ def record_optimised(op, arch):
 
 
 def insert_copy_op_before_op(op):
-    # Create a avg_pool nop op with ifm as input
+    # Create a memcpy op with ifm as input
     tens = op.ifm
     copy_tens = tens.clone()
-    copy_op = create_avgpool_nop(f"{tens.name}_avgpool")
+    copy_op = create_memcpy(f"{tens.name}_memcpy")
     copy_op.add_input_tensor(tens)
     copy_op.set_output_tensor(copy_tens)
     copy_op.set_ifm_ofm_shapes()
@@ -290,9 +299,9 @@ def insert_copy_op_before_op(op):
 def insert_copy_op_after_tens(tens):
     tens_cons_list_copy = tens.consumer_list.copy()
 
-    # Create a avg_pool nop op with ifm as input
+    # Create a mempcy op with ifm as input
     copy_tens = tens.clone()
-    copy_op = create_avgpool_nop(tens.name + "_avgpool")
+    copy_op = create_memcpy(tens.name + "_memcpy")
     copy_op.add_input_tensor(tens)
     copy_op.set_output_tensor(copy_tens)
     copy_op.set_ifm_ofm_shapes()

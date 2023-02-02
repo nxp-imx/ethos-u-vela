@@ -39,6 +39,7 @@ class PassFlags(enum.Flag):
     StartupInit = 64
     MemoryOnly = 128
     PostFusingLimited = 256
+    Memcpy = 512
 
 
 mac_main_ops = set(
@@ -95,6 +96,7 @@ memory_only_ops = set(
         Op.ExpandDims,
     )
 )
+memcpy_ops = set((Op.Memcpy,))
 
 
 test_sequence = [
@@ -155,6 +157,16 @@ test_sequence = [
         PassFlags.Npu | PassFlags.Cpu,
         # flags_to_set
         PassFlags.MemoryOnly | PassFlags.Main,
+        # flags_to_clear
+        PassFlags.Empty,
+    ),
+    (
+        # ops_set
+        memcpy_ops,
+        # incompatible_pack_flags
+        PassFlags.Cpu | PassFlags.MemoryOnly | PassFlags.Mac | PassFlags.Main | PassFlags.PostFusingLimited,
+        # flags_to_set
+        PassFlags.Npu | PassFlags.Memcpy | PassFlags.Main,
         # flags_to_clear
         PassFlags.Empty,
     ),
@@ -248,7 +260,11 @@ def pack_into_passes(nng, arch, verbose_packing=False):
 
                         if flags_to_set & PassFlags.Npu:
                             if flags_to_set & (
-                                PassFlags.Mac | PassFlags.ElementWise | PassFlags.Post | PassFlags.PostFusingLimited
+                                PassFlags.Mac
+                                | PassFlags.ElementWise
+                                | PassFlags.Post
+                                | PassFlags.PostFusingLimited
+                                | PassFlags.Memcpy
                             ):
                                 assert len(curr_op.inputs) >= 1
                                 ifm_tensor = curr_op.ifm

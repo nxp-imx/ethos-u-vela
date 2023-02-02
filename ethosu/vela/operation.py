@@ -51,6 +51,7 @@ class NpuBlockType(Enum):
     ConvolutionDepthWise = 4
     ElementWise = 5
     ReduceSum = 6
+    Dma = 7
 
 
 class Kernel:
@@ -174,6 +175,7 @@ class Op(Enum):
     )
     Dequantize = OperatorInfo(indices=NNG_IFM_INDICES)
     Div = OperatorInfo()
+    Memcpy = OperatorInfo(block_type=NpuBlockType.Dma, indices=NNG_IFM_INDICES)
     Elu = OperatorInfo()
     EmbeddingLookup = OperatorInfo()
     EmbeddingLookupSparse = OperatorInfo()
@@ -372,6 +374,9 @@ class Op(Enum):
 
     def is_resize_op(self):
         return self in (Op.ResizeBilinear, Op.ResizeNearestNeighbor)
+
+    def is_memcpy_op(self):
+        return self.info.block_type == NpuBlockType.Dma
 
     def needs_bias(self):
         return bool(self.info.indices.biases)

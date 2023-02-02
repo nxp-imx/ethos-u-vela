@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -293,3 +293,19 @@ class DMA(Command):
     def get_operation_count(self):
         # returns numpy array of (DPU blocks, dma_ops)
         return np.array((0, 1))
+
+
+class NOP(Command):
+    def __init__(self, ps, in_tensor, out_tensor):
+        self.ps = ps
+        self.in_tensor = in_tensor
+        self.out_tensor = out_tensor
+
+    def __str__(self):
+        return f"<NOP: in={self.in_tensor.name}, out={self.out_tensor.name}>"
+
+    __repr__ = __str__
+
+    def get_operation_count(self):
+        # returns numpy array of (DPU blocks, dma_ops)
+        return np.array((0, 0))
