@@ -114,7 +114,8 @@ class TensorPurpose(enum.IntFlag):
     ScratchFast = 4
     LUT = 5
     FSBias = 6
-    Size = 7
+    Virtual = 7
+    Size = 8
 
     def display_name(self) -> str:
         return ("Unknown", "Weights", "FeatureMap", "Scratch", "ScratchFast", "LUT", "FastStorageBias", "Size")[
@@ -295,6 +296,14 @@ class QuantizationParameters:
             if np.size(getattr(self, attr)) > 1:
                 return True
         return False
+
+
+def create_virtual_tensor(
+    name: str,
+):
+    virtual_tensor = Tensor([], DataType.int8, name)
+    virtual_tensor.purpose = TensorPurpose.Virtual
+    return virtual_tensor
 
 
 def create_const_tensor(

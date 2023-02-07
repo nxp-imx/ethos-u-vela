@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -41,6 +41,8 @@ def mark_purpose(tens, arch, purpose):
     # Sets tensor's purpose, format, mem_area and mem_type
     if tens.purpose == TensorPurpose.Unknown:
         tens.purpose = purpose
+    elif tens.purpose == TensorPurpose.Virtual:
+        return
     elif tens.purpose not in (purpose, TensorPurpose.LUT):
         assert 0, "Cannot resolve tensor purpose {} and {} for tensor {}".format(tens.purpose, purpose, tens)
 

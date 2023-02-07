@@ -149,7 +149,11 @@ class Subgraph:
     def __init__(self, name="<unnamed>", placement=PassPlacement.Cpu):
         self.output_tensors = []
         self.input_tensors = []
-        self.original_inputs = []  # Preserve the original input order
+        # Preserve the original input order
+        self.original_inputs = []
+        # Attach virtual outputs to resource variables op
+        # in order to be able to traverse the graph correctly
+        self.virtual_outputs = []
         self.passes = []
         self.cascaded_passes = []
         self.name = name

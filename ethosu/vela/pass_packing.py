@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -469,6 +469,8 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         #
         # 1) CPU passes that only depends on sg.input_tensor can be
         #    moved to the top of the list.
+        #    ResourceVariables ops like VarHandle, ReadVariable, CallOnce
+        #    can also be moved to the top of list.
         #
         # 2) A CPU pass X is allowed to be grouped together with CPU pass Y
         #    if there is no NPU pass between pass X and pass Y that depends
@@ -487,16 +489,19 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 pass_list_top.insert(0, ps)
                 continue
 
-            if (
-                ps.placement == PassPlacement.Cpu
-                and ps.ops[0].ifm in sg.input_tensors
+            if ps.placement == PassPlacement.Cpu and (
+                ps.ops[0].ifm in sg.input_tensors
                 and (ps.ops[0].ifm2 in sg.input_tensors or ps.ops[0].ifm2 is None)
+                or (ps.ops[0].type in (Op.VarHandle, Op.ReadVariable, Op.CallOnce))
             ):
-                # This CPU pass only depends on sg.input_tensors
+                # This CPU pass only depends on sg.input_tensors or resource variable
                 pass_list_top.append(ps)
             else:
                 # Add pass to the list that will be sorted in the next step
                 pass_list.append(ps)
+
+        # Sort ops by op_index (same call order as in the original graph)
+        pass_list_top = sorted(pass_list_top, key=lambda ps: -1 if ps.ops[0].op_index is None else ps.ops[0].op_index)
 
         # Sort the rest of the list based on critera 2.
         # Search from bottom of list and when a CPU pass is found

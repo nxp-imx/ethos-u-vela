@@ -155,6 +155,8 @@ class LiveRangeGraph:
 
 
 def tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
+    if tens.purpose == TensorPurpose.Virtual:
+        return True
     if target_mem_area is None or target_mem_type_set is None:
         return False
     if tens.mem_area != target_mem_area or tens.mem_type not in target_mem_type_set:
