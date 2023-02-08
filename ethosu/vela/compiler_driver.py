@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -65,6 +65,7 @@ class CompilerOptions:
         show_cpu_operations=False,
         tensor_allocator=TensorAllocator.Greedy,
         timing=False,
+        force_symmetric_int_weights=False,
         output_dir="outputs",
         cpu_tensor_alignment=Tensor.AllocationQuantum,
         hillclimb_max_iterations=None,
@@ -84,6 +85,7 @@ class CompilerOptions:
         self.show_cpu_operations = show_cpu_operations
         self.tensor_allocator = tensor_allocator
         self.timing = timing
+        self.force_symmetric_int_weights = force_symmetric_int_weights
         self.output_dir = output_dir
         self.cpu_tensor_alignment = cpu_tensor_alignment
         self.hillclimb_max_iterations = hillclimb_max_iterations
@@ -157,7 +159,9 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
     for sg in nng.subgraphs:
         visit_graph_post_order(sg.output_tensors, arch, [], [_record_operator])
 
-    nng = graph_optimiser.optimise_graph(nng, arch, network_type, options.verbose_graph)
+    nng = graph_optimiser.optimise_graph(
+        nng, arch, network_type, options.verbose_graph, options.force_symmetric_int_weights
+    )
     assert verify_graph_health(nng)
 
     if options.verbose_quantization:

@@ -1583,14 +1583,40 @@ def fixup_bias_tensors(op, arch, nng, dtype=None):
     return op
 
 
-def fixup_asymmetric_weights(op, arch, nng):
-    if op.run_on_npu and (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op()):
-        if op.ifm.dtype == DataType.int8:
+def detect_asymmetric_weights(op):
+    # Check all ops (cpu and npu)
+    if op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op():
+        if op.ifm.dtype in (DataType.int8, DataType.int16):
             if not np.all(op.weights.quantization.zero_point == 0):
-                print(f"Warning: {op.type} '{op.name}' has asymmetric weights, zero points have been adjusted.")
-                op.weights.quantization.zero_point *= 0
+                print(f"Warning: Op {op.type} '{op.name}' has asymmetric weights.", end=" ")
+                return True
+    return False
 
+
+def fixup_asymmetric_weights(op, arch, nng):
+    if detect_asymmetric_weights(op):
+        if op.run_on_npu:
+            print("Zero points have been adjusted.")
+            op.weights.quantization.zero_point *= 0
     return op
+
+
+def check_asymmetric_weights(op, arch, nng):
+    # This function can modify the run_on_npu flag which causes an operator to be placed on the CPU. It is usually only
+    # set by the supported operator checks. Therefore, it should be run immediately after those checks to avoid the
+    # possibility of other graph optimiser functions modify the operator (that is later run on the CPU)
+    if detect_asymmetric_weights(op):
+        if op.run_on_npu:
+            print("To run the operator on Ethos-U use the option --force-symmetric-int-weights")
+            op.run_on_npu = False
+    return op
+
+
+def fixup_or_check_asymmetric_weights(force_symmetric_int_weights):
+    if force_symmetric_int_weights:
+        return fixup_asymmetric_weights
+    else:
+        return check_asymmetric_weights
 
 
 def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
@@ -1871,9 +1897,13 @@ def supported_operator_check(op, arch, nng):
     return op
 
 
-def tflite_optimise_graph(nng, arch):
+def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
     # Compile time static optimisations
-    optimisation_list = [optimise_quantize, convert_shape_op_to_constant_tensor]
+    optimisation_list = [
+        optimise_quantize,
+        convert_shape_op_to_constant_tensor,
+        fixup_or_check_asymmetric_weights(force_symmetric_int_weights),
+    ]
 
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
@@ -1886,10 +1916,7 @@ def tflite_optimise_graph(nng, arch):
         )
 
     # Pre-processing step
-    pre_process_list = [
-        supported_operator_check,
-        set_ifm_ofm_op_shapes,
-    ]
+    pre_process_list = [supported_operator_check, set_ifm_ofm_op_shapes]
 
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(

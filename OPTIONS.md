@@ -126,6 +126,15 @@ scheduling.  Prints the results to standard out.
 vela network.tflite --timing
 ```
 
+### Force Symmetric Int Weights
+
+Forces symmetric quantization for signed integer weights. This means that all zero points are set
+to 0. This might lead to unintended behaviour.
+
+```bash
+vela network.tflite --force-symmetric-int-weights
+```
+
 ### Accelerator Configuration
 
 Choose which hardware accelerator configuration to compile for.  Format is

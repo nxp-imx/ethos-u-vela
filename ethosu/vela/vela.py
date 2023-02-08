@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -377,6 +377,11 @@ def main(args=None):
         )
         parser.add_argument("--timing", action="store_true", help="Time the compiler doing operations")
         parser.add_argument(
+            "--force-symmetric-int-weights",
+            action="store_true",
+            help="Forces all zero points to 0 for signed integer weights",
+        )
+        parser.add_argument(
             "--accelerator-config",
             type=str,
             default="ethos-u55-256",
@@ -553,6 +558,7 @@ def main(args=None):
             show_cpu_operations=args.show_cpu_operations,
             tensor_allocator=args.tensor_allocator,
             timing=args.timing,
+            force_symmetric_int_weights=args.force_symmetric_int_weights,
             output_dir=args.output_dir,
             cpu_tensor_alignment=args.cpu_tensor_alignment,
             hillclimb_max_iterations=args.hillclimb_max_iterations,
