@@ -138,7 +138,13 @@ def test_constraint_quant_scale_inf():
     op = testutil.create_op_with_quant_tensors(Op.Relu, [1, 8, 8, 8], [1, 8, 8, 8])
     op.ifm.quantization.scale_f32 = np.float32(1e9)
     op.ofm.quantization.scale_f32 = np.float32(1e-35)
-    assert not semantic_checker.is_operator_semantic_valid(op)
+    # Temporarily ignore overflow in NumPy
+    old_settings = np.seterr(over="ignore", under="ignore")
+    valid = semantic_checker.is_operator_semantic_valid(op)
+    # Reset NumPy settings
+    np.seterr(**old_settings)
+
+    assert not valid
 
 
 def test_constraint_ofm_scale_too_small():
