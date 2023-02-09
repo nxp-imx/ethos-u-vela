@@ -107,7 +107,18 @@ def test_constraint_conv_pass():
 
 @pytest.mark.parametrize(
     "stride_w, stride_h, supported",
-    [[0, 20, False], [4, 4, True], [4, 5, False], [5, 4, False], [3, 3, True], [1, 1, True], [2, 4, True]],
+    [
+        [0, 20, False],
+        [4, 1, True],
+        [4, 2, True],
+        [2, 2, True],
+        [4, 4, False],
+        [4, 5, False],
+        [5, 4, False],
+        [3, 3, True],
+        [1, 1, True],
+        [2, 4, False],
+    ],
 )
 def test_constraint_stride_range(stride_w: int, stride_h: int, supported: bool):
     # Stride width and height must lie within a certain range
