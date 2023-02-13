@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -197,7 +197,8 @@ class Subgraph:
 
             if op.type in (Op.Placeholder, Op.SubgraphInput):
                 assert len(op.outputs) == 1
-                self.input_tensors.append(op.outputs[0])
+                if not op.outputs[0].is_variable:
+                    self.input_tensors.append(op.outputs[0])
 
             for out in op.outputs:
                 if out not in visit_tensor_set:

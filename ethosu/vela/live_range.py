@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -281,6 +281,11 @@ def extract_live_ranges_from_cascaded_passes(
             continue
         rng = lr_graph.get_or_create_range(tens, cpu_tensor_alignment)
         rng.mark_usage(end_time)
+
+    # Variable tensor live-range is for entire inference
+    for tens, rng in lr_graph.ranges.items():
+        if tens.is_variable:
+            rng.mark_usage(0, end_time + 1)
 
     # Add subgraph to set of processed subgraphs
     lr_graph.processed_subgraphs.add(sg)

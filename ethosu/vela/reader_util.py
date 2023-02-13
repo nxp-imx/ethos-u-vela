@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2021-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2021-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -56,7 +56,7 @@ def fixup_tensors(input_tensors, tensors):
 
     for tens in tensors:
         if not tens.ops:
-            op = Operation(Op.Const, tens.name)
+            op = Operation(Op.Placeholder if tens.is_variable else Op.Const, tens.name)
             op.set_output_tensor(tens)
 
 
