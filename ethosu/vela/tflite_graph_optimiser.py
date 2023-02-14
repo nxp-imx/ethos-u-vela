@@ -296,7 +296,8 @@ def convert_resize_1x1_to_add(op):
     quantization = QuantizationParameters(0.0, 255.0)
     quantization.scale_f32 = 1.0
     quantization.zero_point = 0
-    op.set_input_tensor(create_const_tensor(name, shape, dtype, values, quantization=quantization), 1)
+    op.inputs[1] = op.inputs[0]
+    op.set_input_tensor(create_const_tensor(name, shape, dtype, values, quantization=quantization), 0)
     op.set_ifm_ofm_shapes()
     DebugDatabase.add_optimised(op, op)
 
