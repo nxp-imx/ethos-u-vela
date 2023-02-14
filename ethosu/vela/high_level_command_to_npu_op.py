@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -475,7 +475,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     op = ps.primary_op
 
     ifm_height = cmd.ifm_box.get_block().height
-    ifm_width = cmd.ps.ifm_shapes[0].width
+    ifm_width = cmd.ifm_box.get_block().width
     ifm_depth = get_ifm_depth(op.type.npu_block_type, cmd.ifm_box, cmd.ofm_box)
 
     npu_op.ifm = create_feature_map(cmd.ifm_tensor, cmd.ifm_box, arch, ps.ifm_shapes[0], op.tile_base_offsets_ifm[0])
@@ -579,8 +579,7 @@ def create_npu_elementwise_op(cmd: NpuStripe, arch: ArchitectureFeatures) -> Npu
             npu_op.ifm2.shape = NpuShape3D(height=0, width=0, depth=0)
         else:
             ifm2_blk = cmd.ifm2_box.get_block()
-            ifm2_width = ps.ifm_shapes[1].width
-            npu_op.ifm2.shape = NpuShape3D(height=ifm2_blk.height, width=ifm2_width, depth=ifm2_blk.depth)
+            npu_op.ifm2.shape = NpuShape3D(height=ifm2_blk.height, width=ifm2_blk.width, depth=ifm2_blk.depth)
     set_common_op_fields(npu_op, cmd, arch)
     # Check if output scale needs to be overridden
     output_scale = None
