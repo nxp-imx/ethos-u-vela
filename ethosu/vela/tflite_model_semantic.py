@@ -23,7 +23,6 @@ import numpy as np
 from .data_type import BaseType
 from .data_type import DataType
 from .numeric_util import is_integer
-from .operation import get_slice_offsets
 from .operation import Op
 from .supported_operators_util import docstring_format_args
 from .supported_operators_util import list_formatter
@@ -551,15 +550,42 @@ class TFLiteSemantic:
         valid = (new_axis == 0) or (shrink_axis == 0)
         return valid, f"Op has new_axis_mask={new_axis} and shrink_axis_mask={shrink_axis}"
 
+    def _get_slice_offsets(input_shape, offset_tens, offset_mask, is_begin=True):
+        # For strided slice operator: get start or end offsets
+        # input_shape: List[int], offset_tens: Tensor, offset_mask: int, is_begin: bool = True
+        offsets = len(input_shape) * [0] if is_begin else input_shape[:]
+        for idx in range(len(input_shape)):
+            # If the i:th bit in the mask is not set then the value in offset_tens[i] should be used, otherwise it
+            # should be ignored
+            if (offset_mask & (1 << idx)) == 0:
+                offsets[idx] = offset_tens.values[idx]
+                if offsets[idx] < 0:
+                    # Convert negative indexing to positive ones
+                    offsets[idx] += input_shape[idx]
+        return offsets
+
     @staticmethod
     def constraint_slice_ranges(op):
         "Slice 'end' values must be greater than 'begin' values"
         ifm, begin, end, _ = op.inputs
+        shrink_axis_mask = op.attrs["shrink_axis_mask"]
         # Calculate offset begin/end
-        offset_begin = get_slice_offsets(ifm.shape, begin, op.attrs["begin_mask"], is_begin=True)
-        offset_end = get_slice_offsets(ifm.shape, end, op.attrs["end_mask"], is_begin=False)
+        offset_begin = TFLiteSemantic._get_slice_offsets(ifm.shape, begin, op.attrs["begin_mask"], is_begin=True)
+        offset_end = TFLiteSemantic._get_slice_offsets(ifm.shape, end, op.attrs["end_mask"], is_begin=False)
         # Check "end - begin" doesn't result in any zero or negative elements
-        valid = all((e - b) > 0 for b, e in zip(offset_begin, offset_end))
+        valid = True
+        # if a shrink mask bit is set then the end position provided by the operation should be ignored, and instead a
+        # new end position should be calculated so that calculations in the graph optimiser, such as (end - start),
+        # result in the correct value. otherwise, we just need to check that the begin and end values are valid
+        for i in range(len(ifm.shape)):
+            if (shrink_axis_mask & (1 << i)) != 0:
+                offset_end[i] = offset_begin[i] + 1
+            else:
+                if offset_end[i] <= offset_begin[i]:
+                    valid = False
+
+        op.attrs["offset_begin"] = offset_begin
+        op.attrs["offset_end"] = offset_end
         return valid, f"Op has begin_values={begin.values} and end_values={end.values}"
 
     @staticmethod

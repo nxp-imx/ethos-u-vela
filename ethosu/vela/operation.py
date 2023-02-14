@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -458,19 +458,6 @@ def create_activation_function(op_type: Op, min=None, max=None) -> ActivationFun
     return act
 
 
-def get_slice_offsets(input_shape: List[int], offset_tens: Tensor, offset_mask: int, is_begin: bool = True):
-    # For strided slice operator: get start or end offsets
-    offsets = len(input_shape) * [0] if is_begin else input_shape[:]
-    for idx in range(len(input_shape)):
-        # If the i:th bit in the mask is set then the value on offset_tens[i] should be ignored
-        if (offset_mask & (1 << idx)) == 0:
-            offsets[idx] = offset_tens.values[idx]
-            if offsets[idx] < 0:
-                # Convert offset to positive value
-                offsets[idx] += input_shape[idx]
-    return offsets
-
-
 class Operation:
     """Class representing a Neural Network operation. Has a name, a type,
     input and output tensors, as well as an attribute dictionary."""
@@ -775,17 +762,18 @@ class Operation:
             outputs = self.outputs
 
             # Extract masks
-            begin_mask = self.attrs["begin_mask"]
             ellipsis_mask = self.attrs["ellipsis_mask"]
-            end_mask = self.attrs["end_mask"]
             new_axis_mask = self.attrs["new_axis_mask"]
             shrink_axis_mask = self.attrs["shrink_axis_mask"]
 
             # shrink_axis_mask/new_axis_mask/ellipsis_mask is not supported by the Operation class but the operation
             # may have the attribute modified and handled in the graph optimization phase.
             assert shrink_axis_mask == new_axis_mask == ellipsis_mask == 0
-            offset_start = get_slice_offsets(input_tens.shape, begin_tens, begin_mask, is_begin=True)
-            offset_end = get_slice_offsets(input_tens.shape, end_tens, end_mask, is_begin=False)
+            # use the begin and end values that were calculated in the model semantic check. this is because the end
+            # values can be affected (ignored) by the shrink_axis_mask and this mask may have been changed in the graph
+            # optimizer (see assert above)
+            offset_start = self.attrs["offset_begin"]
+            offset_end = self.attrs["offset_end"]
         elif self.type == Op.UnpackReshaped:
             # Requires fixup_unpack_output to be called before this point
             input_tens = self.inputs[0]
