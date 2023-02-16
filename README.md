@@ -253,6 +253,11 @@ then build ethos-u-vela with that specific NumPy version:
 
 Please see [Vela External APIs](API.md).
 
+## Bug Reporting
+
+Please see [Vela Community Bug Reporting](BUGS.md) for a description of how to
+report bugs.
+
 ## Contributions
 
 Please see [Vela Contributions](CONTRIBUTIONS.md).
@@ -260,6 +265,12 @@ Please see [Vela Contributions](CONTRIBUTIONS.md).
 ## Debug Database
 
 Please see [Vela Debug Database](DEBUG_DB.md).
+
+## Inclusive language commitment
+
+This product conforms to Arm’s inclusive language policy and, to the best of
+our knowledge, does not contain any non-inclusive language. If you find
+something that concerns you, email terms@arm.com.
 
 ## Options
 
@@ -274,6 +285,15 @@ Please see [Vela Performance Estimation Summary](PERFORMANCE.md).
 
 Please see [Vela Releases](RELEASES.md).
 
+## Resources
+
+Additional useful information:
+
+* [Arm Products: Ethos-U55 NPU](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u55)
+* [Arm Products: Ethos-U65 NPU](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u65)
+* [Arm Developer: Ethos-U55 NPU](https://developer.arm.com/ip-products/processors/machine-learning/arm-ethos-u/ethos-u55)
+* [Arm Developer: Ethos-U65 NPU](https://developer.arm.com/ip-products/processors/machine-learning/arm-ethos-u/ethos-u65)
+
 ## Security
 
 Please see [Vela Security](SECURITY.md).
@@ -287,26 +307,6 @@ operators supported in this release.
 
 Please see [Vela Testing](TESTING.md).
 
-## Bug Reporting
-
-Please see [Vela Community Bug Reporting](BUGS.md) for a description of how to
-report bugs.
-
-## Resources
-
-Additional useful information:
-
-* [Arm Products: Ethos-U55 NPU](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u55)
-* [Arm Products: Ethos-U65 NPU](https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u65)
-* [Arm Developer: Ethos-U55 NPU](https://developer.arm.com/ip-products/processors/machine-learning/arm-ethos-u/ethos-u55)
-* [Arm Developer: Ethos-U65 NPU](https://developer.arm.com/ip-products/processors/machine-learning/arm-ethos-u/ethos-u65)
-
 ## License
 
 Vela is licensed under [Apache License 2.0](LICENSE.txt).
-
-## Inclusive language commitment
-
-This product conforms to Arm’s inclusive language policy and, to the best of
-our knowledge, does not contain any non-inclusive language. If you find
-something that concerns you, email terms@arm.com.

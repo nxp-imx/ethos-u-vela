@@ -5,9 +5,38 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.7.0 - 16/02/2023
+
+**Main feature changes:**
+
+* Added support for Tensor is_variable attribute
+  * Requires TensorFlow Lite for Microcontrollers PR#1676 see
+    <https://github.com/tensorflow/tflite-micro/pull/1676>
+* Added pass-through support for Resource Variable operators to allow them to run on the CPU
+* Moved from install and distribution using setup.py to setup.cfg and pyproject.toml
+* Changed to conform to Arm’s inclusive language policy
+* Added stride 4 support for CONV_2D operator with 1-D kernel
+* Fixes and improvements to Cascading and Performance Estimation
+* Asymmetric weights are no longer forced to be symmetric by default, see new CLI option
+
+**Interface changes:**
+
+* Addition of CLI options:
+  * `--force-symmetric-int-weights`
+
+**Reported defect fixes:**
+
+* Conflicting Size and Performance optimisations caused high SRAM usage (MLCE-953)
+* AArch64 undefined casting behaviour in NumPy (MLCE-968)
+* Performance estimation reporting regression (MLCE-973)
+* Assert due to consecutive reshapes (MLCE-987)
+* Assert with illegal SPLIT operators (MLCE-997)
+* Assert when elementwise operators follow a SPLIT operator (MLCE-997)
+* STRIDED_SLICE operator with shrink_axis_mask was not fully supported (MLCE-1014)
+
 ## Release 3.6.0 - 23/11/2022
 
-** Main feature changes:**
+**Main feature changes:**
 
 * New operator support: RESIZE_BILINEAR (Half-Pixel Centers), RESIZE_NEAREST_NEIGHBOR
   (Half-Pixel Centers), PReLU
