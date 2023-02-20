@@ -180,7 +180,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         read_offsets[0],
                         read_shapes[0],
                         upscaling,
-                        op.type,
+                        sched_op.op_type,
                     )
                 # Calculate IFM2 input box based on the OFM box
                 if ifm2:
@@ -194,7 +194,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
                         read_offsets[1],
                         read_shapes[1],
                         upscaling,
-                        op.type,
+                        sched_op.op_type,
                     )
 
                 ifm_required = ifm_box
