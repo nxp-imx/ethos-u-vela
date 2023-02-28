@@ -251,7 +251,7 @@ def extract_live_ranges_from_cascaded_passes(
                 # If the primary-op is an NpuOp that means this is where an Npu subgraph
                 # is called. Go into said subgraph and extract live ranges before continuing.
                 # Use default allocation alignment of 16 for Npu tensors
-                lr_graph = _extract_live_ranges_from_schedule(
+                lr_graph = extract_live_ranges_from_schedule(
                     op_subgraph, target_mem_area, target_mem_type_set, lr_graph
                 )
             else:
@@ -316,7 +316,7 @@ def create_linear_live_range_graph(sg, target_mem_area, target_mem_type_set, lr_
     return lr_graph
 
 
-def _extract_live_ranges_from_schedule(sg, target_mem_area, target_mem_type_set, lr_graph):
+def extract_live_ranges_from_schedule(sg, target_mem_area, target_mem_type_set, lr_graph):
     time_for_cascade = {}
     for sched_op in sg.sched_ops:
         op_info = sg.schedule.cost_map[sched_op]

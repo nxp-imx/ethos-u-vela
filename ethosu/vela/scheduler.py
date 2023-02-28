@@ -537,12 +537,11 @@ class Scheduler:
         # Collect live ranges from tensors
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
-            live_range.extract_live_ranges_from_cascaded_passes(
-                self.nng.get_root_subgraph(),
+            live_range.extract_live_ranges_from_schedule(
+                self.sg,
                 mem_area,
                 mem_type_set,
                 lr_graph,
-                Tensor.AllocationQuantum,
             )
 
         # Populate time-array with memory used by live ranges
@@ -1128,12 +1127,11 @@ class Scheduler:
         memories_list = [(self.arch.fast_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))]
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
-            live_range.extract_live_ranges_from_cascaded_passes(
-                self.nng.get_root_subgraph(),
+            live_range.extract_live_ranges_from_schedule(
+                self.sg,
                 mem_area,
                 mem_type_set,
                 lr_graph,
-                Tensor.AllocationQuantum,
             )
 
         # Find the relation between the sched_op and the buffering tensor
@@ -1248,12 +1246,11 @@ class Scheduler:
         memories_list = [(fast_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))]
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
-            live_range.extract_live_ranges_from_cascaded_passes(
-                self.nng.get_root_subgraph(),
+            live_range.extract_live_ranges_from_schedule(
+                self.sg,
                 mem_area,
                 mem_type_set,
                 lr_graph,
-                Tensor.AllocationQuantum,
             )
         max_mem_usage = lr_graph.get_temporal_memory_usage(fast_storage_mem_area)
 
@@ -1450,6 +1447,33 @@ class Scheduler:
         print("\tCascades:")
         for i, cascade in enumerate(schedule.cascades.values()):
             print(f"\t\t{i}: {cascade.start} -> {cascade.end}, size: {cascade.mem_usage}")
+
+
+def _update_memory_snapshot_for_all_npu_graphs(nng: Graph, arch: ArchitectureFeatures, schedulers):
+    mem_area = arch.fast_storage_mem_area
+    mem_type_set = set((MemType.Scratch, MemType.Scratch_fast))
+
+    # Collect live ranges for the full graph
+    # extract_live_ranges_from_cascaded_passes will start from the root sg and
+    # all sub graphs/cascaded passes will be visited and the correct time_index
+    # will be set for all the tensors.
+    lr_graph = live_range.LiveRangeGraph()
+    live_range.extract_live_ranges_from_cascaded_passes(
+        nng.get_root_subgraph(),
+        mem_area,
+        mem_type_set,
+        lr_graph,
+        Tensor.AllocationQuantum,
+    )
+    # Populate time-array with memory used by live ranges
+    temporal_usage = lr_graph.get_temporal_memory_usage(arch.fast_storage_mem_area)
+
+    # Update snapshot for all the npu sub graphs
+    # Not needed for the scheduler any longer but npu_performance
+    # is using this information so it must have the correct state
+    for sg in schedulers:
+        sg.schedule.memory_snapshot = temporal_usage
+        sg.schedule.fast_storage_peak_usage = max(temporal_usage, default=0)
 
 
 def _update_tensor_allocation(nng: Graph, arch: ArchitectureFeatures, options):
@@ -1651,6 +1675,9 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
 
             if scheduler_options.verbose_schedule:
                 scheduler.print_schedule(sg.schedule)
+
+    # Make a full live range calculation starting from the root sg
+    _update_memory_snapshot_for_all_npu_graphs(nng, arch, schedulers)
 
     # Evaluate schedule
     _update_tensor_allocation(nng, arch, options)
