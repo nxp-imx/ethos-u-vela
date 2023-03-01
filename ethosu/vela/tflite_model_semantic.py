@@ -27,6 +27,7 @@ from .operation import Op
 from .supported_operators_util import docstring_format_args
 from .supported_operators_util import list_formatter
 from .tensor import check_quantized_tens_scaling_equal
+from .tensor import shape_num_elements
 from .tflite_mapping import BUILTIN_OPERATOR_UNKNOWN
 from .tflite_mapping import optype_to_builtintype
 
@@ -148,6 +149,7 @@ class TFLiteSemantic:
         # Ops reshaping dimensions: Reshape, Squeeze and ExpandDims
         for op_type in TFLiteSemantic.reshape_ops:
             self.specific_constraints[op_type].append(TFLiteSemantic.constraint_matching_in_out_quant)
+            self.specific_constraints[op_type].append(TFLiteSemantic.constraint_matching_in_out_elements)
 
         # Softmax specific checks:
         self.specific_constraints[Op.Softmax].append(TFLiteSemantic.constraint_matching_shapes)
@@ -663,6 +665,13 @@ class TFLiteSemantic:
         if not check_quantized_tens_scaling_equal(op.ifm, op.ofm):
             return False, "IFM and OFM quantisation parameters are not equal."
         return True, "IFM and OFM quantisation parameters matches."
+
+    @staticmethod
+    def constraint_matching_in_out_elements(op):
+        "Input and output number of elements must match."
+        if shape_num_elements(op.ifm.shape) != shape_num_elements(op.ofm.shape):
+            return False, f"IFM {op.ifm.shape} and OFM {op.ofm.shape} number of elements are not equal."
+        return True, "IFM and OFM number of elements are equal."
 
 
 def tflite_semantic_checker(nng):
