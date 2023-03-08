@@ -888,7 +888,6 @@ def print_performance(
             print(line)
 
         # print to csv
-        writer.writerow((sg_seperator_text,))
         writer.writerow(col_name for col_name, _, _, _ in header)
         for op_data in data:
             writer.writerow(op_data)
