@@ -487,7 +487,6 @@ class Operation:
         "read_shapes",
         "rounding_mode",
         "explicit_scaling",
-        "low_precision_scaling",
         "write_offset",
         "write_shape",
         "ifm_resampling_mode",
@@ -525,9 +524,6 @@ class Operation:
         self.rounding_mode: Optional[NpuRoundingMode] = None
         # Rescale op in TOSA supplies explicit multiplier and shift values
         self.explicit_scaling: Optional[ExplicitScaling] = None
-        # The Mean operator (implemented as a depthwise convolution) requires scaling
-        # to be calculated differently in one case. In that case, this is set to True.
-        self.low_precision_scaling = False
         # Write offset, for operations that only produce a part of the OFM
         self.write_offset: Optional[Shape4D] = None
         # The amount of OFM that is produced by the operation (only if write_offset is not None).
@@ -567,7 +563,6 @@ class Operation:
         res.write_shape = Shape4D(*self.write_shape) if self.write_shape else None
         res.rounding_mode = self.rounding_mode
         res.explicit_scaling = self.explicit_scaling
-        res.low_precision_scaling = self.low_precision_scaling
         res.ifm_resampling_mode = self.ifm_resampling_mode
         res.tile_base_offsets_ifm = [_ifm.copy() for _ifm in self.tile_base_offsets_ifm]
         res.tile_base_offsets_ofm = self.tile_base_offsets_ofm.copy()
