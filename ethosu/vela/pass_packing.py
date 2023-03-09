@@ -520,11 +520,12 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                     pass_list.insert(insert_index, cpu_ps)
                     break
 
+                # Check all outputs from the cpu pass
                 if (
-                    cpu_ps.ops[0].ofm in [next_ps.ops[0].ifm, next_ps.ops[0].ifm2]
+                    any(ofm in [next_ps.ops[0].ifm, next_ps.ops[0].ifm2] for ofm in cpu_ps.ops[0].outputs)
                     or next_ps.placement == PassPlacement.MemoryOnly
                 ):
-                    # Not possible to move
+                    # Not possible to move since next pass depends on the output from the cpu pass
                     break
 
                 if pass_list.index(next_ps) == last_idx:
