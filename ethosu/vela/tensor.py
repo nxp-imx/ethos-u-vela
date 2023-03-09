@@ -501,10 +501,9 @@ class Tensor:
 
         return res
 
-    def clone_into_fast_storage(self, arch) -> "Tensor":
-        res = self.clone(suffix="_fast_storage")
-        res.mem_area = arch.fast_storage_mem_area
-        res.mem_type = MemType.Scratch_fast
+    def clone_into_shram(self, arch) -> "Tensor":
+        res = self.clone(suffix="_shram")
+        res.mem_area = MemArea.Shram
         res.src_tensor = self
         return res
 

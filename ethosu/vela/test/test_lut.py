@@ -36,7 +36,7 @@ def set_256_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
     lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 256], DataType.uint8, values, TensorPurpose.LUT)
-    scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
+    scratch_lut_tensor = lut_tensor.clone_into_shram(arch)
     op.set_activation_lut(scratch_lut_tensor)
 
 
@@ -44,7 +44,7 @@ def set_1K_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(256), k=256)
     lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 256], DataType.int32, values, TensorPurpose.LUT)
-    scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
+    scratch_lut_tensor = lut_tensor.clone_into_shram(arch)
     op.set_activation_lut(scratch_lut_tensor)
 
 
@@ -52,7 +52,7 @@ def set_2K_lut(op, key, arch):
     random.seed(key)
     values = random.choices(range(512), k=512)
     lut_tensor = create_const_tensor(op.name + "_lut", [1, 1, 1, 512], DataType.int32, values, TensorPurpose.LUT)
-    scratch_lut_tensor = lut_tensor.clone_into_fast_storage(arch)
+    scratch_lut_tensor = lut_tensor.clone_into_shram(arch)
     op.set_activation_lut(scratch_lut_tensor)
 
 
