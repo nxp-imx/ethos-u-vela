@@ -92,6 +92,7 @@ class TFLiteSemantic:
     def __init__(self):
         # Setup the generic constraints. Note: the order matters
         self.generic_constraints = []
+        self.generic_constraints.append(TFLiteSemantic.constraint_attributes_specified)
         self.generic_constraints.append(TFLiteSemantic.constraint_tens_no_dynamic)
         self.generic_constraints.append(TFLiteSemantic.constraint_tens_defined_shape)
         self.generic_constraints.append(TFLiteSemantic.constraint_tens_output_scalar)
@@ -256,6 +257,16 @@ class TFLiteSemantic:
                 valid = False
                 extra = str(tens.name)
         return valid, f"Unexpected None value for constant tensor: {extra}"
+
+    @staticmethod
+    def constraint_attributes_specified(op):
+        "All required operator attributes must be specified"
+        # operators that have been created internally (i.e. not created as part of reading an input network) may not
+        # have the read error attribute
+        attribute_read_error = op.attrs.get("attribute_read_error", [])
+        valid = len(attribute_read_error) == 0
+        extra = ", ".join(attribute_read_error)
+        return valid, f"Op has missing attributes: {extra}"
 
     @staticmethod
     def constraint_tens_no_dynamic(op):

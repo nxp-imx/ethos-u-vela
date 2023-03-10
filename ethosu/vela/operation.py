@@ -854,15 +854,6 @@ class Operation:
 
         ifm_tensor, ifm2_tensor, ofm_tensor = self.get_ifm_ifm2_ofm()
 
-        if self.type == Op.Reshape:
-            # Set ofm shape
-            if len(self.inputs) > 1 and self.inputs[1].values is not None:
-                ofm_tensor.shape = self.inputs[1].values.flatten().tolist()
-                ofm_elements = ofm_tensor.elements()
-                # Stretch dimension
-                if ofm_elements < 0:
-                    ofm_tensor.shape[ofm_tensor.shape.index(-1)] = int(ifm_tensor.elements() / abs(ofm_elements))
-
         # set all shapes to op, as 4D
         if self.type == Op.FullyConnected:
             if len(self.ifm.shape) == 2:

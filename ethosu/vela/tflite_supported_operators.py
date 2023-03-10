@@ -847,13 +847,15 @@ class TFLiteSupportedOperators:
         valid = True
         extra = []
 
-        reshape_tens = op.inputs[1]
-        if reshape_tens is not None:
-            # constant inputs have either no driving operator or a const one
-            # create a list of non-constant inputs
-            if not (len(reshape_tens.ops) == 0 or reshape_tens.ops[0].type == Op.Const):
-                valid = False
-                extra.append(reshape_tens.name)
+        # if a reshape tensor is specified then it must be constant
+        if len(op.inputs) > 1:
+            reshape_tens = op.inputs[1]
+            if reshape_tens is not None:
+                # constant inputs have either no driving operator or a const one
+                # create a list of non-constant inputs
+                if not (len(reshape_tens.ops) == 0 or reshape_tens.ops[0].type == Op.Const):
+                    valid = False
+                    extra.append(reshape_tens.name)
         extra = ", ".join(extra)
 
         return valid, f"Op has non-const input(s): {extra}"

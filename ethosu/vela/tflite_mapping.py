@@ -418,10 +418,11 @@ class OptionsSerializer:
     def deserialize(self, op_data):
         builtin_options = op_data.BuiltinOptions()
         attrs = {}
+        attrs["attribute_read_error"] = []  # list of attributes that couldn't be read, empty indicates no error
         if builtin_options:
             tfattrs = self.cls()
             tfattrs.Init(builtin_options.Bytes, builtin_options.Pos)
-            for underscore_mem, camelcase_mem, deserialize, serialize, is_vector in self.members:
+            for underscore_mem, camelcase_mem, deserialize, _, is_vector in self.members:
                 fun = camelcase_mem
                 if is_vector:
                     fun += "AsNumpy"
@@ -430,15 +431,22 @@ class OptionsSerializer:
                 try:
                     attrs[underscore_mem] = deserialize(attr)
                 except TypeError:
-                    print("Warning: {0} could not read attribute '{1}'.".format(self.name, underscore_mem))
+                    attrs["attribute_read_error"].append(underscore_mem)
+        else:
+            # all builtin operators should have an options field
+            attrs["attribute_read_error"] = [underscore_mem for underscore_mem, *_ in self.members]
 
         return attrs
 
     def serialize(self, builder, attrs):
         ser_attrs = []
-        for underscore_mem, camelcase_mem, deserialize, serialize, is_vector in self.members:
-            a = serialize(builder, attrs[underscore_mem])
-            ser_attrs.append((camelcase_mem, a))
+        attrs["attribute_write_error"] = []  # list of attributes that couldn't be read, empty indicates no error
+        for underscore_mem, camelcase_mem, _, serialize, _ in self.members:
+            try:
+                a = serialize(builder, attrs[underscore_mem])
+                ser_attrs.append((camelcase_mem, a))
+            except KeyError:
+                attrs["attribute_write_error"].append(underscore_mem)
 
         getattr(self.module, self.name + "Start")(builder)
 
@@ -457,6 +465,8 @@ class CustomOptionsSerializer:
 
     def deserialize(self, op_data):
         attrs = {}
+        attrs["attribute_read_error"] = []  # list of attributes that couldn't be read, empty indicates no error
+
         custom_options = op_data.CustomOptionsAsNumpy()
         attrs["custom_options"] = custom_options
         attrs["custom_options_format"] = op_data.CustomOptionsFormat()
@@ -467,6 +477,8 @@ class CustomOptionsSerializer:
         return attrs
 
     def serialize(self, builder, attrs):
+        attrs["attribute_write_error"] = []  # list of attributes that couldn't be written, empty indicates no error
+
         custom_type = attrs.get("custom_type", CustomType.ThirdPartyOp)
         self.custom_opt_format = attrs.get("custom_options_format", self.CUSTOM_OPTIONS_FORMAT_DEFAULT)
 
