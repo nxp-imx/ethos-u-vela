@@ -22,6 +22,7 @@ import re
 from setuptools import Extension
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
+from setuptools_scm import get_version
 
 
 class BuildExtension(build_ext):
@@ -41,7 +42,7 @@ class BuildExtension(build_ext):
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
-    tag = "3.7.0"
+    tag = get_version()
     url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
     # Find all markdown links that match the format:  [text](link)
     for match, link in re.findall(r"(\[.+?\]\((.+?)\))", long_description):
