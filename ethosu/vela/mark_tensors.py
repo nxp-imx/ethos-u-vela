@@ -75,6 +75,10 @@ def rewrite_mark_tensor_purpose(op, arch):
             purpose = TensorPurpose.Weights
         else:
             purpose = TensorPurpose.FeatureMap
+        # Treat Dynamic Weights as FeatureMap to avoid issues during scheduling caused by
+        # having non constant OPs that produce tensors used as weights.
+        if any(op.type != Op.Const and tens == op.ofm and purpose == TensorPurpose.Weights for op in tens.ops):
+            purpose = TensorPurpose.FeatureMap
         mark_purpose(tens, arch, purpose)
     if op.type in memory_only_ops:
         # Memory only operator input and output point to same data
