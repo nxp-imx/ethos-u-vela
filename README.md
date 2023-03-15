@@ -100,7 +100,7 @@ pip3 install -e .
 ```
 
 If you plan to contribute to the Vela project (highly encouraged!) then it is
-recommended to install Vela along with the pre-commit tools (see
+recommended to install Vela with the development dependencies (see
 [Vela Testing](TESTING.md) for more details).
 
 ## Running

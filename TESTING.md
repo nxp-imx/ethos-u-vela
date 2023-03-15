@@ -4,8 +4,8 @@
 
 Vela's Python codebase is PEP8 compliant with the exception of a 120 character
 line length.  The following code formatting and linting tools are run on all the
-Python files (excluding the directories `ethosu/vela/tflite/` and
-`ethosu/vela/ethos_u55_regs` because they contain auto-generated code):
+Python files (excluding the directories `ethosu/vela/tflite/`, `ethosu/vela/tosa/`,
+and `ethosu/vela/ethos_u55_regs` because they contain auto-generated code):
 
 * mypy (code linter)
 * reorder-python-import (code formatter)
@@ -21,17 +21,21 @@ This is also used to run the following test and coverage tools:
 
 ### Installation
 
-To install pre-commit, pytest and pytest-cov use the following command:
+To install the development dependencies, use the following command:
 
-```bash
-pip install pre-commit
-...
-pip install pytest
-...
-pip install pytest-cov
+``` bash
+pip install -e .[dev]
 ```
 
-The remaining tools will all be installed automatically upon first use.
+This command will install the following tools:
+
+* pytest
+* pytest-cov
+* pre-commit
+* build
+* setuptools_scm
+
+The remaining tools will all be installed automatically upon first use of pre-commit.
 
 ### Add pre-commit hook (Automatically running the tools)
 

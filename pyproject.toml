@@ -41,6 +41,15 @@ dependencies = [
 ]
 dynamic = ["readme", "version"]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pre-commit",
+    "build",
+    "setuptools_scm[toml]<6"
+]
+
 [project.urls]
 Homepage = "https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/"
 
