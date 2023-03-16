@@ -467,11 +467,11 @@ class Scheduler:
                     if output in self.sg.output_tensors or output.purpose != TensorPurpose.FeatureMap:
                         continue
 
-                    if output.needs_linear_format:
+                    if output.use_linear_format:
                         continue
 
                     if self.avoid_nhcwb16_for_ofm(output, ps, arch):
-                        output.needs_linear_format = True
+                        output.force_linear_format = True
                         continue
 
                     output.set_format(TensorFormat.NHCWB16, arch)
@@ -504,11 +504,11 @@ class Scheduler:
                 if ps.ofm_tensor in self.sg.output_tensors:
                     # This Op produces a subgraph output
                     op.requires_full_ofm = True
-                if ps.ifm_tensor.needs_linear_format:
+                if ps.ifm_tensor.use_linear_format:
                     op.requires_full_ifm = True
-                if ps.ifm2_tensor and ps.ifm2_tensor.needs_linear_format:
+                if ps.ifm2_tensor and ps.ifm2_tensor.use_linear_format:
                     op.requires_full_ifm2 = True
-                if ps.ofm_tensor.needs_linear_format or ps.primary_op.memory_function == Op.ConcatSliceWrite:
+                if ps.ofm_tensor.use_linear_format or ps.primary_op.memory_function == Op.ConcatSliceWrite:
                     op.requires_full_ofm = True
                 if len(ps.primary_op.outputs) > 1 or len(ps.primary_op.outputs[0].consumer_list) > 1:
                     # Op has multiple outputs or consumers - requires full OFM

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -250,7 +250,7 @@ def extract_subgraph(nng, orig_sg, arch):
         for tens in curr_sg.output_tensors:
             # ofm can depend on multiple ops. These ops can be divided into different NPU
             # nodes due to CPU nodes. If that is the case the ofm must be NHWC.
-            tens.needs_linear_format = True
+            tens.force_linear_format = True
 
     return new_subgraphs
 
