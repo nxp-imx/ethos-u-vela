@@ -952,8 +952,7 @@ class Scheduler:
             if cost[sched_op].cascade:
                 # This Op is part of a cascade - use the cascade's memory usage
                 cascade_info = cascades[cost[sched_op].cascade]
-                # Non-local memory usage is already included in the cascade_info
-                peak_mem_usage = max(cascade_info.mem_usage, peak_mem_usage)
+                op_mem_usage = cascade_info.mem_usage + non_local_mem_usage.get(sched_op, 0)
             else:
                 # This Op is not part of a cascade - calculate the memory usage
                 op_weight_buffer = sum(tens.storage_size() for tens in cost[sched_op].buffered_weight_tensors)
@@ -964,7 +963,7 @@ class Scheduler:
                     + op_weight_buffer
                     + non_local_mem_usage.get(sched_op, 0)
                 )
-                peak_mem_usage = max(op_mem_usage, peak_mem_usage)
+            peak_mem_usage = max(op_mem_usage, peak_mem_usage)
 
         return peak_mem_usage
 
@@ -1021,9 +1020,11 @@ class Scheduler:
         time_for_cascade = ref_cost[sub_schedule_ops[0]].time_index
         mem_usage_parallel_to_sub_schedule = ref_schedule.memory_snapshot[time_for_cascade] - cascade_info.mem_usage
         # If the first Op's IFM has other consumers it has to live throughout the whole sub-schedule whether it's
-        # included in a cascade or not
+        # included in a cascade or not. Not valid in Dedicated SRAM mode (spilling enabled).
         persistent_initial_ifm = (
-            sub_schedule_ops[0].ifm_size_in_bytes() if len(sub_schedule_ops[0].ifm.connection.consumers) > 1 else 0
+            sub_schedule_ops[0].ifm_size_in_bytes()
+            if not self.arch.is_spilling_enabled() and len(sub_schedule_ops[0].ifm.connection.consumers) > 1
+            else 0
         )
         # Calculate non-local-mem-usage per Operator
         non_local_mem_usage = {}
