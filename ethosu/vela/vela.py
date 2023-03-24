@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# Copyright 2022-2023 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -328,6 +329,68 @@ def list_config_files():
         print(config[path_length:])
 
 
+class Imx93ArchitectureFeatures(architecture_features.ArchitectureFeatures):
+
+    def _set_default_sys_config(self):
+        # Default Ethos-U65 system configuration
+        # Ethos-U65 High-End: SRAM (16 GB/s) and DRAM (3.75 GB/s)
+        from .tensor import BandwidthDirection
+        self.core_clock = 1e9
+        self.axi0_port = MemArea.Sram
+        self.axi1_port = MemArea.Dram
+        self.memory_clock_scales[MemArea.Sram] = 1.0
+        self.memory_clock_scales[MemArea.Dram] = 0.234375
+        self.memory_burst_length[MemArea.Sram] = 32
+        self.memory_burst_length[MemArea.Dram] = 128
+        self.memory_latency[MemArea.Sram][BandwidthDirection.Read] = 32
+        self.memory_latency[MemArea.Sram][BandwidthDirection.Write] = 32
+        self.memory_latency[MemArea.Dram][BandwidthDirection.Read] = 500
+        self.memory_latency[MemArea.Dram][BandwidthDirection.Write] = 250
+
+def convert(input_model_name):
+    sys.setrecursionlimit(2000)
+
+    if not os.path.exists(input_model_name):
+        raise InputFileError(input_model_name, "No such file")
+
+    arch = Imx93ArchitectureFeatures(
+        vela_config_files=None,
+        system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+        memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+        accelerator_config='ethos-u65-256',
+        max_blockdep=ArchitectureFeatures.MAX_BLOCKDEP,
+        verbose_config=False,
+        arena_cache_size=384 * 1024,
+    )
+
+    compiler_options = compiler_driver.CompilerOptions(
+        tensor_allocator = TensorAllocator.HillClimb,
+        output_dir="output",
+    )
+
+    scheduler_options = scheduler.SchedulerOptions(
+        optimization_strategy=scheduler.OptimizationStrategy.Performance,
+        sram_target=arch.arena_cache_size,
+        verbose_schedule=False,
+    )
+
+    model_reader_options = model_reader.ModelReaderOptions()
+
+    os.makedirs(compiler_options.output_dir, exist_ok=True)
+    output_basename = os.path.join(compiler_options.output_dir,
+                                   os.path.splitext(os.path.basename(input_model_name))[0])
+
+    nng, network_type = model_reader.read_model(input_model_name, model_reader_options)
+    if not nng:
+        raise InputFileError(input_model_name, "Input file could not be read")
+
+    compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, output_basename)
+
+    output_tfl_filename = output_basename + "_vela.tflite"
+    tflite_writer.write_tflite(nng, output_tfl_filename)
+
+    return output_tfl_filename
+
 def main(args=None):
     try:
         if args is None:
@@ -410,7 +473,7 @@ def main(args=None):
         parser.add_argument(
             "--accelerator-config",
             type=str,
-            default="ethos-u55-256",
+            default="ethos-u65-256",
             choices=list(architecture_features.Accelerator.member_list()),
             help="Accelerator configuration to use (default: %(default)s)",
         )
@@ -462,9 +525,10 @@ def main(args=None):
         parser.add_argument(
             "--arena-cache-size",
             type=int,
+            default=384 * 1024,
             help=(
                 "Set the size of the arena cache memory area, in bytes. If specified, this option overrides the memory"
-                " mode attribute with the same name in a Vela configuration file"
+                " mode attribute with the same name in a Vela configuration file (default: %(default)s)"
             ),
         )
         parser.add_argument(
@@ -479,7 +543,7 @@ def main(args=None):
         parser.add_argument(
             "--recursion-limit",
             type=int,
-            default=1000,
+            default=2000,
             help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
         )
         parser.add_argument(
@@ -545,13 +609,6 @@ def main(args=None):
                 "Invalid argument to --cpu-tensor-alignment = {} (must be greater than or equal to 16 and a power of 2)"
                 "".format(args.cpu_tensor_alignment)
             )
-
-        if args.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
-            print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
-
-        if args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
-            print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
-
         if args.verbose_all:
             for v in vars(args):
                 if v.startswith("verbose") and v != "verbose_all":
@@ -559,15 +616,33 @@ def main(args=None):
 
         sys.setrecursionlimit(args.recursion_limit)
 
-        arch = architecture_features.ArchitectureFeatures(
-            vela_config_files=config_files,
-            system_config=args.system_config,
-            memory_mode=args.memory_mode,
-            accelerator_config=args.accelerator_config,
-            max_blockdep=args.max_block_dependency,
-            verbose_config=args.verbose_config,
-            arena_cache_size=args.arena_cache_size,
-        )
+        # Use Imx93 Architecture by default(args.config is None)
+        if args.config is None and args.system_config == args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
+             arch = Imx93ArchitectureFeatures(
+                vela_config_files=args.config,
+                system_config=ArchitectureFeatures.DEFAULT_CONFIG,
+                memory_mode=ArchitectureFeatures.DEFAULT_CONFIG,
+                accelerator_config=args.accelerator_config,
+                max_blockdep=args.max_block_dependency,
+                verbose_config=args.verbose_config,
+                arena_cache_size=args.arena_cache_size,
+            )
+        else:
+            if args.system_config == ArchitectureFeatures.DEFAULT_CONFIG:
+                print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for system configuration")
+
+            if args.memory_mode == ArchitectureFeatures.DEFAULT_CONFIG:
+                print(f"Warning: Using {ArchitectureFeatures.DEFAULT_CONFIG} values for memory mode")
+
+            arch = architecture_features.ArchitectureFeatures(
+                vela_config_files=args.config,
+                system_config=args.system_config,
+                memory_mode=args.memory_mode,
+                accelerator_config=args.accelerator_config,
+                max_blockdep=args.max_block_dependency,
+                verbose_config=args.verbose_config,
+                arena_cache_size=args.arena_cache_size,
+            )
 
         compiler_options = compiler_driver.CompilerOptions(
             verbose_graph=args.verbose_graph,
