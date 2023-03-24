@@ -23,6 +23,7 @@
 # Graph - A full neural network graph with one or more Subgraphs.
 import enum
 from typing import List
+import csv
 
 from .operation import Op
 from .shape4d import Shape4D
@@ -381,6 +382,33 @@ class Subgraph:
         all_ops = self.get_all_ops()
         for idx, op in enumerate(all_ops):
             print(idx, op.type, op.name)
+
+    def write_tensor_value_to_file(self,file, value):
+        if value is not None:
+            print(value.shape)
+            print(value)
+            shape = value.shape
+            num_of_values = 1
+            for i in shape:
+                num_of_values *= i
+            value = value.reshape((num_of_values, 1))
+            for i in range(num_of_values):
+                file.write(str(value[i][0]) + " ")
+            file.write("\n")
+
+    def print_npu_graph(self, output_basename, label=None):
+        all_ops = self.get_all_ops()
+        f = open(output_basename+"_ethos_u_subgraph.csv", "w")
+        writer = csv.writer(f, delimiter = '|')
+        writer.writerow(['name', 'type', 'inputs', 'outputs', 'attributes'])
+        v = open(output_basename + "_ethos_u_subgraph_values.txt", "w")
+        for idx, op in enumerate(all_ops):
+            for input in op.inputs:
+                self.write_tensor_value_to_file(v,input.values)
+            if op.run_on_npu:
+                writer.writerow([op.name,op.type,op.inputs,op.outputs,op.attrs])
+        v.close()
+        f.close()
 
     def print_graph_with_tensors(self):
         print("print_graph_with_tensors()", self.name)

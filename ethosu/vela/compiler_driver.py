@@ -152,7 +152,7 @@ def _check_schedule(nng, arch, scheduler_options):
             )
 
 
-def compiler_driver(nng, arch, options, scheduler_options, network_type, output_basename):
+def compiler_driver(nng, arch, options, scheduler_options, network_type, output_basename, subgraph_output = False):
     assert verify_graph_health(nng)
 
     # Pre-optimisation operator tracking
@@ -160,7 +160,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
         visit_graph_post_order(sg.output_tensors, arch, [], [_record_operator])
 
     nng = graph_optimiser.optimise_graph(
-        nng, arch, network_type, options.verbose_graph, options.force_symmetric_int_weights
+        nng, arch, network_type, options.verbose_graph, options.force_symmetric_int_weights, output_basename, subgraph_output
     )
     assert verify_graph_health(nng)
 
