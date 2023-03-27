@@ -316,7 +316,6 @@ class TFLiteSupportedOperators:
         self.specific_constraints[Op.Reshape].append(TFLiteSupportedOperators.constraint_reshape_shape_constant)
 
         # ArgMax specific checks:
-        self.specific_constraints[Op.ArgMax].append(TFLiteSupportedOperators.constraint_argmax_input_dimensions)
         self.specific_constraints[Op.ArgMax].append(TFLiteSupportedOperators.constraint_argmax_axis)
         self.specific_constraints[Op.ArgMax].append(TFLiteSupportedOperators.constraint_argmax_depth)
 
@@ -879,15 +878,9 @@ class TFLiteSupportedOperators:
         inp_dims = len(op.inputs[0].shape)
         axis = op.inputs[1].values
         return (
-            axis in (3, -1),
+            axis in (inp_dims - 1, -1),
             f"Axis is {axis} and number of input dimensions is {inp_dims}",
         )
-
-    @staticmethod
-    def constraint_argmax_input_dimensions(op):
-        "Number of input dimensions must be 4"
-        inp_dims = len(op.inputs[0].shape)
-        return inp_dims == 4, f"Number of input dimensions is {inp_dims}"
 
     @staticmethod
     def constraint_argmax_depth(op):
