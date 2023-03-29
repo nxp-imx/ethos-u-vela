@@ -89,6 +89,34 @@ def remove_passthrough_tensor(tens, arch, nng):
         tens = tens.ops[0].inputs[0]
     return tens
 
+def add_add_op_after_concat(op, arch):
+    if not op.run_on_npu or not op.type.is_concat_op():
+        return op
+
+    # Add scaled and alpha multiplied values (without scaling)
+    out = op.outputs[0]
+    out_shape = out.shape.copy()
+    in1 = Tensor(out_shape, out.dtype, f"{op.outputs[0].name}_sub")
+    in1.quantization = out.quantization
+
+    quantization = QuantizationParameters(0.0, 255.0)
+    quantization.scale_f32 = in1.quantization.scale_f32
+    quantization.zero_point = 0
+    in2 = create_const_tensor(
+           f"{op.name}_sub", [1], out.dtype, [0], quantization=quantization)
+
+    add_op = Operation(Op.Add, op.name + "_add")
+    add_op.explicit_scaling = ExplicitScaling(False, shift=[0], multiplier=[1])  # No scaling
+    add_op.add_input_tensor(in1)
+    add_op.add_input_tensor(in2)
+    add_op.set_output_tensor(out)
+    add_op.set_ifm_ofm_shapes()
+    add_op.attrs["pot_scale_int16"] = False
+
+    op.set_output_tensor(in1)
+    op.set_ifm_ofm_shapes()
+
+    return add_op
 
 def rewrite_concat_ops(op, arch):
     if not op.run_on_npu or not op.type.is_concat_op():
@@ -2228,7 +2256,7 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights, output_basenam
 
     # Handle Concat Ops
     for idx, sg in enumerate(nng.subgraphs):
-        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [rewrite_concat_ops])
+        rewrite_graph.visit_graph_post_order(sg.output_tensors, arch, [], [add_add_op_after_concat, rewrite_concat_ops])
         sg.refresh_after_modification()
 
     # Handle Split Ops
