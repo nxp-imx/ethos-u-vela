@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# Copyright 2022-2023 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -61,9 +62,46 @@ mlw_module = Extension(
 )
 
 setup(
-    use_scm_version=True,
+    name="ethos-u-vela",
+    version="3.7.0",
+    description="Neural network model compiler for Arm Ethos-U NPUs",
     long_description=long_description,
     long_description_content_type="text/markdown",
+    url="https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/",
+    author="Arm Ltd.",
+    author_email="mlg-vela@arm.com",
+    license="Apache License 2.0",
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: Microsoft :: Windows :: Windows 10",
+        "Programming Language :: C",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Software Development :: Compilers",
+    ],
+    keywords=["ethos-u", "vela compiler", "tflite", "npu"],
+    packages=[
+        "ethosu",
+        "ethosu.vela",
+        "ethosu.vela.ethos_u55_regs",
+        "ethosu.vela.tflite",
+        "ethosu.vela.tosa",
+        "ethosu.mlw_codec",
+    ],
+    package_data={"ethosu": ["config_files/*/*.ini"]},
+    python_requires="~=3.7",
+    install_requires=[
+        "flatbuffers==2.0.7",
+        "numpy<=1.21.3; python_version<='3.7'",
+        "numpy; python_version>'3.7'",
+        "lxml>=4.5.1",
+    ],
+    entry_points={"console_scripts": ["vela = ethosu.vela.vela:main"]},
     ext_modules=[mlw_module],
     cmdclass={"build_ext": BuildExtension},  # type: ignore[dict-item]
+    setup_requires=["numpy<=1.21.3; python_version<='3.7'", "numpy; python_version>'3.7'", "setuptools_scm<6.0"],
 )
