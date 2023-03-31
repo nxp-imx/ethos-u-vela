@@ -19,6 +19,8 @@
 from typing import Optional
 from typing import Tuple
 
+import numpy as np
+
 from .data_type import DataType
 from .high_level_command_to_npu_op import ifm_ifm2_correct_order
 from .operation import ActivationFunction
@@ -26,6 +28,7 @@ from .operation import Op
 from .operation import Operation
 from .operation import Padding
 from .shape4d import Shape4D
+from .tensor import create_const_tensor
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
@@ -51,15 +54,66 @@ def create_add_nop(name: str) -> Operation:
     return op
 
 
-def create_memcpy(name: str) -> Operation:
+def create_memcpy(
+    name: str,
+    ifm: Tensor,
+    ofm: Tensor,
+) -> Operation:
     op = Operation(Op.Memcpy, name)
     op.run_on_npu = True
+    op.add_input_tensor(ifm)
+    op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
     return op
 
 
 def create_pad_nop(name: str) -> Operation:
     op = Operation(Op.Pad, name)
     op.run_on_npu = True
+    return op
+
+
+def create_cast_op(
+    name: str,
+    ifm: Tensor,
+    ofm: Tensor,
+) -> Operation:
+    op = Operation(Op.DepthwiseConv2DBias, name)
+    op_attrs = {
+        "padding": Padding.VALID,
+        "stride_h": 1,
+        "stride_w": 1,
+        "strides": (1, 1, 1, 1),
+        "depth_multiplier": 1,
+        "channel_multiplier": 1,
+        "dilation_h_factor": 1,
+        "dilation_w_factor": 1,
+        "dilation": (1, 1, 1, 1),
+        "explicit_padding": None,
+    }
+    op.attrs.update(op_attrs)
+    op.add_input_tensor(ifm)
+
+    c = ifm.shape[-1]
+
+    shape = [1, 1, 1, c]
+    kernel = np.dstack([1] * c)
+    identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
+    op.add_input_tensor(
+        create_const_tensor(
+            op.name + "_weights",
+            shape,
+            DataType.uint8,
+            np.array(kernel).reshape(shape),
+            quantization=identity_quant,
+        ),
+    )
+    bias_values = [0] * c
+    dtype = DataType.int64 if op.ifm.dtype == DataType.int16 else DataType.int32
+    op.add_input_tensor(create_const_tensor(op.name + "_bias", [c], dtype, bias_values))
+    op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
+
     return op
 
 

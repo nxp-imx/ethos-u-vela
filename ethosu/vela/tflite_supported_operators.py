@@ -206,6 +206,7 @@ class TFLiteSupportedOperators:
 
         # Setup generic constraint exceptions
         self.generic_constraints_exceptions = defaultdict(list)
+        self.generic_constraints_exceptions[Op.ArgMax].append(TFLiteSupportedOperators.constraint_tens_dtype)
         self.generic_constraints_exceptions[Op.FullyConnected].append(TFLiteSupportedOperators.constraint_batch_size)
         self.generic_constraints_exceptions[Op.Softmax].append(TFLiteSupportedOperators.constraint_batch_size)
         self.generic_constraints_exceptions[Op.Reshape].append(TFLiteSupportedOperators.constraint_batch_size)

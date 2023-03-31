@@ -51,7 +51,9 @@ from .operation import Operation
 from .operation import Padding
 from .operation_util import create_add_nop
 from .operation_util import create_avgpool_nop
+from .operation_util import create_cast_op
 from .operation_util import create_depthwise_maxpool
+from .operation_util import create_memcpy
 from .operation_util import get_pad_values_from_input
 from .scaling import quantise_scale
 from .shape4d import Shape4D
@@ -520,7 +522,8 @@ def convert_argmax_to_depthwise_conv_and_max_pool(op, arch, nng):
             "dilation": (1, 1, 1, 1),
             "explicit_padding": None,
         }
-        op.name = "depthwise_conv_SHL_7"
+        orig_name = op.name
+        op.name = f"{orig_name}_depthwise_conv_SHL_7"
         op.type = Op.DepthwiseConv2DBias
         op.attrs.update(dw_op_attrs)
         n, h, w, c = full_shape(4, ifm.shape, 1)
@@ -592,25 +595,43 @@ def convert_argmax_to_depthwise_conv_and_max_pool(op, arch, nng):
             maxpool_op.write_offset = Shape4D([0, sum(op_heights[:op_idx]) * orig_ifm_shape.width, 0, 0])
             DebugDatabase.add_optimised(op, maxpool_op)
 
-        # Convert output to OFM dtype and reshape back to original OFM shape with 1x1 DWConv
-        dw_conv = Operation(Op.DepthwiseConv2DBias, f"depthwise_conv_convert_to_32bit_{op_idx}")
-        dw_conv.attrs.update(dw_op_attrs)
-        dw_conv.inputs = [maxpool_op.ofm]
-        dw_conv.add_input_tensor(
-            create_const_tensor(
-                "weights",
-                [1, 1, 1, 1],
-                DataType.uint8,
-                np.array([1]).reshape([1, 1, 1, 1]),
-                quantization=identity_quant,
-            ),
-        )
-        dw_conv.add_input_tensor(create_const_tensor(dw_conv.name + "_bias", [1], DataType.int64, [0]))
-        ofm.ops.append(dw_conv)
-        dw_conv.outputs = [ofm]
-        dw_conv.ifm_shapes.append(Shape4D([1, orig_ifm_shape.height, orig_ifm_shape.width, 1]))
-        dw_conv.ofm_shapes.append(Shape4D(ofm.shape))
-        DebugDatabase.add_optimised(op, dw_conv)
+        # Set final shape
+        maxpool_ofm.set_all_shapes([1, h, w, 1])
+
+        # Convert 16bit to 32bit or 64bit
+        if ofm.dtype == DataType.int64:
+            # If OFM dtype is int64 the result is converted by two cast ops (16bit to 32bit)
+            #
+            #   A     -> B         -> C          -> D (OFM)
+            #   |0001|   |00010000|   |0001|0000|   |00010000|00000000|
+            #    i16      i32          i16  i16      i32      i32
+            #                                       <-------i64------->
+            #
+            #   Memcpy is used to copy the content from B to C and from D to OFM
+            #   Memcpy will be turned into a nop or an DMA transer if memory regions differs.
+            intermediate_32bit = Tensor([1, h, w, 1], DataType.int32, f"{orig_name}_32bit")
+        else:
+            intermediate_32bit = ofm
+
+        op_cast = create_cast_op(f"{orig_name}_cast_to_32bit_1", maxpool_ofm, intermediate_32bit)
+        DebugDatabase.add_optimised(op, op_cast)
+
+        if ofm.dtype == DataType.int64:
+            # Create int16 tensor with double shape to cover the intermediate_32bit result from the first cast
+            intermediate_16bit_2x_size = Tensor([1, h, w, 2], DataType.int16, f"{orig_name}_16bit_2x_size")
+            memcpy_op = create_memcpy(f"{orig_name}_memcpy_1", intermediate_32bit, intermediate_16bit_2x_size)
+            DebugDatabase.add_optimised(op, memcpy_op)
+
+            # Create int32 tensor with double ofm shape to be able to store a "int64" result
+            intermediate_32bit_2x_size = Tensor([1, h, w, 2], DataType.int32, f"{orig_name}_32bit_2x_size")
+
+            op_cast = create_cast_op(
+                f"{orig_name}_cast_to_32bit_2", intermediate_16bit_2x_size, intermediate_32bit_2x_size
+            )
+            DebugDatabase.add_optimised(op, op_cast)
+
+            memcpy_op = create_memcpy("f{orig_name}_memcpy_2", intermediate_32bit_2x_size, ofm)
+            DebugDatabase.add_optimised(op, memcpy_op)
 
     return op
 

@@ -191,6 +191,7 @@ class TFLiteSemantic:
 
         # ArgMax specific checks:
         self.specific_constraints[Op.ArgMax].append(TFLiteSemantic.constraint_input_8bit)
+        self.specific_constraints[Op.ArgMax].append(TFLiteSemantic.constraint_argmax_output)
 
     def is_operator_semantic_valid(self, op):
         ext_type = optype_to_builtintype(op.type)
@@ -632,6 +633,13 @@ class TFLiteSemantic:
         ifm_dtype = op.ifm.dtype
         valid = (ifm_dtype == DataType.int8) or (ifm_dtype == DataType.uint8)
         return valid, f"Op has ifm_dtype={ifm_dtype}"
+
+    @staticmethod
+    def constraint_argmax_output(op):
+        "OFM must be int32 or int64"
+        ofm_dtype = op.ofm.dtype
+        valid = ofm_dtype in (DataType.int32, DataType.int64)
+        return valid, f"Op has ofm_dtype={ofm_dtype}"
 
     @staticmethod
     def constraint_matching_either_shapes(op):
