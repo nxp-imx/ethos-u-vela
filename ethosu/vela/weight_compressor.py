@@ -34,6 +34,7 @@ from .operation import NpuBlockType
 from .operation import Op
 from .scaling import quantise_scale
 from .scaling import reduced_quantise_scale
+from .tensor import QuantizationParameters
 from .tensor import Tensor
 from .tensor import TensorFormat
 from .tensor import TensorPurpose
@@ -235,6 +236,20 @@ def core_deinterleave(hwio, core, ncores):
     return ohwi[core : ohwi.shape[0] : ncores]
 
 
+def _get_input_quantization(op):
+    quant = op.get_input_quantization()
+    if not quant:
+        quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
+    return quant
+
+
+def _get_output_quantization(op):
+    quant = op.get_output_quantization()
+    if not quant:
+        quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
+    return quant
+
+
 def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
     assert tens.purpose in [TensorPurpose.FeatureMap, TensorPurpose.FSBias]
     assert tens.format == TensorFormat.NHWC
@@ -250,14 +265,14 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
 
     first_consumer_op = tens.consumer_list[0]
     ifm_dtype = first_consumer_op.inputs[0].dtype
-    ifm_scale = first_consumer_op.get_input_quantization().scale_f32
-    ofm_scale = first_consumer_op.get_output_quantization().scale_f32
+    ifm_scale = _get_input_quantization(first_consumer_op).scale_f32
+    ofm_scale = _get_output_quantization(first_consumer_op).scale_f32
     weight_scales = first_consumer_op.inputs[1].quantization.scale_f32
 
     # biases can have multiple consumers for rnn cells. if so, then check that they are all the same
     for op in tens.consumer_list[1:]:
-        assert ifm_scale == op.get_input_quantization().scale_f32
-        assert ofm_scale == op.get_output_quantization().scale_f32
+        assert ifm_scale == _get_input_quantization(op).scale_f32
+        assert ofm_scale == _get_output_quantization(op).scale_f32
         assert weight_scales == op.inputs[1].quantization.scale_f32
 
     if not hasattr(weight_scales, "__iter__"):
@@ -298,7 +313,7 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
             quantised_scales = [quantise_scale(scale) for scale in scales]
 
     # Check the output quantisation to see if the scale value needs increasing to the next one
-    if first_consumer_op.get_output_quantization().next_after:
+    if _get_output_quantization(first_consumer_op).next_after:
         for i, quant_scale in enumerate(quantised_scales):
             q_scale, q_shift = quant_scale
             quantised_scales[i] = (q_scale + 1, q_shift)
@@ -315,8 +330,8 @@ def encode_weight_and_scale_tensor(
 ) -> Tuple[Optional[NpuWeightTensor], Optional[NpuWeightTensor]]:
     npu_block_type = op.type.npu_block_type
 
-    ifm_scale = scale_tens and scale_tens.consumer_list[0].get_input_quantization().scale_f32
-    ofm_scale = scale_tens and scale_tens.consumer_list[0].get_output_quantization().scale_f32
+    ifm_scale = scale_tens and _get_input_quantization(scale_tens.consumer_list[0]).scale_f32
+    ofm_scale = scale_tens and _get_output_quantization(scale_tens.consumer_list[0]).scale_f32
 
     wcc = create_weight_compression_config(
         weight_tens, npu_block_type, block_config.ofm_block.depth, hash(str(depth_offsets)), kernel.dilation

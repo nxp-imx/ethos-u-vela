@@ -229,6 +229,8 @@ class QuantizationParameters:
         max: Union[float, np.ndarray, None] = None,
         num_bits=None,
         narrow_range=None,
+        scale_f32: Union[float, np.ndarray, None] = None,
+        zero_point: Union[int, np.ndarray, None] = None,
     ):
         self.min = min
         self.max = max
@@ -240,8 +242,8 @@ class QuantizationParameters:
         # natural rounding to perform rounding away from zero. This only affects the ofm scale and bias tensor, it has
         # no affect on global scaling i.e. the ofm_scale register
         self.next_after = False
-        self.scale_f32: Union[float, np.ndarray, None] = None
-        self.zero_point: Union[int, np.ndarray, None] = None
+        self.scale_f32: Union[float, np.ndarray, None] = scale_f32
+        self.zero_point: Union[int, np.ndarray, None] = zero_point
         self.quant_min: Optional[float] = None
         self.quant_max: Optional[float] = None
         self.quant_dim: Optional[int] = None

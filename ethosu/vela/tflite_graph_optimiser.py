@@ -501,8 +501,6 @@ def convert_argmax_to_depthwise_conv_and_max_pool(op, arch, nng):
         identity_quant = QuantizationParameters()
         identity_quant.zero_point = 0
         identity_quant.scale_f32 = 1.0
-        if ofm.quantization is None:
-            ofm.quantization = identity_quant
         # Add last dimension to ofm shape
         ofm.shape += [1]
         ofm.ops = []
