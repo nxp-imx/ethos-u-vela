@@ -255,9 +255,23 @@ class TFLiteGraph:
 
             parsing_step = "parsing buffers length"
             self.buffers = []
-            for idx in range(model.BuffersLength()):
-                parsing_step = f"parsing buffer {idx}"
-                self.buffers.append(self.parse_buffer(model.Buffers(idx)))
+            if not model.BuffersIsNone():
+                for idx in range(model.BuffersLength()):
+                    parsing_step = f"parsing buffer {idx}"
+                    buffer = model.Buffers(idx)
+                    buffer_data = self.parse_buffer(buffer)
+                    # buffers can be either; empty, or contain no data (zero length), or contain data (non-zero length).
+                    # when a buffer is None it means that it is either empty or zero length, and an empty buffer
+                    # will have DataIsNone() equal to true.
+                    # we should detect zero length buffers and report a warning because the TFLite semantics for these
+                    # types of buffers changed in TensorFlow 2.11, whereby they could result in runtime errors
+                    if buffer_data is None and not buffer.DataIsNone():
+                        print(
+                            f"Warning: Input TensorFlow Lite network contains a zero length buffer (index = {idx})"
+                            f" which is semantically not empty. However, it will be treated as an empty buffer."
+                        )
+
+                    self.buffers.append(buffer_data)
 
             parsing_step = "parsing operator codes length"
             self.operator_codes = []

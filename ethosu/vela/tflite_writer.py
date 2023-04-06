@@ -259,16 +259,13 @@ class TFLiteSerialiser:
             tens_shape = tens.original_shape
         values = tens.values
 
-        if values is None:
-            values = np.empty(shape=(0), dtype=np.uint8)
-
         if tens in self.tensors_to_reshape:
             reorder = self.tensors_to_reshape[tens]
             tens_shape = [tens_shape[idx] for idx in reorder]
             values = values.transpose(reorder)
 
         buf_id = self.buffer_map[tens]
-        self.buffers_to_write[buf_id] = values.flatten().view(np.uint8)
+        self.buffers_to_write[buf_id] = None if values is None else values.flatten().view(np.uint8)
 
         shape = self.write_int_vector(tens_shape)
 
