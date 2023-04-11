@@ -1242,7 +1242,11 @@ class Scheduler:
             cost = schedule.cost_map[sched_op]
             if cost.cascade == 0 and sched_op.get_dependants():
                 ofm_tens = sched_op.ofm.connection.parent_tens
-                if not any(cons is None for cons in ofm_tens.consumer_list):
+                # Do not move subgraph outputs or Variable Tensor Writes
+                if (
+                    not any(cons is None for cons in ofm_tens.consumer_list)
+                    and sched_op.parent_op.memory_function is not Op.VariableTensorWrite
+                ):
                     if ofm_tens not in self.scratched_fms:
                         # Remember default mem area and mem type, only done once
                         self.scratched_fms[ofm_tens] = (ofm_tens.mem_area, ofm_tens.mem_type)
@@ -1260,6 +1264,7 @@ class Scheduler:
                 mem_type_set,
                 lr_graph,
             )
+
         max_mem_usage = lr_graph.get_temporal_memory_usage(fast_storage_mem_area)
 
         # If max_mem_usage does not exceed staging limit at any point all lrs fit and can stay in fast storage

@@ -37,6 +37,7 @@ from .shape4d import Shape4D
 
 # Import needed for Type annotations. Only import for Type checking to avoid run-time errors due to cyclic import.
 if TYPE_CHECKING:
+    from .tensor import QuantizationParameters
     from .tensor import Tensor
 
 PointXY = namedtuple("PointXY", "x y")
@@ -142,8 +143,6 @@ class Op(Enum):
     BatchToSpaceND = OperatorInfo()
     BidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     BidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
-    BlockLSTM = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_BLOCK_LSTM_INDICES)
-
     CLZ = OperatorInfo(
         block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True
     )  # NPU specific operation
@@ -297,6 +296,7 @@ class Op(Enum):
     Unique = OperatorInfo()
     Unpack = OperatorInfo(indices=NNG_IFM_INDICES)
     UnpackReshaped = OperatorInfo(indices=NNG_IFM_INDICES)
+    VariableTensorWrite = OperatorInfo()
     Where = OperatorInfo()
     While = OperatorInfo()
     ZerosLike = OperatorInfo()
@@ -516,8 +516,8 @@ class Operation:
         self.memory_function: Optional[Op] = None
         # If not none: contains QuantizationParameters to be used as output quantization
         # (which overrides the ofm tensor's quantization), used in LUT
-        self.forced_input_quantization = None
-        self.forced_output_quantization = None
+        self.forced_input_quantization: Optional[QuantizationParameters] = None
+        self.forced_output_quantization: Optional[QuantizationParameters] = None
         self.scheduled_pass = None
         self.op_index = None  # input network operator index
         self.activation_lut = None

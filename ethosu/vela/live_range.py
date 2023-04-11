@@ -166,9 +166,9 @@ def tensor_should_be_ignored(tens, target_mem_area, target_mem_type_set):
 
 def _get_ifm_to_fuse(sched_op, target_mem_area=None, target_mem_type_set=None):
     ifm_tens = None
-    if sched_op.op_type.is_elementwise_op():
+    elem_op = sched_op.parent_op
+    if sched_op.op_type.is_elementwise_op() and elem_op.memory_function is not Op.VariableTensorWrite:
         # Check if possible to merge ifm/ofm live ranges of elementwise op
-        elem_op = sched_op.parent_op
         if not tensor_should_be_ignored(elem_op.ofm, target_mem_area, target_mem_type_set):
             # Check if overwriting the inputs can be allowed
             OpShapeTens = namedtuple("OpShapeTens", ["op_shape", "tens"])

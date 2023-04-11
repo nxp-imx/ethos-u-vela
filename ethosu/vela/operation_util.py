@@ -27,8 +27,10 @@ from .operation import ActivationFunction
 from .operation import Op
 from .operation import Operation
 from .operation import Padding
+from .reader_util import clone_and_reshape_tensor
 from .shape4d import Shape4D
 from .tensor import create_const_tensor
+from .tensor import create_equivalence_id
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
@@ -114,6 +116,55 @@ def create_cast_op(
     op.set_output_tensor(ofm)
     op.set_ifm_ofm_shapes()
 
+    return op
+
+
+def create_fused_activation(op_type: Op, name: str, ifm: Tensor, quantization: QuantizationParameters) -> Operation:
+    assert op_type.is_activation_op()
+    op = create_avgpool_nop(name)
+    op.activation = ActivationFunction(op_type)
+    ofm = Tensor(ifm.shape, ifm.dtype, f"{op.name}_tens0")
+    ofm.quantization = quantization
+    op.add_input_tensor(ifm)
+    op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
+    return op
+
+
+def create_fullyconnected(
+    name: str,
+    ifm: Tensor,
+    weights: Tensor,
+    bias: Optional[Tensor],
+    quantization: QuantizationParameters,
+    vela_weight_order: bool = True,
+) -> Operation:
+    # Reshape weights if needed
+    if not vela_weight_order:
+        weights = clone_and_reshape_tensor(weights, (1, 0), False)
+
+    n_ofm = weights.shape[-1]
+
+    # Setup bias if needed
+    if not bias:
+        bias_values = [0] * n_ofm
+        dtype = DataType.int64 if ifm.dtype == DataType.int16 else DataType.int32
+        bias = create_const_tensor(f"{name}_bias", [n_ofm], dtype, bias_values)
+        # Set equivalence_id based on values to avoid placing duplicate data in flash
+        bias.equivalence_id = create_equivalence_id(tuple(bias_values))
+        bias.value_id = bias.equivalence_id
+
+    # Setup ofm
+    ofm = Tensor([ifm.shape[0], n_ofm], ifm.dtype, f"{name}_tens0")
+    ofm.quantization = quantization
+
+    # Create op and add tensors
+    op = Operation(Op.FullyConnected, name)
+    op.add_input_tensor(ifm)
+    op.add_input_tensor(weights)
+    op.add_input_tensor(bias)
+    op.set_output_tensor(ofm)
+    op.set_ifm_ofm_shapes()
     return op
 
 

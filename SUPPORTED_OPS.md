@@ -55,6 +55,7 @@ Please check the supported operator list for your chosen runtime for further inf
 | SUB | [Generic](#tflite-generic-constraints), [Specific](#tflite-sub-constraints) |
 | TANH | [Generic](#tflite-generic-constraints) |
 | TRANSPOSE_CONV | [Generic](#tflite-generic-constraints), [Specific](#tflite-transpose_conv-constraints) |
+| UNIDIRECTIONAL_SEQUENCE_LSTM | [Generic](#tflite-generic-constraints), [Specific](#tflite-unidirectional_sequence_lstm-constraints) |
 | UNPACK | [Generic](#tflite-generic-constraints) |
 
 ### TFLite Generic Constraints
@@ -356,3 +357,19 @@ This is a list of constraints that the TRANSPOSE_CONV operator must satisfy in o
 - SAME padding: OFM dimensions must equal IFM dimensions multiplied by stride
 - VALID padding: OFM dimensions must equal IFM dimensions multiplied by stride,  
         minus difference between kernel size and stride
+
+### TFLite UNIDIRECTIONAL_SEQUENCE_LSTM Constraints
+
+This is a list of constraints that the UNIDIRECTIONAL_SEQUENCE_LSTM operator must satisfy in order to be scheduled on the NPU.
+
+- IFM must be int8 or int16
+- IFM and OFM data types must match
+- IFM and OFM must have 3D shape
+- Must have 24 input tensors
+- Must have 5 intermediate tensors
+- State tensors must be variable
+- Must not use CIFG
+- Must not use Peephole
+- Must not use Projection
+- Must not use Normalisation
+- All input and recurrent weights must be available

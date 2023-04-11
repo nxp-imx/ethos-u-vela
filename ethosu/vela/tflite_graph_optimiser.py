@@ -35,11 +35,13 @@ from .graph_optimiser_util import bypass_memory_only_ops
 from .graph_optimiser_util import calc_explicit_padding
 from .graph_optimiser_util import convert_depthwise_to_conv
 from .graph_optimiser_util import convert_to_lut
+from .graph_optimiser_util import create_avg_pool_for_concat
 from .graph_optimiser_util import memory_only_ops
 from .graph_optimiser_util import move_splitsliceread_to_consumer
 from .graph_optimiser_util import needed_total_padding
 from .graph_optimiser_util import set_ifm_ofm_op_shapes
 from .graph_optimiser_util import set_tensor_equivalence
+from .lstm import Lstm
 from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
@@ -67,23 +69,6 @@ from .tensor import TensorPurpose
 from .tflite_mapping import optype_to_builtintype
 
 passthrough_nodes = (Op.Identity,)
-
-
-def create_avg_pool_for_concat(concat_op, name, ifm, ifm_shape: Shape4D, write_offset: Shape4D):
-    """Creates an average pool for the given concat op/input feature map"""
-    ofm = concat_op.ofm
-    avgpool_op = create_avgpool_nop(name)
-    avgpool_op.inputs = [ifm]
-    avgpool_op.outputs = [ofm]
-
-    avgpool_op.write_offset = write_offset
-    avgpool_op.write_shape = ifm_shape
-    ofm.ops.append(avgpool_op)
-    avgpool_op.ifm_shapes.append(ifm_shape)
-    avgpool_op.ofm_shapes.append(concat_op.ofm_shapes[0])
-    avgpool_op.memory_function = Op.ConcatSliceWrite
-    DebugDatabase.add_optimised(concat_op, avgpool_op)
-    return avgpool_op
 
 
 def remove_passthrough_tensor(tens, arch, nng):
@@ -196,17 +181,15 @@ def rewrite_split_ops(tens, arch, nng):
 def remove_SplitSliceRead(op, arch):
 
     if op.type == Op.SplitSliceRead:
-        # Check if it is possible to put the SplitSliceRead on the tensor consumer, or if an avgpool need to be inserted
-        if (
-            len(op.ofm.consumer_list) == 1
-            and op.ofm.consumer_list[0] is not None
-            and op.ofm.consumer_list[0].run_on_npu
-            and op.ofm.consumer_list[0].type not in memory_only_ops
-            and op.ofm_shapes[0] == Shape4D.from_list(op.ofm.shape)
+        # Check if it is possible to put the SplitSliceRead on the tensor consumer(s),
+        # or if an avgpool need to be inserted
+        if op.ofm_shapes[0] == Shape4D.from_list(op.ofm.shape) and all(
+            consumer is not None and consumer.run_on_npu and consumer.type not in memory_only_ops
+            for consumer in op.ofm.consumer_list
         ):
-            # SplitSliceRead can be performed by tensor consumer
-            cons_op = op.ofm.consumer_list[0]
-            move_splitsliceread_to_consumer(op, cons_op)
+            # SplitSliceRead can be performed by tensor consumer(s)
+            for cons_op in list(op.ofm.consumer_list):
+                move_splitsliceread_to_consumer(op, cons_op)
         else:
             avgpool_op = create_avgpool_nop(op.name + "_avgpool")
             avgpool_op.add_input_tensor(op.ifm)
@@ -801,8 +784,9 @@ def convert_nop_split_to_identity(op, arch, nng):
 
 
 def rewrite_fully_connected_input(op: Operation, arch, nng):
-
-    if op.type == Op.FullyConnected:
+    # If the operation already have a read shape do not modify
+    # the ifm shape, since that will already be correct
+    if op.type == Op.FullyConnected and not op.read_shapes[0]:
         new_shape = op.ifm.get_shape_as_2d(op.weights.shape[-2])
         assert new_shape is not None, "Tensor can not be reshaped to 2D"
         op.ifm_shapes[0] = new_shape
@@ -1077,6 +1061,13 @@ def fixup_relus_with_differing_ifm_ofm_scaling(op, arch, nng):
             relu_fused_op.set_output_tensor(ofm)
             relu_fused_op.set_ifm_ofm_shapes()
             op = relu_fused_op
+    return op
+
+
+def convert_lstm(op, arch, nng):
+    if op.type == Op.UnidirectionalSequenceLstm:
+        lstm = Lstm(op)
+        op = lstm.get_graph()
     return op
 
 
@@ -2144,6 +2135,7 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
         convert_mean_to_depthwise_conv_or_avgpool,
         convert_depthwise_to_conv,
         convert_conv_to_fc,
+        convert_lstm,
         convert_softmax,
         convert_prelu,
         convert_mul_max_to_abs_or_lrelu,

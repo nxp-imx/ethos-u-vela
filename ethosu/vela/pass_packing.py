@@ -55,8 +55,6 @@ mac_main_ops = set(
         Op.QuantizedMatMul,
         Op.MatMul,
         Op.FullyConnected,
-        # RNN/LSTM/GRU
-        Op.BlockLSTM,
         # pooling
         Op.QuantizedMaxPool,
         Op.QuantizedAvgPool,

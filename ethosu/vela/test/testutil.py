@@ -103,12 +103,72 @@ def create_op_with_quant_tensors(
 def create_op(op_type, inputs, output, attrs=None, set_ifm_ofm_shapes=True):
     op = Operation(op_type, output.name + "_op")
     for input in inputs:
-        op.add_input_tensor(input)
+        if input:  # Add regular tensor input
+            op.add_input_tensor(input)
+        else:  # Add optional (None) inputs for operators with sparse input positioning
+            op.inputs.append(input)
     op.set_output_tensor(output)
     if attrs is not None:
         op.attrs = attrs
     if set_ifm_ofm_shapes:
         op.set_ifm_ofm_shapes()
+    return op
+
+
+def create_lstm_op(batches, times, features, outputs, datatype):
+    input_shape = [batches, times, features]
+    output_shape = [batches, times, outputs]
+    weight_shape = [features, outputs]
+    state_shape = [batches, outputs]
+    bias_shape = [outputs]
+    ifm = Tensor(input_shape, datatype, "in")
+    ifm.quantization = default_quant_params()
+    ofm = Tensor(output_shape, datatype, "out")
+    ofm.quantization = default_quant_params()
+    bias_dtype = DataType.int64 if datatype == DataType.int16 else DataType.int32
+    bias = create_const_tensor("bias", bias_shape, bias_dtype, [0] * outputs)
+    weight_q = default_quant_params()
+    weight = create_const_tensor("weight", weight_shape, DataType.int8, np.ones(weight_shape), quantization=weight_q)
+    output_state = Tensor(state_shape, datatype, "output_state")
+    output_state.quantization = default_quant_params()
+    output_state.is_variable = True
+    cell_state = Tensor(state_shape, DataType.int16, "cell_state")
+    cell_state.quantization = default_quant_params()
+    cell_state.is_variable = True
+    intermediate = Tensor([], DataType.float32, "intermediate")
+    hidden_scale_intermediate = Tensor([], datatype, "effective_hidden_scale_intermediate")
+    hidden_scale_intermediate.quantization = default_quant_params()
+    peephole = None
+    projection = None
+    normalisation = None
+    inputs = [
+        ifm,
+        weight,
+        weight,
+        weight,
+        weight,
+        weight,
+        weight,
+        weight,
+        weight,
+        peephole,
+        peephole,
+        peephole,
+        bias,
+        bias,
+        bias,
+        bias,
+        projection,
+        projection,
+        output_state,
+        cell_state,
+        normalisation,
+        normalisation,
+        normalisation,
+        normalisation,
+    ]
+    op = create_op(Op.UnidirectionalSequenceLstm, inputs, ofm)
+    op.intermediates = [intermediate, intermediate, intermediate, intermediate, hidden_scale_intermediate]
     return op
 
 
