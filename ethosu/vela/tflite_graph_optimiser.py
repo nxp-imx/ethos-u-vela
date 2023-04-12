@@ -2175,9 +2175,6 @@ def replace_dilated_convolution(op, arch, nng=None):
     op.set_input_tensor(ppre_op.outputs[0], 0)
     op.set_ifm_ofm_shapes()
 
-    if (pre_block[0] > 2 or pre_block[1] > 2):
-        op.run_on_npu = False
-
     return op
 
 def merge_dequant_exp_quant(op, arch, nng=None):
