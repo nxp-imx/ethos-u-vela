@@ -191,7 +191,6 @@ class TFLiteSupportedOperators:
     filter_height_range = (1, 256)
     filter_product_range = (1, 256 * 256)
     mean_kernel_product = 64 * 64
-    mean_kernel_product_avgpool = 256 * 256
 
     def __init__(self):
         # Setup the generic constraints. Note: the order matters
@@ -309,7 +308,6 @@ class TFLiteSupportedOperators:
         self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_pad_type)
 
         # Mean specific checks:
-        self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product_avgpool)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_width_product)
         self.specific_constraints[Op.Mean].append(TFLiteSupportedOperators.constraint_mean_height_single_axis)
 
@@ -809,26 +807,9 @@ class TFLiteSupportedOperators:
         return valid, f"Op has ifm_shape={ifm_shape} and ifm2_shape={ifm2_shape}"
 
     @classmethod
-    @docstring_format_args([mean_kernel_product_avgpool])
-    def constraint_mean_height_width_product_avgpool(cls, op):
-        """Product of height and width must be no greater than {}"""
-        shape = op.inputs[0].shape
-        hi = 0 if len(shape) < 4 else 1
-        h, w = shape[hi : hi + 2]
-        max_prod = cls.mean_kernel_product_avgpool
-        return h * w <= max_prod, f"Product of height and width is {h * w}"
-
-    @classmethod
     @docstring_format_args([mean_kernel_product])
     def constraint_mean_height_width_product(cls, op):
-        """Product of height and width must be no greater than {} when:
-        IFM and OFM have different scale or zero point; or
-        'keep_dims' is True"""
-        ifmq, ofmq = op.ifm.quantization, op.ofm.quantization
-        keep_dims = op.attrs.get("keep_dims")
-        # doesn't apply, size is checked by constraint_mean_height_width_product_avgpool
-        if not keep_dims and ifmq.scale_f32 == ofmq.scale_f32 and ifmq.zero_point == ofmq.zero_point:
-            return True, ""
+        """Product of height and width must be no greater than {}"""
         shape = op.inputs[0].shape
         hi = 0 if len(shape) < 4 else 1
         h, w = shape[hi : hi + 2]
@@ -836,11 +817,10 @@ class TFLiteSupportedOperators:
         return h * w <= max_prod, f"Product of height and width is {h * w}"
 
     @classmethod
-    @docstring_format_args([filter_height_range[1], dilated_height_range[1]])
+    @docstring_format_args([dilated_height_range[1]])
     def constraint_mean_height_single_axis(cls, op):
         """For single axis averages across the height dimension:
-        IFM height must be no greater than {} if the IFM and OFM scale and zero point match; otherwise
-        IFM height must be no greater than {} if the IFM and OFM scale or zero point do not match"""
+        IFM height must be no greater than {}"""
         inp, axis = op.inputs
         if axis.shape == [] or axis.shape[0] == 1:  # single axis
             axis = int(axis.values) if len(axis.shape) == 0 else int(axis.values[0])
@@ -859,10 +839,7 @@ class TFLiteSupportedOperators:
         h = shape[axis]
         ifm, ofm = op.get_ifm_ofm()
 
-        if check_quantized_tens_scaling_equal(ifm, ofm):
-            return h <= cls.filter_height_range[1], f"Height is {h}, IFM and OFM quantizations match"
-        else:
-            return h <= cls.dilated_height_range[1], f"Height is {h}, IFM and OFM quantizations do not match"
+        return h <= cls.dilated_height_range[1], f"Height is {h}"
 
     @staticmethod
     def constraint_reshape_shape_constant(op):

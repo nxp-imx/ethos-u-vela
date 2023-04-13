@@ -45,6 +45,7 @@ from .lstm import Lstm
 from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
+from .numeric_util import round_down_log2
 from .operation import create_activation_function
 from .operation import ExplicitScaling
 from .operation import NpuBlockType
@@ -1827,22 +1828,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         # Set IFM/OFM shapes after changing op type
         op.set_ifm_ofm_shapes()
 
-        weight_scale, bias = 1, 0
         ofmq, ifmq = op.ofm.quantization, inp.quantization
-        if ifmq.is_scaling_equal(ofmq):
-            # Here we can just use a simple AvgPool with truncating rounding,
-            # as we're emulating simple integer division.
-            op.rounding_mode = NpuRoundingMode.TRUNCATE
-            op.type = Op.AvgPool
-            op.attrs.update({"ksize": (1, h, w, 1), "filter_height": h, "filter_width": w})
-        else:
-            op.rounding_mode = NpuRoundingMode.NATURAL
-            weight_scale = 1 / (h * w)
-            # Input zero point is adjusted after mean calculation, so we emulate that with a bias
-            bias = -ifmq.zero_point * h * w
-            fiq = ifmq.clone()
-            fiq.zero_point = 0
-            op.forced_input_quantization = fiq
 
         # Change dimensions to 4
         def extend_dims(dim, in_shape):
@@ -1867,28 +1853,18 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
 
         # If height is greater than max kernel height, reshape from HxW to 1x(HxW)
         weight_shape = None
-        if (h > 64 and op.type == Op.DepthwiseConv2DBias) or (h > 256 and op.type == Op.AvgPool):
+        if h > 64:
             # This can only happen and be done for multiple axes, and
-            # h * w <= 256 for DepthwiseConv2DBias
-            # h * w <= 4096 for AvgPool
+            # h * w <= 4096 for DepthwiseConv2DBias
             # which is checked in supported ops
             shape = [shape[0], 1, h * w, shape[3]]
             op.ifm_shapes[0] = Shape4D(shape)
             weight_shape = [1, h * w, shape[3], shape[0]]
-            if h > 256 and op.type == Op.AvgPool:
-                op.attrs.update({"ksize": (1, 1, h * w, 1), "filter_height": 1, "filter_width": h * w})
 
-        # If the AvgPool version is used, we don't need to do anything else
-        if op.type == Op.AvgPool:
-            DebugDatabase.add_optimised(op, op)
-            return op
-
-        # Make unit weight tensor quantization
-        weight_quant = ifmq.clone()
-        weight_quant.min = 0
-        weight_quant.max = 255
-        weight_quant.scale_f32 = weight_scale
-        weight_quant.zero_point = 0
+        op.rounding_mode = NpuRoundingMode.NATURAL
+        identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
+        op.forced_input_quantization = identity_quant
+        op.forced_output_quantization = identity_quant
 
         if weight_shape is None:
             # Set weight shape to [H,W,C,B]
@@ -1901,16 +1877,64 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
                 weight_shape,
                 inp.dtype,
                 np.ones(weight_shape),
-                quantization=weight_quant,
+                quantization=identity_quant,
             ),
             1,
         )
         op.weights.values = np.reshape(op.inputs[1].values, weight_shape)
 
-        # Add bias tensor
+        # Input zero point is adjusted after the sum calculation, so we emulate that with a bias
+        bias = -ifmq.zero_point * h * w
         bias_shape = [shape[-1]]
-        op.inputs.append(create_const_tensor("bias", bias_shape, DataType.int32, np.ones(bias_shape) * bias))
+        op.inputs.append(create_const_tensor(op.name + "_bias", bias_shape, DataType.int32, np.ones(bias_shape) * bias))
         DebugDatabase.add_optimised(op, op)
+
+        # Multiply sum with 1/num_elements_in_axis to get the mean
+        intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
+        intermediate.dtype = DataType.int32
+        mul_op = Operation(Op.Mul, op.name + "_mul")
+        mul_op.add_input_tensor(intermediate)
+        mul_op.set_output_tensor(op.ofm)
+        mul_op.forced_input_quantization = identity_quant
+
+        # The multiplier is calculated in the same way as in the reference,
+        # clamping the shift value at the price of some precision loss.
+        num_elements_in_axis = int(h * w)
+        output_multiplier, output_shift_vela = quantise_scale(np.double(ifmq.scale_f32) / np.double(ofmq.scale_f32))
+
+        # Convert to reference representation shift value
+        output_shift = 31 - output_shift_vela
+
+        # Reference calculation
+        # round_down_log2 same as 63 - CountLeadingZeros(num_elements_in_axis)
+        shift = round_down_log2(num_elements_in_axis)
+        shift = min(shift, 32)
+        shift = min(shift, 31 + output_shift)
+        output_multiplier = (output_multiplier << shift) // num_elements_in_axis
+        output_shift = output_shift - shift
+
+        # Convert to vela representation shift
+        output_shift_vela = 31 - output_shift
+
+        # For int32 scaling is not supported so instead multiply with the scale
+        # intermediate * scale -> round and shift.
+        scalar = create_const_tensor(
+            op.name + "_scalar", [1, 1, 1, 1], DataType.int32, [output_multiplier], quantization=identity_quant
+        )
+        mul_op.add_input_tensor(scalar)
+        mul_op.set_ifm_ofm_shapes()
+
+        # Reference using TFL rounding for the multiply
+        mul_op.rounding_mode = NpuRoundingMode.TFL
+
+        # Need to use explicit scaling to get the wanted shift
+        mul_op.explicit_scaling = ExplicitScaling(False, [output_shift_vela], [1])
+
+        mul_op.activation = op.activation
+        op.activation = None
+        op.set_output_tensor(intermediate)
+        op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, mul_op)
 
     return op
 
