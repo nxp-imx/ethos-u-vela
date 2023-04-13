@@ -506,6 +506,7 @@ class Tensor:
         res.name = res.name + suffix
         res.ops = []
         res.consumer_list = []
+        res.src_tensor = self
 
         return res
 
