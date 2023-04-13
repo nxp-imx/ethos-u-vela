@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -46,25 +46,25 @@ class TestTFLiteSubgraph:
         assert output == expected
 
     parse_op_testdata = [
-        # op_type, opt_serializer, indices, inputs, output, expected
-        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, 1, 2], 3, 3),  # FC
-        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, 1, -1], 3, 3),  # FC disabled Bias
-        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, 1], 3, 3),  # FC no Bias
-        (Op.Conv2DBias, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [2, 1, 3], 0, 3),  # Conv2D
-        (Op.Conv2DBackpropInput, None, TFLITE_CONV2D_BACKPROP_INDICES, [0, 1, 2, 3], 4, 4),  # TransposeConv
-        (Op.Conv2DBackpropInput, None, TFLITE_CONV2D_BACKPROP_INDICES, [0, 1, 2], 4, 4),  # TransposeConv no Bias
+        # op_type, opt_serializer, indices, version, inputs, output, expected
+        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, 1, [0, 1, 2], 3, 3),  # FC
+        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, 1, [0, 1, -1], 3, 3),  # FC disabled Bias
+        (Op.FullyConnected, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, 5, [0, 1], 3, 3),  # FC no Bias
+        (Op.Conv2DBias, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, 5, [2, 1, 3], 0, 3),  # Conv2D
+        (Op.Conv2DBackpropInput, None, TFLITE_CONV2D_BACKPROP_INDICES, 5, [0, 1, 2, 3], 4, 4),  # TransposeConv
+        (Op.Conv2DBackpropInput, None, TFLITE_CONV2D_BACKPROP_INDICES, 5, [0, 1, 2], 4, 4),  # TransposeConv no Bias
         pytest.param(
-            Op.Conv2DBias, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, [0, -1, 1], 3, 3, marks=pytest.mark.xfail
+            Op.Conv2DBias, None, TFLITE_IFM_WEIGHTS_BIAS_INDICES, 5, [0, -1, 1], 3, 3, marks=pytest.mark.xfail
         ),  # Conv2D no Weights
     ]
 
-    @pytest.mark.parametrize("op_type, opt_serializer, indices, inputs, output, expected", parse_op_testdata)
-    def test_parse_operator(self, op_type, opt_serializer, indices, inputs, output, expected):
+    @pytest.mark.parametrize("op_type, opt_serializer, indices, version, inputs, output, expected", parse_op_testdata)
+    def test_parse_operator(self, op_type, opt_serializer, indices, version, inputs, output, expected):
         with patch.object(TFLiteSubgraph, "__init__", lambda self, graph, subraph: None):
             # Mock a TFLiteSubGraph
             sg = TFLiteSubgraph(None, None)
             sg.graph = MagicMock()
-            sg.graph.operator_codes = [(op_type, opt_serializer, "", indices)]
+            sg.graph.operator_codes = [(op_type, opt_serializer, "", indices, version)]
 
             # Mock a couple of tensors
             sg.tensors = [MagicMock() for _ in range(5)]

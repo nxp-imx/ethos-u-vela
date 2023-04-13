@@ -108,8 +108,8 @@ class TFLiteSerialiser:
                             if inp is not None and inp.src_tensor is not None:
                                 op.inputs[idx] = inp.src_tensor
 
-        # list of tuple(Op, string); the custom code is only used for 3rd party custom operators
-        self.operator_codes = sorted(set((op.type, op.attrs.get("custom_code", "")) for op in all_ops))
+        # list of tuple(Op, string, op.version); the custom code is only used for 3rd party custom operators
+        self.operator_codes = sorted(set((op.type, op.attrs.get("custom_code", ""), op.version) for op in all_ops))
         self.operator_code_map = {}
 
     def align_nng_inputs_to_tflite(self, op):
@@ -176,7 +176,7 @@ class TFLiteSerialiser:
 
         return buffer_map
 
-    def serialise_operator_code(self, idx, op_type, custom_code):
+    def serialise_operator_code(self, idx, op_type, custom_code, version):
         builder = self.builder
         custom_code_offset = None
         if op_type == Op.Custom:
@@ -207,6 +207,7 @@ class TFLiteSerialiser:
         OperatorCode.OperatorCodeStart(builder)
         OperatorCode.OperatorCodeAddDeprecatedBuiltinCode(builder, tf_code if tf_code < 127 else 127)
         OperatorCode.OperatorCodeAddBuiltinCode(builder, tf_code)
+        OperatorCode.OperatorCodeAddVersion(builder, version)
         if custom_code_offset is not None:
             OperatorCode.OperatorCodeAddCustomCode(builder, custom_code_offset)
 
@@ -455,7 +456,10 @@ class TFLiteSerialiser:
     def serialise_model(self):
         builder = self.builder
         operator_code_offset = self.write_offset_vector(
-            [self.serialise_operator_code(idx, optype, code) for idx, (optype, code) in enumerate(self.operator_codes)]
+            [
+                self.serialise_operator_code(idx, optype, code, version)
+                for idx, (optype, code, version) in enumerate(self.operator_codes)
+            ]
         )
 
         description = builder.CreateString("Vela Optimised")

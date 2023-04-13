@@ -471,6 +471,7 @@ class Operation:
         "type",
         "_original_type",
         "name",
+        "version",
         "op_index",
         "attrs",
         "inputs",
@@ -504,6 +505,7 @@ class Operation:
         self.type = op_type
         self._original_type = op_type  # the original type of the operation. once set this shouldn't be changed
         self.name = name
+        self.version = 1  # Used to track original operator version.
         self.attrs: Dict[str, Any] = {}
         self.inputs: List[Optional[Tensor]] = []
         self.outputs: List[Tensor] = []
@@ -549,7 +551,7 @@ class Operation:
 
         # maintain the original type, in cases where the type was changed to something different
         res._original_type = self._original_type
-
+        res.version = self.version
         res.attrs = dict(self.attrs)
         res.inputs = list(self.inputs)
         res.outputs = list(self.outputs)

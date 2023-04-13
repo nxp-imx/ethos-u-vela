@@ -117,7 +117,7 @@ class TFLiteSubgraph:
         return tens
 
     def parse_operator(self, op_index, op_data):
-        op_type, opt_serializer, custom_code, indices = self.graph.operator_codes[op_data.OpcodeIndex()]
+        op_type, opt_serializer, custom_code, indices, version = self.graph.operator_codes[op_data.OpcodeIndex()]
         inputs = [self.tensors[idx] if idx != -1 else None for idx in op_data.InputsAsNumpy()]
         outputs = [self.tensors[idx] if idx != -1 else None for idx in op_data.OutputsAsNumpy()]
         intermediates = []
@@ -130,6 +130,7 @@ class TFLiteSubgraph:
         inputs = align_tensor_indices_to_nng(op_type, indices, inputs)
         op = Operation(op_type, name)
         op.op_index = op_index
+        op.version = version
         op.inputs = inputs
         op.outputs = outputs
         op.intermediates = intermediates
@@ -338,7 +339,7 @@ class TFLiteGraph:
         custom_code = None
         if c == BuiltinOperator.CUSTOM:
             custom_code = decode_str(code.CustomCode())
-        return op_type, ser, custom_code, indices
+        return op_type, ser, custom_code, indices, code.Version()
 
 
 def read_tflite(filename, batch_size, feed_dict, output_node_names, initialisation_nodes):
