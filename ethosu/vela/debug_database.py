@@ -52,6 +52,16 @@ class DebugDatabase:
     _streamTable: List[List[int]] = []
 
     @classmethod
+    def clean_db(cls):
+        cls._sourceUID: Dict[Any, int] = {}
+        cls._sourceTable: List[List[Union[float, int, str]]] = []
+        cls._optimisedUID: Dict[Any, Tuple[int, int]] = {}
+        cls._optimisedTable: List[List[Union[float, int, str]]] = []
+        cls._queueTable: List[List[int]] = []
+        cls._streamUID: Dict[Any, int] = {}
+        cls._streamTable: List[List[int]] = []
+
+    @classmethod
     def add_source(cls, op: Operation):
         assert isinstance(op, Operation)
         uid = len(cls._sourceUID)
