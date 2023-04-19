@@ -388,6 +388,7 @@ def convert(input_model_name):
 
     output_tfl_filename = output_basename + "_vela.tflite"
     tflite_writer.write_tflite(nng, output_tfl_filename)
+    DebugDatabase.clean_db()
 
     return output_tfl_filename
 
@@ -422,8 +423,9 @@ def convert_bytes(data):
         raise InputFileError(input_model_name, "Invalid data")
 
     compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, "data_model")
-
     buf = tflite_writer.write_tflite_buffer(nng)
+    DebugDatabase.clean_db()
+
     return memoryview(buf)
 
 def main(args=None):
