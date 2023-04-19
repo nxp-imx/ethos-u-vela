@@ -335,7 +335,7 @@ def create_const_tensor(
     ):
         values = [float(v) for v in values]
 
-    const_tensor.values = np.array(values, dtype=dtype.as_numpy_type())
+    const_tensor.values = np.array(values).astype(dtype.as_numpy_type())
     # Operator
     const_op = Operation(Op.Const, name)
     const_op.set_output_tensor(const_tensor)
