@@ -186,7 +186,6 @@ class TFLiteSemantic:
         self.specific_constraints[Op.HardSwish].append(TFLiteSemantic.constraint_matching_in_out_types)
 
         # Mean specific checks:
-        self.specific_constraints[Op.Mean].append(TFLiteSemantic.constraint_input_8bit)
         self.specific_constraints[Op.Mean].append(TFLiteSemantic.constraint_mean_input_dims)
         self.specific_constraints[Op.Mean].append(TFLiteSemantic.constraint_mean_axis)
 

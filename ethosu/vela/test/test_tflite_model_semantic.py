@@ -502,7 +502,7 @@ def test_mean_dtype():
     assert semantic_checker.is_operator_semantic_valid(op)
     op.ifm.dtype = DataType.int16
     op.ofm.dtype = DataType.int16
-    assert not semantic_checker.is_operator_semantic_valid(op)
+    assert semantic_checker.is_operator_semantic_valid(op)
 
 
 def test_mean_axis():
