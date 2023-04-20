@@ -1784,7 +1784,7 @@ def fixup_or_check_asymmetric_weights(force_symmetric_int_weights):
         return check_asymmetric_weights
 
 
-def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
+def convert_mean_to_depthwise_conv(op, arch, nng):
     if op.type == Op.Mean and op.run_on_npu:
         inp, axis = op.inputs
         shape = inp.shape
@@ -1796,15 +1796,11 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         if axis.shape == [] or axis.shape[0] == 1:  # single axis
             axis = int(axis.values) if len(axis.shape) == 0 else int(axis.values[0])
             if dims in (2, 3):
-                if axis == 0:
-                    h, w = shape[axis], 1
-                else:
-                    h, w = 1, shape[axis]
+                # If dims is 2 or 3, axis 0 refers to h-dimension
+                h, w = (shape[axis], 1) if axis == 0 else (1, shape[axis])
             else:
-                if axis == 1:
-                    h, w = shape[axis], 1
-                else:
-                    h, w = 1, shape[axis]
+                # If dims is 4, axis 1 refers to h-dimension
+                h, w = (shape[axis], 1) if axis == 1 else (1, shape[axis])
         else:  # multiple axes
             axis = sorted(axis.values)
             h, w = [shape[i] for i in axis]
@@ -1828,8 +1824,6 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         # Set IFM/OFM shapes after changing op type
         op.set_ifm_ofm_shapes()
 
-        ofmq, ifmq = op.ofm.quantization, inp.quantization
-
         # Change dimensions to 4
         def extend_dims(dim, in_shape):
             if dim < 4:
@@ -1852,7 +1846,6 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
             op.set_ifm_ofm_shapes()
 
         # If height is greater than max kernel height, reshape from HxW to 1x(HxW)
-        weight_shape = None
         if h > 64:
             # This can only happen and be done for multiple axes, and
             # h * w <= 4096 for DepthwiseConv2DBias
@@ -1860,15 +1853,14 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
             shape = [shape[0], 1, h * w, shape[3]]
             op.ifm_shapes[0] = Shape4D(shape)
             weight_shape = [1, h * w, shape[3], shape[0]]
+        else:
+            # Set weight shape to [H,W,C,B]
+            weight_shape = [h, w, shape[3], shape[0]]
 
         op.rounding_mode = NpuRoundingMode.NATURAL
         identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
         op.forced_input_quantization = identity_quant
         op.forced_output_quantization = identity_quant
-
-        if weight_shape is None:
-            # Set weight shape to [H,W,C,B]
-            weight_shape = [h, w, shape[3], shape[0]]
 
         # Add unit weight tensor
         op.set_input_tensor(
@@ -1884,18 +1876,28 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
         op.weights.values = np.reshape(op.inputs[1].values, weight_shape)
 
         # Input zero point is adjusted after the sum calculation, so we emulate that with a bias
+        ofmq, ifmq = op.ofm.quantization, inp.quantization
         bias = -ifmq.zero_point * h * w
         bias_shape = [shape[-1]]
         op.inputs.append(create_const_tensor(op.name + "_bias", bias_shape, DataType.int32, np.ones(bias_shape) * bias))
         DebugDatabase.add_optimised(op, op)
 
-        # Multiply sum with 1/num_elements_in_axis to get the mean
+        # Create intermediate tensor between depthwise conv and mul
         intermediate = op.ofm.clone(suffix="_intermediate", set_unique=True)
         intermediate.dtype = DataType.int32
+
+        # Multiply sum with 1/num_elements_in_axis to get the mean
         mul_op = Operation(Op.Mul, op.name + "_mul")
         mul_op.add_input_tensor(intermediate)
         mul_op.set_output_tensor(op.ofm)
         mul_op.forced_input_quantization = identity_quant
+
+        # Set dw conv output to the intermediate tensor
+        op.set_output_tensor(intermediate)
+
+        # Move activation from original op to mean op
+        mul_op.activation = op.activation
+        op.activation = None
 
         # The multiplier is calculated in the same way as in the reference,
         # clamping the shift value at the price of some precision loss.
@@ -1929,13 +1931,7 @@ def convert_mean_to_depthwise_conv_or_avgpool(op, arch, nng):
 
         # Need to use explicit scaling to get the wanted shift
         mul_op.explicit_scaling = ExplicitScaling(False, [output_shift_vela], [1])
-
-        mul_op.activation = op.activation
-        op.activation = None
-        op.set_output_tensor(intermediate)
-        op.set_ifm_ofm_shapes()
         DebugDatabase.add_optimised(op, mul_op)
-
     return op
 
 
@@ -2218,7 +2214,7 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
     # Rewrite of operators
     op_rewrite_list = [
         set_tensor_equivalence,
-        convert_mean_to_depthwise_conv_or_avgpool,
+        convert_mean_to_depthwise_conv,
         convert_depthwise_to_conv,
         convert_conv_to_fc,
         convert_lstm,
