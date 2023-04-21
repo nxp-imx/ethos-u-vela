@@ -323,7 +323,7 @@ class Imx93ArchitectureFeatures(architecture_features.ArchitectureFeatures):
         self.memory_latency[MemArea.Dram][BandwidthDirection.Write] = 250
 
 def convert(input_model_name):
-    sys.setrecursionlimit(2000)
+    sys.setrecursionlimit(4000)
 
     if not os.path.exists(input_model_name):
         raise InputFileError(input_model_name, "No such file")
@@ -368,7 +368,7 @@ def convert(input_model_name):
     return output_tfl_filename
 
 def convert_bytes(data):
-    sys.setrecursionlimit(2000)
+    sys.setrecursionlimit(4000)
 
     arch = Imx93ArchitectureFeatures(
         vela_config_files=None,
@@ -555,7 +555,7 @@ def main(args=None):
         parser.add_argument(
             "--recursion-limit",
             type=int,
-            default=2000,
+            default=4000,
             help="Set the recursion depth limit, may result in RecursionError if too low (default: %(default)s)",
         )
         parser.add_argument(
