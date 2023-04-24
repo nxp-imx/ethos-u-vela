@@ -179,7 +179,7 @@ class Op(Enum):
     EmbeddingLookup = OperatorInfo()
     EmbeddingLookupSparse = OperatorInfo()
     Equal = OperatorInfo()
-    Exp = OperatorInfo()
+    Exp = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
     ExpandDims = OperatorInfo(indices=NNG_IFM_INDICES)
     FakeQuantWithMinMaxArgs = OperatorInfo()
     Fill = OperatorInfo()

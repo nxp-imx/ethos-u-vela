@@ -201,6 +201,9 @@ class TFLiteSemantic:
         self.specific_constraints[Op.UnidirectionalSequenceLstm].append(TFLiteSemantic.constraint_lstm_intermediates)
         self.specific_constraints[Op.UnidirectionalSequenceLstm].append(TFLiteSemantic.constraint_lstm_variables)
 
+        # Exp specific checks
+        self.specific_constraints[Op.Exp].append(TFLiteSemantic.constraint_input_signed)
+
     def is_operator_semantic_valid(self, op):
         ext_type = optype_to_builtintype(op.type)
 

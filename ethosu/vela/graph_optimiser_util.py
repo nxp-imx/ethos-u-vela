@@ -20,7 +20,6 @@ from typing import Tuple
 
 import numpy as np
 
-from . import lut
 from .architecture_features import Accelerator
 from .data_type import DataType
 from .debug_database import DebugDatabase
@@ -29,8 +28,6 @@ from .errors import VelaError
 from .operation import Op
 from .operation_util import create_avgpool_nop
 from .shape4d import Shape4D
-from .tensor import create_const_tensor
-from .tensor import QuantizationParameters
 from .tensor import Tensor
 
 memory_only_ops = (
@@ -326,42 +323,6 @@ def convert_depthwise_to_conv(op, arch, nng):
                 f"Unsupported 'DEPTHWISE_CONV_2D' with depth_multiplier = {op.attrs['depth_multiplier']},",
                 f" ifm channels = {ifm_shape.depth}, ofm channels = {ofm_shape.depth}",
             )
-    return op
-
-
-def convert_to_lut(op, lut_values, lut_name):
-    # Rewrite the operation by Add with scalar 0 + LUT activation
-    ifm = op.ifm
-    ofm = op.ofm
-    if ifm is None:
-        return op
-    assert ifm.dtype.size_in_bytes() == 1
-    op.type = Op.Add
-    op.name = op.name + "_lut_" + lut_name
-    # Mark as no-op to enable potential fusing optimizations
-    op.attrs["is_nop"] = True
-    # Create an input tensor containing scalar zero
-    quantization = QuantizationParameters(0.0, 255.0)
-    quantization.scale_f32 = ifm.quantization.scale_f32
-    quantization.zero_point = 0
-    tens = create_const_tensor(ifm.name + "_scalar0", [], ifm.dtype, [0], quantization=quantization)
-    op.add_input_tensor(tens)
-    op.ifm_shapes.append(Shape4D(tens.shape))  # TODO no shape?
-
-    # The LUT must be applied without any preceding rescaling (the LUT itself performs the rescale),
-    # so even if the OFM has a different scale than the IFM, the generated OFM scale instructions
-    # should be the same as the IFM
-    op.forced_output_quantization = ifm.quantization
-
-    # the lut tensor datatype needs to match both; the ofm datatype, because these are the values output; and the
-    # datatype used to generate the lut values (which is probably the ifm datatype), because we want to avoid any
-    # potential overflow errors in create_lut_tensor() caused by converting Python int (which could represent a uint)
-    # to NumPy int. this can be guaranteed by checking that the ifm and ofm datatypes are the same
-    assert ifm.dtype == ofm.dtype
-    lut_tensor = lut.create_lut_tensor(op.name + "_values", lut_values, ofm.dtype)
-    op.set_activation_lut(lut_tensor)
-    op.set_ifm_ofm_shapes()
-    DebugDatabase.add_optimised(op, op)
     return op
 
 
