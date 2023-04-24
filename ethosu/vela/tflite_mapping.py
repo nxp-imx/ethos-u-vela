@@ -162,6 +162,7 @@ def inverse_map(map):
 
 
 datatype_map = {
+    TensorType.INT4: DataType.int4,
     TensorType.UINT8: DataType.uint8,
     TensorType.INT8: DataType.int8,
     TensorType.INT16: DataType.int16,
@@ -184,6 +185,7 @@ datatype_map = {
 datatype_inv_map = inverse_map(datatype_map)
 datatype_inv_map[DataType.quint8] = TensorType.UINT8
 
+datatype_inv_map[DataType.qint4] = TensorType.INT4
 datatype_inv_map[DataType.qint8] = TensorType.INT8
 datatype_inv_map[DataType.qint16] = TensorType.INT16
 datatype_inv_map[DataType.qint32] = TensorType.INT32
