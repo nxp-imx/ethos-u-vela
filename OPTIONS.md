@@ -432,6 +432,14 @@ Verbose weights information.
 vela network.tflite --verbose-weights
 ```
 
+### Verbose Progress
+
+Verbose progress information from the compiler driver and scheduler.  
+
+```bash
+vela network.tflite --verbose-progress
+```
+
 ## Configuration File
 
 This is used to describe various properties of the Ethos-U embedded system.  The

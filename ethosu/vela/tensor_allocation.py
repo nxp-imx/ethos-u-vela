@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -201,6 +201,7 @@ def allocate(
     lr_graph=None,
     cpu_tensor_alignment=Tensor.AllocationQuantum,
     hillclimb_max_iterations=None,
+    verbose_progress=False,
 ):
     # Allocates addresses to tensors, returns False if tensors could not be fit within max_size
     lrs = live_range.extract_live_ranges_from_cascaded_passes(
@@ -209,6 +210,7 @@ def allocate(
         mem_type_set,
         lr_graph=lr_graph,
         cpu_tensor_alignment=cpu_tensor_alignment,
+        verbose_progress=verbose_progress,
     )
     total_sz = 0
     if lrs.ranges:
@@ -235,6 +237,7 @@ def allocate_tensors(
     mem_type_set,
     tensor_allocator=TensorAllocator.Greedy,
     verbose_allocation=False,
+    verbose_progress=False,
     lr_graph=None,
     cpu_tensor_alignment=Tensor.AllocationQuantum,
     hillclimb_max_iterations=None,
@@ -251,6 +254,7 @@ def allocate_tensors(
         lr_graph=lr_graph,
         cpu_tensor_alignment=cpu_tensor_alignment,
         hillclimb_max_iterations=hillclimb_max_iterations,
+        verbose_progress=verbose_progress,
     )
 
     if lrs.ranges:

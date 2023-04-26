@@ -27,6 +27,7 @@ from .tensor import MemArea
 from .tensor import MemType
 from .tensor import Tensor
 from .tensor import TensorPurpose
+from .utils import progress_print
 
 
 class LiveRange:
@@ -231,6 +232,7 @@ def extract_live_ranges_from_cascaded_passes(
     target_mem_type_set,
     lr_graph=None,
     cpu_tensor_alignment=Tensor.AllocationQuantum,
+    verbose_progress: bool = False,
 ):
     if lr_graph is None:
         lr_graph = LiveRangeGraph()
@@ -239,7 +241,8 @@ def extract_live_ranges_from_cascaded_passes(
         # if subgraph has been processed already, return the lr_graph as is
         return lr_graph
 
-    for cps in sg.cascaded_passes:
+    for index, cps in enumerate(sg.cascaded_passes):
+        progress_print(verbose_progress, "Processing cascaded pass", index, sg.cascaded_passes)
         cps.time = lr_graph.current_time
 
         time_for_pass = cps.time
@@ -320,9 +323,10 @@ def create_linear_live_range_graph(sg, target_mem_area, target_mem_type_set, lr_
     return lr_graph
 
 
-def extract_live_ranges_from_schedule(sg, target_mem_area, target_mem_type_set, lr_graph):
+def extract_live_ranges_from_schedule(sg, target_mem_area, target_mem_type_set, lr_graph, verbose_progress=False):
     time_for_cascade = {}
-    for sched_op in sg.sched_ops:
+    for index, sched_op in enumerate(sg.sched_ops):
+        progress_print(verbose_progress, "Processing SchedulerOp", index, sg.sched_ops)
         op_info = sg.schedule.cost_map[sched_op]
         cascade = op_info.cascade
         cascade_info = sg.schedule.cascades.get(cascade, None)

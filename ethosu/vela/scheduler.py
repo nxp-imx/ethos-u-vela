@@ -31,6 +31,8 @@ from typing import Optional
 from typing import Tuple
 from typing import TYPE_CHECKING
 
+from .utils import progress_print
+
 # Import needed for Type annotations. Only import for Type checking to avoid run-time errors due to cyclic import.
 if TYPE_CHECKING:
     from .npu_performance import CycleCost
@@ -148,10 +150,12 @@ class SchedulerOptions:
         optimization_strategy,
         sram_target,
         verbose_schedule,
+        verbose_progress=False,
     ):
         self.optimization_strategy = optimization_strategy
         self.optimization_sram_limit = sram_target
         self.verbose_schedule = verbose_schedule
+        self.verbose_progress = verbose_progress
 
     def __str__(self) -> str:
         return f"{type(self).__name__}: {str(self.__dict__)}"
@@ -531,7 +535,9 @@ class Scheduler:
     def create_initial_schedule(self) -> Schedule:
         """Creates an initial schedule with no cascading or buffering of any kind"""
         schedule = Schedule(self.sg, "MAX")
-        for op in self.sched_ops:
+        verbose_progress = self.scheduler_options.verbose_progress
+        for index, op in enumerate(self.sched_ops):
+            progress_print(verbose_progress, "Processing SchedulerOp", index, self.sched_ops)
             cost = op.create_scheduler_info(self.nng, op.ofm.shape)
             cost.cycles = self.estimate_op_performance(op, cost.block_config, op.ofm.shape.depth)
             schedule.cost_map[op] = cost
@@ -540,16 +546,12 @@ class Scheduler:
 
     def update_op_memory_snapshot(self, schedule: Schedule):
         memories_list = [(self.arch.fast_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))]
-
+        verbose_progress = self.scheduler_options.verbose_progress
+        progress_print(verbose_progress, "")
         # Collect live ranges from tensors
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
-            live_range.extract_live_ranges_from_schedule(
-                self.sg,
-                mem_area,
-                mem_type_set,
-                lr_graph,
-            )
+            live_range.extract_live_ranges_from_schedule(self.sg, mem_area, mem_type_set, lr_graph, verbose_progress)
 
         # Populate time-array with memory used by live ranges
         temporal_usage = lr_graph.get_temporal_memory_usage(self.arch.fast_storage_mem_area)
@@ -607,9 +609,10 @@ class Scheduler:
     def propose_schedule_buffering(self, ref_schedule: Schedule, staging_limit_bytes):
         """Create a buffered schedule"""
         buffered_schedule = Schedule(self.sg, f"{ref_schedule.label}_BUFFERED")
-
+        verbose_progress = self.scheduler_options.verbose_progress
         prev_op = None
-        for sched_op in self.sched_ops:
+        for index, sched_op in enumerate(self.sched_ops):
+            progress_print(verbose_progress, "Processing SchedulerOp", index, self.sched_ops)
             if sched_op not in ref_schedule.cost_map:
                 # sched_op is not part of this sub-schedule - skip
                 continue
@@ -871,10 +874,11 @@ class Scheduler:
         next operators stride"""
         min_schedule = Schedule(self.sg, "MIN")
         cost_map = min_schedule.cost_map
-
+        verbose_progress = self.scheduler_options.verbose_progress
         # Keep track of the previous Op - which consumes the current Op's OFM
         prev_op: Optional[SchedulerOperation] = None
-        for sched_op in reversed(self.sched_ops):
+        for index, sched_op in enumerate(reversed(self.sched_ops)):
+            progress_print(verbose_progress, "Processing SchedulerOp", index, self.sched_ops)
             min_stripe_height = prev_op.kernel.stride.y if prev_op else 1
             min_stripe = sched_op.ofm.shape.with_height(min_stripe_height)
 
@@ -968,13 +972,15 @@ class Scheduler:
         return peak_mem_usage
 
     def build_cascades_for_min_schedule(self, min_schedule: Schedule, max_template: Schedule, memory_limit: int):
+        verbose_progress = self.scheduler_options.verbose_progress
         # Update memory snapshot
         self.sg.schedule = min_schedule
         self.update_op_memory_snapshot(min_schedule)
 
         # Calculate residual memory for Min schedule
         non_local_mem_usage = {}
-        for sched_op in self.sched_ops:
+        for index, sched_op in enumerate(self.sched_ops):
+            progress_print(verbose_progress, "Processing SchedulerOp", index, self.sched_ops)
             time_index = min_schedule.cost_map[sched_op].time_index
 
             if self.arch.is_spilling_enabled():
@@ -1089,13 +1095,16 @@ class Scheduler:
         options: SchedulerOptions,
     ) -> Schedule:
         """Extracts sub-schedules based on the cascades and optimizes them and applies them to the final schedule"""
+        verbose_progress = options.verbose_progress
         sram_limit = options.optimization_sram_limit
         if max_sched.fast_storage_peak_usage < sram_limit and not self.arch.is_spilling_enabled():
             # Maximum performance schedule fits within the SRAM target
             return max_sched
 
         # Iterate over a copy of the cascades since they may change during the loop
-        for cascade_info in list(schedule.cascades.values()):
+        cascades = list(schedule.cascades.values())
+        for index, cascade_info in enumerate(cascades):
+            progress_print(verbose_progress, "Processing cascade", index, cascades)
             # Optimize the sub-schedule in this cascade
             opt_sub_schedule = self.optimize_sub_schedule(cascade_info, schedule, max_template, sram_limit)
             if opt_sub_schedule:
@@ -1119,6 +1128,7 @@ class Scheduler:
         min_schedule: Schedule,
         options: SchedulerOptions,
     ):
+        verbose_progress = options.verbose_progress
         default_schedule = self.sg.schedule
         npu_performance.calc_new_performance_for_network(self.nng, self.arch, None, False)
         default_tot_cycles = self.nng.cycles[npu_performance.PassCycles.Total]
@@ -1135,12 +1145,7 @@ class Scheduler:
         memories_list = [(self.arch.fast_storage_mem_area, set((MemType.Scratch, MemType.Scratch_fast)))]
         lr_graph = live_range.LiveRangeGraph()
         for mem_area, mem_type_set in memories_list:
-            live_range.extract_live_ranges_from_schedule(
-                self.sg,
-                mem_area,
-                mem_type_set,
-                lr_graph,
-            )
+            live_range.extract_live_ranges_from_schedule(self.sg, mem_area, mem_type_set, lr_graph, verbose_progress)
 
         # Find the relation between the sched_op and the buffering tensor
         weight_ops = {}
@@ -1416,7 +1421,9 @@ class Scheduler:
             print(f"\t\t{i}: {cascade.start} -> {cascade.end}, size: {cascade.mem_usage}")
 
 
-def _update_memory_snapshot_for_all_npu_graphs(nng: Graph, arch: ArchitectureFeatures, schedulers):
+def _update_memory_snapshot_for_all_npu_graphs(
+    nng: Graph, arch: ArchitectureFeatures, schedulers, verbose_progress: bool = False
+):
     mem_area = arch.fast_storage_mem_area
     mem_type_set = set((MemType.Scratch, MemType.Scratch_fast))
 
@@ -1426,11 +1433,7 @@ def _update_memory_snapshot_for_all_npu_graphs(nng: Graph, arch: ArchitectureFea
     # will be set for all the tensors.
     lr_graph = live_range.LiveRangeGraph()
     live_range.extract_live_ranges_from_cascaded_passes(
-        nng.get_root_subgraph(),
-        mem_area,
-        mem_type_set,
-        lr_graph,
-        Tensor.AllocationQuantum,
+        nng.get_root_subgraph(), mem_area, mem_type_set, lr_graph, Tensor.AllocationQuantum, verbose_progress
     )
     # Populate time-array with memory used by live ranges
     temporal_usage = lr_graph.get_temporal_memory_usage(arch.fast_storage_mem_area)
@@ -1471,6 +1474,7 @@ def _update_tensor_allocation(nng: Graph, arch: ArchitectureFeatures, options):
             mem_type_set,
             tensor_allocator=options.tensor_allocator,
             verbose_allocation=options.verbose_allocation,
+            verbose_progress=options.verbose_progress,
             cpu_tensor_alignment=options.cpu_tensor_alignment,
             hillclimb_max_iterations=options.hillclimb_max_iterations,
         )
@@ -1570,14 +1574,17 @@ class FastStorageComponentAllocator:
 
 def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_options: SchedulerOptions):
     """Entry point for the Scheduler"""
+    verbose_progress = scheduler_options.verbose_progress
     # Initialize CPU subgraphs
     schedulers = dict()
     # Initialize schedulers with max schedule. Only schedule NPU subgraphs
-    for sg in nng.subgraphs:
+    for sg_idx, sg in enumerate(nng.subgraphs):
+        progress_print(verbose_progress, "Processing subgraph", sg_idx, nng.subgraphs)
         if sg.placement != PassPlacement.Npu:
             # Create cascaded passes for CPU Ops
             cascaded_passes = []
-            for idx, ps in enumerate(sg.passes):
+            for pass_idx, ps in enumerate(sg.passes):
+                progress_print(verbose_progress, "Creating cascaded passes for CPU op", pass_idx, sg.passes)
                 cps = CascadedPass(
                     ps.name,
                     SchedulingStrategy.WeightStream,
@@ -1589,7 +1596,7 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
                     False,
                 )
 
-                cps.time = idx
+                cps.time = pass_idx
                 ps.cascade = cps
                 cascaded_passes.append(cps)
 
@@ -1599,6 +1606,7 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
             scheduler = Scheduler(nng, sg, arch, scheduler_options)
             schedulers[sg] = scheduler
 
+            progress_print(verbose_progress, "Creating scheduler representation")
             scheduler.create_scheduler_representation(arch)
             sg.sched_ops = scheduler.sched_ops
 
@@ -1606,6 +1614,7 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
             max_schedule_template = scheduler.create_initial_schedule()
             scheduler.max_schedule = max_schedule_template
 
+            progress_print(verbose_progress, "Creating optimised max schedule")
             # Create the optimimised Max schedule
             sg.schedule = max_schedule_template
             scheduler.update_op_memory_snapshot(max_schedule_template)
@@ -1613,6 +1622,7 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
             sg.schedule = opt_max_schedule
             scheduler.update_op_memory_snapshot(opt_max_schedule)
 
+            progress_print(verbose_progress, "Creating minimal schedule")
             # Create Min schedule
             min_schedule = scheduler.propose_minimal_schedule()
             initial_sram_limit = scheduler_options.optimization_sram_limit
@@ -1620,11 +1630,13 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
                 initial_sram_limit = scheduler.min_memory_req
 
             # Build cascades for Min schedule
+            progress_print(verbose_progress, "Building cascades for minimal schedule")
             scheduler.build_cascades_for_min_schedule(min_schedule, max_schedule_template, initial_sram_limit)
             sg.schedule = min_schedule
             scheduler.update_op_memory_snapshot(min_schedule)
 
             if scheduler_options.optimization_strategy == OptimizationStrategy.Performance:
+                progress_print(verbose_progress, "Creating schedule optimized for performance")
                 # Create an optimized schedule
                 sg.schedule = scheduler.optimize_schedule(
                     min_schedule, opt_max_schedule, max_schedule_template, scheduler_options
@@ -1635,6 +1647,7 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
             scheduler.use_fast_storage_for_feature_maps(sg.schedule, scheduler_options.optimization_sram_limit)
 
             if scheduler_options.optimization_strategy == OptimizationStrategy.Performance and scheduler.evicted_fms:
+                progress_print(verbose_progress, "Optimizing weight buffering size")
                 # It might be possible to gain performance by reducing
                 # weight buffer size and instead fit fms in fast storage
                 scheduler.optimize_weight_buffering_size(min_schedule, scheduler_options)
@@ -1642,8 +1655,10 @@ def schedule_passes(nng: Graph, arch: ArchitectureFeatures, options, scheduler_o
             if scheduler_options.verbose_schedule:
                 scheduler.print_schedule(sg.schedule)
 
+    progress_print(verbose_progress, "Update memory snapshot for all NPU graphs")
     # Make a full live range calculation starting from the root sg
-    _update_memory_snapshot_for_all_npu_graphs(nng, arch, schedulers)
+    _update_memory_snapshot_for_all_npu_graphs(nng, arch, schedulers, verbose_progress)
 
+    progress_print(verbose_progress, "Update tensor allocation")
     # Evaluate schedule
     _update_tensor_allocation(nng, arch, options)

@@ -372,6 +372,7 @@ def main(args=None):
         parser.add_argument("--verbose-operators", action="store_true", help="Verbose operator list")
         parser.add_argument("--verbose-weights", action="store_true", help="Verbose weights information")
         parser.add_argument("--verbose-performance", action="store_true", help="Verbose performance information")
+        parser.add_argument("--verbose-progress", action="store_true", help="Verbose progress information")
         parser.add_argument(
             "--show-cpu-operations", action="store_true", help="Show the operations that fall back to the CPU"
         )
@@ -555,6 +556,7 @@ def main(args=None):
             verbose_operators=args.verbose_operators,
             verbose_weights=args.verbose_weights,
             verbose_performance=args.verbose_performance,
+            verbose_progress=args.verbose_progress,
             show_cpu_operations=args.show_cpu_operations,
             tensor_allocator=args.tensor_allocator,
             timing=args.timing,
@@ -568,6 +570,7 @@ def main(args=None):
             optimization_strategy=args.optimise,
             sram_target=arch.arena_cache_size,
             verbose_schedule=args.verbose_schedule,
+            verbose_progress=args.verbose_progress,
         )
 
         model_reader_options = model_reader.ModelReaderOptions()

@@ -40,6 +40,7 @@ from .scheduler import OptimizationStrategy
 from .tensor import MemArea
 from .tensor import MemType
 from .tensor import Tensor
+from .utils import progress_print
 
 
 class CompilerOptions:
@@ -62,6 +63,7 @@ class CompilerOptions:
         verbose_operators=False,
         verbose_weights=False,
         verbose_performance=False,
+        verbose_progress=False,
         show_cpu_operations=False,
         tensor_allocator=TensorAllocator.Greedy,
         timing=False,
@@ -82,6 +84,7 @@ class CompilerOptions:
         self.verbose_operators = verbose_operators
         self.verbose_weights = verbose_weights
         self.verbose_performance = verbose_performance
+        self.verbose_progress = verbose_progress
         self.show_cpu_operations = show_cpu_operations
         self.tensor_allocator = tensor_allocator
         self.timing = timing
@@ -154,11 +157,13 @@ def _check_schedule(nng, arch, scheduler_options):
 
 def compiler_driver(nng, arch, options, scheduler_options, network_type, output_basename):
     assert verify_graph_health(nng)
+    verbose_progress = scheduler_options.verbose_progress
 
     # Pre-optimisation operator tracking
     for sg in nng.subgraphs:
         visit_graph_post_order(sg.output_tensors, arch, [], [_record_operator])
 
+    progress_print(verbose_progress, "Performing graph optimisation")
     nng = graph_optimiser.optimise_graph(
         nng, arch, network_type, options.verbose_graph, options.force_symmetric_int_weights
     )
@@ -167,17 +172,22 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
     if options.verbose_quantization:
         nng.print_graph_with_tensor_quantization()
 
+    progress_print(verbose_progress, "Defining tensor purpose")
     nng = mark_tensors.mark_tensor_purpose(nng, arch, options.verbose_tensor_purpose)
     assert verify_graph_health(nng)
+
+    progress_print(verbose_progress, "Performing pass packing")
     pass_packing.pack_into_passes(nng, arch, options.verbose_packing)
     assert verify_graph_health(nng)
 
+    progress_print(verbose_progress, "Extracting npu subgraphs")
     extract_npu_subgraphs.extract_npu_subgraphs(nng, arch)
 
     assert verify_graph_health(nng)
     if options.timing:
         start = time.time()
 
+    progress_print(verbose_progress, "Scheduling passes")
     # Run the scheduler
     scheduler.schedule_passes(nng, arch, options, scheduler_options)
     _check_schedule(nng, arch, scheduler_options)
@@ -199,6 +209,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
     # Create list of NPU subgraphs with same order as the list of all subgraphs
     npu_subgraphs = [sg for sg in nng.subgraphs if sg.placement == PassPlacement.Npu]
 
+    progress_print(verbose_progress, "Calculating live ranges for constant NPU tensors")
     # Calculate live ranges for all constant Npu tensors, in permanent storage
     for sg in npu_subgraphs:
         lr_graph_flash = live_range.create_linear_live_range_graph(
@@ -209,6 +220,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
         )
 
     if npu_subgraphs:
+        progress_print(verbose_progress, "Allocating NPU constant tensors to the first NPU subgraph")
         # Allocate all Npu constant tensors to the first Npu subgraph since it is
         # processed first during serialization into tensors
         first_npu_sg = npu_subgraphs[0]
@@ -225,6 +237,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
 
     root_sg = nng.get_root_subgraph()
 
+    progress_print(verbose_progress, "Generating command stream")
     # Generate command streams and serialise Npu-ops into tensors
     for sg in npu_subgraphs:
         high_level_command_stream_generator.generate_high_level_command_stream_for_schedule(
@@ -249,6 +262,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
     if scratch_fast_tens is not None:
         scratch_fast_tens.set_all_shapes([root_sg.memory_used_per_type.get(MemType.Scratch_fast, 0)])
 
+    progress_print(verbose_progress, "Allocating CPU constant tensors")
     # Allocate all Cpu constant tensors, this is done last because the Npu-ops
     # have to be serialized into flash and scratch tensors first
     tensor_allocation.allocate_tensors(
@@ -261,7 +275,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
         verbose_allocation=options.verbose_allocation,
         cpu_tensor_alignment=options.cpu_tensor_alignment,
     )
-
+    progress_print(verbose_progress, "Calculating new performance for the network")
     npu_performance.calc_new_performance_for_network(
         nng, arch, network_type, options.verbose_performance, output_basename
     )
