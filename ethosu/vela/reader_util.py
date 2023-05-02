@@ -51,7 +51,7 @@ def fixup_tensors(input_tensors, tensors):
         if tens.ops != []:
             tens.error("This subgraph input tensor has unexpected driving operators.")
 
-        op = Operation(Op.Placeholder, tens.name)
+        op = Operation(Op.Placeholder if tens.values is None else Op.Const, tens.name)
         op.set_output_tensor(tens)
 
     for tens in tensors:
