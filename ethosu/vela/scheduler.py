@@ -566,15 +566,15 @@ class Scheduler:
     def estimate_op_performance(self, op: SchedulerOperation, block_config, ofm_depth):
         query = npu_performance.PerformanceQuery(op.op_type.npu_block_type)
         query.ifm_shape = op.ifm.shape
-        query.ifm_memory_area = op.ifm.mem_area
+        query.ifm_memory_area = op.ifm.connection.parent_tens.mem_area
         query.ifm_bits = op.ifm.dtype.size_in_bits()
         query.ifm_format = op.ifm.format
         query.ifm2_shape = op.ifm2 and op.ifm2.shape
-        query.ifm2_memory_area = op.ifm2 and op.ifm2.mem_area
+        query.ifm2_memory_area = op.ifm2 and op.ifm2.connection.parent_tens.mem_area
         query.ifm2_bits = op.ifm2 and op.ifm2.dtype.size_in_bits()
         query.ifm2_format = op.ifm2 and op.ifm2.format
         query.ofm_shape = op.ofm.shape.with_depth(ofm_depth)
-        query.ofm_memory_area = op.ofm.mem_area
+        query.ofm_memory_area = op.ofm.connection.parent_tens.mem_area
         query.ofm_bits = op.ofm.dtype.size_in_bits()
         query.ofm_format = op.ofm.format
         if op.parent_op.bias:
@@ -589,15 +589,15 @@ class Scheduler:
     def estimate_element_access(self, op: SchedulerOperation, block_config, ofm_depth):
         query = npu_performance.PerformanceQuery(op.op_type.npu_block_type)
         query.ifm_shape = op.ifm.shape
-        query.ifm_memory_area = op.ifm.mem_area
+        query.ifm_memory_area = op.ifm.connection.parent_tens.mem_area
         query.ifm_bits = op.ifm.dtype.size_in_bits()
         query.ifm_format = op.ifm.format
         query.ifm2_shape = op.ifm2 and op.ifm2.shape
-        query.ifm2_memory_area = op.ifm2 and op.ifm2.mem_area
+        query.ifm2_memory_area = op.ifm2 and op.ifm2.connection.parent_tens.mem_area
         query.ifm2_bits = op.ifm2 and op.ifm2.dtype.size_in_bits()
         query.ifm2_format = op.ifm2 and op.ifm2.format
         query.ofm_shape = op.ofm.shape.with_depth(ofm_depth)
-        query.ofm_memory_area = op.ofm.mem_area
+        query.ofm_memory_area = op.ofm.connection.parent_tens.mem_area
         query.ofm_bits = op.ofm.dtype.size_in_bits()
         query.ofm_format = op.ofm.format
         if op.parent_op.bias:

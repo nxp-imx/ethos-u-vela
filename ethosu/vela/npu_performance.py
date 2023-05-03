@@ -194,7 +194,7 @@ def _strides_for_shape(shape: Shape4D, format: TensorFormat, element_bits):
 
 
 def _estimate_memory_transfer_efficiency(
-    arch, is_read, mem_area, format: TensorFormat, element_bits, block_size, shape4D, to_transfer
+    arch, is_read, mem_area, format, element_bits, block_size, shape4D, to_transfer
 ):
     burst_len = 8
 
@@ -620,14 +620,14 @@ def estimate_full_op_performance(
     query = PerformanceQuery(op.op_type.npu_block_type)
     query.ifm_shape = op.ifm.shape
     query.ifm_format = op.ifm.format
-    query.ifm_memory_area = op.ifm.mem_area
+    query.ifm_memory_area = op.ifm.connection.parent_tens.mem_area  # Mem Area is set directly on parent_tens
     query.ifm_bits = op.ifm.dtype.size_in_bits()
     query.ifm2_shape = op.ifm2 and op.ifm2.shape
     query.ifm2_format = op.ifm2 and op.ifm2.format
-    query.ifm2_memory_area = op.ifm2 and op.ifm2.mem_area
+    query.ifm2_memory_area = op.ifm2 and op.ifm2.connection.parent_tens.mem_area
     query.ifm2_bits = op.ifm2 and op.ifm2.dtype.size_in_bits()
     query.ofm_shape = op.ofm.shape
-    query.ofm_memory_area = op.ofm.mem_area
+    query.ofm_memory_area = op.ofm.connection.parent_tens.mem_area
     query.ofm_bits = op.ofm.dtype.size_in_bits()
     query.ofm_format = op.ofm.format
     query.kernel = op.kernel
@@ -715,31 +715,38 @@ def estimate_full_op_performance(
         cycles_a[PassCycles.Npu] += max(dma_transfer_cycles - slack_cycles, 0)
 
     # OFM write
-    ofm = op.parent_op.ofm
+    ofm = op.ofm.connection.parent_tens
     bw = access.ofm_write * ofm.element_size()
     bws[query.ofm_memory_area][ofm.purpose][BandwidthDirection.Write] += bw
-    scaled_bws[ofm.mem_area][ofm.purpose][BandwidthDirection.Write] += _estimate_memory_transfer_efficiency(
-        arch, False, query.ofm_memory_area, ofm.format, query.ofm_bits, query.config.ofm_block, query.ofm_shape, bw
+    scaled_bws[query.ofm_memory_area][ofm.purpose][BandwidthDirection.Write] += _estimate_memory_transfer_efficiency(
+        arch,
+        False,
+        query.ofm_memory_area,
+        query.ofm_format,
+        query.ofm_bits,
+        query.config.ofm_block,
+        query.ofm_shape,
+        bw,
     )
 
     # IFM read
-    ifm = op.parent_op.ifm2 if op.reversed_operands else op.parent_op.ifm
+    ifm = op.ifm.connection.parent_tens
     bw = access.ifm_read[0] * ifm.element_size()
-    bws[ifm.mem_area][ifm.purpose][BandwidthDirection.Read] += bw
-    scaled_bws[ifm.mem_area][ifm.purpose][BandwidthDirection.Read] += _estimate_memory_transfer_efficiency(
-        arch, True, query.ifm_memory_area, ifm.format, query.ifm_bits, query.config.ifm_block, query.ifm_shape, bw
+    bws[query.ifm_memory_area][ifm.purpose][BandwidthDirection.Read] += bw
+    scaled_bws[query.ifm_memory_area][ifm.purpose][BandwidthDirection.Read] += _estimate_memory_transfer_efficiency(
+        arch, True, query.ifm_memory_area, query.ifm_format, query.ifm_bits, query.config.ifm_block, query.ifm_shape, bw
     )
 
     if query.ifm2_shape:
-        ifm2 = op.parent_op.ifm if op.reversed_operands else op.parent_op.ifm2
+        ifm2 = op.ifm2.connection.parent_tens
         bw = access.ifm_read[1] * ifm2.element_size()
         bws[ifm2.mem_area][ifm2.purpose][BandwidthDirection.Read] += bw
         scaled_bws[ifm2.mem_area][ifm2.purpose][BandwidthDirection.Read] += _estimate_memory_transfer_efficiency(
             arch,
             True,
             query.ifm2_memory_area,
-            ifm2.format,
-            op.ifm2.dtype.size_in_bits(),
+            query.ifm2_format,
+            query.ifm2_bits,
             query.config.ifm_block,
             query.ifm2_shape,
             bw,
