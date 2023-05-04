@@ -336,7 +336,17 @@ vela network.tflite --verbose-config
 
 ### Verbose Graph
 
-Verbose graph rewriter.  
+Displays two lists of operators. The first lists all of the operators that exist
+in Vela's internal representation (Graph IR) of the Neural Network Graph (NNG)
+before the graph optimisation process has run.  The second lists all of the
+operators after that process.  The lists do not show the connectivity
+information of the NNG and are unordered, therefore the execution order may
+differ.  Each line in the list is of the format:  
+`<num> <op_type> <op_name>`, where;  
+num = an increasing operator count  
+op_type = the Graph IR Operator Type  
+op_name = the Graph IR Operator Name (this may have been derived from the
+corresponding TFLite operator name)  
 
 ```bash
 vela network.tflite --verbose-graph
@@ -344,7 +354,17 @@ vela network.tflite --verbose-graph
 
 ### Verbose Quantization
 
-Verbose quantization.  
+Displays quantization information of all *weight*, *bias*, *input* and *output*
+tensors for each operator in the Neural Network Graph (NNG).  The quantization
+approximates floating point values as:
+`approx_float_value = (integer_value - zero_point) * scale`
+The information of each tensor is displayed in the format:
+`<idx> <data_type> <min> <max> <scale> <zero_point> <name>`, where;  
+idx = the tensor index on each operator  
+min = the minimum floating point value before quantization  
+max = the maximum floating point value before quantization  
+scale = the quantization scaling, zero_point = the quantization zero point  
+name = the name of the tensor  
 
 ```bash
 vela network.tflite --verbose-quantization
@@ -352,7 +372,13 @@ vela network.tflite --verbose-quantization
 
 ### Verbose Packing
 
-Verbose pass packing.  
+Displays a list of passes where a pass represents one or more Graph IR operators
+that are run together as one hardware operation e.g. a pass could be a
+convolution operator fused with a hardswish activation.  Each line of the list
+has the format:  
+`<id> <pass>`, where;  
+id = an increasing pass count  
+pass = name of the pass (usually derived from the first operator in the pass)  
 
 ```bash
 vela network.tflite --verbose-packing
@@ -370,23 +396,53 @@ vela network.tflite --verbose-performance
 
 ### Verbose Tensor Purpose
 
-Verbose tensor purpose.  
+Displays a list of all operators and the tensors that are connected to them.
+Additional information is shown about the tensors. The format is:
+`<num> <op_type> <op_name>`, where;  
+`  <direction> <idx> <purpose> <mem_area> <mem_type> <tens>`, where;  
+num = an increasing operator count  
+op_type = the Graph IR Operator Type  
+op_name = the Graph IR Operator Name (this may have been derived from the
+corresponding TFLite operator name)  
+direction = either *Input* or *Output* and indicates the connection direction of
+the tensor with respect 
+idx = the index position where on each operator  
+purpose = purpose of the tensor (weight, bias, feature map, etc.)  
+mem_area = assigned memory area (for example SRAM or Flash)  
+mem_type = memory type (i.e. Scratch or Permanent NPU)  
+tens = string representation of the tensor containing its name, shape and data
+type  
 
 ```bash
 vela network.tflite --verbose-tensor-purpose
 ```
 
-### Verbose Tensor Format
-
-Verbose tensor format.  
-
-```bash
-vela network.tflite --verbose-tensor-format
-```
-
 ### Verbose Schedule
 
-Verbose schedule.  
+Display all schedule operations which contain information about the operator
+type, block config, stripe sizes, size of encoded weights, size of weight
+buffers, depth slices, cascade assignment and SRAM usage. The purpose of the
+scheduler is to come up with an execution plan for the network. It will make
+decisions on how to split an operator execution into stripes, group operators
+together in cascades to either reduce SRAM footprint or, in a multi-level
+memory system, better utilize the SRAM. The scheduler will also decide in what
+memory to put tensors as well as how to buffer data from a slower memory like
+Flash/DRAM to SRAM.
+
+Feature maps can be split up into horizontal subsections called stripes that
+allow us to apply operators independently to smaller sections of feature maps.
+The output stripes that are produced can fit into a smaller buffer than the
+output of a full feature map would, which combined with cascading can reduce
+memory usage.
+
+A cascade is a group of operators that will be computed interleaved in stripes.
+Instead of storing the full output of an operator applied on a whole feature
+map, we calculate the smallest possible buffer that allows storing intermediate
+results of enough output stripes of one operator to allow the consecutive
+operator to calculate one output stripe. Then, the consumed parts of the buffer
+that is no longer needed by the consecutive operator in the cascade can be
+overwritten by a new output stripe of the first operator, allowing us to reuse
+and reduce the memory usage.  
 
 ```bash
 vela network.tflite --verbose-schedule
@@ -394,7 +450,15 @@ vela network.tflite --verbose-schedule
 
 ### Verbose Allocation
 
-Verbose tensor allocation.  
+This option displays tensor allocation information in separate tables for each
+type of memory area. Each table contains information about each tensor's start
+and end time, address, size and purpose as well as the memory usage during the
+each tensors live range. The start- and end time denotes the time steps during
+when the tensor needs to be allocated in the memory. After the end time, the
+addresses are allowed to be overwritten by other tensors. The reported memory
+usage is the peak usage at any time step of the tensors live range, which means
+that the maximum memory usage value of all tensors will be the minimum required
+size to fit the proposed allocation.  
 
 ```bash
 vela network.tflite --verbose-allocation
@@ -402,7 +466,9 @@ vela network.tflite --verbose-allocation
 
 ### Verbose High Level Command Stream
 
-Verbose high level command stream.  
+Display a high level command stream with one command per DMA or NPU stripe. The
+commands contain information about block configuration as well as IFM-, OFM-
+and weight boxes.  
 
 ```bash
 vela network.tflite --verbose-high-level-command-stream
@@ -410,7 +476,8 @@ vela network.tflite --verbose-high-level-command-stream
 
 ### Verbose Register Command Stream
 
-Verbose register command stream.  
+Display all NPU operations and a register level (low level) command stream with
+all register settings for the network execution on the NPU.  
 
 ```bash
 vela network.tflite --verbose-register-command-stream
@@ -418,7 +485,8 @@ vela network.tflite --verbose-register-command-stream
 
 ### Verbose Operators
 
-Verbose operator list.  
+Display a list of all operators in the neural network graph along with their
+attributes before any optimization is made by Vela.  
 
 ```bash
 vela network.tflite --verbose-operators
@@ -426,7 +494,11 @@ vela network.tflite --verbose-operators
 
 ### Verbose Weights
 
-Verbose weights information.  
+Displays the size of the *Original* and *Ethos-U NPU Encoded* weights as part of
+the final summary information.  The *original* weights size refers to the size
+of the weights as read from the input `.tflite` file.  The *NPU Encoded* weights
+size refers to the total size of all of the weight tensors after they have been
+reordered, padded and encoded for the operators that run on the Ethos-U.  
 
 ```bash
 vela network.tflite --verbose-weights
@@ -434,7 +506,8 @@ vela network.tflite --verbose-weights
 
 ### Verbose Progress
 
-Verbose progress information from the compiler driver and scheduler.  
+This option displays progress information of the most time consuming parts of
+the compiler driver and scheduler.  
 
 ```bash
 vela network.tflite --verbose-progress
