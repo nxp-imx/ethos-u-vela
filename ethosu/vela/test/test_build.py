@@ -20,7 +20,7 @@ from pathlib import Path
 from tarfile import TarFile
 from tempfile import TemporaryDirectory
 
-import build
+import build  # noreorder
 import pytest
 
 

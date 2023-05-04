@@ -47,7 +47,7 @@ dev = [
     "pytest-cov",
     "pre-commit",
     "build",
-    "setuptools_scm[toml]<6"
+    "setuptools_scm[toml]~=7.1.0"
 ]
 
 [project.urls]
@@ -60,6 +60,6 @@ vela = "ethosu.vela.vela:main"
 requires = [
     "numpy<=1.21.3; python_version<='3.7'",
     "numpy; python_version>'3.7'",
-    "setuptools_scm[toml]<6"
+    "setuptools_scm[toml]~=7.1.0"
 ]
 build-backend = "setuptools.build_meta"
