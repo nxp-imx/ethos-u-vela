@@ -284,7 +284,7 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
     # TensorFlow Lite casts the scales slightly differently for uint8 and int8 as well as
     # for FullyConnected operators
     if not rescale_for_faf:
-        if ifm_dtype == DataType.uint8 or first_consumer_op.type == Op.FullyConnected:
+        if ifm_dtype == DataType.uint8 or first_consumer_op.original_type == Op.FullyConnected:
             scales = [np.double(ifm_scale * weight_scale) / np.double(ofm_scale) for weight_scale in weight_scales]
         elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
             scales = [
