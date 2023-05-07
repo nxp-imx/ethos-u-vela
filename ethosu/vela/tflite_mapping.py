@@ -793,7 +793,7 @@ builtin_operator_map = {
     BuiltinOperator.LOG: (Op.Log, None, TFLITE_NO_INDICES),
     BuiltinOperator.SUM: (Op.Sum, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
     BuiltinOperator.SQRT: (Op.Sqrt, None, TFLITE_NO_INDICES),
-    BuiltinOperator.RSQRT: (Op.Rsqrt, None, TFLITE_NO_INDICES),
+    BuiltinOperator.RSQRT: (Op.Rsqrt, None, TFLITE_IFM_INDICES),
     BuiltinOperator.SHAPE: (
         Op.Shape,
         OptionsSerializer("ShapeOptions", (("out_type", datatype_deserialize, datatype_serialize),)),

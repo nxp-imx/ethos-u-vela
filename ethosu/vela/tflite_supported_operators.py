@@ -326,6 +326,9 @@ class TFLiteSupportedOperators:
         self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_lstm_no_normalisation)
         self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_lstm_weights)
 
+        # Rsqrt specific checks
+        self.specific_constraints[Op.Rsqrt].append(TFLiteSupportedOperators.constraint_rsqrt_input_int8)
+
     def is_operator_supported(self, op):
         ext_type = optype_to_builtintype(op.type)
         if op.type not in TFLiteSupportedOperators.supported_operators:
@@ -911,3 +914,10 @@ class TFLiteSupportedOperators:
         "All input and recurrent weights must be available"
         valid = None not in op.inputs[1:9]
         return valid, "Op has missing weights"
+
+    @staticmethod
+    def constraint_rsqrt_input_int8(op):
+        "IFM must be int8"
+        ifm_dtype = op.ifm.dtype
+        valid = ifm_dtype == DataType.int8
+        return valid, f"Op has ifm_dtype={ifm_dtype}"

@@ -662,3 +662,15 @@ def test_lstm_support():
     op.inputs[23] = None
     # Test restored valid configuration
     assert support.is_operator_supported(op)
+
+
+def test_rsqrt_support():
+    # Test supported op (int8)
+    op = testutil.create_elemwise_op(Op.Rsqrt, "op", [1, 8, 8, 8], [1, 8, 8, 8], [1, 8, 8, 8], datatype=DataType.int8)
+    assert support.is_operator_supported(op)
+    # Test not supported op (uint8)
+    op = testutil.create_elemwise_op(Op.Rsqrt, "op", [1, 8, 8, 8], [1, 8, 8, 8], [1, 8, 8, 8], datatype=DataType.uint8)
+    assert not support.is_operator_supported(op)
+    # Test not supported op (int16)
+    op = testutil.create_elemwise_op(Op.Rsqrt, "op", [1, 8, 8, 8], [1, 8, 8, 8], [1, 8, 8, 8], datatype=DataType.int16)
+    assert not support.is_operator_supported(op)

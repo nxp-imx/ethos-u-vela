@@ -263,7 +263,7 @@ class Op(Enum):
     ReverseV2 = OperatorInfo()
     Rnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
     Round = OperatorInfo()
-    Rsqrt = OperatorInfo()
+    Rsqrt = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
     SHL = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)  # NPU specific operation
     SHR = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)  # NPU specific operation
     ScatterNd = OperatorInfo()

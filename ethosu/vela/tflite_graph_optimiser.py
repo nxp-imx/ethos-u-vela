@@ -45,6 +45,7 @@ from .lstm import Lstm
 from .lut import convert_to_lut
 from .lut import create_lut_8bit_op
 from .lut import create_lut_int16_op
+from .lut import create_lut_rsqrt_int8_op
 from .numeric_util import clamp_sigmoid
 from .numeric_util import full_shape
 from .numeric_util import round_away_zero
@@ -2047,6 +2048,9 @@ def convert_ops_to_lut(op, arch, nng):
         else:
             # Should already be catched in tflite supported ops
             assert False, f"Unsupported data type {op.ifm.dtype} for {op.type}"
+
+    if op.type == Op.Rsqrt:
+        return create_lut_rsqrt_int8_op(op)
 
     return op
 
