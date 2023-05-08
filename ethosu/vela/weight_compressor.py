@@ -250,7 +250,7 @@ def _get_output_quantization(op):
     return quant
 
 
-def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
+def _prepare_scale_and_bias(arch, tens, explicit_scaling):
     assert tens.purpose in [TensorPurpose.FeatureMap, TensorPurpose.FSBias]
     assert tens.format == TensorFormat.NHWC
     # the connected operator should expect a bias input unless it is a FullyConnected
@@ -283,23 +283,14 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
     # uses double during scaling calculations
     # TensorFlow Lite casts the scales slightly differently for uint8 and int8 as well as
     # for FullyConnected operators
-    if not rescale_for_faf:
-        if ifm_dtype == DataType.uint8 or first_consumer_op.original_type == Op.FullyConnected:
-            scales = [np.double(ifm_scale * weight_scale) / np.double(ofm_scale) for weight_scale in weight_scales]
-        elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
-            scales = [
-                (np.double(ifm_scale) * np.double(weight_scale)) / np.double(ofm_scale)
-                for weight_scale in weight_scales
-            ]
-        else:
-            raise UnsupportedFeatureError(f"Compression of {ifm_dtype} is not implemented; Tensor: '{tens.name}'")
+    if ifm_dtype == DataType.uint8 or first_consumer_op.original_type == Op.FullyConnected:
+        scales = [np.double(ifm_scale * weight_scale) / np.double(ofm_scale) for weight_scale in weight_scales]
+    elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
+        scales = [
+            (np.double(ifm_scale) * np.double(weight_scale)) / np.double(ofm_scale) for weight_scale in weight_scales
+        ]
     else:
-        if ifm_dtype == DataType.uint8:
-            scales = [np.double(ifm_scale * weight_scale * 0x3000) for weight_scale in weight_scales]
-        elif ifm_dtype == DataType.int8 or ifm_dtype == DataType.int16:
-            scales = [(np.double(ifm_scale * 0x3000) * np.double(weight_scale)) for weight_scale in weight_scales]
-        else:
-            raise UnsupportedFeatureError(f"Compression of {ifm_dtype} is not implemented; Tensor: '{tens.name}'")
+        raise UnsupportedFeatureError(f"Compression of {ifm_dtype} is not implemented; Tensor: '{tens.name}'")
 
     if explicit_scaling:
         assert len(explicit_scaling.shift) == len(explicit_scaling.multiplier)
@@ -326,7 +317,7 @@ def _prepare_scale_and_bias(arch, tens, rescale_for_faf, explicit_scaling):
 
 
 def encode_weight_and_scale_tensor(
-    arch, op, weight_tens, scale_tens, kernel, block_config, depth_offsets, rescale_for_faf=False
+    arch, op, weight_tens, scale_tens, kernel, block_config, depth_offsets
 ) -> Tuple[Optional[NpuWeightTensor], Optional[NpuWeightTensor]]:
     npu_block_type = op.type.npu_block_type
 
@@ -407,7 +398,7 @@ def encode_weight_and_scale_tensor(
 
     # Bias & scale
     if do_scales:
-        quantised_scales, biases = _prepare_scale_and_bias(arch, scale_tens, rescale_for_faf, op.explicit_scaling)
+        quantised_scales, biases = _prepare_scale_and_bias(arch, scale_tens, op.explicit_scaling)
         scale_tens.element_size_bytes = 10
 
     # Slice the weight stream up depth-ways into bricks and compress
