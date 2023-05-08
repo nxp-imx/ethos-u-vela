@@ -37,7 +37,7 @@ dependencies = [
     "flatbuffers==2.0.7",
     "numpy<=1.21.3; python_version<='3.7'",
     "numpy; python_version>'3.7'",
-    "lxml>=4.5.1"
+    "lxml>=4.5.2"
 ]
 dynamic = ["readme", "version"]
 
