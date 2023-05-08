@@ -63,9 +63,9 @@ Vela runs on Linux and Microsoft Windows 10 operating systems.
 
 The following should be installed prior to the installation of Vela:
 
-* Python 3.7 or compatible
+* Python 3.9 or compatible
    - Development version containing the Python/C API header files
-   - e.g. `apt install python3.7-dev` or `yum install python37-devel`
+   - e.g. `apt install python3.9-dev` or `yum install python39-devel`
 * Pip3
 * A C99 capable compiler and associated toolchain
     - For Linux operating systems, a GNU toolchain is recommended.
@@ -222,7 +222,7 @@ the mlw_codec and the current version of NumPy.
 In the ethos-u-vela source directory, run:
 
 ```bash
-virtualenv -p 3.8 venv
+virtualenv -p 3.9 venv
 . venv/bin/activate
 pip install ethos-u-vela
 ```
