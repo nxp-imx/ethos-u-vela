@@ -37,7 +37,7 @@ from .shape4d import Shape4D
 from .tensor import QuantizationParameters
 from .tensor import Tensor
 
-Q0_15_SCALE = np.float32(0.00003051757)
+Q0_15_SCALE = np.float32(2**-15)
 """Q0.15 scale like the reference defines it"""
 
 
@@ -248,7 +248,7 @@ class Lstm:
         re_fc.ofm.dtype = DataType.int16
         # Setup add quantization
         q_add = q_fc.clone()
-        q_add.scale_f32 = np.float32(2**-15)
+        q_add.scale_f32 = Q0_15_SCALE
         # Create add + activation
         add = create_add(f"{name}_add", in_fc.ofm, re_fc.ofm, q_add, ActivationFunction(activation))
         if activation is Op.Sigmoid:
@@ -309,7 +309,7 @@ class Lstm:
         base_name = f"output_state#{batch}.{time}"
         # Setup tanh quantization
         q_out_tanh = QuantizationParameters()
-        q_out_tanh.scale_f32 = np.float32(2**-15)
+        q_out_tanh.scale_f32 = Q0_15_SCALE
         q_out_tanh.zero_point = 0
         # Create tanh(cell state)
         tanh = create_fused_activation(Op.Tanh, f"{base_name}_tanh", cell_state, q_out_tanh)
