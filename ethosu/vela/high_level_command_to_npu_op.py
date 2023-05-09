@@ -308,6 +308,14 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
     if tens.dtype == DataType.int32 and is_ifm_tensor:
         return True
     if ps.primary_op.rounding_mode == RoundingMode.AwayZero:
+        if (
+            ps.primary_op.original_type == Op.AvgPool
+            and ps.primary_op.type == Op.Conv2DBias
+            and ps.primary_op.attrs.get("padding", None) == Padding.VALID
+        ):
+            # Force zero point to 0 for AveragePool operators converted to a Conv2DBias with rounding away from
+            # zero.
+            return True
         if ps.primary_op.original_type == Op.ResizeBilinear and ps.primary_op.type == Op.DepthwiseConv2DBias:
             # Force zero point to 0 for ResizeBilinear operators converted to a DepthwiseConv with rounding away from
             # zero. This is because the reference kernel ignores the zero points.

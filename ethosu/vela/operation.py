@@ -615,7 +615,7 @@ class Operation:
             is_supported = False
             if self.original_type == Op.ResizeBilinear and self.type == Op.DepthwiseConv2DBias:
                 is_supported = True
-            if self.original_type == Op.AvgPool and self.type == Op.DepthwiseConv2DBias:
+            if self.original_type == Op.AvgPool and self.type in (Op.DepthwiseConv2DBias, Op.Conv2DBias):
                 is_supported = True
 
         if is_supported:
