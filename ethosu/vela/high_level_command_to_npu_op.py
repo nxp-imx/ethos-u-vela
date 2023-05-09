@@ -134,7 +134,7 @@ def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
     if op.type.is_resize_op():
         rounding_mode = NpuRoundingMode.NATURAL
     elif (
-        op.type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)
+        op._original_type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)
         and op.ifm.dtype == DataType.int16
     ):
         rounding_mode = NpuRoundingMode.NATURAL
