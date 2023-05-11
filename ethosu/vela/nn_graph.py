@@ -302,7 +302,13 @@ class Subgraph:
                     assert tens in pred_cpass.outputs
 
     def refresh_after_modification(self):
-        self.update_consumers()
+        try:
+            self.update_consumers()
+        except RecursionError as e:
+            raise RecursionError(
+                "Compilation failed due to exceeding the default maximum recursion depth.\n"
+                'Try increasing the maximum recursion depth with the "--recursion-limit" option.'
+            ) from e
 
     def prune_startup_init_pass(self):
         assert len(self.passes) >= 1
