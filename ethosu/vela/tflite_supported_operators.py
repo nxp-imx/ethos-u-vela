@@ -708,14 +708,20 @@ class TFLiteSupportedOperators:
 
     @staticmethod
     def constraint_resizebi_half_pixel_centers_dims(op):
-        """Half_pixel_centers for resize bilinear requires that OFM W and H is 2x IFM W and H"""
+        """Half_pixel_centers for resize bilinear requires that the width
+        and height of the IFM and OFM must match one of the following criteria:
+        IFM W and H are both 1
+        OFM W and H is 2x IFM W and H"""
         half_pixel_centers = op.attrs.get("half_pixel_centers", False)
         if not half_pixel_centers:
             valid = True
         elif len(op.ifm.shape) >= 3:
             ifm_h, ifm_w = op.ifm.shape[-3:-1]
             ofm_h, ofm_w = op.ofm.shape[-3:-1]
-            valid = ofm_h / ifm_h == 2 and ofm_w / ifm_w == 2
+            if ifm_h == 1 and ifm_w == 1:
+                valid = True
+            else:
+                valid = ofm_h / ifm_h == 2 and ofm_w / ifm_w == 2
         else:
             # Unexpected IFM shape
             valid = False
