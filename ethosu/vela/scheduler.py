@@ -880,6 +880,9 @@ class Scheduler:
         for index, sched_op in enumerate(reversed(self.sched_ops)):
             progress_print(verbose_progress, "Processing SchedulerOp", index, self.sched_ops)
             min_stripe_height = prev_op.kernel.stride.y if prev_op else 1
+            if is_nearest(sched_op.resampling_mode):
+                # is nearest requires even stripes
+                min_stripe_height += min_stripe_height % 2
             min_stripe = sched_op.ofm.shape.with_height(min_stripe_height)
 
             cost = sched_op.create_scheduler_info(self.nng, min_stripe)

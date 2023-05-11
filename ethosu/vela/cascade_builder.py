@@ -101,7 +101,6 @@ class CascadeBuilder:
             and sched_op.parent_op.read_offsets[0] is None
             and sched_op.parent_op.read_offsets[1] is None
             and self.elementwise_cascadable(sched_op)
-            and not sched_op.parent_op.type.is_resize_op()
             and not sched_op.parent_op.type == Op.Conv2DBackpropInputSwitchedBias
             and sched_op.parent_op.attrs.get("padding", None) != Padding.TILE
         )
