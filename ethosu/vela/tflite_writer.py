@@ -314,11 +314,13 @@ class TFLiteSerialiser:
                     attrs["dilation_w_factor"] = attrs["dilation"][2]
                 if "channel_multiplier" in attrs:
                     attrs["depth_multiplier"] = attrs["channel_multiplier"]
-                if "container" in attrs:
-                    attrs["container"] = builder.CreateString(attrs["container"])
-                if "shared_name" in attrs:
-                    attrs["shared_name"] = builder.CreateString(attrs["shared_name"])
                 attrs["fused_activation_function"] = op.activation.op_type if op.activation is not None else None
+
+            # Serialize VarHandleOptions (only op that have attributes with type String)
+            if "container" in attrs:
+                attrs["container"] = builder.CreateString(attrs["container"])
+            if "shared_name" in attrs:
+                attrs["shared_name"] = builder.CreateString(attrs["shared_name"])
 
             builtin_opt_offset, custom_opt_offset = opt_serializer.serialize(builder, attrs)
 
