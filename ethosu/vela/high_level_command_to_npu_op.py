@@ -62,6 +62,7 @@ from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
 from .operation import Padding
+from .operation import RoundingMode
 from .register_command_stream_generator import generate_command_stream
 from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
 from .register_command_stream_util import to_npu_kernel
@@ -113,6 +114,14 @@ resampling_mode_inv_map = {
 }
 
 
+rounding_mode_map = {
+    RoundingMode.TFLite: NpuRoundingMode.TFL,
+    RoundingMode.ToZero: NpuRoundingMode.TRUNCATE,
+    RoundingMode.HalfUp: NpuRoundingMode.NATURAL,
+    RoundingMode.AwayZero: NpuRoundingMode.NATURAL,
+}
+
+
 def ifm_ifm2_correct_order(ifm_shape: Shape4D, ifm2_shape: Shape4D) -> bool:
 
     if ifm_shape is None:
@@ -146,7 +155,7 @@ def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
     ):
         rounding_mode = NpuRoundingMode.NATURAL
     if op.rounding_mode is not None:
-        rounding_mode = op.rounding_mode
+        rounding_mode = rounding_mode_map[op.rounding_mode]
     return rounding_mode
 
 
@@ -298,10 +307,21 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
     """Checks if quantization should use 0 as zero point"""
     if tens.dtype == DataType.int32 and is_ifm_tensor:
         return True
-    # Force zero point to 0 for ResizeBilinear when converting to a DepthwiseConv since the reference kernel
-    # will ignore the zero point.
-    if ps.primary_op.original_type == Op.ResizeBilinear and ps.primary_op.type == Op.DepthwiseConv2DBias:
-        return True
+    if ps.primary_op.rounding_mode == RoundingMode.AwayZero:
+        if ps.primary_op.original_type == Op.ResizeBilinear and ps.primary_op.type == Op.DepthwiseConv2DBias:
+            # Force zero point to 0 for ResizeBilinear operators converted to a DepthwiseConv with rounding away from
+            # zero. This is because the reference kernel ignores the zero points.
+            return True
+        if (
+            not is_ifm_tensor
+            and ps.primary_op.original_type == Op.AvgPool
+            and ps.primary_op.attrs.get("padding", None) == Padding.EXPLICIT
+            and ps.primary_op.type == Op.DepthwiseConv2DBias
+        ):
+            # Force zero point to 0 for the OFM of AvgPool operators that have been combined with a previous PAD
+            # operator and converted to a DepthwiseConv with rounding away from zero. This is because the zero point
+            # will already have been applied in the Bias.
+            return True
     if ps.primary_op.type not in (Op.AvgPool, Op.CLZ, Op.SHL) and not ps.primary_op.type.is_resize_op():
         return False
     if ps.primary_op.type == Op.AvgPool and ps.primary_op.explicit_scaling:

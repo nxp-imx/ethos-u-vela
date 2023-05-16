@@ -27,7 +27,6 @@ import numpy as np
 from . import fp_math
 from . import rewrite_graph
 from . import scaling
-from .api import NpuRoundingMode
 from .data_type import BaseType
 from .data_type import DataType
 from .debug_database import DebugDatabase
@@ -56,6 +55,7 @@ from .operation import NpuBlockType
 from .operation import Op
 from .operation import Operation
 from .operation import Padding
+from .operation import RoundingMode
 from .operation_util import create_add_nop
 from .operation_util import create_avgpool_nop
 from .operation_util import create_cast_op
@@ -295,7 +295,7 @@ def convert_resize_1x1_to_add(op):
     return op
 
 
-# Convert ResizeNearestNeightbor with align corners to a depthwise convolution. The IFM will already have been upscaled
+# Convert ResizeNearestNeighbor with align corners to a depthwise convolution. The IFM will already have been upscaled
 # apart from the final x2 scaling which will be done as part of this operation. The kernel contains a single coefficient
 # to select the appropriate nearest neighbor value
 def convert_resizenn_ac_to_depthwise_conv(op, upscale_factor):
@@ -314,7 +314,7 @@ def convert_resizenn_ac_to_depthwise_conv(op, upscale_factor):
         "dilation": (1, 1, 1, 1),
     }
 
-    # change resizebilinear to depthwise
+    # change ResizeNearestNeighbor to Depthwise
     op.type = Op.DepthwiseConv2DBias
     op.attrs.update(dw_op_attrs)
     op.set_input_tensor(ifm, 0)  # ifm tensor index
@@ -695,12 +695,8 @@ def convert_resizebilinear_to_depthwise_convolutions(op, half_pixel_centers=True
         dw_conv.write_shape = Shape4D(n, h, w, c)
         dw_conv.write_offset = Shape4D(0, 0, 0, 0)
 
-        # Set the output rounding mode. Resize bilinear requires rounding away from zero. Therefore, we need to
-        # adjust the accumulated value by a "small" amount before applying natural rounding. The "small" amount
-        # should be big enough to cause a x.5 to be rounded correctly but small enough not to cause smaller
-        # values to be incorrectly rounded
-        ofm.quantization.next_after = True
-        dw_conv.rounding_mode = NpuRoundingMode.NATURAL
+        # Resize bilinear requires rounding away from zero
+        dw_conv.rounding_mode = RoundingMode.AwayZero
 
         # Double height and width stride to write the output of each of the four depthwise convolutions below
         # interleaved with each other when combined with OFM tile base offsets.
@@ -1730,12 +1726,30 @@ def replace_pad_by_hw_pad(op: Operation, arch, nng):
             op.inputs = []
             op.add_input_tensor(ifm)
             op.add_input_tensor(weight_tens)
-            # Add bias tensor, all biases set to 0
-            op.inputs.append(None)
-            fixup_bias_tensors(op, arch, nng, DataType.int32)
+
+            if op.ifm.dtype == DataType.uint8:
+                op.rounding_mode = RoundingMode.HalfUp
+
+                # Add bias tensor, all biases set to 0
+                op.inputs.append(None)
+                fixup_bias_tensors(op, arch, nng, DataType.int32)
+
+            else:
+                op.rounding_mode = RoundingMode.AwayZero
+
+                # The DepthwiseConv needs to be performed with the IFM zero point set appropriately so that the correct
+                # pad values are used. However, in order to use the rounding away from zero mode the zero point needs to
+                # have been removed so that the zero point is at zero. This is done by adding a kernel sized amount of
+                # the zero point as a bias. The datatype of the bias needs to be set to int32, even for an int16 IFM,
+                # because this will cause full precision scaling to be used (see weight compression). Finally, the OFM
+                # zero point will need forcing to zero (as it has already been removed)
+                nr_biases = op.inputs[1].shape[-1]
+                bias_values = [op.ifm.quantization.zero_point * k_h * k_w] * nr_biases
+                bias_tensor = create_const_tensor(op.name + "_bias", [nr_biases], DataType.int32, bias_values)
+                op.add_input_tensor(bias_tensor)
+
             # Add other inputs
             op.inputs.extend(other_inputs)
-            op.rounding_mode = NpuRoundingMode.NATURAL
 
         # Bypass the PAD operator
         op.set_input_tensor(pad_op.ifm, 0)
@@ -1946,7 +1960,7 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
             # Set weight shape to [H,W,C,B]
             weight_shape = [h, w, shape[3], shape[0]]
 
-        op.rounding_mode = NpuRoundingMode.NATURAL
+        op.rounding_mode = RoundingMode.HalfUp
         identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
         op.forced_input_quantization = identity_quant
         op.forced_output_quantization = identity_quant
@@ -2016,7 +2030,7 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
         mul_op.set_ifm_ofm_shapes()
 
         # Reference using TFL rounding for the multiply
-        mul_op.rounding_mode = NpuRoundingMode.TFL
+        mul_op.rounding_mode = RoundingMode.TFLite
 
         # Need to use explicit scaling to get the wanted shift
         mul_op.explicit_scaling = ExplicitScaling(False, [output_shift_vela], [1])

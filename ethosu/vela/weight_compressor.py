@@ -32,6 +32,7 @@ from .errors import UnsupportedFeatureError
 from .numeric_util import round_up
 from .operation import NpuBlockType
 from .operation import Op
+from .operation import RoundingMode
 from .scaling import quantise_scale
 from .scaling import reduced_quantise_scale
 from .tensor import QuantizationParameters
@@ -303,8 +304,8 @@ def _prepare_scale_and_bias(arch, tens, explicit_scaling):
         else:
             quantised_scales = [quantise_scale(scale) for scale in scales]
 
-    # Check the output quantisation to see if the scale value needs increasing to the next one
-    if _get_output_quantization(first_consumer_op).next_after:
+    # Rounding away from zero requires the "next after" floating point value to be set on the output quantisation
+    if first_consumer_op.rounding_mode == RoundingMode.AwayZero:
         for i, quant_scale in enumerate(quantised_scales):
             q_scale, q_shift = quant_scale
             quantised_scales[i] = (q_scale + 1, q_shift)

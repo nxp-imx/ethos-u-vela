@@ -24,13 +24,13 @@ import numpy as np
 
 from . import fp_math
 from . import scaling
-from .api import NpuRoundingMode
 from .data_type import DataType
 from .debug_database import DebugDatabase
 from .operation import ActivationFunction
 from .operation import ExplicitScaling
 from .operation import Op
 from .operation import Operation
+from .operation import RoundingMode
 from .operation_util import create_add
 from .operation_util import create_clz
 from .operation_util import create_depthwise_maxpool
@@ -281,7 +281,7 @@ class SoftMax:
         name = f"{self.op.name}_shr{pass_number}"
         shift = create_const_tensor(f"{name}_const", [1, 1, 1, 1], DataType.int32, [12], quantization=no_scale_quant)
         shr_op = create_shr(name, ifm_exp, shift, no_scale_quant, activation)
-        shr_op.rounding_mode = NpuRoundingMode.NATURAL
+        shr_op.rounding_mode = RoundingMode.HalfUp
         rescaled_exp = add_op_get_ofm(shr_op)
 
         # PASS 3 - Reduce sum
@@ -443,7 +443,7 @@ class SoftMax:
 
         # PASS 30 - SHR
         shr30_op = Operation(Op.SHR, f"{self.op.name}_shr{pass_number}")
-        shr30_op.rounding_mode = NpuRoundingMode.NATURAL
+        shr30_op.rounding_mode = RoundingMode.HalfUp
         shr30_op.add_input_tensor(scaled_exp)
         shr30_op.add_input_tensor(right_shift)
         shr30_op.set_output_tensor(ofm)

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import copy
 from collections import namedtuple
+from enum import auto
 from enum import Enum
 from typing import Any
 from typing import Dict
@@ -29,7 +30,6 @@ from typing import Optional
 from typing import Tuple
 from typing import TYPE_CHECKING
 
-from .api import NpuRoundingMode
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import resampling_mode
 from .numeric_util import full_shape
@@ -42,6 +42,13 @@ if TYPE_CHECKING:
 
 PointXY = namedtuple("PointXY", "x y")
 PointXYZ = namedtuple("PointXYZ", "x y z")
+
+
+class RoundingMode(Enum):
+    TFLite = auto()  # Round like TensorFlow Lite
+    ToZero = auto()  # Round towards zero (truncate)
+    HalfUp = auto()  # Round to nearest with x.5 rounded up towards positive infinity (natural)
+    AwayZero = auto()  # Round away from zero (towards infinity)
 
 
 class NpuBlockType(Enum):
@@ -491,7 +498,7 @@ class Operation:
         "rescale",
         "read_offsets",
         "read_shapes",
-        "rounding_mode",
+        "_rounding_mode",
         "explicit_scaling",
         "write_offset",
         "write_shape",
@@ -528,7 +535,7 @@ class Operation:
         self.ofm_shapes: List[Shape4D] = []
         self.read_offsets: List[Optional[Shape4D]] = [None, None]  # offset for [ifm, ifm2]
         self.read_shapes: List[Optional[Shape4D]] = [None, None]  # read shape for [ifm, ifm2]
-        self.rounding_mode: Optional[NpuRoundingMode] = None
+        self._rounding_mode: Optional[RoundingMode] = None
         # Rescale op in TOSA supplies explicit multiplier and shift values
         self.explicit_scaling: Optional[ExplicitScaling] = None
         # Write offset, for operations that only produce a part of the OFM
@@ -585,6 +592,38 @@ class Operation:
     @property
     def original_type(self):
         return self._original_type
+
+    @property
+    def rounding_mode(self):
+        return self._rounding_mode
+
+    @rounding_mode.setter
+    def rounding_mode(self, mode: RoundingMode):
+        # All rounding modes are supported by all operators with the exception of rounding away from zero (see comment
+        # below)
+        is_supported = True
+        if mode == RoundingMode.AwayZero:
+            # Rounding away from zero does not have direct hardware support and so the compiler implements it indirectly
+            # in different ways. The exact process depends upon the operator type and not all operators are supported.
+            # Basically, rounding away from zero works by adjusting the accumulated value by a "small" amount before
+            # rounding up with the addition of a half (natural rounding). This "small" amount should be big enough to
+            # cause x.5 to be rounded correctly but small enough that smaller values are not incorrectly rounded. This
+            # is done by slightly adjusting the scale and shift on the ofm tensor using the scale and bias tensor,
+            # it has no affect on global scaling (i.e. the ofm_scale register). In addition, the zero points of the
+            # input and/or output tensors may also require forcing to zero but the exact behaviour also depends upon the
+            # corresponding optimisation performed in graph_optimisation.py where the rounding mode is set
+            is_supported = False
+            if self.original_type == Op.ResizeBilinear and self.type == Op.DepthwiseConv2DBias:
+                is_supported = True
+            if self.original_type == Op.AvgPool and self.type == Op.DepthwiseConv2DBias:
+                is_supported = True
+
+        if is_supported:
+            self._rounding_mode = mode
+        else:
+            assert (
+                False
+            ), f"Setting rounding mode = {mode} on {self.original_type} operator '{self.name}' is not supported."
 
     @property
     def type_changed(self):
