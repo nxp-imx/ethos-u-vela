@@ -73,6 +73,7 @@ from .tensor import QuantizationParameters
 from .tensor import Tensor
 from .tensor import TensorPurpose
 from .tflite_mapping import optype_to_builtintype
+from .utils import calc_resize_factor
 
 passthrough_nodes = (Op.Identity,)
 
@@ -970,29 +971,6 @@ def fixup_strided_conv(op: Operation, arch, nng) -> Operation:
     if op.op_index != 0 and stride_x < 4:
         return op
 
-    def calc_resize_factor(ifm_width: int, stride_x: int) -> tuple[int, int]:
-        """Compute resize factor for strided Conv2D optimization"""
-        # Define strides that are supported by HW
-        hw_supported_strides = (2, 3)
-        resize_factor = stride_x
-
-        if ifm_width % resize_factor != 0:
-            # In case it is not divisible, check if the resize factor is
-            # divisible by any of the hw_supported_strides. If it is, re-compute
-            # the resize factor to be the value that leads us to
-            # reach a hw supported stride.
-            # E.g.: IFM width = 133, stride = 14, filter width = 7 can be
-            #       optimised to IFM width = 19, stride = 2, filter width = 7 using
-            #       a resize factor of 7. The final stride is 2 which is
-            #       supported by the hardware.
-            supported_final_strides = (x for x in hw_supported_strides if resize_factor % x == 0)
-            new_resize_factor = resize_factor // next(supported_final_strides, 1)
-            resize_factor = new_resize_factor if resize_factor != new_resize_factor else 1
-
-        optimised_stride = stride_x // resize_factor
-
-        return resize_factor, optimised_stride
-
     resize_factor, final_stride = calc_resize_factor(ifm_shape.width, stride_x)
 
     def calc_filter_padding(
@@ -1001,6 +979,7 @@ def fixup_strided_conv(op: Operation, arch, nng) -> Operation:
         post_op_stride: int,
         opt_resize_factor: int,
         filter_width: int,
+        ifm_width: int,
     ) -> tuple[int, int, int, int]:
         """Calculate zero padding to be added to the filter.
 
@@ -1018,6 +997,8 @@ def fixup_strided_conv(op: Operation, arch, nng) -> Operation:
             a stride of 2 after the optimization
         filter_width : int
             Width of the filter before optimization.
+        ifm_width : int
+            Width of the IFM before optimization
 
         Returns
         -------
@@ -1027,15 +1008,40 @@ def fixup_strided_conv(op: Operation, arch, nng) -> Operation:
         padding_size = 0
         padding = (0, 0, 0, 0)
         if ifm_padding_type and ifm_padding_type != Padding.VALID:
-            padding_size = (ifm_current_padding_x + post_op_stride) * opt_resize_factor - filter_width
-            # Distribute padding between left and right side of the filter
-            padding_left = padding_size // 2
+            # Compute padding size for the filter that guarantees that HW padding added to IFM matches
+            # before and after the optimization is performed
+            expected_filter_size = 0
+            pre_opt_stride = post_op_stride * opt_resize_factor
+            post_opt_ifm_width = ifm_width // opt_resize_factor
+            # Compute the total expected filter size post optimization that ensures that the same HW padding
+            # is added to IFM.
+            # There are two ways of calculating required filter size depending on whether IFM width is divisible
+            # by stride width or not. These approaches match the cases used to calculate HW padding in
+            # needed_total_padding method.
+            if ifm_width % pre_opt_stride == 0:
+                expected_filter_size = ifm_current_padding_x + post_op_stride
+            else:
+                expected_filter_size = ifm_current_padding_x + (post_opt_ifm_width % post_op_stride)
+            # Compute padding size from expected filter size
+            padding_size = expected_filter_size * opt_resize_factor - filter_width
+
+            if ifm_current_padding_x == 0:
+                # If no HW padding is added to IFM, divide filter padding between left and right following
+                # the same strategy as the reference.
+                padding_left = padding_size // 2
+            else:
+                # If HW padding is added to IFM, split padding for the filter so that left padding and right padding
+                # are proportional to left and right HW padding.
+                left_hw_padding = ifm_current_padding_x // 2
+                # Compute filter padding
+                padding_left = padding_size // ifm_current_padding_x * left_hw_padding
             padding = (0, padding_left, 0, padding_size - padding_left)
 
         # Check if filter width is divisible by the stride width (required for optimization)
-        # If padding was already added above, the filter width is already divisible by
-        # resize factor, so this should be skipped.
-        if padding_size == 0 and filter_width % opt_resize_factor != 0:
+        # If filter width is not divisible by stride width and no HW padding is added to IFM, compute
+        # filter padding required for the filter width to be divisible by the stride width and apply it as right
+        # padding.
+        if filter_width % opt_resize_factor != 0 and (padding_size == 0 or ifm_current_padding_x == 0):
             padding_size = opt_resize_factor - (filter_width % opt_resize_factor)
             # Add padding zeros to the right
             padding = (0, 0, 0, padding_size)
@@ -1056,7 +1062,7 @@ def fixup_strided_conv(op: Operation, arch, nng) -> Operation:
         curr_padding_x = needed_total_padding(ifm_shape.width, stride_x, k_w)
         # Compute the padding needed on the filter for the optimisation
         _, left_filter_padding, _, right_filter_padding = calc_filter_padding(
-            padding_type, curr_padding_x, final_stride, resize_factor, k_w
+            padding_type, curr_padding_x, final_stride, resize_factor, k_w, ifm_shape.width
         )
         total_horizontal_padding = left_filter_padding + right_filter_padding
         # If IFM padding is enabled, check if pre-opt and post-opt padding is

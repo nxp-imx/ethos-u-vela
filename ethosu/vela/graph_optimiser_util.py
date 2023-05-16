@@ -185,10 +185,11 @@ def calc_explicit_padding(input_size, stride, filter_size, pad_before, pad_after
 
 
 def needed_total_padding(input_size, stride, filter_size):
-    out_size = (input_size + stride - 1) // stride
-    needed_input = (out_size - 1) * stride + filter_size
-    total_padding = max(0, needed_input - input_size)
-    return total_padding
+    """Compute hardware padding."""
+    if input_size % stride == 0:
+        return max(filter_size - stride, 0)
+
+    return max(filter_size - (input_size % stride), 0)
 
 
 # Set input/output tensor equivalence to the same id for memory operations
