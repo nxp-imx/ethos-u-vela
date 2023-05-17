@@ -708,8 +708,7 @@ class TFLiteSupportedOperators:
 
     @staticmethod
     def constraint_resizebi_half_pixel_centers_dims(op):
-        """Half_pixel_centers for resize bilinear requires that the width
-        and height of the IFM and OFM must match one of the following criteria:
+        """For half_pixel_centers the width and height of the IFM and OFM must match one of the following criteria:
         IFM W and H are both 1
         OFM W and H is 2x IFM W and H"""
         half_pixel_centers = op.attrs.get("half_pixel_centers", False)

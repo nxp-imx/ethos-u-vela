@@ -19,7 +19,6 @@
 #
 # Provides command line interface, options parsing, and network loading. Before calling the compiler driver.
 import argparse
-import datetime
 import glob
 import os
 import sys
@@ -179,8 +178,7 @@ def print_subgraph_io_summary(nng):
 def generate_license():
     lines = [
         "<!--",
-        f"SPDX-FileCopyrightText: Copyright 2020-{datetime.date.today().year} "
-        "Arm Limited and/or its affiliates <open-source-office@arm.com>",
+        "SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>",
         "",
         "SPDX-License-Identifier: Apache-2.0",
         "",
@@ -196,6 +194,7 @@ def generate_license():
         "See the License for the specific language governing permissions and",
         "limitations under the License.",
         "-->",
+        "",
     ]
     return lines
 

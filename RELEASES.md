@@ -22,6 +22,33 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.8.0 - 17/05/2023
+
+**Main feature changes:**
+
+* New operator support: ARG_MAX, UNIDIRECTIONAL_SEQUENCE_LSTM, EXP
+* Improved CONV_2D striding support
+* Upgrade TensorFlow Lite support to version 2.11
+* Changed MEAN operator implementation to match changes in TensorFlow Lite reference kernels
+* Fixed int8 and int16 fusing of PAD and AVERAGE_POOL_2D
+* Fixed issues with pass-through support for:
+  * Resource variables
+  * Fused activation attribute and missing attributes
+* Improved documentation of verbose CLI options
+
+**Interface changes:**
+
+* Addition of CLI options:
+  * `--verbose-progress`
+
+**Reported defect fixes:**
+
+* Compilation progress feedback (MLCE-1009)
+* Reduced compilation time for large networks (MLCE-1009)
+* Fixed handling of invalid RESHAPE operators (MLCE-997)
+* Fixed crash when passing-through semantically incorrect operators with missing attributes (MLCE-1027)
+
+
 ## Release 3.7.0 - 16/02/2023
 
 **Main feature changes:**
