@@ -148,8 +148,8 @@ class Op(Enum):
     Atan2 = OperatorInfo(indices=NNG_IFM_IFM2_INDICES)
     BatchMatMul = OperatorInfo()
     BatchToSpaceND = OperatorInfo()
-    BidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
-    BidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    BidirectionalSequenceLstm = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
+    BidirectionalSequenceRnn = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
     CLZ = OperatorInfo(
         block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True
     )  # NPU specific operation
@@ -214,9 +214,9 @@ class Op(Enum):
     LogicalAnd = OperatorInfo()
     LogicalNot = OperatorInfo()
     LogicalOr = OperatorInfo()
-    Lstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    Lstm = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
     LUT = OperatorInfo()  # NPU specific, operator has LUT, only used in fused activation functions
-    MatMul = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    MatMul = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
     MatrixDiag = OperatorInfo()
     MatrixSetDiag = OperatorInfo()
     Max = OperatorInfo()
@@ -261,7 +261,7 @@ class Op(Enum):
     ResizeNearestNeighbor = OperatorInfo(block_type=NpuBlockType.Pooling, indices=NNG_IFM_INDICES)
     ReverseSequence = OperatorInfo()
     ReverseV2 = OperatorInfo()
-    Rnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    Rnn = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
     Round = OperatorInfo()
     Rsqrt = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
     SHL = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)  # NPU specific operation
@@ -298,8 +298,8 @@ class Op(Enum):
     Tile = OperatorInfo()
     TopKV2 = OperatorInfo()
     Transpose = OperatorInfo(indices=NNG_IFM_IFM2_INDICES)
-    UnidirectionalSequenceLstm = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
-    UnidirectionalSequenceRnn = OperatorInfo(block_type=NpuBlockType.VectorProduct, indices=NNG_IFM_WEIGHTS_INDICES)
+    UnidirectionalSequenceLstm = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
+    UnidirectionalSequenceRnn = OperatorInfo(indices=NNG_IFM_WEIGHTS_INDICES)
     Unique = OperatorInfo()
     Unpack = OperatorInfo(indices=NNG_IFM_INDICES)
     UnpackReshaped = OperatorInfo(indices=NNG_IFM_INDICES)
