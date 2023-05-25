@@ -76,7 +76,7 @@ class TFLiteSemantic:
         )
     )
     binary_elem_wise_main_ops = binary_elem_wise_min_max_ops | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
-    elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
+    elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops | set((Op.SquaredDifference,))
     shapeless_input_ops = binary_elem_wise_main_ops | set(
         (Op.Split, Op.SplitV, Op.Mean, Op.ExpandDims, Op.Quantize, Op.ArgMax)
     )

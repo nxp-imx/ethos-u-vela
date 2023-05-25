@@ -98,7 +98,8 @@ def create_cast_op(
 
     c = ifm.shape[-1]
 
-    shape = [1, 1, 1, c]
+    # Weigth shape is in format [h, w, c, b]
+    shape = [1, 1, c, 1]
     kernel = np.dstack([1] * c)
     identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
     op.add_input_tensor(

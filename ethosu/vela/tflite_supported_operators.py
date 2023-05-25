@@ -106,7 +106,7 @@ class TFLiteSupportedOperators:
         )
     )
     binary_elem_wise_main_ops = binary_elem_wise_min_max_ops | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops
-    elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops
+    elem_wise_main_ops = binary_elem_wise_main_ops | unary_elem_wise_main_ops | set((Op.SquaredDifference,))
     pad_ops = set((Op.Pad,))
     supported_int32_tensor_ops = (
         set((Op.ReduceSum, Op.CLZ, Op.Shape, Op.ArgMax)) | binary_elem_wise_add_mul_sub | binary_elem_wise_shift_ops

@@ -842,7 +842,7 @@ builtin_operator_map = {
     BuiltinOperator.SQUARED_DIFFERENCE: (
         Op.SquaredDifference,
         OptionsSerializer("SquaredDifferenceOptions"),
-        TFLITE_NO_INDICES,
+        TFLITE_IFM_IFM2_INDICES,
     ),
     BuiltinOperator.MIRROR_PAD: (Op.MirrorPad, OptionsSerializer("MirrorPadOptions", ("mode",)), TFLITE_NO_INDICES),
     BuiltinOperator.ABS: (Op.Abs, OptionsSerializer("AbsOptions"), TFLITE_IFM_INDICES),

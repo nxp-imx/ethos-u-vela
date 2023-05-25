@@ -1986,6 +1986,115 @@ def fixup_or_check_asymmetric_weights(force_symmetric_int_weights):
         return check_asymmetric_weights
 
 
+def convert_squared_difference(op, arch, nng):
+    if op.type == Op.SquaredDifference and op.run_on_npu:
+        ifm, ifm2, ofm = op.get_ifm_ifm2_ofm()
+
+        identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
+
+        # All the calculations/parameters same as reference kernel
+        twice_max_input_scale = np.double(2.0 * max(ifm.quantization.scale_f32, ifm2.quantization.scale_f32))
+        real_input1_multiplier = np.double(ifm.quantization.scale_f32) / twice_max_input_scale
+        real_input2_multiplier = np.double(ifm2.quantization.scale_f32) / twice_max_input_scale
+
+        left_shift = 0 if op.ifm.dtype == DataType.int16 else 7
+
+        real_output_multiplier = (twice_max_input_scale * twice_max_input_scale) / (
+            np.double((1 << (left_shift * 2)) * ofm.quantization.scale_f32)
+        )
+
+        input1_multiplier, input1_shift = quantise_scale(real_input1_multiplier)
+        input2_multiplier, input2_shift = quantise_scale(real_input2_multiplier)
+        output_multiplier, output_shift = quantise_scale(real_output_multiplier)
+
+        input1_multiplier_const = create_const_tensor(
+            op.name + "_input1_multiplier", [1], DataType.int32, [input1_multiplier], quantization=identity_quant
+        )
+        input2_multiplier_const = create_const_tensor(
+            op.name + "_input2_multiplier", [1], DataType.int32, [input2_multiplier], quantization=identity_quant
+        )
+        output_multiplier_const = create_const_tensor(
+            op.name + "_output_multiplier", [1], DataType.int32, [output_multiplier], quantization=identity_quant
+        )
+
+        # Convert ifm to 32 bit
+        ifm_32bit_shifted = ifm.clone(suffix="_ifm_32bit_shifted", set_unique=True)
+        ifm_32bit_shifted.dtype = DataType.int32
+        ifm_32bit_shifted.quantization = identity_quant
+        cast_op = create_cast_op(op.name + "_ifm_32bit_shifted", ifm, ifm_32bit_shifted)
+        # Use explicit scaling (multiplier) for the left shift
+        cast_op.explicit_scaling = ExplicitScaling(False, [0], [1 << left_shift])
+        DebugDatabase.add_optimised(op, cast_op)
+
+        # 32 bit Mul op do not scale the value so the input has to be multiplied with the "multiplier" calculated above
+        ifm_scaled = ifm.clone(suffix="_scaled", set_unique=True)
+        ifm_scaled.dtype = DataType.int32
+        ifm_scaled.quantization = identity_quant
+        mul_op = Operation(Op.Mul, op.name + "_scaled_input1")
+        mul_op.add_input_tensor(ifm_32bit_shifted)
+        mul_op.add_input_tensor(input1_multiplier_const)
+        mul_op.set_output_tensor(ifm_scaled)
+        # Use explicit scaling for the shift (multiplier not actually used for int32, but value can not be empty)
+        mul_op.explicit_scaling = ExplicitScaling(False, [input1_shift], [input1_multiplier])
+        mul_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, mul_op)
+
+        # Convert ifm2 to 32 bit
+        ifm2_32bit_shifted = ifm2.clone(suffix="_ifm2_32bit_shifted", set_unique=True)
+        ifm2_32bit_shifted.dtype = DataType.int32
+        ifm2_32bit_shifted.quantization = identity_quant
+        cast_op = create_cast_op(op.name + "_ifm2_32bit_shifted", ifm2, ifm2_32bit_shifted)
+        # Use explicit scaling (multiplier) for the left shift
+        cast_op.explicit_scaling = ExplicitScaling(False, [0], [1 << left_shift])
+        DebugDatabase.add_optimised(op, cast_op)
+
+        # 32 bit Mul op do not scale the value so input has to be multiplied with the "multiplier" calculated above
+        ifm2_scaled = ifm2.clone(suffix="_scaled", set_unique=True)
+        ifm2_scaled.dtype = DataType.int32
+        ifm2_scaled.quantization = identity_quant
+        mul_op = Operation(Op.Mul, op.name + "_scaled_input2")
+        mul_op.add_input_tensor(ifm2_32bit_shifted)
+        mul_op.add_input_tensor(input2_multiplier_const)
+        mul_op.set_output_tensor(ifm2_scaled)
+        # Use explicit scaling for the shift (multiplier not actually used for int32, but value can not be empty)
+        mul_op.explicit_scaling = ExplicitScaling(False, [input2_shift], [input2_multiplier])
+        mul_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, mul_op)
+
+        # Calculate the raw diff
+        raw_diff = ifm.clone(suffix="_raw_diff", set_unique=True)
+        raw_diff.dtype = DataType.int32
+        raw_diff.quantization = None
+        sub_op = Operation(Op.Sub, op.name + "_raw_diff")
+        sub_op.add_input_tensor(ifm_scaled)
+        sub_op.add_input_tensor(ifm2_scaled)
+        sub_op.set_output_tensor(raw_diff)
+        sub_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, sub_op)
+
+        # Calculate the squared diff
+        squared_raw = ifm.clone(suffix="_squared_raw", set_unique=True)
+        squared_raw.dtype = DataType.int32
+        squared_raw.quantization = None
+        mul_op = Operation(Op.Mul, op.name + "_squared_raw")
+        mul_op.add_input_tensor(raw_diff)
+        mul_op.add_input_tensor(raw_diff)
+        mul_op.set_output_tensor(squared_raw)
+        mul_op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, mul_op)
+
+        # 32 bit Mul op do not scale the value so output has to be multiplied with "multiplier" calculated above
+        op.set_input_tensor(squared_raw, 0)
+        op.set_input_tensor(output_multiplier_const, 1)
+        op.type = Op.Mul
+        # Use explicit scaling for the shift (multiplier not actually used for int32, but value can not be empty)
+        op.explicit_scaling = ExplicitScaling(False, [output_shift], [output_multiplier])
+        op.set_ifm_ofm_shapes()
+        DebugDatabase.add_optimised(op, op)
+
+    return op
+
+
 def convert_mean_to_depthwise_conv(op, arch, nng):
     """
     When h x w <= 4096     When h x w > 4096 there is a need to split into several ops.
@@ -2669,6 +2778,7 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
     op_rewrite_list = [
         set_tensor_equivalence,
         convert_ops_to_lut,
+        convert_squared_difference,
         convert_mean_to_depthwise_conv,
         convert_depthwise_to_conv,
         convert_conv_to_fc,
