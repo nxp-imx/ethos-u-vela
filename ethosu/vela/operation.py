@@ -286,7 +286,7 @@ class Op(Enum):
     SplitV = OperatorInfo(indices=NNG_IFM_INDICES)
     Sqrt = OperatorInfo()
     Square = OperatorInfo()
-    SquaredDifference = OperatorInfo()
+    SquaredDifference = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
     Squeeze = OperatorInfo(indices=NNG_IFM_INDICES)
     StridedSlice = OperatorInfo(indices=NNG_IFM_INDICES)
     Sub = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_IFM2_INDICES)
