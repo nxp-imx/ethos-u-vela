@@ -2238,7 +2238,7 @@ def convert_shape_op_to_constant_tensor(op: Operation, arch, nng):
             return op
 
         # Remove reference of the current shape op from the parent tensor's consumer list
-        ifm.consumer_list = [consumer for consumer in ifm.consumer_list if consumer.op_index != op.op_index]
+        ifm.consumer_list = [consumer for consumer in ifm.consumer_list if consumer is None or consumer.op_index != op.op_index]
 
         # Clear any references to parent node
         op.inputs = []
