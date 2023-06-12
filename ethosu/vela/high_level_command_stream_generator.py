@@ -16,6 +16,7 @@
 #
 # Description:
 # Generate a high-level command stream from a schedule
+from .architecture_allocator import is_nearest
 from .high_level_command_stream import Box
 from .high_level_command_stream import DMA
 from .high_level_command_stream import NOP
@@ -102,7 +103,7 @@ def generate_high_level_commands_for_sched_op(sched_op, schedule):
     upscaling = 1
     if sched_op.op_type == Op.Conv2DBackpropInputSwitchedBias:
         upscaling = ofm_shape.height // ifm.shape.height
-    elif sched_op.op_type.is_resize_op():
+    elif is_nearest(sched_op.resampling_mode):
         upscaling = round_up_divide(ofm_shape.height, ifm.shape.height)
 
     # Get kernel height and height dilation
