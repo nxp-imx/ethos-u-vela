@@ -26,7 +26,7 @@ def progress_print(
     enabled: bool,
     message: str,
     progress_counter: int = -1,
-    progress_total: int | collections.Sized = 0,
+    progress_total: int | collections.abc.Sized = 0,
     progress_granularity: float = 0.20,
 ):
     """Print progress information.
@@ -67,7 +67,7 @@ def progress_print(
     context_str += ": " if message else ""
     display_total = progress_total
     # If a sized collection is provided, extract its size to use as progress total
-    if isinstance(progress_total, collections.Sized):
+    if isinstance(progress_total, collections.abc.Sized):
         progress_total = len(progress_total)
         display_total = progress_total - 1
 
