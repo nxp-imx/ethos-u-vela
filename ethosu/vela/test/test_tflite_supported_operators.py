@@ -675,3 +675,20 @@ def test_rsqrt_support():
     # Test not supported op (int16)
     op = testutil.create_elemwise_op(Op.Rsqrt, "op", [1, 8, 8, 8], [1, 8, 8, 8], [1, 8, 8, 8], datatype=DataType.int16)
     assert not support.is_operator_supported(op)
+
+
+def test_constraint_slice_inputs_const():
+    # Begin and Size tensor cannot be non-const tensors
+    # Test not supported op
+    ifm = Tensor([3, 1, 256], DataType.int8, "in")
+    begin = Tensor([3], DataType.int32, "begin")
+    size = Tensor([3], DataType.int32, "size")
+    ofm = Tensor([1, 1, 256], DataType.int8, "size")
+    op = testutil.create_op(Op.Slice, [ifm, begin, size], ofm)
+    assert not support.is_operator_supported(op)
+    # Test supported op
+    begin = create_const_tensor("begin", [3], DataType.int32, [0, 0, 0])
+    size = create_const_tensor("size", [3], DataType.int32, [2, 1, 256])
+    op.set_input_tensor(begin, 1)
+    op.set_input_tensor(begin, 2)
+    assert support.is_operator_supported(op)

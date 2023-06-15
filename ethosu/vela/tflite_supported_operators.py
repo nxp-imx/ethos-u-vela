@@ -331,6 +331,9 @@ class TFLiteSupportedOperators:
         # Rsqrt specific checks
         self.specific_constraints[Op.Rsqrt].append(TFLiteSupportedOperators.constraint_rsqrt_input_int8)
 
+        # Slice specific checks:
+        self.specific_constraints[Op.Slice].append(TFLiteSupportedOperators.constraint_slice_inputs_const)
+
     def is_operator_supported(self, op):
         ext_type = optype_to_builtintype(op.type)
         if op.type not in TFLiteSupportedOperators.supported_operators:
@@ -942,3 +945,18 @@ class TFLiteSupportedOperators:
         ifm_dtype = op.ifm.dtype
         valid = ifm_dtype == DataType.int8
         return valid, f"Op has ifm_dtype={ifm_dtype}"
+
+    @staticmethod
+    def constraint_slice_inputs_const(op):
+        "Begin and Size Input tensors must be constant"
+        valid = True
+        extra = []
+        _, begin, sizes = op.inputs
+        if begin.values is None:
+            valid = False
+            extra.append(f"Begin tensor '{begin.name}'")
+        if sizes.values is None:
+            valid = False
+            extra.append(f"Size tensor '{sizes.name}'")
+        extra = ", ".join(extra)
+        return valid, f"Op has non-constant tensors: {extra}"
