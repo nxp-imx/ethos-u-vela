@@ -104,7 +104,7 @@ class PassCycles(IntEnum):
 class PerformanceQuery:
     def __init__(self, npu_block_type=0):
         self.npu_block_type = npu_block_type
-        self.ifm_shape = Shape4D(0)
+        self.ifm_shape = Shape4D(0, 0, 0, 0)
         self.ifm_format = TensorFormat.NHWC
         self.ifm_memory_area = MemArea.Unknown
         self.ifm2_memory_area = MemArea.Unknown
@@ -112,11 +112,11 @@ class PerformanceQuery:
         self.ifm2_bits = 0
         self.ifm2_shape = None
         self.ifm2_format = TensorFormat.NHWC
-        self.ofm_shape = Shape4D(0)
+        self.ofm_shape = Shape4D(0, 0, 0, 0)
         self.ofm_format = TensorFormat.NHWC
         self.ofm_memory_area = MemArea.Unknown
         self.ofm_bits = 0
-        self.const_shape = Shape4D(0)
+        self.const_shape = Shape4D(0, 0, 0, 0)
         self.const_memory_area = MemArea.Unknown
         self.kernel = Kernel(1, 1)
         self.config = ArchitectureBlockConfig()
