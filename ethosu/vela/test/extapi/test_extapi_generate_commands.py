@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -42,6 +42,8 @@ from ethosu.vela.api import NpuShape3D
 from ethosu.vela.api import NpuTileBox
 from ethosu.vela.architecture_features import Accelerator
 from ethosu.vela.architecture_features import create_default_arch
+from ethosu.vela.errors import ByteAlignmentError
+from ethosu.vela.errors import ByteSizeError
 from ethosu.vela.errors import VelaError
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd0
 from ethosu.vela.ethos_u55_regs.ethos_u55_regs import cmd1
@@ -49,6 +51,7 @@ from ethosu.vela.high_level_command_to_npu_op import BasePointerIndex
 from ethosu.vela.high_level_command_to_npu_op import get_mem_limits_for_regions
 from ethosu.vela.register_command_stream_generator import CmdMode
 from ethosu.vela.register_command_stream_generator import generate_command_stream
+from ethosu.vela.register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
 from ethosu.vela.register_command_stream_util import get_address_ranges
 
 
@@ -380,10 +383,10 @@ def test_mul_with_broadcast_and_relu():
 def create_avg_pool_op() -> NpuPoolingOperation:
     op = NpuPoolingOperation(NpuPoolingOp.AVERAGE)
     op.ifm = create_feature_map(
-        NpuShape3D(height=29, width=30, depth=27), 2, 0, quant=NpuQuantization(scale_f32=0.007843138, zero_point=128)
+        NpuShape3D(height=32, width=30, depth=28), 2, 0, quant=NpuQuantization(scale_f32=0.007843138, zero_point=128)
     )
     op.ofm = create_feature_map(
-        NpuShape3D(height=10, width=10, depth=27),
+        NpuShape3D(height=10, width=10, depth=28),
         2,
         0x5BD0,
         quant=NpuQuantization(scale_f32=0.20392157, zero_point=128),
@@ -778,25 +781,25 @@ def test_check_mem_limits():
     # Tests that no code is generated with addresses out of bounds
     conv_op = create_fully_connected_op()
     # bias with end address out of range
-    conv_op.biases = [NpuAddressRange(region=0, address=(1 << 32) - 16, length=1000)]
+    conv_op.biases = [NpuAddressRange(region=0, address=(1 << 32) - 16, length=1024)]
     with pytest.raises(VelaError):
         npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
     # same test should pass with Ethos_U65_512
     npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
     # weights with end address out of range
     conv_op = create_fully_connected_op()
-    conv_op.weights = [NpuAddressRange(region=0, address=(1 << 40) - 960, length=1000)]
+    conv_op.weights = [NpuAddressRange(region=0, address=(1 << 40) - 960, length=1024)]
     with pytest.raises(VelaError):
         npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_256)
     # bias with high end address, but still within range
     addr = (1 << 40) - 1024
     conv_op = create_fully_connected_op()
-    conv_op.biases = [NpuAddressRange(region=0, address=addr, length=1000)]
+    conv_op.biases = [NpuAddressRange(region=0, address=addr, length=1024)]
     cmds = npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U65_512)
     check_cmd1(cmds, cmd1.NPU_SET_SCALE_BASE, addr & ((1 << 32) - 1), (addr >> 32) & ((1 << 16) - 1))
     conv_op = create_fully_connected_op()
     # weights with negative address
-    conv_op.weights = [NpuAddressRange(region=0, address=-16, length=1000)]
+    conv_op.weights = [NpuAddressRange(region=0, address=-16, length=1024)]
     with pytest.raises(VelaError):
         npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_32)
     op = create_avg_pool_op()
@@ -809,6 +812,126 @@ def test_check_mem_limits():
     op.ifm.region = 8
     with pytest.raises(VelaError):
         npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_64)
+
+
+def test_cmd1_payload_legality():
+    # Tests payload legality
+
+    # Test Bias and weight payload legality
+    # Illegal bias length fails
+    conv_op = create_fully_connected_op()
+    conv_op.biases = [NpuAddressRange(region=0, address=111, length=24)]
+    with pytest.raises(ByteSizeError):
+        npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
+    # Legal bias length passes
+    conv_op.biases = [NpuAddressRange(region=0, address=111, length=32)]
+    npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
+
+    # Illegal weight length fails
+    conv_op = create_fully_connected_op()
+    conv_op.weights = [NpuAddressRange(region=0, address=128, length=24)]
+    with pytest.raises(ByteSizeError):
+        npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
+    # Legal weight length passes
+    conv_op.weights = [NpuAddressRange(region=0, address=128, length=32)]
+    npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
+
+    # Unaligned weight adress fails
+    conv_op = create_fully_connected_op()
+    conv_op.weights = [NpuAddressRange(region=0, address=120, length=32)]
+    with pytest.raises(ByteAlignmentError):
+        npu_generate_register_command_stream([conv_op], NpuAccelerator.Ethos_U55_64)
+    # Aligned weight length already tested
+
+    # Test DMA payload legality
+    # Illegal dma length Ethos-U55 fails
+    dest = NpuAddressRange(BASE_PTR_INDEX_MEM2MEM, 256, 120)
+    src = NpuAddressRange(0, 512, 120)
+    dma_op = NpuDmaOperation(src, dest)
+    with pytest.raises(ByteSizeError):
+        npu_generate_register_command_stream([dma_op], NpuAccelerator.Ethos_U55_64)
+
+    # Legal dma length U55 passes
+    dest = NpuAddressRange(BASE_PTR_INDEX_MEM2MEM, 256, 128)
+    src = NpuAddressRange(0, 512, 128)
+    dma_op = NpuDmaOperation(src, dest)
+    npu_generate_register_command_stream([dma_op], NpuAccelerator.Ethos_U55_64)
+
+    # Length not a multiple of 16, Ethos-U65, internal dma destination, fails
+    dest = NpuAddressRange(BASE_PTR_INDEX_MEM2MEM, 256, 120)
+    src = NpuAddressRange(0, 512, 120)
+    dma_op = NpuDmaOperation(src, dest)
+    with pytest.raises(ByteSizeError):
+        npu_generate_register_command_stream([dma_op], NpuAccelerator.Ethos_U65_256)
+    # Length not a multiple of 16, Ethos-U65, external dma destination passes
+    dest = NpuAddressRange(2, 256, 120)
+    src = NpuAddressRange(0, 512, 120)
+    dma_op = NpuDmaOperation(src, dest)
+    npu_generate_register_command_stream([dma_op], NpuAccelerator.Ethos_U65_256)
+
+    # Test fm stride payload legality
+    ifm_shape = NpuShape3D(height=30, width=62, depth=46)
+    address = 512
+    op = NpuConv2DOperation()
+    op.ifm = create_feature_map(
+        ifm_shape,
+        1,
+        address,
+        quant=NpuQuantization(scale_f32=0.007843138, zero_point=128),
+        dtype=NpuDataType.INT16,
+    )
+    op.ofm = create_feature_map(
+        NpuShape3D(height=30, width=31, depth=46),
+        1,
+        0x14E40,
+        quant=NpuQuantization(scale_f32=0.20392157, zero_point=128),
+        dtype=NpuDataType.INT16,
+    )
+    op.kernel = NpuKernel(3, 2, 2, 1)
+    op.weights = [NpuAddressRange(region=0, address=0, length=7696)]
+    op.biases = [NpuAddressRange(region=0, address=32000, length=464)]
+    op.padding = NpuPadding(top=0, left=0, right=1, bottom=1)
+    op.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
+    op.block_config = NpuShape3D(height=16, width=4, depth=16)
+
+    # NHWC depth stride not a multiple of 32 passes
+    op.ifm.strides = NpuShape3D(depth=16, height=2, width=16)
+    npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U65_256)
+
+    # Same depth stride fails for NHCWB16
+    op.ifm = create_feature_map(
+        ifm_shape,
+        1,
+        address,
+        quant=NpuQuantization(scale_f32=0.007843138, zero_point=128),
+        layout=NpuLayout.NHCWB16,
+        dtype=NpuDataType.INT16,
+    )
+    op.ifm.strides = NpuShape3D(depth=16, height=2, width=16)
+    with pytest.raises(ByteSizeError):
+        npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U65_256)
+
+    # Test fm adress payload alignment
+
+    # Unaligned adress fails
+    op.ifm = create_feature_map(
+        ifm_shape,
+        1,
+        address,
+        quant=NpuQuantization(scale_f32=0.007843138, zero_point=128),
+        layout=NpuLayout.NHCWB16,
+        dtype=NpuDataType.INT16,
+    )
+    op.ifm.tiles = NpuTileBox(
+        width_0=ifm_shape.width, height_0=ifm_shape.height, height_1=ifm_shape.height, addresses=[address, 16, 16, 24]
+    )
+    with pytest.raises(ByteAlignmentError):
+        npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U65_256)
+    # Aligned address passes
+    op.ifm.tiles = NpuTileBox(
+        width_0=ifm_shape.width, height_0=ifm_shape.height, height_1=ifm_shape.height, addresses=[address, 16, 16, 16]
+    )
+    npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U65_256)
 
 
 def test_check_sram_limit_spilling():

@@ -60,6 +60,8 @@ from .architecture_features import Accelerator
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import create_default_arch
 from .architecture_features import SHRAMElements
+from .errors import ByteAlignmentError
+from .errors import ByteSizeError
 from .errors import VelaError
 from .ethos_u55_regs.ethos_u55_regs import acc_format
 from .ethos_u55_regs.ethos_u55_regs import activation
@@ -76,6 +78,11 @@ from .operation import NpuBlockType
 from .range_set import MemoryAccessSet
 from .register_command_stream_util import BASE_PTR_INDEX_MEM2MEM
 from .register_command_stream_util import calc_blockdep
+from .register_command_stream_util import check_addresses
+from .register_command_stream_util import check_alignment
+from .register_command_stream_util import check_dma_op
+from .register_command_stream_util import check_size
+from .register_command_stream_util import check_strides
 from .register_command_stream_util import get_dma_memory_accesses
 from .register_command_stream_util import get_op_memory_accesses
 from .register_command_stream_util import get_strides
@@ -335,11 +342,16 @@ def generate_activation(emit: CommandStreamEmitter, activation: Optional[NpuActi
     emit.cmd0_with_param(cmd0.NPU_SET_ACTIVATION_MAX, quantized_max)
 
 
-def generate_addresses(emit: CommandStreamEmitter, ptr_cmds: List[cmd1], addresses: List[int], layout: NpuLayout):
+def generate_addresses(
+    emit: CommandStreamEmitter,
+    ptr_cmds: List[cmd1],
+    addresses: List[int],
+    layout: NpuLayout,
+    element_size,
+    arch: ArchitectureFeatures,
+):
     """Generates xFM_BASE registers"""
-    if layout == NpuLayout.NHCWB16:
-        # Check that all BasePointer addresses are aligned to 16 bytes
-        assert all((int(addr) % 16) == 0 for addr in addresses)
+    check_addresses(addresses, layout, element_size, arch)
     for i in range(4):
         emit.cmd1_with_address(ptr_cmds[i], addresses[i])
 
@@ -356,6 +368,8 @@ def generate_strides(
 ):
     """Generates STRIDE_C/Y/X registers"""
     strides = get_strides(fm)
+    check_strides(fm, strides)
+
     emit.cmd1_with_address(stride_c_cmd, strides.depth)  # stride between 16-byte channel blocks (C)
     emit.cmd1_with_address(stride_y_cmd, strides.height)  # stride between vertical values (H)
     emit.cmd1_with_address(stride_x_cmd, strides.width)  # stride between horisontal values (W)
@@ -420,7 +434,7 @@ def generate_ifm2_broadcast(emit: CommandStreamEmitter, npu_op: NpuElementWiseOp
     emit.cmd0_with_param(cmd0.NPU_SET_IFM2_BROADCAST, ifm2_broadcast)
 
 
-def generate_ifm(emit: CommandStreamEmitter, ifm: NpuFeatureMap):
+def generate_ifm(emit: CommandStreamEmitter, ifm: NpuFeatureMap, arch: ArchitectureFeatures):
     """Generates general IFM registers"""
     emit.cmd0_with_param(cmd0.NPU_SET_IFM_REGION, ifm.region)
     generate_addresses(
@@ -428,6 +442,8 @@ def generate_ifm(emit: CommandStreamEmitter, ifm: NpuFeatureMap):
         [cmd1.NPU_SET_IFM_BASE0, cmd1.NPU_SET_IFM_BASE1, cmd1.NPU_SET_IFM_BASE2, cmd1.NPU_SET_IFM_BASE3],
         ifm.tiles.addresses,
         ifm.layout,
+        ifm.data_type.size_in_bytes(),
+        arch,
     )
     generate_tiles(
         emit, [cmd0.NPU_SET_IFM_HEIGHT0_M1, cmd0.NPU_SET_IFM_HEIGHT1_M1, cmd0.NPU_SET_IFM_WIDTH0_M1], ifm.tiles
@@ -437,7 +453,7 @@ def generate_ifm(emit: CommandStreamEmitter, ifm: NpuFeatureMap):
     emit.cmd0_with_param(cmd0.NPU_SET_IFM_ZERO_POINT, get_zero_point(ifm))
 
 
-def generate_ifm2(emit: CommandStreamEmitter, ifm2: NpuFeatureMap, has_scalar: bool):
+def generate_ifm2(emit: CommandStreamEmitter, ifm2: NpuFeatureMap, has_scalar: bool, arch: ArchitectureFeatures):
     """Generates general IFM2 registers"""
     if not has_scalar:
         emit.cmd0_with_param(cmd0.NPU_SET_IFM2_REGION, ifm2.region)
@@ -446,6 +462,8 @@ def generate_ifm2(emit: CommandStreamEmitter, ifm2: NpuFeatureMap, has_scalar: b
             [cmd1.NPU_SET_IFM2_BASE0, cmd1.NPU_SET_IFM2_BASE1, cmd1.NPU_SET_IFM2_BASE2, cmd1.NPU_SET_IFM2_BASE3],
             ifm2.tiles.addresses,
             ifm2.layout,
+            ifm2.data_type.size_in_bytes(),
+            arch,
         )
         generate_tiles(
             emit, [cmd0.NPU_SET_IFM2_HEIGHT0_M1, cmd0.NPU_SET_IFM2_HEIGHT1_M1, cmd0.NPU_SET_IFM2_WIDTH0_M1], ifm2.tiles
@@ -454,7 +472,7 @@ def generate_ifm2(emit: CommandStreamEmitter, ifm2: NpuFeatureMap, has_scalar: b
     emit.cmd0_with_param(cmd0.NPU_SET_IFM2_ZERO_POINT, get_zero_point(ifm2))
 
 
-def generate_ofm(emit: CommandStreamEmitter, ofm: NpuFeatureMap):
+def generate_ofm(emit: CommandStreamEmitter, ofm: NpuFeatureMap, arch: ArchitectureFeatures):
     """Generates general OFM registers"""
     emit.cmd0_with_param(cmd0.NPU_SET_OFM_REGION, ofm.region)
     generate_addresses(
@@ -462,6 +480,8 @@ def generate_ofm(emit: CommandStreamEmitter, ofm: NpuFeatureMap):
         [cmd1.NPU_SET_OFM_BASE0, cmd1.NPU_SET_OFM_BASE1, cmd1.NPU_SET_OFM_BASE2, cmd1.NPU_SET_OFM_BASE3],
         ofm.tiles.addresses,
         ofm.layout,
+        ofm.data_type.size_in_bytes(),
+        arch,
     )
     generate_tiles(
         emit, [cmd0.NPU_SET_OFM_HEIGHT0_M1, cmd0.NPU_SET_OFM_HEIGHT1_M1, cmd0.NPU_SET_OFM_WIDTH0_M1], ofm.tiles
@@ -505,9 +525,12 @@ def generate_weights(emit: CommandStreamEmitter, weights: List[NpuAddressRange],
         ]
     ):
         if core < len(weights):
+            check_alignment(weights[core].address, 16)
+            check_size(weights[core].length, 16)
             emit.cmd1_with_address(addr, weights[core].address)
             emit.cmd1_with_offset(length, weights[core].length)
         elif core < arch.ncores:
+            check_alignment(weights[0].address, 16)
             emit.cmd1_with_address(addr, weights[0].address)
             emit.cmd1_with_offset(length, 0)
 
@@ -523,6 +546,7 @@ def generate_biases(emit: CommandStreamEmitter, biases: List[NpuAddressRange], a
     ):
         if core < len(biases):
             emit.cmd1_with_address(addr, biases[core].address)
+            check_size(biases[core].length, 16)
             emit.cmd1_with_offset(length, biases[core].length)
         elif core < arch.ncores:
             emit.cmd1_with_address(addr, biases[0].address)
@@ -631,12 +655,12 @@ def generate_common(
 ):
     """Generate registers that are common to most operations"""
     assert npu_op.ifm is not None and npu_op.ofm is not None
-    generate_ifm(emit, npu_op.ifm)
+    generate_ifm(emit, npu_op.ifm, arch)
     generate_ifm_precision(emit, npu_op.ifm, op_to_scale, cmd0.NPU_SET_IFM_PRECISION)
     emit.cmd0_with_param(cmd0.NPU_SET_IFM_UPSCALE, resampling_mode_map[npu_op.ifm_upscale])
     if npu_op.padding is not None:
         generate_padding(emit, npu_op.padding)
-    generate_ofm(emit, npu_op.ofm)
+    generate_ofm(emit, npu_op.ofm, arch)
     generate_ofm_precision(emit, npu_op, use_global_scale)
     if npu_op.op_type != NpuOperationType.ElementWise:
         assert npu_op.kernel is not None
@@ -974,7 +998,7 @@ def generate_elementwise_op(emit: CommandStreamEmitter, npu_op: NpuElementWiseOp
         # Binary operation; generate IFM2 registers
         assert npu_op.ifm2 is not None
         has_scalar = npu_op.ifm2_scalar is not None
-        generate_ifm2(emit, npu_op.ifm2, has_scalar)
+        generate_ifm2(emit, npu_op.ifm2, has_scalar, arch)
         generate_ifm_precision(emit, npu_op.ifm2, 0, cmd0.NPU_SET_IFM2_PRECISION)
         generate_ifm2_broadcast(emit, npu_op)
         if has_scalar:
@@ -983,8 +1007,10 @@ def generate_elementwise_op(emit: CommandStreamEmitter, npu_op: NpuElementWiseOp
             emit.cmd0_with_param(cmd0.NPU_SET_IFM2_SCALAR, quantized_scalar)
 
 
-def generate_dma_op(emit: CommandStreamEmitter, dma_op: NpuDmaOperation):
+def generate_dma_op(emit: CommandStreamEmitter, dma_op: NpuDmaOperation, arch: ArchitectureFeatures):
     """Generates register commands for DMA operations"""
+    check_dma_op(dma_op, arch)
+
     emit.cmd0_with_param(cmd0.NPU_SET_DMA0_SRC_REGION, dma_op.src.region)
     emit.cmd1_with_address(cmd1.NPU_SET_DMA0_SRC, dma_op.src.address)
     emit.cmd0_with_param(cmd0.NPU_SET_DMA0_DST_REGION, dma_op.dest.region)
@@ -1007,7 +1033,7 @@ def generate_registers_for_op(emit: CommandStreamEmitter, npu_op: NpuOperation, 
     elif isinstance(npu_op, NpuElementWiseOperation):
         generate_elementwise_op(emit, npu_op, arch)
     elif isinstance(npu_op, NpuDmaOperation):
-        generate_dma_op(emit, npu_op)
+        generate_dma_op(emit, npu_op, arch)
     else:
         assert 0, "Unsupported operation"
 
@@ -1048,8 +1074,13 @@ def generate_command_stream(
             check_mem_limits(memory_accesses[npu_op], mem_limits)
             cmd_waits = get_wait_dependency(arch, npu_op, memory_accesses, outstanding_dma_ops, outstanding_npu_ops)
             generate_registers_for_op(emit, npu_op, arch)
+        except ByteAlignmentError as e:
+            # Enables testing for ByteAlignmentErrors specifically
+            raise ByteAlignmentError(f"{e.error_msg}, in operation {op_index}:{npu_op.op_type.name}") from None
+        except ByteSizeError as e:
+            # Enables testing for ByteSizeErrors specifically
+            raise ByteSizeError(f"{e.error_msg}, in operation {op_index}:{npu_op.op_type.name}") from None
         except VelaError as e:
-            # Add operation info and rethrow
             raise VelaError(f"{e.error_msg}, in operation {op_index}:{npu_op.op_type.name}") from None
         if not isinstance(npu_op, NpuDmaOperation) and isinstance(npu_op, NpuBlockOperation):
             # Generate BLOCKDEP

@@ -37,17 +37,33 @@ from .api import NpuShape3D
 from .architecture_features import ArchitectureFeatures
 from .architecture_features import Block
 from .architecture_features import Rect
+from .errors import ByteAlignmentError
+from .errors import ByteSizeError
 from .operation import Kernel
 from .operation import PointXYZ
+from .tensor import TensorFormat
 from ethosu.vela.range_set import AccessDirection
 from ethosu.vela.range_set import MemoryAccessSet
 from ethosu.vela.range_set import MemoryRangeSet
+
 
 # base address slot for memory to memory transfer
 BASE_PTR_INDEX_MEM2MEM = int((1 << 8) | (3 << 0))
 
 
 UNARY_ELEMWISE_OPS = (NpuElementWiseOp.ABS, NpuElementWiseOp.LRELU, NpuElementWiseOp.CLZ)
+
+
+def check_alignment(payload, required_alignment):
+    # assuming payload is defined in bytes
+    if payload % required_alignment != 0:
+        raise ByteAlignmentError(f"Cmd1 payload of size: {payload} Bytes is not {required_alignment}-byte aligned")
+
+
+def check_size(payload, required_multiple):
+    # assuming payload is defined in bytes
+    if payload % required_multiple != 0:
+        raise ByteSizeError(f"Cmd1 payload of size: {payload} Bytes is not a multiple of {required_multiple}")
 
 
 def to_npu_kernel(kernel: Kernel) -> NpuKernel:
@@ -241,6 +257,29 @@ def get_address_ranges(fm: NpuFeatureMap) -> List[Optional[NpuAddressRange]]:
     return [t0, t1, t2, t3]
 
 
+def check_strides(fm: NpuFeatureMap, strides: NpuShape3D):
+
+    element_size_in_bytes = fm.data_type.size_in_bytes()
+
+    if fm.layout == NpuLayout.NHCWB16:
+        strides_to_check = [strides.depth, strides.height]
+        required_multiple = 16 * element_size_in_bytes
+    else:
+        strides_to_check = [strides.height, strides.width]
+        required_multiple = element_size_in_bytes
+    for stride in strides_to_check:
+        check_size(stride, required_multiple)
+
+
+def check_addresses(addresses: List[int], layout: NpuLayout, element_size, arch: ArchitectureFeatures):
+    if layout == NpuLayout.NHCWB16:
+        required_alignment = arch.storage_rounding_quantums[TensorFormat.NHCWB16][-1]
+    else:
+        required_alignment = element_size
+    for addr in addresses:
+        check_alignment(addr, required_alignment)
+
+
 # -------------------------------------------------------------------
 # DMA_WAIT/KERNEL_WAIT
 # -------------------------------------------------------------------
@@ -334,6 +373,22 @@ def get_wait_dependency(
 
     cmd_waits = Watermark(kern_wait, dma_wait)
     return cmd_waits
+
+
+def check_dma_op(dma_op: NpuDmaOperation, arch: ArchitectureFeatures):
+
+    # For Ethos-U65 only internal addresses have to be aligned, and if the internal address is the destination
+    # then the length has to be aligned also.
+    if arch.is_ethos_u65_system:
+        if dma_op.src.region == BASE_PTR_INDEX_MEM2MEM:
+            check_alignment(dma_op.src.address, 16)
+        if dma_op.dest.region == BASE_PTR_INDEX_MEM2MEM:
+            check_alignment(dma_op.dest.address, 16)
+            check_size(dma_op.src.length, 16)
+    else:
+        check_alignment(dma_op.src.address, 16)
+        check_alignment(dma_op.dest.address, 16)
+        check_size(dma_op.src.length, 16)
 
 
 # -------------------------------------------------------------------

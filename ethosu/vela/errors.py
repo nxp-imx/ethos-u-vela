@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2021, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -75,3 +75,17 @@ class AllocationError(VelaError):
 
     def __init__(self, msg):
         super().__init__(f"Allocation failed: {msg}")
+
+
+class ByteAlignmentError(VelaError):
+    """Raised when value is unaligned"""
+
+    def __init__(self, msg):
+        super().__init__(f"Unaligned Value: {msg}")
+
+
+class ByteSizeError(VelaError):
+    """Raised when size has illegal value"""
+
+    def __init__(self, msg):
+        super().__init__(f"Illegal Size: {msg}")
