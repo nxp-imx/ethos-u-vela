@@ -1,0 +1,12 @@
+NXP Software Content Register
+
+---------------------------------------------
+Package:                     ethos-u-vela.git
+Outgoing License:            Apache-2.0
+License File:                LICENSE.txt
+Package Category:            MachineLearning
+Type of Content:             source
+Description and comments:    Tool to compile a TensorFlow Lite for Microcontrollers neural network model
+Release Location:            https://github.com/nxp-imx/ethos-u-vela
+Origin:                      NXP (BSD-3-Clause)
+                             ARM Limited ethos-u-vela v3.8.0 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
