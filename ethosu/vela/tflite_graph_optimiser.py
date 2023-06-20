@@ -2365,7 +2365,11 @@ def supported_operator_check(op, arch, nng):
     return op
 
 
-def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
+def tflite_optimise_graph(nng, arch, force_symmetric_int_weights, output_basename=None, subgraph_output = False):
+    if output_basename != None and subgraph_output:
+        for idx, sg in enumerate(nng.subgraphs):
+            sg.print_npu_graph(output_basename, "ethos-u custom OP subgraph")
+
     # Compile time static optimisations
     optimisation_list = [
         optimise_quantize,
