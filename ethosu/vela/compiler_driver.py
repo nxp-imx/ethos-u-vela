@@ -155,7 +155,7 @@ def _check_schedule(nng, arch, scheduler_options):
             )
 
 
-def compiler_driver(nng, arch, options, scheduler_options, network_type, output_basename):
+def compiler_driver(nng, arch, options, scheduler_options, network_type, output_basename, subgraph_output = False):
     assert verify_graph_health(nng)
     verbose_progress = scheduler_options.verbose_progress
 
@@ -165,7 +165,7 @@ def compiler_driver(nng, arch, options, scheduler_options, network_type, output_
 
     progress_print(verbose_progress, "Performing graph optimisation")
     nng = graph_optimiser.optimise_graph(
-        nng, arch, network_type, options.verbose_graph, options.force_symmetric_int_weights
+        nng, arch, network_type, options.verbose_graph, options.force_symmetric_int_weights, output_basename, subgraph_output
     )
     assert verify_graph_health(nng)
 
