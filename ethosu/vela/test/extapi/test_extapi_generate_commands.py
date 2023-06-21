@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2021 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -52,21 +52,30 @@ from ethosu.vela.register_command_stream_generator import generate_command_strea
 from ethosu.vela.register_command_stream_util import get_address_ranges
 
 
-def check_cmd0(cmd_stream, cmd, param):
-    """Checks that the command stream contains the given command + parameter"""
+def check_cmd0(cmd_stream, cmd, param, idx=0):
+    """
+    Checks that command + parameter exists in the command stream after position idx.
+    Returns the position in the command stream (if found) otherwise asserts.
+    """
     param = int(param) & 0xFFFF
     command = cmd.value | (param << 16)
-    assert command in cmd_stream, f"Not in command stream: {cmd} {param}"
+    for i in range(idx, len(cmd_stream)):
+        if cmd_stream[i] == command:
+            return i
+    assert False, f"{cmd} {param} not found in the command stream (after position {idx})"
 
 
-def check_cmd1(cmd_stream, cmd, offset, param=0x0):
-    """Checks that the command stream contains the given command + parameter"""
+def check_cmd1(cmd_stream, cmd, offset, param=0x0, idx=0):
+    """
+    Checks that command + parameter exists in the command stream after position idx.
+    Returns the position in the command stream (if found) otherwise asserts.
+    """
     offset = int(offset) & 0xFFFFFFFF
     command = cmd.value | CmdMode.Payload32.value | (param << 16)
-    for i in range(len(cmd_stream) - 1):
+    for i in range(idx, len(cmd_stream) - 1):
         if cmd_stream[i] == command and cmd_stream[i + 1] == offset:
-            return  # found
-    assert False, f"Not in command stream: {cmd} {offset} {param}"
+            return i
+    assert False, f"{cmd} {offset} {param} not found in the command stream (after position {idx})"
 
 
 def find_cmd0(cmd_stream, cmd) -> int:
@@ -117,59 +126,61 @@ def test_conv2d():
     op.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
     op.block_config = NpuShape3D(height=16, width=4, depth=16)
     cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_128)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 512)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE1, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE2, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE3, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT0_M1, 29)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT1_M1, 29)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_WIDTH0_M1, 61)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_DEPTH_M1, 45)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_C, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_Y, 2852)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_X, 46)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_ZERO_POINT, 128)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_PRECISION, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_UPSCALE, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_TOP, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_LEFT, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_BOTTOM, 1)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_RIGHT, 1)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_REGION, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE0, 85568)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE1, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE2, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE3, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT0_M1, 29)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT1_M1, 29)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH0_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT_M1, 29)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_DEPTH_M1, 45)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_C, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_Y, 1426)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_X, 46)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_ZERO_POINT, 128)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_PRECISION, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_KERNEL_HEIGHT_M1, 1)
-    check_cmd0(cmds, cmd0.NPU_SET_KERNEL_WIDTH_M1, 2)
-    check_cmd0(cmds, cmd0.NPU_SET_KERNEL_STRIDE, 5)
-    check_cmd0(cmds, cmd0.NPU_SET_WEIGHT_REGION, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_WEIGHT_BASE, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_WEIGHT_LENGTH, 7696)
-    check_cmd0(cmds, cmd0.NPU_SET_SCALE_REGION, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_SCALE_BASE, 32000)
-    check_cmd1(cmds, cmd1.NPU_SET_SCALE_LENGTH, 464)
-    check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MIN, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MAX, 255)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, 15)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1, 3)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_DEPTH_M1, 15)
-    check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0)
-    check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    set_cmds = list()
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 512))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE1, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE2, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE3, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT0_M1, 29))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT1_M1, 29))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_WIDTH0_M1, 61))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_DEPTH_M1, 45))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_C, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_Y, 2852))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_X, 46))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_ZERO_POINT, 128))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_PRECISION, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_UPSCALE, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_TOP, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_LEFT, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_BOTTOM, 1))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_PAD_RIGHT, 1))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_REGION, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE0, 85568))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE1, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE2, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE3, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT0_M1, 29))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT1_M1, 29))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH0_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT_M1, 29))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_DEPTH_M1, 45))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_C, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_Y, 1426))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_X, 46))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_ZERO_POINT, 128))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_PRECISION, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_KERNEL_HEIGHT_M1, 1))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_KERNEL_WIDTH_M1, 2))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_KERNEL_STRIDE, 5))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_WEIGHT_REGION, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_WEIGHT_BASE, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_WEIGHT_LENGTH, 7696))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_SCALE_REGION, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_SCALE_BASE, 32000))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_SCALE_LENGTH, 464))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MIN, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MAX, 255))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1, 15))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1, 3))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_DEPTH_M1, 15))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0))
+    conv_idx = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    assert all([conv_idx > x for x in set_cmds]), "NPU_OP_CONV occured before the last SET operation."
     ib_end = find_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END)
     ab_start = find_cmd0(cmds, cmd0.NPU_SET_AB_START)
     assert ib_end > 0
@@ -225,15 +236,17 @@ def test_depthwise():
     op.biases = [NpuAddressRange(region=0, address=0, length=80)]
     op.block_config = NpuShape3D(height=8, width=12, depth=8)
     cmds = npu_generate_register_command_stream([dma_op, op], NpuAccelerator.Ethos_U55_128)
-    check_cmd0(cmds, cmd0.NPU_SET_DMA0_SRC_REGION, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_DMA0_SRC, 0x40)
-    check_cmd0(cmds, cmd0.NPU_SET_DMA0_DST_REGION, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_DMA0_DST, 0x10000)
-    check_cmd1(cmds, cmd1.NPU_SET_DMA0_LEN, 96)
-    check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0)
+    set_cmds = list()
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_DMA0_SRC_REGION, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_DMA0_SRC, 0x40))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_DMA0_DST_REGION, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_DMA0_DST, 0x10000))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_DMA0_LEN, 96))
+    dma_start_idx = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0)
+    assert all([dma_start_idx > x for x in set_cmds]), "DMA_START occured before the last SET_DMA operation"
     # A DMA WAIT should have been inserted
-    check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0)
-    check_cmd0(cmds, cmd0.NPU_OP_DEPTHWISE, 0)
+    dma_wait_idx = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, dma_start_idx)
+    check_cmd0(cmds, cmd0.NPU_OP_DEPTHWISE, 0, dma_wait_idx)
 
 
 def test_mul_with_broadcast_and_relu():
@@ -248,59 +261,61 @@ def test_mul_with_broadcast_and_relu():
     # Select a block config using npu_find_block_configs
     op.block_config = npu_find_block_configs(op, accelerator)[0]
     cmds = npu_generate_register_command_stream([op], accelerator)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_SCALE, 1073741824, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 32)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE1, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE2, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE3, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT0_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT1_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_WIDTH0_M1, 21)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_DEPTH_M1, 30)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_C, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_Y, 682)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_X, 31)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_ZERO_POINT, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_PRECISION, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_UPSCALE, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_REGION, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE0, 21184)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE1, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE2, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE3, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT0_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT1_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH0_M1, 21)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT_M1, 30)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH_M1, 21)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_DEPTH_M1, 30)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_C, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_Y, 682)
-    check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_X, 31)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_ZERO_POINT, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_OFM_PRECISION, 256)
-    check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MIN, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MAX, 255)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_REGION, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE0, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE1, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE2, 0)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE3, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_HEIGHT0_M1, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_HEIGHT1_M1, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_WIDTH0_M1, 21)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_STRIDE_C, 1)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_STRIDE_Y, 22)
-    check_cmd1(cmds, cmd1.NPU_SET_IFM2_STRIDE_X, 1)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_ZERO_POINT, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_PRECISION, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM2_BROADCAST, 5)
-    check_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END, 16)
-    check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0)
-    check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0)
-    check_cmd0(cmds, cmd0.NPU_OP_ELEMENTWISE, 0)
+    set_cmds = list()
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_SCALE, 1073741824, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE0, 32))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE1, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE2, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_BASE3, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT0_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_HEIGHT1_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_WIDTH0_M1, 21))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_DEPTH_M1, 30))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_C, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_Y, 682))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM_STRIDE_X, 31))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_ZERO_POINT, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_PRECISION, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_UPSCALE, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_REGION, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE0, 21184))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE1, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE2, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_BASE3, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT0_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT1_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH0_M1, 21))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_HEIGHT_M1, 30))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_WIDTH_M1, 21))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_DEPTH_M1, 30))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_C, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_Y, 682))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_OFM_STRIDE_X, 31))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_ZERO_POINT, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_OFM_PRECISION, 256))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MIN, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACTIVATION_MAX, 255))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_REGION, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE0, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE1, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE2, 0))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_BASE3, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_HEIGHT0_M1, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_HEIGHT1_M1, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_WIDTH0_M1, 21))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_STRIDE_C, 1))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_STRIDE_Y, 22))
+    set_cmds.append(check_cmd1(cmds, cmd1.NPU_SET_IFM2_STRIDE_X, 1))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_ZERO_POINT, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_PRECISION, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM2_BROADCAST, 5))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END, 16))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_ACC_FORMAT, 0))
+    set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0))
+    elementwise_idx = check_cmd0(cmds, cmd0.NPU_OP_ELEMENTWISE, 0)
+    assert all([elementwise_idx > x for x in set_cmds]), "NPU_OP_ELEMENTWISE occured before the last SET cmd"
     ab_start = find_cmd0(cmds, cmd0.NPU_SET_AB_START)
     assert ab_start > 0
     ifm2_ib_start = find_cmd0(cmds, cmd0.NPU_SET_IFM2_IB_START)
@@ -357,16 +372,16 @@ def test_two_operations():
 def test_dma_op():
     """Tests DMA operation followed by average pool. The DMA provides the contents of the average pool's IFM."""
     pool_op = create_avg_pool_op()
-    assert pool_op.ofm is not None
-    dest = get_address_ranges(pool_op.ofm)[0]
+    assert pool_op.ifm is not None
+    dest = get_address_ranges(pool_op.ifm)[0]
     assert dest is not None
     src = NpuAddressRange(0, 0x24000, dest.length)
     dma_op = NpuDmaOperation(src, dest)
     cmds = npu_generate_register_command_stream([dma_op, pool_op], NpuAccelerator.Ethos_U55_64)
-    check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0)
-    # A DMA WAIT should have been inserted
-    check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0)
-    check_cmd0(cmds, cmd0.NPU_OP_POOL, 1)
+    dma_start_idx = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0)
+    # A DMA WAIT should have been inserted after the dma start
+    dma_wait_idx = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, dma_start_idx)
+    check_cmd0(cmds, cmd0.NPU_OP_POOL, 1, dma_wait_idx)
 
 
 def test_check_mem_limits():
