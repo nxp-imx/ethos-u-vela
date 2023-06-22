@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -294,62 +294,46 @@ def get_op_memory_accesses(npu_op: NpuBlockOperation, arch: ArchitectureFeatures
 
 
 def get_wait_dependency(
-    arch: ArchitectureFeatures, npu_op_list: List[NpuOperation], memory_accesses, op_index: int, watermark: Watermark
+    arch: ArchitectureFeatures,
+    npu_op: NpuOperation,
+    memory_accesses,
+    outstanding_dma_ops: List[NpuOperation],
+    outstanding_npu_ops: List[NpuOperation],
 ):
     """Used to calculate whether DMA wait or kernel wait operations are needed"""
-    npu_op = npu_op_list[op_index]
-    op_access = memory_accesses[npu_op]
-    index = op_index - 1
+    kern_wait = -1
+    dma_wait = -1
+    op_accesses = memory_accesses[npu_op]
 
-    # NPU dependency tracking
-    npu_outstanding = -1
-    npu_ops = 0
-    npu_index = watermark.npu
+    if isinstance(npu_op, NpuDmaOperation):
+        outstanding_ops = outstanding_npu_ops
+        outstanding_dma_ops.append(npu_op)
+        if len(outstanding_dma_ops) > arch.max_outstanding_dma:
+            outstanding_dma_ops.pop(0)
+    else:
+        outstanding_ops = outstanding_dma_ops
+        outstanding_npu_ops.append(npu_op)
+        if len(outstanding_npu_ops) > arch.max_outstanding_kernels:
+            outstanding_npu_ops.pop(0)
 
-    # DMA dependency tracking
-    dma_outstanding = -1
-    dma_ops = 0
-    dma_index = watermark.dma
+    waits = -1
+    for idx in range(len(outstanding_ops) - 1, -1, -1):
+        waits += 1
+        other_op = outstanding_ops[idx]
+        other_accesses = memory_accesses[other_op]
+        if other_accesses.conflicts(op_accesses):
+            if isinstance(npu_op, NpuDmaOperation):
+                kern_wait = waits
+            else:
+                dma_wait = waits
+            # Current op needs to wait, and after it has waited,
+            # outstanding_ops[0..idx] are not outstanding any longer
+            for i in range(idx + 1):
+                outstanding_ops.pop(0)
+            break
 
-    # Seek back in the command stream looking for NPU or DMA dependencies
-    # but only as far as the first dependency or the watermarks (dependencies
-    # before this point have been satisfied already).
-    # The watermark moves to after the latest element we must wait for, not
-    # the command that issues the wait.
-    # NPU->NPU dependency is handled via blockdep.
-    while (index >= npu_index) or (index >= dma_index):
-        prev_op = npu_op_list[index]
-        prev_access = memory_accesses[prev_op]
-
-        # Check NPU consuming DMA output
-        if isinstance(prev_op, NpuDmaOperation):
-            if index >= dma_index:
-                if not isinstance(npu_op, NpuDmaOperation):
-                    if (dma_outstanding == -1) and prev_access.conflicts(op_access):
-                        dma_outstanding = dma_ops
-                dma_ops += 1  # Count DMA ops in the pipeline
-                if dma_ops >= arch.max_outstanding_dma:
-                    dma_index = max(index + 1, dma_index)
-        # Check DMA consuming NPU output
-        else:
-            if index >= npu_index:
-                if isinstance(npu_op, NpuDmaOperation) and npu_outstanding == -1 and prev_access.conflicts(op_access):
-                    npu_outstanding = npu_ops
-                npu_ops += 1  # Count NPU ops in the pipeline
-                if npu_ops >= arch.max_outstanding_kernels:
-                    npu_index = max(index + 1, npu_index)
-
-        index -= 1
-
-    # Update DMA watermark if we didn't see any and the NPU pipeline is full
-    if (dma_ops == 0) and (npu_ops >= arch.max_outstanding_kernels):
-        dma_index = op_index
-
-    # Bring the search watermark forwards as we complete for those dependencies
-    watermark = Watermark(npu_index, dma_index)
-    outstanding = Watermark(npu_outstanding, dma_outstanding)
-
-    return watermark, outstanding
+    cmd_waits = Watermark(kern_wait, dma_wait)
+    return cmd_waits
 
 
 # -------------------------------------------------------------------

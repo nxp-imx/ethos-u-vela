@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -1039,13 +1039,14 @@ def generate_command_stream(
 
     if arch.is_ethos_u65_system:
         emit.cmd0_with_param(cmd0.NPU_SET_PARALLEL_MODE, arch.ncores - 1)
-    dep_watermark = Watermark(0, 0)
     prev_op = None
     # Generate register commands for all operations
+    outstanding_dma_ops: List[NpuOperation] = list()
+    outstanding_npu_ops: List[NpuOperation] = list()
     for op_index, npu_op in enumerate(npu_op_list):
         try:
             check_mem_limits(memory_accesses[npu_op], mem_limits)
-            dep_watermark, cmd_waits = get_wait_dependency(arch, npu_op_list, memory_accesses, op_index, dep_watermark)
+            cmd_waits = get_wait_dependency(arch, npu_op, memory_accesses, outstanding_dma_ops, outstanding_npu_ops)
             generate_registers_for_op(emit, npu_op, arch)
         except VelaError as e:
             # Add operation info and rethrow

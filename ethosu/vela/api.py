@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -27,7 +27,7 @@ import numpy
 
 
 API_VERSION_MAJOR = 1
-API_VERSION_MINOR = 3
+API_VERSION_MINOR = 4
 API_VERSION = f"{API_VERSION_MAJOR}.{API_VERSION_MINOR}"
 
 

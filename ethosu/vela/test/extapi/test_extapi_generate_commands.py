@@ -52,38 +52,58 @@ from ethosu.vela.register_command_stream_generator import generate_command_strea
 from ethosu.vela.register_command_stream_util import get_address_ranges
 
 
-def check_cmd0(cmd_stream, cmd, param, idx=0):
+def find_cmd0(cmd_stream, cmd, param, idx=0):
     """
-    Checks that command + parameter exists in the command stream after position idx.
-    Returns the position in the command stream (if found) otherwise asserts.
+    Searches the command stream from position idx
+    Returns the position of cmd + param (if found) otherwise -1.
     """
     param = int(param) & 0xFFFF
     command = cmd.value | (param << 16)
     for i in range(idx, len(cmd_stream)):
         if cmd_stream[i] == command:
             return i
-    assert False, f"{cmd} {param} not found in the command stream (after position {idx})"
+    return -1
 
 
-def check_cmd1(cmd_stream, cmd, offset, param=0x0, idx=0):
+def check_cmd0(cmd_stream, cmd, param, idx=0):
     """
     Checks that command + parameter exists in the command stream after position idx.
-    Returns the position in the command stream (if found) otherwise asserts.
+    Returns the position (if found) otherwise asserts.
+    """
+    pos = find_cmd0(cmd_stream, cmd, param, idx)
+    assert pos >= 0, f"{cmd} {param} not found in the command stream (after position {idx})"
+    return pos
+
+
+def find_param_cmd0(cmd_stream, cmd) -> int:
+    """Returns parameter of the first command in the stream that matches the given command"""
+    for command in cmd_stream:
+        if (command & 0xFFFF) == cmd.value:
+            return (command >> 16) & 0xFFFF
+    assert False, f"Not in command stream: {cmd}"
+
+
+def find_cmd1(cmd_stream, cmd, offset, param=0x0, idx=0):
+    """
+    Searches the command stream from position idx
+    Returns the position of the command (if found) otherwise -1.
     """
     offset = int(offset) & 0xFFFFFFFF
     command = cmd.value | CmdMode.Payload32.value | (param << 16)
     for i in range(idx, len(cmd_stream) - 1):
         if cmd_stream[i] == command and cmd_stream[i + 1] == offset:
             return i
-    assert False, f"{cmd} {offset} {param} not found in the command stream (after position {idx})"
+    return -1
 
 
-def find_cmd0(cmd_stream, cmd) -> int:
-    """Returns parameter of the first command in the stream that matches the given command"""
-    for command in cmd_stream:
-        if (command & 0xFFFF) == cmd.value:
-            return (command >> 16) & 0xFFFF
-    assert False, f"Not in command stream: {cmd}"
+def check_cmd1(cmd_stream, cmd, offset, param=0x0, idx=0):
+    """
+    Checks that command + parameter exists in the command stream after position idx.
+    Returns the position of the command (if found) otherwise asserts.
+    """
+    pos = find_cmd1(cmd_stream, cmd, offset, param, idx)
+    assert pos >= 0, f"{cmd} {offset} {param} not found in the command stream (after position {idx})"
+    return pos
 
 
 def create_feature_map(
@@ -107,24 +127,51 @@ def create_feature_map(
     return fm
 
 
+def create_conv2d(
+    ifm: NpuFeatureMap,
+    ofm: NpuFeatureMap,
+    kernel: NpuKernel,
+    weights: NpuAddressRange,
+    bias: NpuAddressRange,
+    padding: NpuPadding,
+    block_config: NpuShape3D,
+):
+    """Creates a Conv2D operation"""
+    op = NpuConv2DOperation()
+    op.ifm = ifm
+    op.ofm = ofm
+    op.kernel = kernel
+    op.weights = [weights]
+    if bias:
+        op.biases = [bias]
+    op.padding = padding
+    op.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
+    op.block_config = block_config
+    return op
+
+
 def test_conv2d():
     """Tests command stream generation for a conv2d operation"""
-    op = NpuConv2DOperation()
-    op.ifm = create_feature_map(
-        NpuShape3D(height=30, width=62, depth=46), 1, 512, quant=NpuQuantization(scale_f32=0.007843138, zero_point=128)
+    op = create_conv2d(
+        ifm=create_feature_map(
+            NpuShape3D(height=30, width=62, depth=46),
+            1,
+            512,
+            quant=NpuQuantization(scale_f32=0.007843138, zero_point=128),
+        ),
+        ofm=create_feature_map(
+            NpuShape3D(height=30, width=31, depth=46),
+            1,
+            0x14E40,
+            quant=NpuQuantization(scale_f32=0.20392157, zero_point=128),
+        ),
+        kernel=NpuKernel(3, 2, 2, 1),
+        weights=NpuAddressRange(region=0, address=0, length=7696),
+        bias=NpuAddressRange(region=0, address=32000, length=464),
+        padding=NpuPadding(top=0, left=0, right=1, bottom=1),
+        block_config=NpuShape3D(height=16, width=4, depth=16),
     )
-    op.ofm = create_feature_map(
-        NpuShape3D(height=30, width=31, depth=46),
-        1,
-        0x14E40,
-        quant=NpuQuantization(scale_f32=0.20392157, zero_point=128),
-    )
-    op.kernel = NpuKernel(3, 2, 2, 1)
-    op.weights = [NpuAddressRange(region=0, address=0, length=7696)]
-    op.biases = [NpuAddressRange(region=0, address=32000, length=464)]
-    op.padding = NpuPadding(top=0, left=0, right=1, bottom=1)
-    op.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
-    op.block_config = NpuShape3D(height=16, width=4, depth=16)
+
     cmds = npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U55_128)
     set_cmds = list()
     set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_IFM_REGION, 1))
@@ -181,8 +228,8 @@ def test_conv2d():
     set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0))
     conv_idx = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
     assert all([conv_idx > x for x in set_cmds]), "NPU_OP_CONV occured before the last SET operation."
-    ib_end = find_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END)
-    ab_start = find_cmd0(cmds, cmd0.NPU_SET_AB_START)
+    ib_end = find_param_cmd0(cmds, cmd0.NPU_SET_IFM_IB_END)
+    ab_start = find_param_cmd0(cmds, cmd0.NPU_SET_AB_START)
     assert ib_end > 0
     assert ib_end <= ab_start
 
@@ -316,14 +363,14 @@ def test_mul_with_broadcast_and_relu():
     set_cmds.append(check_cmd0(cmds, cmd0.NPU_SET_BLOCKDEP, 0))
     elementwise_idx = check_cmd0(cmds, cmd0.NPU_OP_ELEMENTWISE, 0)
     assert all([elementwise_idx > x for x in set_cmds]), "NPU_OP_ELEMENTWISE occured before the last SET cmd"
-    ab_start = find_cmd0(cmds, cmd0.NPU_SET_AB_START)
+    ab_start = find_param_cmd0(cmds, cmd0.NPU_SET_AB_START)
     assert ab_start > 0
-    ifm2_ib_start = find_cmd0(cmds, cmd0.NPU_SET_IFM2_IB_START)
+    ifm2_ib_start = find_param_cmd0(cmds, cmd0.NPU_SET_IFM2_IB_START)
     assert 0 < ifm2_ib_start < ab_start
     # Check that block width/height were generated that fit
-    blk_height = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1)
-    blk_width = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1)
-    blk_depth = find_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_DEPTH_M1)
+    blk_height = find_param_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_HEIGHT_M1)
+    blk_width = find_param_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_WIDTH_M1)
+    blk_depth = find_param_cmd0(cmds, cmd0.NPU_SET_OFM_BLK_DEPTH_M1)
     assert blk_height >= 0
     assert blk_width >= 0
     assert blk_depth >= 0
@@ -382,6 +429,349 @@ def test_dma_op():
     # A DMA WAIT should have been inserted after the dma start
     dma_wait_idx = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, dma_start_idx)
     check_cmd0(cmds, cmd0.NPU_OP_POOL, 1, dma_wait_idx)
+
+
+def setup_memory_barrier_tests():
+    """
+    Sets up 4 CONV operations and 4 DMA operations.
+    Where dma_ops[i] provides the weights for conv[i]
+    """
+    ifm_addresses = [0x27100, 0x0, 0x27100, 0x0]
+    ofm_addresses = [0x0, 0x27100, 0x0, 0x27100]
+    weight_addr_r0 = [0x80, 0x150, 0x220, 0x2F0]
+    weight_addr_r1 = [0x2E650, 0x4E220, 0x4E2F0, 0x4E3C0]
+    weight_len = 208
+    conv_ops = list()
+    dma_ops = list()
+
+    for i in range(4):
+        weights_flash = NpuAddressRange(region=0, address=weight_addr_r0[i], length=weight_len)
+        weights_sram = NpuAddressRange(region=1, address=weight_addr_r1[i], length=weight_len)
+        dma_op = NpuDmaOperation(weights_flash, weights_sram)
+        conv = create_conv2d(
+            ifm=create_feature_map(
+                shape=NpuShape3D(height=100, width=100, depth=3),
+                region=1,
+                address=ifm_addresses[i],
+                quant=NpuQuantization(scale_f32=1.0, zero_point=0),
+            ),
+            ofm=create_feature_map(
+                shape=NpuShape3D(height=100, width=100, depth=3),
+                region=1,
+                address=ofm_addresses[i],
+                quant=NpuQuantization(scale_f32=1.0, zero_point=0),
+            ),
+            kernel=NpuKernel(3, 3, 1, 1),
+            weights=weights_sram,
+            bias=None,
+            padding=NpuPadding(top=1, left=1, right=1, bottom=1),
+            block_config=NpuShape3D(height=20, width=20, depth=8),
+        )
+        conv_ops.append(conv)
+        dma_ops.append(dma_op)
+    return conv_ops, dma_ops
+
+
+def test_dma_wait_1():
+    """
+    Tests that DMA_WAIT barriers are properly inserted
+    by the register command stream generator.
+    high-level command stream:
+        dma[0]
+        conv[0]
+        dma[1]
+        conv[1]
+        dma[2]
+        conv[2]
+    Where dma[i] provides the weights for conv[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+
+    hlvl_cmds = [dma_ops[0], conv_ops[0], dma_ops[1], conv_ops[1], dma_ops[2], conv_ops[2]]
+
+    # Ethos-U55
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U55_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+    # Ethos-U65
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U65_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+
+def test_dma_wait_2():
+    """
+    Tests that DMA_WAIT barriers are properly inserted
+    by the register command stream generator.
+    high-level command stream:
+        dma[0]
+        dma[1]
+        conv[0]
+        dma[2]
+        conv[1]
+        conv[2]
+    Where dma[i] provides the weights for conv[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+
+    hlvl_cmds = [dma_ops[0], dma_ops[1], conv_ops[0], dma_ops[2], conv_ops[1], conv_ops[2]]
+
+    # Ethos-U55
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U55_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+    # Ethos-U65
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U65_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+
+def test_dma_wait_3():
+    """
+    Tests that DMA_WAIT barriers are properly inserted
+    by the register command stream generator.
+    high-level command stream:
+        dma[0]
+        dma[1]
+        dma[2]
+        conv[0]
+        dma[3]
+        conv[1]
+        conv[2]
+        conv[3]
+    Where dma[i] provides the weights for conv[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+
+    hlvl_cmds = [dma_ops[0], dma_ops[1], dma_ops[2], conv_ops[0], dma_ops[3], conv_ops[1], conv_ops[2], conv_ops[3]]
+
+    # Ethos-U55
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U55_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+    # Ethos-U65
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U65_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+
+def test_dma_wait_4():
+    """
+    Tests that DMA_WAIT barriers are properly inserted
+    by the register command stream generator.
+    high-level command stream:
+        dma[0]
+        dma[1]
+        dma[2]
+        conv[0]
+        conv[1]
+        dma[3]
+        conv[2]
+        conv[3]
+    Where dma[i] provides the weights for conv[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    hlvl_cmds = [dma_ops[0], dma_ops[1], dma_ops[2], conv_ops[0], conv_ops[1], dma_ops[3], conv_ops[2], conv_ops[3]]
+
+    # Ethos-U55
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U55_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+    # Ethos-U65
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U65_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+
+def test_dma_wait_5():
+    """
+    Tests that DMA_WAIT barriers are properly inserted
+    by the register command stream generator.
+    high-level command stream:
+        dma[0]
+        dma[1]
+        dma[2]
+        conv[0]
+        conv[1]
+        conv[2]
+        dma[3]
+        conv[3]
+    Where dma[i] provides the weights for conv[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    hlvl_cmds = [dma_ops[0], dma_ops[1], dma_ops[2], conv_ops[0], conv_ops[1], conv_ops[2], dma_ops[3], conv_ops[3]]
+
+    # Ethos-U55
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U55_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+    # Ethos-U65
+    cmds = npu_generate_register_command_stream(hlvl_cmds, NpuAccelerator.Ethos_U65_256)
+    pos = 0
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos)
+
+
+def test_dma_wait_6():
+    """
+    Verify that DMA waits are not unnecessarily inserted
+    between unrelated DMA and KERNEL commands
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    cmds = npu_generate_register_command_stream([dma_ops[0], conv_ops[1]], NpuAccelerator.Ethos_U65_256)
+    start_pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0)
+    check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, start_pos)
+
+    wait_pos = find_cmd0(cmds, cmd0.NPU_OP_DMA_WAIT, 0)
+    assert (
+        wait_pos == -1
+    ), f"A DMA_WAIT command was unnecessarily inserted (pos {wait_pos}) between unrelated DMA and KERNEL commands"
+
+
+def test_kernel_wait_0():
+    """
+    Verify that KERNEL_WAIT 0 is generated.
+    dma_op[0] writes to the weight-address for conv[0]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    cmds = npu_generate_register_command_stream([conv_ops[0], dma_ops[0]], NpuAccelerator.Ethos_U65_256)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_KERNEL_WAIT, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+
+
+def test_kernel_wait_1():
+    """
+    Verify that KERNEL_WAIT 1 is generated.
+    dma_op[0] writes to the weight-address for conv[0]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    cmds = npu_generate_register_command_stream([conv_ops[0], conv_ops[1], dma_ops[0]], NpuAccelerator.Ethos_U65_256)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_KERNEL_WAIT, 1, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+
+
+def test_kernel_wait_2():
+    """
+    Verify that KERNEL_WAIT 2 is generated.
+    dma_ops[i] writes to the weight-address for conv_ops[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    cmds = npu_generate_register_command_stream(
+        [conv_ops[0], conv_ops[1], conv_ops[2], dma_ops[0]], NpuAccelerator.Ethos_U65_256
+    )
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_KERNEL_WAIT, 2, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+
+
+def test_kernel_wait_3():
+    """
+    Verify that KERNEL_WAIT 2 is generated.
+    dma_ops[i] writes to the weight-address for conv_ops[i]
+    """
+    conv_ops, dma_ops = setup_memory_barrier_tests()
+    cmds = npu_generate_register_command_stream(
+        [conv_ops[0], conv_ops[1], conv_ops[2], dma_ops[3], dma_ops[0]], NpuAccelerator.Ethos_U65_256
+    )
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_KERNEL_WAIT, 2, pos)
+    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
 
 
 def test_check_mem_limits():
