@@ -852,6 +852,11 @@ class Operation:
             return self.forced_input_quantization
         return self.ifm.quantization
 
+    def add_output_tensor(self, tens):
+        self.outputs.append(tens)
+        if self not in tens.ops:
+            tens.ops.append(self)
+
     def set_output_tensor(self, tens):
         tens.ops = [self]
         self.outputs = [tens]

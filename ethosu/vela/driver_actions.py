@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -79,7 +79,7 @@ def build_config_word(arch):
     if arch.is_ethos_u65_system:
         n.set_product(1)
     else:
-        n.set_product(0)  # U55
+        n.set_product(0)  # Ethos-U55
     n.set_shram_size(shram_size)
     n.set_cmd_stream_version(0)  # may be incremented in the future
     n.set_macs_per_cc(log2_macs_cc)

@@ -16,6 +16,8 @@
 #
 # Description:
 # Unit tests for tflite support_operators
+from typing import List
+
 import numpy as np
 import pytest
 
@@ -121,7 +123,7 @@ def test_constraint_conv_pass():
         [[1, 8, 40, 8], 8, 1, True],
     ],
 )
-def test_constraint_stride_range(ifm_shape: list[int], stride_w: int, stride_h: int, supported: bool):
+def test_constraint_stride_range(ifm_shape: List[int], stride_w: int, stride_h: int, supported: bool):
     # Stride width and height must lie within a certain range
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, ifm_shape, [1, 8, 8, 8], [1, 1, 1, 1])
     op.attrs = {"stride_w": stride_w, "stride_h": stride_h}
