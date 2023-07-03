@@ -22,6 +22,7 @@ import numpy as np
 from flatbuffers import encode
 from flatbuffers.builder import UOffsetTFlags
 
+from ._version import __version__
 from .errors import VelaError
 from .nn_graph import PassPlacement
 from .operation import Op
@@ -427,7 +428,10 @@ class TFLiteSerialiser:
         builder = self.builder
         builder.assertNotNested()
         builder.nested = True
-        data = bytes(buf)
+        if isinstance(buf, str):
+            data = bytes(buf, "utf-8")
+        else:
+            data = bytes(buf)
         length_bytes = UOffsetTFlags.py_type(len(data))
         builder.vectorNumElems = length_bytes
         builder.Prep(16, length_bytes)  # Reserve aligned storage
@@ -464,7 +468,8 @@ class TFLiteSerialiser:
             ]
         )
 
-        description = builder.CreateString("Vela Optimised")
+        description = builder.CreateString(f"Vela {__version__} Optimised")
+        self.nng.metadata.append(("vela_version", __version__))
 
         subgraph_offset = self.write_offset_vector(
             [self.serialise_subgraph(sg, builder.CreateString(sg.name)) for sg in self.subgraphs_to_write]
