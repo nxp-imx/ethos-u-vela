@@ -63,3 +63,10 @@ requires = [
     "setuptools_scm[toml]~=7.1.0"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+testpaths = ["ethosu/mlw_codec/test", "ethosu/vela/test"]

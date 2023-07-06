@@ -55,7 +55,7 @@ repos:
         name: pytest
         stages: [commit]
         language: system
-        entry: pytest -s -v .
+        entry: pytest -s -v
         types: [python]
         pass_filenames: false
         always_run: true
