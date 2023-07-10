@@ -208,8 +208,11 @@ def _get_ifm_to_fuse(sched_op, target_mem_area=None, target_mem_type_set=None):
         if not (
             tensor_should_be_ignored(ifm, target_mem_area, target_mem_type_set)
             or tensor_should_be_ignored(ofm, target_mem_area, target_mem_type_set)
+            # input tensor only allowed to have one consumer
+            or len(ifm.consumer_list) > 1
         ):
             # Currently DMA only used when bypassing memory only ops so ok to reuse ifm
+            # if ifm has only one consumer
             ifm_tens = ifm
 
     return ifm_tens
