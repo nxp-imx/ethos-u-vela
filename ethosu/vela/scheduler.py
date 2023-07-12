@@ -260,6 +260,27 @@ class SchedulerOperation:
                     self.parent_ps.ifm_tensor,
                 )
 
+    @property
+    def ofm_write_shape(self):
+        if self.ofm:
+            ofm_write_shape = self.parent_op.write_shape
+            return ofm_write_shape if ofm_write_shape else self.ofm.shape
+        return None
+
+    @property
+    def ifm_read_shape(self):
+        if self.ifm:
+            ifm_read_shape = self.parent_op.read_shapes[1] if self.reversed_operands else self.parent_op.read_shapes[0]
+            return ifm_read_shape if ifm_read_shape else self.ifm.shape
+        return None
+
+    @property
+    def ifm2_read_shape(self):
+        if self.ifm2:
+            ifm2_read_shape = self.parent_op.read_shapes[0] if self.reversed_operands else self.parent_op.read_shapes[1]
+            return ifm2_read_shape if ifm2_read_shape else self.ifm2.shape
+        return None
+
     def add_ifm_connection(self, conn: "Connection"):
         """Add input connection to another SchedulerOperation or Subgraph Input"""
         conn.consumers.append(self)
@@ -565,15 +586,15 @@ class Scheduler:
 
     def estimate_op_performance(self, op: SchedulerOperation, block_config, ofm_depth):
         query = npu_performance.PerformanceQuery(op.op_type.npu_block_type)
-        query.ifm_shape = op.ifm.shape
+        query.ifm_shape = op.ifm_read_shape
         query.ifm_memory_area = op.ifm.connection.parent_tens.mem_area
         query.ifm_bits = op.ifm.dtype.size_in_bits()
         query.ifm_format = op.ifm.format
-        query.ifm2_shape = op.ifm2 and op.ifm2.shape
+        query.ifm2_shape = op.ifm2_read_shape
         query.ifm2_memory_area = op.ifm2 and op.ifm2.connection.parent_tens.mem_area
         query.ifm2_bits = op.ifm2 and op.ifm2.dtype.size_in_bits()
         query.ifm2_format = op.ifm2 and op.ifm2.format
-        query.ofm_shape = op.ofm.shape.with_depth(ofm_depth)
+        query.ofm_shape = op.ofm_write_shape.with_depth(ofm_depth)
         query.ofm_memory_area = op.ofm.connection.parent_tens.mem_area
         query.ofm_bits = op.ofm.dtype.size_in_bits()
         query.ofm_format = op.ofm.format
@@ -588,15 +609,15 @@ class Scheduler:
 
     def estimate_element_access(self, op: SchedulerOperation, block_config, ofm_depth):
         query = npu_performance.PerformanceQuery(op.op_type.npu_block_type)
-        query.ifm_shape = op.ifm.shape
+        query.ifm_shape = op.ifm_read_shape
         query.ifm_memory_area = op.ifm.connection.parent_tens.mem_area
         query.ifm_bits = op.ifm.dtype.size_in_bits()
         query.ifm_format = op.ifm.format
-        query.ifm2_shape = op.ifm2 and op.ifm2.shape
+        query.ifm2_shape = op.ifm2_read_shape
         query.ifm2_memory_area = op.ifm2 and op.ifm2.connection.parent_tens.mem_area
         query.ifm2_bits = op.ifm2 and op.ifm2.dtype.size_in_bits()
         query.ifm2_format = op.ifm2 and op.ifm2.format
-        query.ofm_shape = op.ofm.shape.with_depth(ofm_depth)
+        query.ofm_shape = op.ofm_write_shape.with_depth(ofm_depth)
         query.ofm_memory_area = op.ofm.connection.parent_tens.mem_area
         query.ofm_bits = op.ofm.dtype.size_in_bits()
         query.ofm_format = op.ofm.format

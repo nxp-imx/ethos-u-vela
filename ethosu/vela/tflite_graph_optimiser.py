@@ -150,7 +150,7 @@ def rewrite_split_ops(tens, arch, nng):
             read_shape = None
         else:
             # the read shape is relative to each start offset
-            read_shape = [oe - os for oe, os in zip(offset_end, offset_start)]
+            read_shape = Shape4D([oe - os for oe, os in zip(offset_end, offset_start)])
 
         # For Split the offset cannot be extracted from the tensor so it has to
         # be calculated from the index of the output tensor
