@@ -1000,7 +1000,17 @@ builtin_operator_map = {
         ),
         TFLITE_NO_INDICES,
     ),
-    BuiltinOperator.RANDOM_UNIFORM: (Op.RandomUniform, None, TFLITE_NO_INDICES),
+    BuiltinOperator.RANDOM_UNIFORM: (
+        Op.RandomUniform,
+        OptionsSerializer(
+            "RandomOptions",
+            (
+                "seed",
+                "seed2",
+            ),
+        ),
+        TFLITE_NO_INDICES,
+    ),
     BuiltinOperator.MULTINOMIAL: (Op.Multinomial, None, TFLITE_NO_INDICES),
     BuiltinOperator.GELU: (Op.Gelu, OptionsSerializer("GeluOptions", ("approximate",)), TFLITE_NO_INDICES),
     BuiltinOperator.DYNAMIC_UPDATE_SLICE: (
