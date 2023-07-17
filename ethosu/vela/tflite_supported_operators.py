@@ -331,6 +331,7 @@ class TFLiteSupportedOperators:
         self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_lstm_no_projection)
         self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_lstm_no_normalisation)
         self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_lstm_weights)
+        self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_lstm_weight_dimensions)
 
         # Rsqrt specific checks
         self.specific_constraints[Op.Rsqrt].append(TFLiteSupportedOperators.constraint_rsqrt_input_int8)
@@ -965,6 +966,12 @@ class TFLiteSupportedOperators:
         "All input and recurrent weights must be available"
         valid = None not in op.inputs[1:9]
         return valid, "Op has missing weights"
+
+    @staticmethod
+    def constraint_lstm_weight_dimensions(op):
+        "All recurrent weights must be 2D"
+        valid = all([len(input.shape) == 2 for input in op.inputs[5:9]])
+        return valid, "Op recurrent weights are not 2D"
 
     @staticmethod
     def constraint_rsqrt_input_int8(op):

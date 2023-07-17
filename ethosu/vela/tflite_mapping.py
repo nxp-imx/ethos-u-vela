@@ -716,7 +716,14 @@ builtin_operator_map = {
         Op.UnidirectionalSequenceLstm,
         OptionsSerializer(
             "UnidirectionalSequenceLSTMOptions",
-            ("asymmetric_quantize_inputs", "cell_clip", fused_act, "proj_clip", "time_major"),
+            (
+                "asymmetric_quantize_inputs",
+                "cell_clip",
+                "diagonal_recurrent_tensors",
+                fused_act,
+                "proj_clip",
+                "time_major",
+            ),
         ),
         TFLITE_IFM_WEIGHTS_INDICES,
     ),

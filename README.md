@@ -45,7 +45,8 @@ The tool has limited functionality for compiling a
 (EXPERIMENTAL).
 
 ## TensorFlow Support
-* Vela 3.8.0 to current supports TensorFlow 2.11
+* Vela 3.9.0 to current supports TensorFlow 2.12
+* Vela 3.8.0 supports TensorFlow 2.11
 * Vela 3.6.0 to 3.7.0 supports TensorFlow 2.10
 * Vela 3.5.0 supports TensorFlow 2.9
 * Vela 3.4.0 supports TensorFlow 2.8
