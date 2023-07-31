@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# Copyright 2022-2023 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -22,6 +23,7 @@ import numpy as np
 from flatbuffers import encode
 from flatbuffers.builder import UOffsetTFlags
 
+from ._version import __version__
 from .errors import VelaError
 from .nn_graph import PassPlacement
 from .operation import Op
@@ -464,7 +466,7 @@ class TFLiteSerialiser:
             ]
         )
 
-        description = builder.CreateString("Vela Optimised")
+        description = builder.CreateString("Vela %s Optimised" % __version__)
 
         subgraph_offset = self.write_offset_vector(
             [self.serialise_subgraph(sg, builder.CreateString(sg.name)) for sg in self.subgraphs_to_write]
