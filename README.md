@@ -45,6 +45,10 @@ The tool has limited functionality for compiling a
 (EXPERIMENTAL).
 
 ## TensorFlow Support
+Vela is tested by comparing the numerical behaviour of the optimised operators
+against that of the corresponding TensorFlow Lite reference kernels.  The
+following list indicates which version is used for comparison:
+
 * Vela 3.9.0 to current supports TensorFlow 2.12
 * Vela 3.8.0 supports TensorFlow 2.11
 * Vela 3.6.0 to 3.7.0 supports TensorFlow 2.10
@@ -55,6 +59,18 @@ The tool has limited functionality for compiling a
 * Vela 2.1.0 to 3.0.0 supports TensorFlow 2.4
 * Vela 2.0.0 to 2.0.1 supports TensorFlow 2.3
 * Vela 0.1.0 to 1.2.0 supports TensorFlow 2.1
+
+## Python Version Support
+The majority of Vela's testing is done using a single version of Python, as
+indicated by the first version in the list below.  However, some additional
+testing is also performed across a range of newer versions starting at the
+minimum version (pyproject.toml:project.requires-python) indicated in the
+brackets:
+
+* Vela 3.8.0 to current supports Python 3.9 (3.8)
+* Vela 3.4.0 to 3.7.0 supports Python 3.7 (3.8)
+* Vela 3.3.0 supports Python 3.8 (3.7)
+* Vela 0.1.0 to 3.2.0 supports Python 3.6 (3.7)
 
 ## Environment
 
@@ -68,9 +84,9 @@ The following should be installed prior to the installation of Vela:
    - Development version containing the Python/C API header files
    - e.g. `apt install python3.9-dev` or `yum install python39-devel`
 * Pip3
-* A C99 capable compiler and associated toolchain
+* C99 capable compiler and associated toolchain
     - For Linux operating systems, a GNU toolchain is recommended.
-    - For Microsoft Windows 10, Microsoft Visual C++ 14.2 Build Tools is recommended.
+    - For Microsoft Windows 10, the Microsoft Visual C++ 14.2 Build Tools are recommended.
       See <https://wiki.python.org/moin/WindowsCompilers>
 
 ## Installation
@@ -114,7 +130,7 @@ as an editable package to avoid the need to re-install after every modification.
 This is done by adding the `-e` option to the install command like so:
 
 ```bash
-pip3 install -e .
+pip3 install -e .[dev]
 ```
 
 If you plan to contribute to the Vela project (highly encouraged!) then it is
