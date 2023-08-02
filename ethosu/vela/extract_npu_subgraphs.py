@@ -246,12 +246,13 @@ def extract_subgraph(nng, orig_sg, arch):
                         need_rewrite = True
                         break
                 for orig_out_tens in orig_sg.output_tensors:
-                    if tens == orig_out_tens:
-                        need_rewrite = True
-                    elif tens.equivalence_id == orig_out_tens.equivalence_id:
-                        need_rewrite = True
-                        multiple_npu_sg_have_same_cpu_out_tens = True
-                        output_tensor = orig_out_tens
+                    if tens not in curr_sg.output_tensors:
+                        if tens == orig_out_tens:
+                            need_rewrite = True
+                        elif tens.equivalence_id == orig_out_tens.equivalence_id:
+                            need_rewrite = True
+                            multiple_npu_sg_have_same_cpu_out_tens = True
+                            output_tensor = orig_out_tens
 
                 if need_rewrite:
                     rewrite_tensor_npu_producer_cpu_consumers(
