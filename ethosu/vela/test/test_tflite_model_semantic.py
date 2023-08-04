@@ -356,6 +356,18 @@ def test_constraint_pad_input_count():
     assert not semantic_checker.is_operator_semantic_valid(op)
 
 
+def test_constraint_pad_output_shape():
+    # Incorrect output tensor shape
+    op = create_pad_op(
+        in_shape=[1, 1, 1, 1],
+        out_shape=[1, 3, 3, 1],
+        padding=[[0, 0], [1, 1], [1, 1], [0, 0]],
+    )
+    assert semantic_checker.is_operator_semantic_valid(op)
+    op.outputs[0].shape = [1, 1, 1, 1]
+    assert not semantic_checker.is_operator_semantic_valid(op)
+
+
 def create_strided_slice():
     # Creates a valid strided slice operator with some valid inputs/outputs
     op = create_strided_slice_op([1, 10, 10, 10], [1, 5, 5, 10], [127, 2, 2, 0], [0, 7, -3, 0])

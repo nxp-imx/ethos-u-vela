@@ -184,6 +184,7 @@ class TFLiteSemantic:
         # Pad specific checks:
         self.specific_constraints[Op.Pad].append(TFLiteSemantic.constraint_pad_input_count)
         self.specific_constraints[Op.Pad].append(TFLiteSemantic.constraint_pad_constant)
+        self.specific_constraints[Op.Pad].append(TFLiteSemantic.constraint_pad_output_shape)
 
         # HardSwish specific checks:
         self.specific_constraints[Op.HardSwish].append(TFLiteSemantic.constraint_input_8bit)
@@ -584,6 +585,16 @@ class TFLiteSemantic:
         pad_tensor = op.inputs[1].values
         valid = pad_tensor is not None
         return valid, f"Op has non-constant padding tensor: {op.inputs[1].values}"
+
+    @staticmethod
+    def constraint_pad_output_shape(op):
+        "Shape of output tensor must equal to size of input tensor plus padding"
+        input_shape = op.inputs[0].shape
+        expected_output_shape = op.outputs[0].shape
+        pad_tensor = op.inputs[1].values
+        actual_output_shape = input_shape + pad_tensor.T[0] + pad_tensor.T[1]
+        valid = np.array_equal(actual_output_shape, expected_output_shape)
+        return valid, f"Op has wrong output tensor shape: {expected_output_shape}, has shape: {actual_output_shape}"
 
     @staticmethod
     def constraint_stridedslice_inputs_const(op):
