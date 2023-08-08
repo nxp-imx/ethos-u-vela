@@ -271,7 +271,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                                 assert ifm_tensor.purpose == TensorPurpose.FeatureMap
 
                         if operation_set is None:
-                            print("Warning:", curr_op.type, "operation is unknown or unsupported, placing on CPU")
+                            assert not curr_op.run_on_npu  # operator should have been placed on the CPU
 
                         for inp in reversed(curr_op.inputs):
                             if inp is None:

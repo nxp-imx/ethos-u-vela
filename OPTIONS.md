@@ -398,8 +398,8 @@ vela network.tflite --verbose-performance
 
 Displays a list of all operators and the tensors that are connected to them.
 Additional information is shown about the tensors. The format is:
-`<num> <op_type> <op_name>`, where;  
-`  <direction> <idx> <purpose> <mem_area> <mem_type> <tens>`, where;  
+`<num> <op_type> <op_name> <direction> <idx> <purpose> <mem_area> <mem_type>
+<tens>`, where;  
 num = an increasing operator count  
 op_type = the Graph IR Operator Type  
 op_name = the Graph IR Operator Name (this may have been derived from the
@@ -466,9 +466,32 @@ vela network.tflite --verbose-allocation
 
 ### Verbose High Level Command Stream
 
-Display a high level command stream with one command per DMA or NPU stripe. The
-commands contain information about block configuration as well as IFM-, OFM-
-and weight boxes.  
+Display an enumerated list of High-Level (HL) commands in execution
+order.  There are three types of command and each one displays individual
+information:
+
+* NPU Stripe = `<name> <ifm_box> <ifm2_box> <ofm_box> <weight_box>
+<block_config>`, represents a data processing operation that maps directly to
+a single Ethos-U operation where;  
+name = name of the pass that corresponds to this HL command (not unique)  
+ifm_box = part of the IFM in NHWC format  
+ifm2_box = part of the IFM2 in NHWC format (is empty [] when not present)  
+ofm_box = part of the OFM in NHWC format  
+weight_box = part of the filter kernel in NHWC format  
+block_config = block processing size in HWIO format
+
+* DMA = `<in> <out> <box>`, represents a memory copy operation from source to
+destination where;  
+name = name of the pass that corresponds to this HL command (not unique)  
+in = name of the source tensor  
+out = name of the destination tensor  
+box = part of the source tensor in NHWC format
+
+* NOP = `<in> <out>`, represents a memory copy operation that has source equal
+to destination and therefore does nothing, where;  
+name = name of the pass that corresponds to this HL command (not unique)  
+in = name of the input tensor  
+out = name of the output tensor
 
 ```bash
 vela network.tflite --verbose-high-level-command-stream
@@ -476,8 +499,18 @@ vela network.tflite --verbose-high-level-command-stream
 
 ### Verbose Register Command Stream
 
-Display all NPU operations and a register level (low level) command stream with
-all register settings for the network execution on the NPU.  
+Display two groups of information.  The first group is the input to the register
+command stream generator.  The second group is the output of the register
+command stream generator:
+
+* Input = an enumerated list of the High-Level commands that are the input to
+the generator.  Each command details all of its attributes.
+
+* Output = a disassembly of the Ethos-U command stream (referred to as the
+register command stream).  More information about the commands listed in the
+register command stream can be found in the Arm Ethos-U NPU Technical Reference
+Manuals that are available from the Arm Developer website (see
+[README - Resources](README.md#resources)).
 
 ```bash
 vela network.tflite --verbose-register-command-stream

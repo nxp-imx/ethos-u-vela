@@ -1052,6 +1052,7 @@ def generate_command_stream(
     """
     emit = CommandStreamEmitter()
     if verbose:
+        print("Register-Level Command Stream: Input")
         print_operations(npu_op_list, npu_op_to_cmd)
     # Calculate memory accesses for every operation
     memory_accesses: Dict[NpuOperation, MemoryAccessSet] = {}
@@ -1105,6 +1106,7 @@ def generate_command_stream(
         )
 
     if verbose:
+        print("Register-Level Command Stream: Output")
         emit.print_cmds()
         print(f"Number of commands = {len(emit.cmd_stream)}")
         print(f"Command stream length = {emit.size_in_bytes()} bytes")

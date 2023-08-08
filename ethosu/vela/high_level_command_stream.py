@@ -236,7 +236,7 @@ class NpuStripe(Command):
         return True
 
     def __str__(self):
-        return "<NPUStripe: ps=%s, ifm_box=%s, ifm2_box=%s, ofm_box=%s, weight_box=%s, block_config=%s>" % (
+        return "<NpuStripe: name=%s, ifm_box=%s, ifm2_box=%s, ofm_box=%s, weight_box=%s, block_config=%s>" % (
             self.ps.name,
             self.ifm_box,
             self.ifm2_box,
@@ -286,7 +286,7 @@ class DMA(Command):
         self.box = box
 
     def __str__(self):
-        return "<DMA: in=%s, out=%s, box=%s>" % (self.in_tensor.name, self.out_tensor.name, self.box)
+        return f"<DMA: name={self.ps.name}, in={self.in_tensor.name}, out={self.out_tensor.name} box={self.box}>"
 
     __repr__ = __str__
 
@@ -302,7 +302,7 @@ class NOP(Command):
         self.out_tensor = out_tensor
 
     def __str__(self):
-        return f"<NOP: in={self.in_tensor.name}, out={self.out_tensor.name}>"
+        return f"<NOP: name={self.ps.name}, in={self.in_tensor.name}, out={self.out_tensor.name}>"
 
     __repr__ = __str__
 
