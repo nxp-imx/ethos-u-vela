@@ -143,7 +143,7 @@ def get_rounding_mode(op: Operation, fused_quantize: bool) -> NpuRoundingMode:
     if op.type.is_resize_op():
         rounding_mode = NpuRoundingMode.NATURAL
     elif (
-        op._original_type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)
+        op.original_type.npu_block_type in (NpuBlockType.ConvolutionMxN, NpuBlockType.ConvolutionDepthWise)
         and op.ifm.dtype == DataType.int16
     ):
         rounding_mode = NpuRoundingMode.NATURAL
@@ -334,7 +334,7 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
         return False
     if ps.primary_op.type == Op.AvgPool and ps.primary_op.explicit_scaling:
         return False
-    fused_quantize = any(op.type == Op.Quantize for op in ps.ops)
+    fused_quantize = any(op.type == Op.Quantize or op.original_type == Op.Quantize for op in ps.ops)
     forced_ofm_quantization = ps.primary_op.forced_output_quantization
     use_0 = (
         (
@@ -521,7 +521,7 @@ def set_common_op_fields(npu_op: NpuBlockOperation, cmd: NpuStripe, arch: Archit
     if cmd.weight_tensor is not None:
         npu_op.weights, npu_op.biases = create_weights(cmd.weight_tensor, cmd.weight_box, cmd.scale_tensor, arch)
     npu_op.activation = create_npu_activation(op)
-    npu_op.fused_quantize = any(op.type == Op.Quantize for op in ps.ops)
+    npu_op.fused_quantize = any(op.type == Op.Quantize or op.original_type == Op.Quantize for op in ps.ops)
     npu_op.rounding_mode = get_rounding_mode(op, npu_op.fused_quantize)
     npu_op.block_config = NpuShape3D(height=ps.block_config[0], width=ps.block_config[1], depth=ps.block_config[3])
 
