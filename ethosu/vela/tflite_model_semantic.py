@@ -472,7 +472,10 @@ class TFLiteSemantic:
         input_tens = op.inputs[1]
         dims = len(input_tens.shape)
         # handle axis being a scalar or 1-D array
-        axis = int(axis_tens.values) if len(axis_tens.values.shape) == 0 else int(axis_tens.values[0])
+        if axis_tens.values.ndim == 0:
+            axis = int(axis_tens.values)
+        else:
+            axis = int(axis_tens.values[0])
         axis += dims if axis < 0 else 0
         valid = 0 <= axis < dims
         return valid, f"Op has ifm_dimensions={dims} and axis value is: {axis}"
@@ -485,7 +488,10 @@ class TFLiteSemantic:
         input_tens = op.inputs[1]
         dims = len(input_tens.shape)
         # handle axis being a scalar or 1-D array
-        axis = int(axis_tens.values) if len(axis_tens.values.shape) == 0 else int(axis_tens.values[0])
+        if axis_tens.values.ndim == 0:
+            axis = int(axis_tens.values)
+        else:
+            axis = int(axis_tens.values[0])
         axis += dims if axis < 0 else 0
         valid = input_tens.shape[axis] % num_splits == 0
         return valid, f"Op has ifm shape={input_tens.shape} axis={axis} num_splits={num_splits}"
