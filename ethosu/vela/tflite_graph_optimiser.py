@@ -1685,6 +1685,21 @@ def convert_tanh_sigmoid_to_lut(op: Operation, arch, nng) -> Operation:
     return op
 
 
+def convert_quantize(op: Operation, arch, nng) -> Operation:
+    """Convert Quantize to Avgpool. This conversion only works for int-to-int re-quantization and
+    not to/from floats. Therefor, this rewrite should only run after the supported ops check to
+    avoid rewriting ops that will run on CPU."""
+    if op.type == Op.Quantize:
+        # Create a new AvgPool op and steal its attrs, then reuse the original op with different type
+        avgpool_op = create_avgpool_nop(op.name + "_avgpool")
+        op.type = Op.AvgPool
+        op.attrs = avgpool_op.attrs.copy()
+
+        DebugDatabase.add_optimised(op, op)
+
+    return op
+
+
 def fuse_activation_function_with_prev(op, arch, nng):
     # if op is a no-op: attempts to move the activation function to the preceding op
     if not op.attrs.get("is_nop", False) or op.activation is None:
@@ -2645,6 +2660,7 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
         fixup_bias_tensors,
         fixup_asymmetric_weights,
         convert_tanh_sigmoid_to_lut,
+        convert_quantize,
         replace_pad_by_hw_pad,
         fixup_dilation_gt2,
     ]
