@@ -790,7 +790,7 @@ builtin_operator_map = {
     BuiltinOperator.EXPAND_DIMS: (Op.ExpandDims, OptionsSerializer("ExpandDimsOptions"), TFLITE_IFM_INDICES),
     BuiltinOperator.EQUAL: (Op.Equal, OptionsSerializer("EqualOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.NOT_EQUAL: (Op.NotEqual, OptionsSerializer("NotEqualOptions"), TFLITE_NO_INDICES),
-    BuiltinOperator.LOG: (Op.Log, None, TFLITE_NO_INDICES),
+    BuiltinOperator.LOG: (Op.Log, None, TFLITE_IFM_INDICES),
     BuiltinOperator.SUM: (Op.Sum, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
     BuiltinOperator.SQRT: (Op.Sqrt, None, TFLITE_NO_INDICES),
     BuiltinOperator.RSQRT: (Op.Rsqrt, None, TFLITE_NO_INDICES),
