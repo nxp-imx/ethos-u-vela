@@ -67,7 +67,8 @@ testing is also performed across a range of newer versions starting at the
 minimum version (pyproject.toml:project.requires-python) indicated in the
 brackets:
 
-* Vela 3.8.0 to current supports Python 3.9 (3.8)
+* Vela 3.9.0 to current supports Python 3.10 (3.8)
+* Vela 3.8.0 supports Python 3.9 (3.8)
 * Vela 3.4.0 to 3.7.0 supports Python 3.7 (3.8)
 * Vela 3.3.0 supports Python 3.8 (3.7)
 * Vela 0.1.0 to 3.2.0 supports Python 3.6 (3.7)
@@ -80,9 +81,9 @@ Vela runs on Linux and Microsoft Windows 10 operating systems.
 
 The following should be installed prior to the installation of Vela:
 
-* Python 3.9 or compatible
+* Python 3.10 or compatible
    - Development version containing the Python/C API header files
-   - e.g. `apt install python3.9-dev` or `yum install python39-devel`
+   - e.g. `apt install python3.10-dev` or `yum install python310-devel`
 * Pip3
 * C99 capable compiler and associated toolchain
     - For Linux operating systems, a GNU toolchain is recommended.
@@ -239,7 +240,7 @@ the mlw_codec and the current version of NumPy.
 In the ethos-u-vela source directory, run:
 
 ```bash
-virtualenv -p 3.9 venv
+virtualenv -p 3.10 venv
 . venv/bin/activate
 pip install ethos-u-vela
 ```

@@ -22,6 +22,28 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.9.0 - 15/08/2023
+
+**Main feature changes:**
+
+* New operator support: RSQRT
+* Extended Mean operator support
+* Enabled weight buffering for the Size optimisation strategy (CLI option "--optimise Size")
+* Improved documentation of verbose CLI options
+* Upgrade TensorFlow Lite support to version 2.12
+
+**Interface changes:**
+
+* None
+
+**Reported defect fixes:**
+
+* Fixed crash when rewriting Slice operator (MLCE-918)
+* Fixed issues with faulty memory overwrite for reshape operator (MLCE-1003)
+* Fixed runtime issues for grouped convolutions (MLCE-1076)
+* Enabled cascading for resize operators (MLCE-1058)
+
+
 ## Release 3.8.0 - 17/05/2023
 
 **Main feature changes:**
