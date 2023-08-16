@@ -295,9 +295,6 @@ def create_lut_rsqrt_int8_op(op):
     zp_in = op.ifm.quantization.zero_point
     zp_out = op.ofm.quantization.zero_point
 
-    # Make sure zero point is valid
-    assert (-128 - zp_in) >= 0, f"Rsqrt is only defined for positive values, zeropoint is {zp_in}"
-
     scale = np.double(1) / np.double(np.sqrt(ifm_scale) * ofm_scale)
     output_multiplier, output_shift = quantise_scale(scale)
 
@@ -314,7 +311,8 @@ def create_lut_rsqrt_int8_op(op):
         if x == -128:
             # Value already populated above
             continue
-        x_real = x - zp_in
+        # Rsqrt is only defined for positive values
+        x_real = max(0, x - zp_in)
         val = RSQRT_LUT[x_real]
         val = fp_math.multiply_by_quantized_multiplier(val, output_multiplier, output_shift - kshift) + zp_out
         lut_result = min(quantized_max, max(quantized_min, val))
