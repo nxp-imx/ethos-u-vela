@@ -11,5 +11,8 @@ class DType(object):
     INT16 = 5
     INT32 = 6
     INT48 = 7
-    FLOAT = 8
-
+    FP32 = 8
+    UINT16 = 9
+    FP16 = 10
+    BF16 = 11
+    SHAPE = 12

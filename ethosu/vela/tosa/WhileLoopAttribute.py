@@ -3,16 +3,26 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class WhileLoopAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsWhileLoopAttribute(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = WhileLoopAttribute()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsWhileLoopAttribute(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def WhileLoopAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # WhileLoopAttribute
     def Init(self, buf, pos):
@@ -32,7 +42,26 @@ class WhileLoopAttribute(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def WhileLoopAttributeStart(builder): builder.StartObject(2)
-def WhileLoopAttributeAddCondBranch(builder, condBranch): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(condBranch), 0)
-def WhileLoopAttributeAddBodyBranch(builder, bodyBranch): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(bodyBranch), 0)
-def WhileLoopAttributeEnd(builder): return builder.EndObject()
+def WhileLoopAttributeStart(builder):
+    builder.StartObject(2)
+
+def Start(builder):
+    WhileLoopAttributeStart(builder)
+
+def WhileLoopAttributeAddCondBranch(builder, condBranch):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(condBranch), 0)
+
+def AddCondBranch(builder, condBranch):
+    WhileLoopAttributeAddCondBranch(builder, condBranch)
+
+def WhileLoopAttributeAddBodyBranch(builder, bodyBranch):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(bodyBranch), 0)
+
+def AddBodyBranch(builder, bodyBranch):
+    WhileLoopAttributeAddBodyBranch(builder, bodyBranch)
+
+def WhileLoopAttributeEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return WhileLoopAttributeEnd(builder)

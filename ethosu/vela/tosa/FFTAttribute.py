@@ -6,49 +6,49 @@ import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
 
-class MulAttribute(object):
+class FFTAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = MulAttribute()
+        x = FFTAttribute()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsMulAttribute(cls, buf, offset=0):
+    def GetRootAsFFTAttribute(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
     @classmethod
-    def MulAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+    def FFTAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
-    # MulAttribute
+    # FFTAttribute
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # MulAttribute
-    def Shift(self):
+    # FFTAttribute
+    def Inverse(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return 0
+            return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
+        return False
 
-def MulAttributeStart(builder):
+def FFTAttributeStart(builder):
     builder.StartObject(1)
 
 def Start(builder):
-    MulAttributeStart(builder)
+    FFTAttributeStart(builder)
 
-def MulAttributeAddShift(builder, shift):
-    builder.PrependInt32Slot(0, shift, 0)
+def FFTAttributeAddInverse(builder, inverse):
+    builder.PrependBoolSlot(0, inverse, 0)
 
-def AddShift(builder, shift):
-    MulAttributeAddShift(builder, shift)
+def AddInverse(builder, inverse):
+    FFTAttributeAddInverse(builder, inverse)
 
-def MulAttributeEnd(builder):
+def FFTAttributeEnd(builder):
     return builder.EndObject()
 
 def End(builder):
-    return MulAttributeEnd(builder)
+    return FFTAttributeEnd(builder)

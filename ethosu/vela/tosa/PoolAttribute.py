@@ -3,23 +3,33 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class PoolAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsPoolAttribute(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = PoolAttribute()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsPoolAttribute(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def PoolAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # PoolAttribute
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
     # PoolAttribute
-    def Padding(self, j):
+    def Pad(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             a = self._tab.Vector(o)
@@ -27,18 +37,23 @@ class PoolAttribute(object):
         return 0
 
     # PoolAttribute
-    def PaddingAsNumpy(self):
+    def PadAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
         return 0
 
     # PoolAttribute
-    def PaddingLength(self):
+    def PadLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
+
+    # PoolAttribute
+    def PadIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
 
     # PoolAttribute
     def Kernel(self, j):
@@ -63,6 +78,11 @@ class PoolAttribute(object):
         return 0
 
     # PoolAttribute
+    def KernelIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
+    # PoolAttribute
     def Stride(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
@@ -84,11 +104,94 @@ class PoolAttribute(object):
             return self._tab.VectorLen(o)
         return 0
 
-def PoolAttributeStart(builder): builder.StartObject(3)
-def PoolAttributeAddPadding(builder, padding): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(padding), 0)
-def PoolAttributeStartPaddingVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def PoolAttributeAddKernel(builder, kernel): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(kernel), 0)
-def PoolAttributeStartKernelVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def PoolAttributeAddStride(builder, stride): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(stride), 0)
-def PoolAttributeStartStrideVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def PoolAttributeEnd(builder): return builder.EndObject()
+    # PoolAttribute
+    def StrideIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
+
+    # PoolAttribute
+    def InputZp(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
+        return 0
+
+    # PoolAttribute
+    def OutputZp(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
+        return 0
+
+    # PoolAttribute
+    def AccumDtype(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
+        return 0
+
+def PoolAttributeStart(builder):
+    builder.StartObject(6)
+
+def Start(builder):
+    PoolAttributeStart(builder)
+
+def PoolAttributeAddPad(builder, pad):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(pad), 0)
+
+def AddPad(builder, pad):
+    PoolAttributeAddPad(builder, pad)
+
+def PoolAttributeStartPadVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartPadVector(builder, numElems: int) -> int:
+    return PoolAttributeStartPadVector(builder, numElems)
+
+def PoolAttributeAddKernel(builder, kernel):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(kernel), 0)
+
+def AddKernel(builder, kernel):
+    PoolAttributeAddKernel(builder, kernel)
+
+def PoolAttributeStartKernelVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartKernelVector(builder, numElems: int) -> int:
+    return PoolAttributeStartKernelVector(builder, numElems)
+
+def PoolAttributeAddStride(builder, stride):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(stride), 0)
+
+def AddStride(builder, stride):
+    PoolAttributeAddStride(builder, stride)
+
+def PoolAttributeStartStrideVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartStrideVector(builder, numElems: int) -> int:
+    return PoolAttributeStartStrideVector(builder, numElems)
+
+def PoolAttributeAddInputZp(builder, inputZp):
+    builder.PrependInt32Slot(3, inputZp, 0)
+
+def AddInputZp(builder, inputZp):
+    PoolAttributeAddInputZp(builder, inputZp)
+
+def PoolAttributeAddOutputZp(builder, outputZp):
+    builder.PrependInt32Slot(4, outputZp, 0)
+
+def AddOutputZp(builder, outputZp):
+    PoolAttributeAddOutputZp(builder, outputZp)
+
+def PoolAttributeAddAccumDtype(builder, accumDtype):
+    builder.PrependUint32Slot(5, accumDtype, 0)
+
+def AddAccumDtype(builder, accumDtype):
+    PoolAttributeAddAccumDtype(builder, accumDtype)
+
+def PoolAttributeEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return PoolAttributeEnd(builder)

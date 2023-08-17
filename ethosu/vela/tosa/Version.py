@@ -3,52 +3,91 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class Version(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsVersion(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = Version()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsVersion(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def VersionBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # Version
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
     # Version
-    def _major(self):
+    def _Major(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return 0
+        return -1
 
     # Version
-    def _minor(self):
+    def _Minor(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return 22
+        return -1
 
     # Version
-    def _patch(self):
+    def _Patch(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return 0
+        return -1
 
     # Version
-    def _experimental(self):
+    def _Draft(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
-        return False
+        return True
 
-def VersionStart(builder): builder.StartObject(4)
-def VersionAdd_major(builder, Major): builder.PrependInt32Slot(0, Major, 0)
-def VersionAdd_minor(builder, Minor): builder.PrependInt32Slot(1, Minor, 22)
-def VersionAdd_patch(builder, Patch): builder.PrependInt32Slot(2, Patch, 0)
-def VersionAdd_experimental(builder, Experimental): builder.PrependBoolSlot(3, Experimental, 0)
-def VersionEnd(builder): return builder.EndObject()
+def VersionStart(builder):
+    builder.StartObject(4)
+
+def Start(builder):
+    VersionStart(builder)
+
+def VersionAdd_Major(builder, _Major):
+    builder.PrependInt32Slot(0, _Major, -1)
+
+def Add_Major(builder, _Major):
+    VersionAdd_Major(builder, _Major)
+
+def VersionAdd_Minor(builder, _Minor):
+    builder.PrependInt32Slot(1, _Minor, -1)
+
+def Add_Minor(builder, _Minor):
+    VersionAdd_Minor(builder, _Minor)
+
+def VersionAdd_Patch(builder, _Patch):
+    builder.PrependInt32Slot(2, _Patch, -1)
+
+def Add_Patch(builder, _Patch):
+    VersionAdd_Patch(builder, _Patch)
+
+def VersionAdd_Draft(builder, _Draft):
+    builder.PrependBoolSlot(3, _Draft, 1)
+
+def Add_Draft(builder, _Draft):
+    VersionAdd_Draft(builder, _Draft)
+
+def VersionEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return VersionEnd(builder)

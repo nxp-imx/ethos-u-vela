@@ -6,49 +6,62 @@ import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
 
-class MulAttribute(object):
+class MatMulAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = MulAttribute()
+        x = MatMulAttribute()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsMulAttribute(cls, buf, offset=0):
+    def GetRootAsMatMulAttribute(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
     @classmethod
-    def MulAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+    def MatMulAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
-    # MulAttribute
+    # MatMulAttribute
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # MulAttribute
-    def Shift(self):
+    # MatMulAttribute
+    def AZp(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
         return 0
 
-def MulAttributeStart(builder):
-    builder.StartObject(1)
+    # MatMulAttribute
+    def BZp(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
+        return 0
+
+def MatMulAttributeStart(builder):
+    builder.StartObject(2)
 
 def Start(builder):
-    MulAttributeStart(builder)
+    MatMulAttributeStart(builder)
 
-def MulAttributeAddShift(builder, shift):
-    builder.PrependInt32Slot(0, shift, 0)
+def MatMulAttributeAddAZp(builder, aZp):
+    builder.PrependInt32Slot(0, aZp, 0)
 
-def AddShift(builder, shift):
-    MulAttributeAddShift(builder, shift)
+def AddAZp(builder, aZp):
+    MatMulAttributeAddAZp(builder, aZp)
 
-def MulAttributeEnd(builder):
+def MatMulAttributeAddBZp(builder, bZp):
+    builder.PrependInt32Slot(1, bZp, 0)
+
+def AddBZp(builder, bZp):
+    MatMulAttributeAddBZp(builder, bZp)
+
+def MatMulAttributeEnd(builder):
     return builder.EndObject()
 
 def End(builder):
-    return MulAttributeEnd(builder)
+    return MatMulAttributeEnd(builder)

@@ -3,156 +3,169 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class ResizeAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsResizeAttribute(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = ResizeAttribute()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsResizeAttribute(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def ResizeAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # ResizeAttribute
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
     # ResizeAttribute
-    def OutputSize(self, j):
+    def Scale(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+            return self._tab.Get(flatbuffers.number_types.Int16Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 2))
         return 0
 
     # ResizeAttribute
-    def OutputSizeAsNumpy(self):
+    def ScaleAsNumpy(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int16Flags, o)
         return 0
 
     # ResizeAttribute
-    def OutputSizeLength(self):
+    def ScaleLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # ResizeAttribute
-    def Stride(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return 0
-
-    # ResizeAttribute
-    def StrideAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
-        return 0
-
-    # ResizeAttribute
-    def StrideLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
+    def ScaleIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
 
     # ResizeAttribute
     def Offset(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+            return self._tab.Get(flatbuffers.number_types.Int16Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 2))
         return 0
 
     # ResizeAttribute
     def OffsetAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int16Flags, o)
         return 0
 
     # ResizeAttribute
     def OffsetLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # ResizeAttribute
+    def OffsetIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
+    # ResizeAttribute
+    def Border(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.Int16Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 2))
+        return 0
+
+    # ResizeAttribute
+    def BorderAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Int16Flags, o)
+        return 0
+
+    # ResizeAttribute
+    def BorderLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # ResizeAttribute
-    def Shift(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Int32Flags, o + self._tab.Pos)
-        return 0
-
-    # ResizeAttribute
-    def StrideFp(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return 0
-
-    # ResizeAttribute
-    def StrideFpAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Float32Flags, o)
-        return 0
-
-    # ResizeAttribute
-    def StrideFpLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # ResizeAttribute
-    def OffsetFp(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.Get(flatbuffers.number_types.Float32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return 0
-
-    # ResizeAttribute
-    def OffsetFpAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Float32Flags, o)
-        return 0
-
-    # ResizeAttribute
-    def OffsetFpLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
+    def BorderIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
 
     # ResizeAttribute
     def Mode(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
         return 0
 
-def ResizeAttributeStart(builder): builder.StartObject(7)
-def ResizeAttributeAddOutputSize(builder, outputSize): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(outputSize), 0)
-def ResizeAttributeStartOutputSizeVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def ResizeAttributeAddStride(builder, stride): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(stride), 0)
-def ResizeAttributeStartStrideVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def ResizeAttributeAddOffset(builder, offset): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(offset), 0)
-def ResizeAttributeStartOffsetVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def ResizeAttributeAddShift(builder, shift): builder.PrependInt32Slot(3, shift, 0)
-def ResizeAttributeAddStrideFp(builder, strideFp): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(strideFp), 0)
-def ResizeAttributeStartStrideFpVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def ResizeAttributeAddOffsetFp(builder, offsetFp): builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(offsetFp), 0)
-def ResizeAttributeStartOffsetFpVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def ResizeAttributeAddMode(builder, mode): builder.PrependUint32Slot(6, mode, 0)
-def ResizeAttributeEnd(builder): return builder.EndObject()
+def ResizeAttributeStart(builder):
+    builder.StartObject(4)
+
+def Start(builder):
+    ResizeAttributeStart(builder)
+
+def ResizeAttributeAddScale(builder, scale):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(scale), 0)
+
+def AddScale(builder, scale):
+    ResizeAttributeAddScale(builder, scale)
+
+def ResizeAttributeStartScaleVector(builder, numElems):
+    return builder.StartVector(2, numElems, 2)
+
+def StartScaleVector(builder, numElems: int) -> int:
+    return ResizeAttributeStartScaleVector(builder, numElems)
+
+def ResizeAttributeAddOffset(builder, offset):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(offset), 0)
+
+def AddOffset(builder, offset):
+    ResizeAttributeAddOffset(builder, offset)
+
+def ResizeAttributeStartOffsetVector(builder, numElems):
+    return builder.StartVector(2, numElems, 2)
+
+def StartOffsetVector(builder, numElems: int) -> int:
+    return ResizeAttributeStartOffsetVector(builder, numElems)
+
+def ResizeAttributeAddBorder(builder, border):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(border), 0)
+
+def AddBorder(builder, border):
+    ResizeAttributeAddBorder(builder, border)
+
+def ResizeAttributeStartBorderVector(builder, numElems):
+    return builder.StartVector(2, numElems, 2)
+
+def StartBorderVector(builder, numElems: int) -> int:
+    return ResizeAttributeStartBorderVector(builder, numElems)
+
+def ResizeAttributeAddMode(builder, mode):
+    builder.PrependUint32Slot(3, mode, 0)
+
+def AddMode(builder, mode):
+    ResizeAttributeAddMode(builder, mode)
+
+def ResizeAttributeEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return ResizeAttributeEnd(builder)

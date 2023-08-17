@@ -3,16 +3,26 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class TileAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsTileAttribute(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = TileAttribute()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsTileAttribute(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def TileAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # TileAttribute
     def Init(self, buf, pos):
@@ -40,7 +50,31 @@ class TileAttribute(object):
             return self._tab.VectorLen(o)
         return 0
 
-def TileAttributeStart(builder): builder.StartObject(1)
-def TileAttributeAddMultiples(builder, multiples): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(multiples), 0)
-def TileAttributeStartMultiplesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TileAttributeEnd(builder): return builder.EndObject()
+    # TileAttribute
+    def MultiplesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
+        return o == 0
+
+def TileAttributeStart(builder):
+    builder.StartObject(1)
+
+def Start(builder):
+    TileAttributeStart(builder)
+
+def TileAttributeAddMultiples(builder, multiples):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(multiples), 0)
+
+def AddMultiples(builder, multiples):
+    TileAttributeAddMultiples(builder, multiples)
+
+def TileAttributeStartMultiplesVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartMultiplesVector(builder, numElems: int) -> int:
+    return TileAttributeStartMultiplesVector(builder, numElems)
+
+def TileAttributeEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return TileAttributeEnd(builder)

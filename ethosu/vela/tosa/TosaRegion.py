@@ -6,90 +6,86 @@ import flatbuffers
 from flatbuffers.compat import import_numpy
 np = import_numpy()
 
-class TosaGraph(object):
+class TosaRegion(object):
     __slots__ = ['_tab']
 
     @classmethod
     def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
-        x = TosaGraph()
+        x = TosaRegion()
         x.Init(buf, n + offset)
         return x
 
     @classmethod
-    def GetRootAsTosaGraph(cls, buf, offset=0):
+    def GetRootAsTosaRegion(cls, buf, offset=0):
         """This method is deprecated. Please switch to GetRootAs."""
         return cls.GetRootAs(buf, offset)
     @classmethod
-    def TosaGraphBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+    def TosaRegionBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
         return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
-    # TosaGraph
+    # TosaRegion
     def Init(self, buf, pos):
         self._tab = flatbuffers.table.Table(buf, pos)
 
-    # TosaGraph
-    def Version(self):
+    # TosaRegion
+    def Name(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         if o != 0:
-            x = self._tab.Indirect(o + self._tab.Pos)
-            from tosa.Version import Version
-            obj = Version()
-            obj.Init(self._tab.Bytes, x)
-            return obj
+            return self._tab.String(o + self._tab.Pos)
         return None
 
-    # TosaGraph
-    def Regions(self, j):
+    # TosaRegion
+    def Blocks(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from tosa.TosaRegion import TosaRegion
-            obj = TosaRegion()
+            from tosa.TosaBasicBlock import TosaBasicBlock
+            obj = TosaBasicBlock()
             obj.Init(self._tab.Bytes, x)
             return obj
         return None
 
-    # TosaGraph
-    def RegionsLength(self):
+    # TosaRegion
+    def BlocksLength(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
-    # TosaGraph
-    def RegionsIsNone(self):
+    # TosaRegion
+    def BlocksIsNone(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         return o == 0
 
-def TosaGraphStart(builder):
+def TosaRegionStart(builder):
     builder.StartObject(2)
 
 def Start(builder):
-    TosaGraphStart(builder)
+    TosaRegionStart(builder)
 
-def TosaGraphAddVersion(builder, version):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(version), 0)
+def TosaRegionAddName(builder, name):
+    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
 
-def AddVersion(builder, version):
-    TosaGraphAddVersion(builder, version)
+def AddName(builder, name):
+    TosaRegionAddName(builder, name)
 
-def TosaGraphAddRegions(builder, regions):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(regions), 0)
+def TosaRegionAddBlocks(builder, blocks):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(blocks), 0)
 
-def AddRegions(builder, regions):
-    TosaGraphAddRegions(builder, regions)
+def AddBlocks(builder, blocks):
+    TosaRegionAddBlocks(builder, blocks)
 
-def TosaGraphStartRegionsVector(builder, numElems):
+def TosaRegionStartBlocksVector(builder, numElems):
     return builder.StartVector(4, numElems, 4)
 
-def StartRegionsVector(builder, numElems: int) -> int:
-    return TosaGraphStartRegionsVector(builder, numElems)
+def StartBlocksVector(builder, numElems: int) -> int:
+    return TosaRegionStartBlocksVector(builder, numElems)
 
-def TosaGraphEnd(builder):
+def TosaRegionEnd(builder):
     return builder.EndObject()
 
 def End(builder):
-    return TosaGraphEnd(builder)
+    return TosaRegionEnd(builder)

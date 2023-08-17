@@ -3,16 +3,26 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class RescaleAttribute(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsRescaleAttribute(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = RescaleAttribute()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsRescaleAttribute(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def RescaleAttributeBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # RescaleAttribute
     def Init(self, buf, pos):
@@ -55,6 +65,11 @@ class RescaleAttribute(object):
         return 0
 
     # RescaleAttribute
+    def MultiplierIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
+
+    # RescaleAttribute
     def Shift(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
@@ -77,6 +92,11 @@ class RescaleAttribute(object):
         return 0
 
     # RescaleAttribute
+    def ShiftIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        return o == 0
+
+    # RescaleAttribute
     def Scale32(self):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
@@ -97,14 +117,68 @@ class RescaleAttribute(object):
             return bool(self._tab.Get(flatbuffers.number_types.BoolFlags, o + self._tab.Pos))
         return False
 
-def RescaleAttributeStart(builder): builder.StartObject(7)
-def RescaleAttributeAddInputZp(builder, inputZp): builder.PrependInt32Slot(0, inputZp, 0)
-def RescaleAttributeAddOutputZp(builder, outputZp): builder.PrependInt32Slot(1, outputZp, 0)
-def RescaleAttributeAddMultiplier(builder, multiplier): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(multiplier), 0)
-def RescaleAttributeStartMultiplierVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def RescaleAttributeAddShift(builder, shift): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(shift), 0)
-def RescaleAttributeStartShiftVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def RescaleAttributeAddScale32(builder, scale32): builder.PrependBoolSlot(4, scale32, 0)
-def RescaleAttributeAddDoubleRound(builder, doubleRound): builder.PrependBoolSlot(5, doubleRound, 0)
-def RescaleAttributeAddPerChannel(builder, perChannel): builder.PrependBoolSlot(6, perChannel, 0)
-def RescaleAttributeEnd(builder): return builder.EndObject()
+def RescaleAttributeStart(builder):
+    builder.StartObject(7)
+
+def Start(builder):
+    RescaleAttributeStart(builder)
+
+def RescaleAttributeAddInputZp(builder, inputZp):
+    builder.PrependInt32Slot(0, inputZp, 0)
+
+def AddInputZp(builder, inputZp):
+    RescaleAttributeAddInputZp(builder, inputZp)
+
+def RescaleAttributeAddOutputZp(builder, outputZp):
+    builder.PrependInt32Slot(1, outputZp, 0)
+
+def AddOutputZp(builder, outputZp):
+    RescaleAttributeAddOutputZp(builder, outputZp)
+
+def RescaleAttributeAddMultiplier(builder, multiplier):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(multiplier), 0)
+
+def AddMultiplier(builder, multiplier):
+    RescaleAttributeAddMultiplier(builder, multiplier)
+
+def RescaleAttributeStartMultiplierVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartMultiplierVector(builder, numElems: int) -> int:
+    return RescaleAttributeStartMultiplierVector(builder, numElems)
+
+def RescaleAttributeAddShift(builder, shift):
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(shift), 0)
+
+def AddShift(builder, shift):
+    RescaleAttributeAddShift(builder, shift)
+
+def RescaleAttributeStartShiftVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartShiftVector(builder, numElems: int) -> int:
+    return RescaleAttributeStartShiftVector(builder, numElems)
+
+def RescaleAttributeAddScale32(builder, scale32):
+    builder.PrependBoolSlot(4, scale32, 0)
+
+def AddScale32(builder, scale32):
+    RescaleAttributeAddScale32(builder, scale32)
+
+def RescaleAttributeAddDoubleRound(builder, doubleRound):
+    builder.PrependBoolSlot(5, doubleRound, 0)
+
+def AddDoubleRound(builder, doubleRound):
+    RescaleAttributeAddDoubleRound(builder, doubleRound)
+
+def RescaleAttributeAddPerChannel(builder, perChannel):
+    builder.PrependBoolSlot(6, perChannel, 0)
+
+def AddPerChannel(builder, perChannel):
+    RescaleAttributeAddPerChannel(builder, perChannel)
+
+def RescaleAttributeEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return RescaleAttributeEnd(builder)

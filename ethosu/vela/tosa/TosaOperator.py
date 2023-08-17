@@ -3,16 +3,26 @@
 # namespace: tosa
 
 import flatbuffers
+from flatbuffers.compat import import_numpy
+np = import_numpy()
 
 class TosaOperator(object):
     __slots__ = ['_tab']
 
     @classmethod
-    def GetRootAsTosaOperator(cls, buf, offset):
+    def GetRootAs(cls, buf, offset=0):
         n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, offset)
         x = TosaOperator()
         x.Init(buf, n + offset)
         return x
+
+    @classmethod
+    def GetRootAsTosaOperator(cls, buf, offset=0):
+        """This method is deprecated. Please switch to GetRootAs."""
+        return cls.GetRootAs(buf, offset)
+    @classmethod
+    def TosaOperatorBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x54\x4F\x53\x41", size_prefixed=size_prefixed)
 
     # TosaOperator
     def Init(self, buf, pos):
@@ -58,6 +68,11 @@ class TosaOperator(object):
         return 0
 
     # TosaOperator
+    def InputsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        return o == 0
+
+    # TosaOperator
     def Outputs(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
@@ -73,30 +88,60 @@ class TosaOperator(object):
         return 0
 
     # TosaOperator
-    def QuantInfoType(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
-        if o != 0:
-            return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
-        return 0
+    def OutputsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
 
-    # TosaOperator
-    def QuantInfo(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
-        if o != 0:
-            from flatbuffers.table import Table
-            obj = Table(bytearray(), 0)
-            self._tab.Union(obj, o)
-            return obj
-        return None
+def TosaOperatorStart(builder):
+    builder.StartObject(5)
 
-def TosaOperatorStart(builder): builder.StartObject(7)
-def TosaOperatorAddOp(builder, op): builder.PrependUint32Slot(0, op, 0)
-def TosaOperatorAddAttributeType(builder, attributeType): builder.PrependUint8Slot(1, attributeType, 0)
-def TosaOperatorAddAttribute(builder, attribute): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(attribute), 0)
-def TosaOperatorAddInputs(builder, inputs): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(inputs), 0)
-def TosaOperatorStartInputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TosaOperatorAddOutputs(builder, outputs): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(outputs), 0)
-def TosaOperatorStartOutputsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TosaOperatorAddQuantInfoType(builder, quantInfoType): builder.PrependUint8Slot(5, quantInfoType, 0)
-def TosaOperatorAddQuantInfo(builder, quantInfo): builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(quantInfo), 0)
-def TosaOperatorEnd(builder): return builder.EndObject()
+def Start(builder):
+    TosaOperatorStart(builder)
+
+def TosaOperatorAddOp(builder, op):
+    builder.PrependUint32Slot(0, op, 0)
+
+def AddOp(builder, op):
+    TosaOperatorAddOp(builder, op)
+
+def TosaOperatorAddAttributeType(builder, attributeType):
+    builder.PrependUint8Slot(1, attributeType, 0)
+
+def AddAttributeType(builder, attributeType):
+    TosaOperatorAddAttributeType(builder, attributeType)
+
+def TosaOperatorAddAttribute(builder, attribute):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(attribute), 0)
+
+def AddAttribute(builder, attribute):
+    TosaOperatorAddAttribute(builder, attribute)
+
+def TosaOperatorAddInputs(builder, inputs):
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(inputs), 0)
+
+def AddInputs(builder, inputs):
+    TosaOperatorAddInputs(builder, inputs)
+
+def TosaOperatorStartInputsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartInputsVector(builder, numElems: int) -> int:
+    return TosaOperatorStartInputsVector(builder, numElems)
+
+def TosaOperatorAddOutputs(builder, outputs):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(outputs), 0)
+
+def AddOutputs(builder, outputs):
+    TosaOperatorAddOutputs(builder, outputs)
+
+def TosaOperatorStartOutputsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartOutputsVector(builder, numElems: int) -> int:
+    return TosaOperatorStartOutputsVector(builder, numElems)
+
+def TosaOperatorEnd(builder):
+    return builder.EndObject()
+
+def End(builder):
+    return TosaOperatorEnd(builder)
