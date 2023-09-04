@@ -218,9 +218,44 @@ def test_constraint_depth_multiplier():
 
 
 def test_constraint_tconv_stride():
-    # Strides must be 2
+    # Valid 2x2
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 2, 2, 1], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 2, "stride_h": 2, "padding": Padding.SAME}
+    ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
+    ifm.quantization = testutil.default_quant_params()
+    op.add_input_tensor(ifm)
+    assert support.is_operator_supported(op)
+    # Valid 1x1
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 1, 1, 1], weights_shape=[1, 1, 1, 1])
     op.attrs = {"stride_w": 1, "stride_h": 1, "padding": Padding.SAME}
+    ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
+    ifm.quantization = testutil.default_quant_params()
+    op.add_input_tensor(ifm)
+    assert support.is_operator_supported(op)
+    # Valid 2x1 (WxH) ifm h and kernel h = 1
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 1, 2, 1], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 2, "stride_h": 1, "padding": Padding.SAME}
+    ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
+    ifm.quantization = testutil.default_quant_params()
+    op.add_input_tensor(ifm)
+    assert support.is_operator_supported(op)
+    # Invalid 2x1 (WxH) ifm h = 2 and kernel h = 1
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 1, 2, 1], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 2, "stride_h": 1, "padding": Padding.SAME}
+    ifm = Tensor([1, 2, 1, 1], DataType.uint8, "ifm")
+    ifm.quantization = testutil.default_quant_params()
+    op.add_input_tensor(ifm)
+    assert not support.is_operator_supported(op)
+    # Invalid 2x1 (WxH) ifm h = 1 and kernel h = 2
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 1, 1, 1], weights_shape=[1, 2, 1, 1])
+    op.attrs = {"stride_w": 2, "stride_h": 1, "padding": Padding.SAME}
+    ifm = Tensor([1, 2, 1, 1], DataType.uint8, "ifm")
+    ifm.quantization = testutil.default_quant_params()
+    op.add_input_tensor(ifm)
+    assert not support.is_operator_supported(op)
+    # Invalid 1x2 (WxH)
+    op = testutil.create_op_with_quant_tensors(Op.Conv2DBackpropInput, [0], [1, 1, 1, 1], weights_shape=[1, 1, 1, 1])
+    op.attrs = {"stride_w": 1, "stride_h": 2, "padding": Padding.SAME}
     ifm = Tensor([1, 1, 1, 1], DataType.uint8, "ifm")
     ifm.quantization = testutil.default_quant_params()
     op.add_input_tensor(ifm)
