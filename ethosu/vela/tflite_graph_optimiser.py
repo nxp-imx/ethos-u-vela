@@ -2341,7 +2341,7 @@ def convert_shape_op_to_constant_tensor(op: Operation, arch, nng):
 
 def fixup_pool_strides(op: Operation, arch, nng):
     """Fixup Pool strides when the kernel size is equal to IFM shape. Stride is then irrelevant."""
-    if op.type.is_pool_op():
+    if op.type in (Op.AvgPool, Op.MaxPool, Op.QuantizedAvgPool, Op.QuantizedMaxPool):
         ifm, _ = op.get_ifm_ofm()
         kernel_w, kernel_h = op.get_kernel_size()
         if kernel_w == ifm.shape[2] and kernel_h == ifm.shape[1]:
