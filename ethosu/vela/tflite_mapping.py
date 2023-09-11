@@ -38,6 +38,8 @@ from .tflite import BatchMatMulOptions
 from .tflite import BatchToSpaceNDOptions
 from .tflite import BidirectionalSequenceLSTMOptions
 from .tflite import BidirectionalSequenceRNNOptions
+from .tflite import BitcastOptions
+from .tflite import BitwiseXorOptions
 from .tflite import BroadcastToOptions
 from .tflite import BucketizeOptions
 from .tflite import CallOnceOptions
@@ -113,6 +115,7 @@ from .tflite import ResizeNearestNeighborOptions
 from .tflite import ReverseSequenceOptions
 from .tflite import ReverseV2Options
 from .tflite import Rfft2dOptions
+from .tflite import RightShiftOptions
 from .tflite import RNNOptions
 from .tflite import ScatterNdOptions
 from .tflite import SegmentSumOptions
@@ -336,6 +339,9 @@ builtin_options_map = {
     BuiltinOptions.UnsortedSegmentSumOptions: UnsortedSegmentSumOptions.UnsortedSegmentSumOptions,
     BuiltinOptions.ATan2Options: ATan2Options.ATan2Options,
     BuiltinOptions.SignOptions: SignOptions.SignOptions,
+    BuiltinOptions.BitcastOptions: BitcastOptions.BitcastOptions,
+    BuiltinOptions.BitwiseXorOptions: BitwiseXorOptions.BitwiseXorOptions,
+    BuiltinOptions.RightShiftOptions: RightShiftOptions.RightShiftOptions,
 }
 
 
@@ -1020,6 +1026,21 @@ builtin_operator_map = {
     BuiltinOperator.UNSORTED_SEGMENT_SUM: (
         Op.UnsortedSegmentSum,
         OptionsSerializer("UnsortedSegmentSumOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.BITCAST: (
+        Op.Bitcast,
+        OptionsSerializer("BitcastOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.BITWISE_XOR: (
+        Op.BitwiseXor,
+        OptionsSerializer("BitwiseXorOptions"),
+        TFLITE_NO_INDICES,
+    ),
+    BuiltinOperator.RIGHT_SHIFT: (
+        Op.RightShift,
+        OptionsSerializer("RightShiftOptions"),
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.CUSTOM: (Op.Custom, CustomOptionsSerializer(), TFLITE_NO_INDICES),

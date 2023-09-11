@@ -49,7 +49,8 @@ Vela is tested by comparing the numerical behaviour of the optimised operators
 against that of the corresponding TensorFlow Lite reference kernels.  The
 following list indicates which version is used for comparison:
 
-* Vela 3.9.0 to current supports TensorFlow 2.12
+* Vela 3.10.0 to current supports TensorFlow 2.13
+* Vela 3.9.0 supports TensorFlow 2.12
 * Vela 3.8.0 supports TensorFlow 2.11
 * Vela 3.6.0 to 3.7.0 supports TensorFlow 2.10
 * Vela 3.5.0 supports TensorFlow 2.9

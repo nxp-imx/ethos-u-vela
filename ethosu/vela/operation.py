@@ -334,6 +334,9 @@ class Op(Enum):
     UnsortedSegmentMax = OperatorInfo()
     UnsortedSegmentMin = OperatorInfo()
     UnsortedSegmentSum = OperatorInfo()
+    Bitcast = OperatorInfo()
+    BitwiseXor = OperatorInfo()
+    RightShift = OperatorInfo()
 
     @property
     def info(self):
