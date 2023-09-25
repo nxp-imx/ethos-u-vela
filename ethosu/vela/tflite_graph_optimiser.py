@@ -2778,6 +2778,33 @@ def convert_conv_groups(op: Operation, arch, nng):
 
     return op
 
+def replace_dilated_convolution(op, arch, nng=None):
+    if op.type != Op.BatchToSpaceND:
+        return op
+
+    post_op = op
+    op = op.inputs[0].ops[0]
+    if not (op.type.is_conv2d_op() or op.type.is_depthwise_conv2d_op()):
+        return post_op
+
+    pre_op = op.inputs[0].ops[0]
+    if pre_op.type != Op.SpaceToBatchND:
+        return post_op
+
+    pre_block = pre_op.inputs[1].values
+    post_block = pre_op.inputs[1].values
+    assert (pre_block == post_block).all
+    assert len(np.array(pre_block).shape) == 1
+    assert np.array(pre_block).shape[0] == 2
+
+    op.attrs.update({'padding': Padding.SAME, "dilation": (1, pre_block[0], pre_block[1], 1)})
+    op.set_output_tensor(post_op.outputs[0])
+    ppre_op = pre_op.inputs[0].ops[0]
+    op.set_input_tensor(ppre_op.outputs[0], 0)
+    op.set_ifm_ofm_shapes()
+    op.run_on_npu = arch.tflite_supported_operators.is_operator_supported(op)
+
+    return op
 
 def supported_operator_check(op, arch, nng):
     op.run_on_npu = arch.tflite_supported_operators.is_operator_supported(op)
@@ -2814,6 +2841,11 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights):
             [],
             pre_process_list,
             rewrite_unsupported=False,
+        )
+
+    for idx, sg in enumerate(nng.subgraphs):
+        nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
+            nng, sg, arch, [], [replace_dilated_convolution], rewrite_unsupported=True,
         )
 
     # Handle Pad ops
