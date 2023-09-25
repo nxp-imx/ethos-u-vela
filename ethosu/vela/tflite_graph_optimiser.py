@@ -2454,6 +2454,19 @@ def convert_ops_to_lut(op: Operation, arch, nng) -> Operation:
         else:
             # Should already be catched in tflite supported ops
             assert False, f"Unsupported data type {op.ifm.dtype} for {op.type}"
+    elif op.type == Op.Log:
+        def log(value):
+            if (value == 0):
+                value = 1e-100
+            return math.log(value)
+
+        if op.ifm.dtype == DataType.int8:
+            return create_lut_8bit_op(op, log, "log")
+        elif op.ifm.dtype == DataType.int16:
+            return create_lut_int16_op(op, log, "log")
+        else:
+            # Should already be catched in tflite supported ops
+            assert False, f"Unsupported data type {op.ifm.dtype} for {op.type}"
 
     if op.type == Op.Rsqrt:
         return create_lut_rsqrt_int8_op(op)
@@ -2834,6 +2847,29 @@ def replace_dilated_convolution(op, arch, nng=None):
 
     return op
 
+def merge_dequant_lut_quant(op, arch, nng=None):
+    if op.type != Op.Quantize:
+        return op
+    post_op = op
+
+    lut_op = post_op.inputs[0].ops[0]
+    if lut_op.type != Op.Exp and lut_op.type != Op.Log:
+        return op
+
+    pre_op = lut_op.inputs[0].ops[0]
+    if pre_op.type != Op.Dequantize:
+        return op
+
+    lut_op.set_input_tensor(pre_op.inputs[0], 0)
+    lut_op.set_output_tensor(post_op.outputs[0])
+
+    lut_op.set_ifm_ofm_shapes()
+
+    ifm, ofm = lut_op.get_ifm_ofm()
+    lut_op.run_on_npu = arch.tflite_supported_operators.is_operator_supported(lut_op)
+
+    return lut_op
+
 def supported_operator_check(op, arch, nng):
     op.run_on_npu = arch.tflite_supported_operators.is_operator_supported(op)
     return op
@@ -2877,7 +2913,7 @@ def tflite_optimise_graph(nng, arch, force_symmetric_int_weights, output_basenam
 
     for idx, sg in enumerate(nng.subgraphs):
         nng.subgraphs[idx] = rewrite_graph.rewrite_graph_pre_order(
-            nng, sg, arch, [], [replace_dilated_convolution], rewrite_unsupported=True,
+            nng, sg, arch, [], [merge_dequant_lut_quant, replace_dilated_convolution], rewrite_unsupported=True,
         )
 
     # Handle Pad ops
