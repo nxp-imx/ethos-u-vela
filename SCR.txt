@@ -1,0 +1,33 @@
+NXP Software Content Register
+
+---------------------------------------------
+Package:                     ethos-u-vela.git
+Outgoing License:            Apache-2.0
+License File:                LICENSE.txt
+Package Category:            MachineLearning
+Type of Content:             source
+Description and comments:    Tool to compile a TensorFlow Lite for Microcontrollers neural network model
+Release Location:            https://github.com/nxp-imx/ethos-u-vela
+Origin:                      NXP (BSD-3-Clause)
+                             ARM Limited ethos-u-vela v3.9.0 (Apache-2.0) - https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git
+
+
+Dependencies packages:
+---------------------------------------------
+Package:                     flatbuffers
+Description:                 FlatBuffers is a cross platform serialization library architected for maximum memory efficiency.
+Version:                     2.0.7
+License:                     Apache-2.0
+Origin:                      google/flatbuffers v2.0.7 - https://github.com/google/flatbuffers
+
+Package:                     numpy
+Description:                 NumPy is the fundamental package for scientific computing with Python.
+Version:                     1.23.5
+License:                     BSD-3-Clause
+Origin:                      numpy/numpy v1.23.5 - https://github.com/numpy/numpy
+
+Package:                     lxml
+Description:                 lxml is the most feature-rich and easy-to-use library for processing XML and HTML in the Python language.
+Version:                     4.9.2
+License:                     BSD
+Origin:                      lxml/lxml v4.9.2 - https://github.com/lxml/lxml
