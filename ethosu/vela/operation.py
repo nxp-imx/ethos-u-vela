@@ -209,7 +209,7 @@ class Op(Enum):
     LeakyRelu = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
     Less = OperatorInfo()
     LessEqual = OperatorInfo()
-    Log = OperatorInfo()
+    Log = OperatorInfo(block_type=NpuBlockType.ElementWise, indices=NNG_IFM_INDICES, is_unary=True)
     LogSoftmax = OperatorInfo()
     LogicalAnd = OperatorInfo()
     LogicalNot = OperatorInfo()
