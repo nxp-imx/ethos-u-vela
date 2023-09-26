@@ -218,7 +218,7 @@ def generate_supported_ops():
         f"Vela version: `{__version__}`",
         "",
         "This file complies with",
-        "[**Gitiles Markdown syntax**](https://github.com/google/gitiles/blob/master/Documentation/markdown.md)",
+        "[**Gitiles Markdown syntax**](https://gerrit.googlesource.com/gitiles/+/HEAD/Documentation/markdown.md)",
         "",
         "Summary table of constraints for:",
     ]
