@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020, 2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,6 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pkg_resources
+from importlib.metadata import version
 
-__version__ = pkg_resources.get_distribution("ethos-u-vela").version
+__version__ = version("ethos-u-vela")
