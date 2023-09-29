@@ -306,6 +306,7 @@ class TFLiteSupportedOperators:
         self.specific_constraints[Op.StridedSlice].append(
             TFLiteSupportedOperators.constraint_stridedslice_stride_values
         )
+        self.specific_constraints[Op.StridedSlice].append(TFLiteSupportedOperators.constraint_stridedslice_offset_false)
 
         # Pad specific checks:
         self.specific_constraints[Op.Pad].append(TFLiteSupportedOperators.constraint_pad_shape)
@@ -804,6 +805,13 @@ class TFLiteSupportedOperators:
         strides = op.inputs[3]
         valid = all(stride == 1 for stride in strides.values)
         return valid, f"Op has strides values {strides.values}"
+
+    @staticmethod
+    def constraint_stridedslice_offset_false(op):
+        "Offset attribute must be False"
+        offset = op.attrs.get("offset", False)
+        valid = offset is False
+        return valid, f"Op has offset={offset}"
 
     @staticmethod
     def constraint_inputs_int32(op):

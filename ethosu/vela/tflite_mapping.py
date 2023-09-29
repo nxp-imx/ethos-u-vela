@@ -736,7 +736,8 @@ builtin_operator_map = {
     BuiltinOperator.STRIDED_SLICE: (
         Op.StridedSlice,
         OptionsSerializer(
-            "StridedSliceOptions", ("begin_mask", "ellipsis_mask", "end_mask", "new_axis_mask", "shrink_axis_mask")
+            "StridedSliceOptions",
+            ("begin_mask", "ellipsis_mask", "end_mask", "new_axis_mask", "shrink_axis_mask", "offset"),
         ),
         TFLITE_IFM_INDICES,
     ),

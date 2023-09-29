@@ -194,7 +194,21 @@ class Operator(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
         return o == 0
 
-def OperatorStart(builder): builder.StartObject(9)
+    # Operator
+    def LargeCustomOptionsOffset(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return 0
+
+    # Operator
+    def LargeCustomOptionsSize(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return 0
+
+def OperatorStart(builder): builder.StartObject(11)
 def Start(builder):
     return OperatorStart(builder)
 def OperatorAddOpcodeIndex(builder, opcodeIndex): builder.PrependUint32Slot(0, opcodeIndex, 0)
@@ -239,6 +253,12 @@ def AddIntermediates(builder, intermediates):
 def OperatorStartIntermediatesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartIntermediatesVector(builder, numElems):
     return OperatorStartIntermediatesVector(builder, numElems)
+def OperatorAddLargeCustomOptionsOffset(builder, largeCustomOptionsOffset): builder.PrependUint64Slot(9, largeCustomOptionsOffset, 0)
+def AddLargeCustomOptionsOffset(builder, largeCustomOptionsOffset):
+    return OperatorAddLargeCustomOptionsOffset(builder, largeCustomOptionsOffset)
+def OperatorAddLargeCustomOptionsSize(builder, largeCustomOptionsSize): builder.PrependUint64Slot(10, largeCustomOptionsSize, 0)
+def AddLargeCustomOptionsSize(builder, largeCustomOptionsSize):
+    return OperatorAddLargeCustomOptionsSize(builder, largeCustomOptionsSize)
 def OperatorEnd(builder): return builder.EndObject()
 def End(builder):
     return OperatorEnd(builder)

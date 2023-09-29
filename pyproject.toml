@@ -17,7 +17,7 @@
 [project]
 name = "ethos-u-vela"
 description = "Neural network model compiler for Arm Ethos-U NPUs"
-requires-python = "~=3.8"
+requires-python = "~=3.9"
 authors = [{name = "Arm Ltd", email = "mlg-vela@arm.com"}]
 license = {text= "Apache License 2.0"}
 classifiers = [
@@ -34,9 +34,8 @@ classifiers = [
 ]
 keywords = ["ethos-u", "vela compiler", "tflite", "npu"]
 dependencies = [
-    "flatbuffers==23.1.21",
-    "numpy<=1.21.3; python_version<='3.7'",
-    "numpy; python_version>'3.7'",
+    "flatbuffers==23.5.26",
+    "numpy",
     "lxml>=4.5.2"
 ]
 dynamic = ["readme", "version"]
@@ -58,8 +57,7 @@ vela = "ethosu.vela.vela:main"
 
 [build-system]
 requires = [
-    "numpy<=1.21.3; python_version<='3.7'",
-    "numpy; python_version>'3.7'",
+    "numpy",
     "setuptools_scm[toml]~=7.1.0"
 ]
 build-backend = "setuptools.build_meta"

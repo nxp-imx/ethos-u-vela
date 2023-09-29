@@ -529,6 +529,7 @@ def create_strided_slice():
     op = create_strided_slice_op([1, 10, 10, 10], [1, 5, 5, 10], [127, 2, 2, 0], [0, 7, -3, 0])
     op.attrs["begin_mask"] = 1
     op.attrs["end_mask"] = 9
+    op.attrs["offset"] = False
     assert support.is_operator_supported(op)
     return op
 
@@ -537,6 +538,13 @@ def test_constraint_stridedslice_stride_values():
     # Unsupported strides
     op = create_strided_slice()
     op.inputs[3].values = [1, 1, 2, 1]
+    assert not support.is_operator_supported(op)
+
+
+def test_constraint_stridedslice_offset_false():
+    # Offset attribute must be False
+    op = create_strided_slice()
+    op.attrs["offset"] = True
     assert not support.is_operator_supported(op)
 
 
