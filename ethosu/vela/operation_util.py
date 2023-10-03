@@ -98,8 +98,8 @@ def create_cast_op(
 
     c = ifm.shape[-1]
 
-    # Weigth shape is in format [h, w, c, b]
-    shape = [1, 1, c, 1]
+    # Weigth shape is in format [h, w, b, c] for DepthwiseConv2D
+    shape = [1, 1, 1, c]
     kernel = np.dstack([1] * c)
     identity_quant = QuantizationParameters(scale_f32=1.0, zero_point=0)
     op.add_input_tensor(
@@ -111,6 +111,9 @@ def create_cast_op(
             quantization=identity_quant,
         ),
     )
+    # Set flag to indicate that weights are already in correct order
+    # and prevent that they are transposed in reorder_depthwise_weights
+    op.inputs[1].weight_transpose_depthwise = True
     bias_values = [0] * c
     dtype = DataType.int64 if op.ifm.dtype == DataType.int16 else DataType.int32
     op.add_input_tensor(create_const_tensor(op.name + "_bias", [c], dtype, bias_values))
