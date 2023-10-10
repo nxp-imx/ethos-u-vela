@@ -81,7 +81,7 @@ from .register_command_stream_util import calc_blockdep
 from .register_command_stream_util import check_addresses
 from .register_command_stream_util import check_alignment
 from .register_command_stream_util import check_dma_op
-from .register_command_stream_util import check_size
+from .register_command_stream_util import check_length
 from .register_command_stream_util import check_strides
 from .register_command_stream_util import get_dma_memory_accesses
 from .register_command_stream_util import get_op_memory_accesses
@@ -526,7 +526,7 @@ def generate_weights(emit: CommandStreamEmitter, weights: List[NpuAddressRange],
     ):
         if core < len(weights):
             check_alignment(weights[core].address, 16)
-            check_size(weights[core].length, 16)
+            check_length(weights[core].length, 16)
             emit.cmd1_with_address(addr, weights[core].address)
             emit.cmd1_with_offset(length, weights[core].length)
         elif core < arch.ncores:
@@ -546,7 +546,7 @@ def generate_biases(emit: CommandStreamEmitter, biases: List[NpuAddressRange], a
     ):
         if core < len(biases):
             emit.cmd1_with_address(addr, biases[core].address)
-            check_size(biases[core].length, 16)
+            check_length(biases[core].length, 16)
             emit.cmd1_with_offset(length, biases[core].length)
         elif core < arch.ncores:
             emit.cmd1_with_address(addr, biases[0].address)

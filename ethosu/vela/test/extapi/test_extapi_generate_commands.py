@@ -861,11 +861,11 @@ def test_cmd1_payload_legality():
     op.block_traversal = NpuBlockTraversal.PART_KERNEL_FIRST
     op.block_config = NpuShape3D(height=16, width=4, depth=16)
 
-    # NHWC depth stride not a multiple of 32 passes
+    # NHWC height stride not a multiple of 16 passes
     op.ifm.strides = NpuShape3D(depth=16, height=2, width=16)
     npu_generate_register_command_stream([op], NpuAccelerator.Ethos_U65_256)
 
-    # Same depth stride fails for NHCWB16
+    # Same height stride fails for NHCWB16
     op.ifm = create_feature_map(
         ifm_shape,
         1,
