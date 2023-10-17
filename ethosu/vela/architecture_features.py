@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2020-2022 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -286,7 +286,7 @@ class ArchitectureFeatures:
             axi_port_address_width = 32
             axi_port_data_width = 64
 
-        self.max_outstanding_kernels = 3
+        self.max_outstanding_kernels = 2
 
         self.ncores = accel_config.cores
         self.ofm_ublock = accel_config.ofm_ublock

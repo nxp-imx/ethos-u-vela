@@ -744,39 +744,6 @@ def test_kernel_wait_1():
     pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
 
 
-def test_kernel_wait_2():
-    """
-    Verify that KERNEL_WAIT 2 is generated.
-    dma_ops[i] writes to the weight-address for conv_ops[i]
-    """
-    conv_ops, dma_ops = setup_memory_barrier_tests()
-    cmds = npu_generate_register_command_stream(
-        [conv_ops[0], conv_ops[1], conv_ops[2], dma_ops[0]], NpuAccelerator.Ethos_U65_256
-    )
-    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_KERNEL_WAIT, 2, pos)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
-
-
-def test_kernel_wait_3():
-    """
-    Verify that KERNEL_WAIT 2 is generated.
-    dma_ops[i] writes to the weight-address for conv_ops[i]
-    """
-    conv_ops, dma_ops = setup_memory_barrier_tests()
-    cmds = npu_generate_register_command_stream(
-        [conv_ops[0], conv_ops[1], conv_ops[2], dma_ops[3], dma_ops[0]], NpuAccelerator.Ethos_U65_256
-    )
-    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_CONV, 0, pos + 1)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_KERNEL_WAIT, 2, pos)
-    pos = check_cmd0(cmds, cmd0.NPU_OP_DMA_START, 0, pos)
-
-
 def test_check_mem_limits():
     # Tests that no code is generated with addresses out of bounds
     conv_op = create_fully_connected_op()
