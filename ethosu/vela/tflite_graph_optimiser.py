@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 import uuid
+import sys
 
 import numpy as np
 
@@ -2445,34 +2446,42 @@ def convert_mean_to_depthwise_conv(op, arch, nng):
 
 
 def convert_ops_to_lut(op: Operation, arch, nng) -> Operation:
-    """Convert Exp to 8bit or 16bit LUT to allow for support on NPU."""
-    if op.type == Op.Exp:
-        if op.ifm.dtype == DataType.int8:
-            return create_lut_8bit_op(op, math.exp, "exp")
-        elif op.ifm.dtype == DataType.int16:
-            return create_lut_int16_op(op, math.exp, "exp")
-        else:
-            # Should already be catched in tflite supported ops
-            assert False, f"Unsupported data type {op.ifm.dtype} for {op.type}"
-    elif op.type == Op.Log:
-        def log(value):
-            if (value == 0):
-                value = 1e-100
-            return math.log(value)
-
-        if op.ifm.dtype == DataType.int8:
-            return create_lut_8bit_op(op, log, "log")
-        elif op.ifm.dtype == DataType.int16:
-            return create_lut_int16_op(op, log, "log")
-        else:
-            # Should already be catched in tflite supported ops
-            assert False, f"Unsupported data type {op.ifm.dtype} for {op.type}"
-
     if op.type == Op.Rsqrt:
         return create_lut_rsqrt_int8_op(op)
 
-    return op
+    """Convert Exp to 8bit or 16bit LUT to allow for support on NPU."""
+    if op.type == Op.Exp:
+        func = math.exp
+        name = "exp"
+    elif op.type == Op.Log:
+        def log(value):
+            if (value == 0):
+                value = sys.float_info.min
+            return math.log(value)
+        func = log
+        name = "log"
+    elif op.type == Op.Sqrt:
+        func = math.sqrt
+        name = "sqrt"
+    elif op.type == Op.Gelu:
+        def gelu(x):
+            if (op.attrs["approximate"]):
+                ret = 0.5 * x * (1 + math.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * math.pow(x, 3))))
+            else:
+                ret = 0.5 * x * (1 + math.erf(x / math.sqrt(2)))
+            return ret
+        func = gelu
+        name = "gelu"
+    else:
+        return op
 
+    if op.ifm.dtype == DataType.int8:
+        return create_lut_8bit_op(op, func, name)
+    elif op.ifm.dtype == DataType.int16:
+        return create_lut_int16_op(op, func, name)
+    else:
+        # Should already be catched in tflite supported ops
+        assert False, f"Unsupported data type {op.ifm.dtype} for {op.type}"
 
 def optimise_quantize(op: Operation, arch, nng):
 
