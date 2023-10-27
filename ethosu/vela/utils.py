@@ -96,7 +96,7 @@ def calc_resize_factor(ifm_width: int, stride_x: int) -> tuple[int, int]:
         # In case it is not divisible, check if the resize factor is
         # divisible by any of the hw_supported_strides. If it is, re-compute
         # the resize factor to be the value that leads us to
-        # reach a hw supported stride. The IFM width needs to be divisible by the new stride.
+        # reach a hw supported stride. The IFM width needs to be divisible by the new resize factor.
         # E.g.: IFM width = 133, stride = 14, filter width = 7 can be
         #       optimised to IFM width = 19, stride = 2, filter width = 7 using
         #       a resize factor of 7. The final stride is 2 which is

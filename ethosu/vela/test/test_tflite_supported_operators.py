@@ -128,6 +128,11 @@ def test_constraint_stride_range(ifm_shape: List[int], stride_w: int, stride_h: 
     op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, ifm_shape, [1, 8, 8, 8], [1, 1, 1, 1])
     op.attrs = {"stride_w": stride_w, "stride_h": stride_h}
     assert support.is_operator_supported(op) == supported
+    if not supported and stride_w > 0 and stride_h > 0:
+        # Test not supported but with ofm width and height = 1 -> supported
+        op = testutil.create_op_with_quant_tensors(Op.Conv2DBias, ifm_shape, [1, 1, 1, 8], [1, 1, 1, 1])
+        op.attrs = {"stride_w": stride_w, "stride_h": stride_h}
+        assert support.is_operator_supported(op)
 
 
 def test_constraint_dilated_height_range():

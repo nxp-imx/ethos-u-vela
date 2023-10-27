@@ -556,19 +556,31 @@ class TFLiteSupportedOperators:
 
     @staticmethod
     def constraint_stride_width_no_upper_limit(op):
-        """Stride width must be greater than or equal to 1.
-        For stride widths greater than 3, the post-optimization stride needs to be less than or equal to 3.
-        Stride height must be between 1 and 3."""
-        w, h = op.get_kernel_stride()
+        """Strides must fulfil the following criteria:
+        - Stride h must be between 1 and 3 when ofm height is greater than 1
+        - Stride w must be between 1 and 3 when ofm height is greater than 1 or
+          stride w must be divisible by 2 or 3 and ifm width must be divisible
+          by stride_w/2 or stride_w/3"""
+
+        stride_w, stride_h = op.get_kernel_stride()
         stride_min = 1
         stride_max_h = 3
         ifm_width = op.ifm.shape[2]
-        _, optimized_stride = calc_resize_factor(ifm_width, w) if w > 1 else (1, w)
+        ofm_height = op.ofm.shape[1]
+        ofm_width = op.ofm.shape[2]
+
+        stride_h_valid = ofm_height == 1 or stride_min <= stride_h <= stride_max_h
+
+        _, optimized_stride = calc_resize_factor(ifm_width, stride_w) if stride_w > 1 else (1, stride_w)
         # Optimized stride indicates the final Conv2D stride width after all optimizations are performed
         can_optimize_stride_width_gt_3 = optimized_stride <= 3
-        valid = (stride_min <= w) and (stride_min <= h <= stride_max_h) and can_optimize_stride_width_gt_3
 
-        return valid, f"Op has stride WxH as: {w}x{h}"
+        stride_w_valid = ofm_width == 1 or ((stride_min <= stride_w) and can_optimize_stride_width_gt_3)
+
+        return (
+            stride_h_valid and stride_w_valid,
+            f"Op has stride WxH as: {stride_w}x{stride_h}, ifm shape as: {op.ifm.shape}, ofm shape as: {op.ofm.shape}",
+        )
 
     @staticmethod
     def constraint_stride_range_no_padding(op):

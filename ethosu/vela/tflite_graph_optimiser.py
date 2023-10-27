@@ -1170,6 +1170,26 @@ def fixup_strided_conv(op: Operation, arch, nng):
         stride_x = final_stride
         op.attrs.update({"stride_w": stride_x, "stride_h": stride_y, "strides": (1, stride_y, stride_x, 1)})
 
+    ofm_shape = op.ofm_shapes[0]
+    if ofm_shape.height == 1 or ofm_shape.width == 1:
+        # If height or width is 1 no stride is done in y or x direction and stride value can be set to 1
+        # Before forcing kernel stride to 1 make sure to calculate the correct padding since it is
+        # based on the original kernel stride
+        padding, _ = calc_padding_and_skirt(
+            op.attrs["padding"],
+            op.kernel,
+            ifm_shape,
+            op.attrs.get("explicit_padding"),
+        )
+        # Use explicit padding so it is not recalculated later with the wrong kernel stride
+        op.attrs["padding"] = Padding.EXPLICIT
+        op.attrs["explicit_padding"] = padding
+
+        stride_y = 1 if ofm_shape.height == 1 else stride_y
+        stride_x = 1 if ofm_shape.width == 1 else stride_x
+
+        op.attrs.update({"stride_w": stride_x, "stride_h": stride_y, "strides": (1, stride_y, stride_x, 1)})
+
     return op
 
 
