@@ -251,6 +251,9 @@ class TFLiteSemantic:
             Op.ArgMax: [
                 TFLiteSemantic.constraint_tens_quant_none_check,
             ],
+            Op.Transpose: [
+                TFLiteSemantic.constraint_tens_quant_none_check,
+            ],
         }
         return generic_constraints_exclude_list
 

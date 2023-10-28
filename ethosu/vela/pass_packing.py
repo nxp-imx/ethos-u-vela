@@ -481,7 +481,7 @@ def pack_into_passes(nng, arch, verbose_packing=False):
         # Try to optmize this by moving/grouping CPU ops where that is possible.
         # Criteria for CPU pass to be moved:
         #
-        # 1) CPU passes that only depends on sg.input_tensor can be
+        # 1) CPU passes that only depends on sg.input_tensors can be
         #    moved to the top of the list.
         #    ResourceVariables ops like VarHandle, ReadVariable, CallOnce
         #    can also be moved to the top of list.
@@ -503,9 +503,16 @@ def pack_into_passes(nng, arch, verbose_packing=False):
                 pass_list_top.insert(0, ps)
                 continue
 
+            ifm2 = ps.ops[0].ifm2
+            if ifm2 is None:
+                # Dynamic weights must be treated as ifm's.
+                if ps.ops[0].type == Op.FullyConnected and ps.ops[0].weights.purpose == TensorPurpose.FeatureMap:
+                    # Op has dynamic weights, include this in the check below
+                    ifm2 = ps.ops[0].weights
+
             if ps.placement == PassPlacement.Cpu and (
                 ps.ops[0].ifm in sg.input_tensors
-                and (ps.ops[0].ifm2 in sg.input_tensors or ps.ops[0].ifm2 is None)
+                and (ifm2 in sg.input_tensors or ifm2 is None)
                 or (ps.ops[0].type in (Op.VarHandle, Op.ReadVariable, Op.CallOnce))
             ):
                 # This CPU pass only depends on sg.input_tensors or resource variable
