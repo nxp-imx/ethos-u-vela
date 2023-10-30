@@ -1743,6 +1743,7 @@ def fuse_activation_function_with_prev(op, arch, nng):
     # Note: the below checks on prev_op require that a first optimize pass on the full graph has been performed
     fuse = (
         prev_op.run_on_npu
+        and prev_op.type != Op.Memcpy
         and prev_op.type.npu_block_type != NpuBlockType.Default
         and len(ifm.ops) == 1
         and len(prev_op.outputs[0].consumers()) == 1
