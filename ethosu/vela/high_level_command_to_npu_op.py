@@ -311,7 +311,7 @@ def use_zero_point_0(ps, tens: Tensor, is_ifm_tensor: bool) -> bool:
         if (
             ps.primary_op.original_type == Op.AvgPool
             and ps.primary_op.type == Op.Conv2DBias
-            and ps.primary_op.attrs.get("padding", None) == Padding.VALID
+            and ps.primary_op.attrs.get("padding", None) in (Padding.EXPLICIT, Padding.VALID)
         ):
             # Force zero point to 0 for AveragePool operators converted to a Conv2DBias with rounding away from
             # zero.
