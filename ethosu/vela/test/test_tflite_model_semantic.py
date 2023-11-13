@@ -647,3 +647,29 @@ def test_lstm_semantics():
     op.inputs.pop()
     # Test restored valid configuration
     assert semantic_checker.is_operator_semantic_valid(op)
+
+
+def test_transpose_semantics():
+    # Test valid op
+    ifm = Tensor([2, 4], DataType.int8, "ifm")
+    perm = create_const_tensor("perm", [2], DataType.int32, [1, 0])
+    ofm = Tensor([4, 2], DataType.int8, "ofm")
+    op = testutil.create_op(Op.Transpose, [ifm, perm], ofm)
+    assert semantic_checker.is_operator_semantic_valid(op)
+    # Test invalid permutation size
+    perm = create_const_tensor("perm", [3], DataType.int32, [1, 0])
+    op = testutil.create_op(Op.Transpose, [ifm, perm], ofm)
+    assert not semantic_checker.is_operator_semantic_valid(op)
+    # Test invalid permutation values
+    perm = create_const_tensor("perm", [2], DataType.int32, [2, 0])
+    op = testutil.create_op(Op.Transpose, [ifm, perm], ofm)
+    assert not semantic_checker.is_operator_semantic_valid(op)
+    # Test invalid permutation values
+    perm = create_const_tensor("perm", [2], DataType.int32, [0, -1])
+    op = testutil.create_op(Op.Transpose, [ifm, perm], ofm)
+    assert not semantic_checker.is_operator_semantic_valid(op)
+    # Test invalid permutation values
+    perm = create_const_tensor("perm", [2], DataType.int32, [1, 0])
+    perm.values = None
+    op = testutil.create_op(Op.Transpose, [ifm, perm], ofm)
+    assert not semantic_checker.is_operator_semantic_valid(op)
