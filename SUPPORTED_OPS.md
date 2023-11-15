@@ -136,6 +136,11 @@ This is a list of constraints that the AVERAGE_POOL_2D operator must satisfy in 
 - Stride values for both width and height must be integer types
 - IFM and OFM data types must match
 - Kernel filter values for both width and height must be integer types
+- Strides must fulfil the following criteria:  
+        - Stride h must be between 1 and 3 when ofm height is greater than 1  
+        - Stride w must be between 1 and 3 when ofm height is greater than 1 or  
+          stride w must be divisible by 2 or 3 and ifm width must be divisible  
+          by stride_w/2 or stride_w/3
 - Stride width must be greater than or equal to 1.  
         For stride width greater than 3, valid padding needs to be used.
 - Kernel filter values for both width and height must be in the range [1, 8]

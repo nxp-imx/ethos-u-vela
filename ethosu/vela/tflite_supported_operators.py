@@ -254,6 +254,7 @@ class TFLiteSupportedOperators:
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_stride_range)
         # AVG pooling specific checks:
         for op_type in TFLiteSupportedOperators.avg_pooling_ops:
+            self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_stride_width_no_upper_limit)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_stride_range_no_padding)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_filter_range)
             self.specific_constraints[op_type].append(TFLiteSupportedOperators.constraint_filter_height_range_valid_pad)
