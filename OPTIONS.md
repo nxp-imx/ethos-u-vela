@@ -262,7 +262,7 @@ be a power of two and greater or equal to 16.
 **Default: 16**  
 
 ```bash
-vela network.tflite --allocation-alignment 128
+vela network.tflite --cpu-tensor-alignment 128
 ```
 
 ### Recursion Limit
