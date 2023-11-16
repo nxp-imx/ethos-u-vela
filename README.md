@@ -45,9 +45,11 @@ The tool has limited functionality for compiling a
 (EXPERIMENTAL).
 
 ## TensorFlow Support
-Vela is tested by comparing the numerical behaviour of the optimised operators
-against that of the corresponding TensorFlow Lite reference kernels.  The
-following list indicates which version is used for comparison:
+Vela is tested by comparing the bit exact numerical behaviour of the Ethos-U
+optimised operators against that of the corresponding TensorFlow Lite reference
+kernels (or TensorFlow Lite for Microcontrollers reference kernels in the case
+of the UNIDIRECTIONAL_SEQUENCE_LSTM operator).  The following list indicates
+which version is used for comparison:
 
 * Vela 3.10.0 to current supports TensorFlow 2.14
 * Vela 3.9.0 supports TensorFlow 2.12
