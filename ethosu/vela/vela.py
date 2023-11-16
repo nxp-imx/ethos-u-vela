@@ -473,7 +473,7 @@ def main(args=None):
             default=Tensor.AllocationQuantum,
             help=(
                 "Controls the allocation byte alignment of cpu tensors including Ethos-U Custom"
-                " operator inputs and outputs (default: %(default)s)"
+                " operator inputs and outputs (default: %(default)s Bytes)"
             ),
         )
         parser.add_argument(

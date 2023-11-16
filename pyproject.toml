@@ -50,7 +50,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://git.mlplatform.org/ml/ethos-u/ethos-u-vela.git/"
+Homepage = "https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela"
 
 [project.scripts]
 vela = "ethosu.vela.vela:main"
