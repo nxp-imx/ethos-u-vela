@@ -22,6 +22,25 @@ main feature changes, interface changes and reported defects that have been
 fixed.  The version numbering adheres to the
 [semantic versioning](https://semver.org/) scheme.
 
+## Release 3.10.0 - 16/11/2023
+
+**Main feature changes:**
+
+* New operator support: SQUARED_DIFFERENCE, TRANSPOSE
+* Upgrade TensorFlow Lite support to version 2.14
+* Improved stride checking and support for:
+  * AVERAGE_POOL_2D, CONV_2D, MAX_POOL_2D, TRANSPOSE_CONV
+* Added missing pass-through options for RANDOM_UNIFORM
+
+**Interface changes:**
+
+* None
+
+**Reported defect fixes:**
+
+* Removed duplicate CPU tensors (MLCE-1103 & MLCE-1106)
+
+
 ## Release 3.9.0 - 15/08/2023
 
 **Main feature changes:**
