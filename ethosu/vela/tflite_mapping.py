@@ -806,7 +806,7 @@ builtin_operator_map = {
     BuiltinOperator.NOT_EQUAL: (Op.NotEqual, OptionsSerializer("NotEqualOptions"), TFLITE_NO_INDICES),
     BuiltinOperator.LOG: (Op.Log, None, TFLITE_IFM_INDICES),
     BuiltinOperator.SUM: (Op.Sum, OptionsSerializer("ReducerOptions", ("keep_dims",)), TFLITE_NO_INDICES),
-    BuiltinOperator.SQRT: (Op.Sqrt, None, TFLITE_NO_INDICES),
+    BuiltinOperator.SQRT: (Op.Sqrt, None, TFLITE_IFM_INDICES),
     BuiltinOperator.RSQRT: (Op.Rsqrt, None, TFLITE_IFM_INDICES),
     BuiltinOperator.SHAPE: (
         Op.Shape,
@@ -1013,7 +1013,7 @@ builtin_operator_map = {
         TFLITE_NO_INDICES,
     ),
     BuiltinOperator.MULTINOMIAL: (Op.Multinomial, None, TFLITE_NO_INDICES),
-    BuiltinOperator.GELU: (Op.Gelu, OptionsSerializer("GeluOptions", ("approximate",)), TFLITE_NO_INDICES),
+    BuiltinOperator.GELU: (Op.Gelu, OptionsSerializer("GeluOptions", ("approximate",)), TFLITE_IFM_INDICES),
     BuiltinOperator.DYNAMIC_UPDATE_SLICE: (
         Op.DynamicUpdateSlice,
         OptionsSerializer("DynamicUpdateSliceOptions"),
