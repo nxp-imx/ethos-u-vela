@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# Copyright 2023 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -400,12 +401,6 @@ class ArchitectureFeatures:
         # SHRAM base address of the activation lookup table
         self.shram_lut_address = self.shram_bank_size * self.available_shram_banks(True)
 
-        # Build a map of acceptable IFM/OFM block configurations up to the maximum
-        # IFM/OFM block size.
-        ifm_block_max = self.get_ifm_block_size(32, self.ofm_block_max, Kernel(8, 8))
-        self.block_config_map = dict()
-        self.generate_block_config_map(Block(ifm_block_max.width * 2, ifm_block_max.height, 128))
-
         # Setup supported operators and restriction checkers class
         self.tflite_supported_operators = TFLiteSupportedOperators()
         self.tosa_supported_operators = TosaSupportedOperators()
@@ -439,22 +434,6 @@ class ArchitectureFeatures:
     @staticmethod
     def make_block_config_key(width, height, depth):
         return (int(height), int(width), int(depth))
-
-    def get_block_config(self, width, height, depth):
-        assert depth <= self.ofm_block_max.depth
-        key = ArchitectureFeatures.make_block_config_key(width, height, depth)
-        config = self.block_config_map.get(key, None)
-        return config
-
-    # Generate a key:value map of possible block configurations, where the
-    # key is compounded from the block dimensions: 0x00HHWWCC
-    def generate_block_config_map(self, block: Block):
-        for h in range(1, block.height + 1):
-            for w in range(1, block.width + 1):
-                # All possible IFM/OFM depth values
-                for c in [4, 8, 12, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128]:
-                    key = ArchitectureFeatures.make_block_config_key(w, h, c)
-                    self.block_config_map[key] = self.generate_block_config(w, h, c)
 
     def _generate_output_perf_tables(self, accel_config):
         if accel_config == Accelerator.Ethos_U55_32:
