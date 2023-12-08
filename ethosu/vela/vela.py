@@ -44,6 +44,7 @@ from .nn_graph import NetworkType
 from .nn_graph import TensorAllocator
 from .tensor import MemArea
 from .tensor import Tensor
+from .tensor import TensorAddressMap
 from .tflite.Model import Model
 from .tflite_mapping import builtin_operator_map
 from .tflite_mapping import builtin_operator_name_map
@@ -425,6 +426,7 @@ def convert_bytes(data):
     compiler_driver.compiler_driver(nng, arch, compiler_options, scheduler_options, network_type, "data_model")
     buf = tflite_writer.write_tflite_buffer(nng)
     DebugDatabase.clean_db()
+    TensorAddressMap.clear_address_map()
 
     return memoryview(buf)
 

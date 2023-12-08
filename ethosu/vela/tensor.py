@@ -355,6 +355,9 @@ class TensorAddressMap:
         # Set tensor's address for memory type
         cls.address_map[tens_id][mem_type] = address
 
+    @classmethod
+    def clear_address_map(cls):
+        cls.address_map =  defaultdict(dict)
 
 @total_ordering
 class Tensor:
