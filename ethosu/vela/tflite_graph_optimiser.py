@@ -225,6 +225,7 @@ def remove_SplitSliceRead(op, arch):
             consumer is not None
             and consumer.run_on_npu
             and consumer.type not in memory_only_ops
+            and consumer.type != Op.Mul
             and consumer.original_type != Op.Transpose
             for consumer in op.ofm.consumer_list
         ):
