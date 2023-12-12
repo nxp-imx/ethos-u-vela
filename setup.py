@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2020-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+# Copyright 2022-2024 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -22,8 +23,8 @@ import re
 from setuptools import Extension
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
-from setuptools_scm import get_version
 
+vela_version = "3.10.0"
 
 class BuildExtension(build_ext):
     def finalize_options(self):
@@ -42,7 +43,7 @@ class BuildExtension(build_ext):
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
-    tag = get_version()
+    tag = vela_version
     url = f"https://review.mlplatform.org/plugins/gitiles/ml/ethos-u/ethos-u-vela/+/refs/tags/{tag}/"
     # Find all markdown links that match the format:  [text](link)
     for match, link in re.findall(r"(\[.+?\]\((.+?)\))", long_description):
@@ -62,7 +63,8 @@ mlw_module = Extension(
 )
 
 setup(
-    use_scm_version=True,
+    use_scm_version=False,
+    version=vela_version,
     long_description=long_description,
     long_description_content_type="text/markdown",
     ext_modules=[mlw_module],
