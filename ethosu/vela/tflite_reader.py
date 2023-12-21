@@ -153,18 +153,21 @@ class TFLiteSubgraph:
             self.virtual_outputs.append(tens)
 
         if op.type.is_depthwise_conv2d_op() or op.type.is_conv2d_op() or op.type == Op.FullyConnected:
+            # Reshape and add bias for ops with constant weights
+            # Do not modify ops with dynamic data since they will run on CPU
             if inputs[1].values is not None:
                 if op.type == Op.FullyConnected:
                     inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 0), False)
                 else:
                     inputs[1] = clone_and_reshape_tensor(inputs[1], (1, 2, 3, 0), False)
-            if op.type.needs_bias() and len(inputs) <= op_type.info.indices.biases[0]:
-                # No Bias tensor
-                inputs.append(None)
-            if inputs[-1] and inputs[-1].values is not None:
-                # Since bias tensor is used for both bias and scale,
-                # a clone with a unique equivalence_id is needed.
-                inputs[-1] = clone_and_reshape_tensor(inputs[-1], None, True)
+
+                if op.type.needs_bias() and len(inputs) <= op_type.info.indices.biases[0]:
+                    # No Bias tensor
+                    inputs.append(None)
+                if inputs[-1] and inputs[-1].values is not None:
+                    # Since bias tensor is used for both bias and scale,
+                    # a clone with a unique equivalence_id is needed.
+                    inputs[-1] = clone_and_reshape_tensor(inputs[-1], None, True)
 
         if opt_serializer is not None:
             op.attrs = opt_serializer.deserialize(op_data)
